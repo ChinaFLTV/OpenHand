@@ -8753,14 +8753,11 @@ class AiSessionController extends ChangeNotifier {
               _isStopRequestedForSession(workingSession.id);
           return;
         }
-        final winner = await Future.any<Object?>(<Future<Object?>>[
-          drainFuture.then<Object?>((_) => true),
-          stopSignal.then<Object?>(
-            (_) => false,
-            onError: (Object _, StackTrace _) => false,
-          ),
-        ]);
-        if (winner == false) {
+        final completed = await awaitWithCancelSignal(
+          drainFuture.then((_) => true),
+          cancelSignal: stopSignal,
+        );
+        if (completed != true) {
           didCancelStreamEarly = true;
         }
       }
@@ -8770,6 +8767,8 @@ class AiSessionController extends ChangeNotifier {
       didCancelStreamEarly =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
       if (!didCancelStreamEarly) {
+        // 软排空与逐帧兜底共用时限，避免低速率、大积压长期占用会话队列。
+        final drainDeadline = MonotonicDeadline(_streamDrainHardDeadline);
         // 读实时速率而非流式开始时捕获的 effChars：用户可以在流式过程中通过
         // setSessionStreamCharsOverride 改档，用陈旧速率估算会让 maxWait 过短。
         final effectiveCharsPerSec = math.max(
@@ -8778,8 +8777,6 @@ class AiSessionController extends ChangeNotifier {
         );
         // assistant 与 reasoning 共享会话级字符预算，等待时长按二者
         // grapheme 总量估算；节流关闭时无需统计，直接跳过 O(N) 清洗。
-        // throttleDuration 只影响 UI 提示；正常完成路径仍等积压内容按
-        // `pending / rate * 1.2 + 1s` 铺完后再 release。
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : (((assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer) +
@@ -8790,15 +8787,18 @@ class AiSessionController extends ChangeNotifier {
                           effectiveCharsPerSec)
                       .ceil() +
                   1000;
-        if (maxWaitMs > 0) {
+        final remainingDrainTime = drainDeadline.remainingOrNull();
+        if (maxWaitMs > 0 && remainingDrainTime != null) {
+          final maxWait = Duration(
+            milliseconds: math.min(
+              maxWaitMs,
+              remainingDrainTime.inMilliseconds,
+            ),
+          );
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
-              charThrottle.drainGracefully(
-                maxWait: Duration(milliseconds: maxWaitMs),
-              ),
-              reasoningCharThrottle.drainGracefully(
-                maxWait: Duration(milliseconds: maxWaitMs),
-              ),
+              charThrottle.drainGracefully(maxWait: maxWait),
+              reasoningCharThrottle.drainGracefully(maxWait: maxWait),
             ]).then<void>((_) {}),
           );
         }
@@ -8819,12 +8819,9 @@ class AiSessionController extends ChangeNotifier {
                     math.min(200, (1000 / effectiveCharsPerSec).ceil()),
                   ),
                 );
-          // 硬止损：低速率 + 大积压时按速率排空可能要数万秒，而这里仍占着
-          // 该会话的操作队列。超时就直接放行，剩余内容由后续渲染补齐。
-          final drainDeadline = Stopwatch()..start();
           while (!_isDisposed &&
               !_isStopRequestedForSession(workingSession.id) &&
-              drainDeadline.elapsed < _streamDrainHardDeadline &&
+              !drainDeadline.isExpired &&
               (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
             await Future<void>.delayed(fallbackStep);
             if (charThrottle.hasPending) renderAssistantBuffered();
@@ -8834,6 +8831,7 @@ class AiSessionController extends ChangeNotifier {
               didCancelStreamEarly ||
               _isStopRequestedForSession(workingSession.id);
         }
+        drainDeadline.stop();
       }
       final didCancelStream =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
@@ -8869,8 +8867,7 @@ class AiSessionController extends ChangeNotifier {
                 ? pendingReasoningContent!
                 : visibleMessageContent(reasoningMessageId))
           : null;
-      // 流正常结束：此处应已按显示侧节流排空字符队列；release 只负责
-      // 清理计时器和活跃 throttle 记录。取消/错误路径才允许立即放开余量。
+      // 结束时释放节流资源；到达排空时限的剩余内容由最终消息补齐。
       _cacheStreamThroughputSnapshots(workingSession.id, aiThroughputSampler);
       charThrottle.release();
       reasoningCharThrottle.release();

@@ -711,15 +711,15 @@ class AiModelHealthController extends ManagedChangeNotifier {
   Future<T> _awaitCancellation<T>(
     Future<T> operation,
     AiModelHealthCancellation? cancellation,
-  ) {
+  ) async {
     final activeCancellation = cancellation;
     if (activeCancellation == null) return operation;
-    return Future.any<T>([
-      operation,
-      activeCancellation.whenCancelled.then<T>(
-        (_) => throw const _AiModelHealthCancelledException(),
-      ),
-    ]);
+    final result = await awaitWithCancelSignal(
+      operation.then((value) => (value: value)),
+      cancelSignal: activeCancellation.whenCancelled,
+    );
+    if (result == null) throw const _AiModelHealthCancelledException();
+    return result.value;
   }
 
   String _proxyEndpointFor(AiModelHealthRequestMode mode, String host) {

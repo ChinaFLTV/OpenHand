@@ -1426,19 +1426,17 @@ Future<ProcessResult?> runProcessWithTimeout(
     );
     late final ({int? exitCode, bool interrupted}) exit;
     try {
-      final waits = <Future<({int? exitCode, bool interrupted})>>[
-        exitFuture.then((exitCode) => (exitCode: exitCode, interrupted: false)),
-        timeout.future,
-      ];
-      if (cancelSignal != null) {
-        waits.add(
-          cancelSignal.then(
-            (_) => (exitCode: null, interrupted: true),
-            onError: (_, _) => (exitCode: null, interrupted: true),
-          ),
-        );
-      }
-      exit = await Future.any(waits);
+      exit =
+          await awaitWithCancelSignal(
+            Future.any<({int? exitCode, bool interrupted})>([
+              exitFuture.then(
+                (exitCode) => (exitCode: exitCode, interrupted: false),
+              ),
+              timeout.future,
+            ]),
+            cancelSignal: cancelSignal,
+          ) ??
+          (exitCode: null, interrupted: true);
     } finally {
       timeoutTimer.cancel();
     }

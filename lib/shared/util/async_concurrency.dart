@@ -404,8 +404,11 @@ final class _OpenHandCancelSignalState {
 
   void Function() addListener(void Function() listener) {
     if (_completed) {
-      scheduleMicrotask(listener);
-      return () {};
+      var active = true;
+      scheduleMicrotask(() {
+        if (active) listener();
+      });
+      return () => active = false;
     }
     final id = _nextListenerId++;
     _listeners[id] = listener;
@@ -415,9 +418,10 @@ final class _OpenHandCancelSignalState {
   void _complete() {
     if (_completed) return;
     _completed = true;
-    final listeners = _listeners.values.toList(growable: false);
-    _listeners.clear();
-    for (final listener in listeners) {
+    final listenerIds = _listeners.keys.toList(growable: false);
+    for (final id in listenerIds) {
+      final listener = _listeners.remove(id);
+      if (listener == null) continue;
       try {
         listener();
       } catch (error, stack) {
@@ -425,6 +429,16 @@ final class _OpenHandCancelSignalState {
       }
     }
   }
+}
+
+/// 监听正常或异常完成的取消信号；资源释放时调用返回函数解除监听。
+void Function() addCancelSignalListener(
+  Future<void>? signal,
+  void Function() listener,
+) {
+  return signal == null
+      ? () {}
+      : _cancelSignalState(signal).addListener(listener);
 }
 
 Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) async {

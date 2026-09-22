@@ -120,7 +120,7 @@ struct RedisCoordinator {
 struct RedisLease {
     coordinator: RedisCoordinator,
     key: String,
-    // 显式 release 后置空以解除 Drop 兜底，避免重复释放。
+    // 显式释放完成后置空；释放途中取消仍由 Drop 兜底。
     token: Option<String>,
 }
 
@@ -138,6 +138,12 @@ struct StructuredLogMetadata<'a> {
     event_code: Option<&'a str>,
     exception_type: Option<&'a str>,
     stack_summary: Option<&'a str>,
+}
+
+struct TargetProbe {
+    url: String,
+    response_fingerprint: String,
+    results: Vec<ScanResult>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1816,17 +1822,19 @@ fn redis_json_text(value: &Value) -> String {
 
 impl RedisLease {
     async fn release(mut self) -> anyhow::Result<()> {
-        let Some(token) = self.token.take() else {
+        let Some(token) = self.token.as_deref() else {
             return Ok(());
         };
         let mut connection = self.coordinator.connection.clone();
-        let _: i64 = redis::cmd("EVAL")
+        let result: redis::RedisResult<i64> = redis::cmd("EVAL")
             .arg(REDIS_RELEASE_SCRIPT)
             .arg(1)
             .arg(self.key.as_str())
             .arg(token)
             .query_async(&mut connection)
-            .await?;
+            .await;
+        self.token = None;
+        result?;
         Ok(())
     }
 }
@@ -2739,7 +2747,7 @@ impl HuntEngine {
                 let (lease, coordination_failed) = match &redis {
                     Some(redis) => match redis.acquire(&target.canonical_url).await {
                         Ok(Some(lease)) => (Some(lease), false),
-                        Ok(None) => return Ok((Vec::new(), true, false, false)),
+                        Ok(None) => return Ok((None, false, false)),
                         Err(_) => (None, true),
                     },
                     None => (None, false),
@@ -2751,40 +2759,52 @@ impl HuntEngine {
                     Some(lease) => lease.release().await.is_err(),
                     None => false,
                 };
-                result.map(|results| (results, false, coordination_failed, release_failed))
+                result.map(|probe| (Some(probe), coordination_failed, release_failed))
             }
         });
         let mut stream = Box::pin(stream.buffer_unordered(concurrency));
         let mut coordination_skipped = 0_u64;
         let mut coordination_failures = 0_u64;
         let mut release_failures = 0_u64;
-        while let Some(outcome) = stream.next().await {
-            if runtime.cancellation.is_cancelled() {
-                return self.cancel_job(&runtime).await;
-            }
+        loop {
+            let outcome = tokio::select! {
+                biased;
+                _ = runtime.cancellation.cancelled() => {
+                    drop(stream);
+                    return self.cancel_job(&runtime).await;
+                },
+                outcome = stream.next() => outcome,
+            };
+            let Some(outcome) = outcome else {
+                break;
+            };
             match outcome {
-                Ok((results, skipped, coordination_failed, release_failed)) => {
-                    if skipped {
-                        coordination_skipped += 1;
-                    }
+                Ok((probe, coordination_failed, release_failed)) => {
                     if coordination_failed {
                         coordination_failures += 1;
                     }
                     if release_failed {
                         release_failures += 1;
                     }
-                    for result in results {
-                        self.store.insert_result(&result).await?;
-                        let _ = runtime.events.send(EngineEvent::Result {
-                            result: result.clone(),
-                        });
-                        let mut progress = runtime.progress.write().await;
-                        if result.credential_state == CredentialState::Valid {
-                            progress.valid += 1;
+                    if let Some(probe) = probe {
+                        for result in probe.results {
+                            self.store.insert_result(&result).await?;
+                            let _ = runtime.events.send(EngineEvent::Result {
+                                result: result.clone(),
+                            });
+                            let mut progress = runtime.progress.write().await;
+                            if result.credential_state == CredentialState::Valid {
+                                progress.valid += 1;
+                            }
+                            if result.category == ResultCategory::HighValue {
+                                progress.high_value += 1;
+                            }
                         }
-                        if result.category == ResultCategory::HighValue {
-                            progress.high_value += 1;
-                        }
+                        self.store
+                            .record_scanned_target(job_id, probe.url, probe.response_fingerprint)
+                            .await?;
+                    } else {
+                        coordination_skipped += 1;
                     }
                 }
                 Err(error) => {
@@ -2854,7 +2874,7 @@ impl HuntEngine {
         rules: Arc<CompiledRuleSet>,
         validation_mode: ValidationMode,
         gpt_assisted: bool,
-    ) -> anyhow::Result<Vec<ScanResult>> {
+    ) -> anyhow::Result<TargetProbe> {
         let response = self
             .client
             .get(target.url.clone())
@@ -2905,18 +2925,16 @@ impl HuntEngine {
                 _ => {}
             }
         }
-        self.store
-            .record_scanned_target(
-                job_id,
-                target.canonical_url.clone(),
-                response_fingerprint.clone(),
-            )
-            .await?;
+        let mut probe = TargetProbe {
+            url: target.canonical_url.clone(),
+            response_fingerprint: response_fingerprint.clone(),
+            results: Vec::new(),
+        };
         if product == "未知 AI 服务" && findings.is_empty() && honeypot.is_empty() {
-            return Ok(Vec::new());
+            return Ok(probe);
         }
         if findings.is_empty() {
-            return Ok(vec![ScanResult {
+            probe.results.push(ScanResult {
                 id: Uuid::new_v4(),
                 job_id,
                 source: target.source,
@@ -2939,9 +2957,9 @@ impl HuntEngine {
                 balance_summary: None,
                 evidence,
                 created_at: Utc::now(),
-            }]);
+            });
+            return Ok(probe);
         }
-        let mut results = Vec::new();
         for finding in findings.into_iter().take(50) {
             let validation = if validation_mode == ValidationMode::AuthorizedActive {
                 self.validate_credential(&target, &finding).await
@@ -2976,7 +2994,7 @@ impl HuntEngine {
                 }
                 ResultCategory::Suspicious | ResultCategory::Honeypot => {}
             }
-            results.push(ScanResult {
+            probe.results.push(ScanResult {
                 id: Uuid::new_v4(),
                 job_id,
                 source: target.source,
@@ -3004,7 +3022,7 @@ impl HuntEngine {
                 created_at: Utc::now(),
             });
         }
-        Ok(results)
+        Ok(probe)
     }
 
     async fn validate_credential(
@@ -3610,6 +3628,142 @@ mod tests {
             concurrency: 1,
             gpt_assisted: false,
         }
+    }
+
+    #[tokio::test]
+    async fn cancels_pending_validation_without_skipping_target_on_resume() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let (validating, ready) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let body = "openai api_key: sk-proj-AbCdEfGhIjKlMnOpQrStUvWx";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let mut request = [0_u8; 2048];
+            let (mut initial, _) = listener.accept().await.unwrap();
+            assert!(initial.read(&mut request).await.unwrap() > 0);
+            initial.write_all(response.as_bytes()).await.unwrap();
+            drop(initial);
+
+            let (mut validation, _) = listener.accept().await.unwrap();
+            assert!(validation.read(&mut request).await.unwrap() > 0);
+            validating.send(()).unwrap();
+            assert_eq!(validation.read(&mut request).await.unwrap(), 0);
+
+            let (mut resumed, _) = listener.accept().await.unwrap();
+            assert!(resumed.read(&mut request).await.unwrap() > 0);
+            resumed.write_all(response.as_bytes()).await.unwrap();
+        });
+        let directory =
+            std::env::temp_dir().join(format!("openhand-hunt-cancel-{}", Uuid::new_v4()));
+        let store = HuntStore::open(&directory).await.unwrap();
+        let engine = HuntEngine::new(store.clone()).await.unwrap();
+        let mut request = scan_request("取消与恢复测试");
+        request.sources = vec![SourceKind::Manual];
+        request.targets = vec![url.clone()];
+        request.authorized_scope = vec!["127.0.0.1".to_owned()];
+        request.validation_mode = ValidationMode::AuthorizedActive;
+        let rules = Arc::new(CompiledRuleSet::compile(hunt_core::default_rules()).unwrap());
+        let new_runtime = || {
+            let job_id = Uuid::new_v4();
+            JobRuntime {
+                job_id,
+                progress: Arc::new(RwLock::new(ScanProgress::queued(job_id))),
+                cancellation: CancellationToken::new(),
+                retention_cancellation: CancellationToken::new(),
+                events: broadcast::channel(EVENT_BUFFER).0,
+            }
+        };
+        let runtime = new_runtime();
+        store
+            .create_job(
+                runtime.job_id,
+                &request,
+                &ScanProgress::queued(runtime.job_id),
+            )
+            .await
+            .unwrap();
+        let mut job = Box::pin(engine.run_job(
+            request.clone(),
+            resolve_authorized_scope(&request).unwrap(),
+            rules.clone(),
+            runtime.clone(),
+        ));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::select! {
+                result = ready => result.unwrap(),
+                result = &mut job => panic!("任务不应在取消前结束：{result:?}"),
+            }
+        })
+        .await
+        .expect("应及时进入凭证验证");
+        runtime.cancellation.cancel();
+        tokio::time::timeout(Duration::from_secs(1), job)
+            .await
+            .expect("取消不能等待目标 HTTP 超时")
+            .unwrap();
+        assert_eq!(runtime.progress.read().await.stage, ScanStage::Cancelled);
+        assert!(store.seen_urls(vec![url.clone()]).await.unwrap().is_empty());
+        assert!(
+            store
+                .list_results(Some(runtime.job_id), 10)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut resumed = prepare_resumed_request(request, ScanStage::Cancelled);
+        resumed.validation_mode = ValidationMode::Passive;
+        let resumed_runtime = new_runtime();
+        store
+            .create_job(
+                resumed_runtime.job_id,
+                &resumed,
+                &ScanProgress::queued(resumed_runtime.job_id),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            engine.run_job(
+                resumed.clone(),
+                resolve_authorized_scope(&resumed).unwrap(),
+                rules,
+                resumed_runtime.clone(),
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        server.await.unwrap();
+        assert_eq!(
+            resumed_runtime.progress.read().await.stage,
+            ScanStage::Completed
+        );
+        assert!(
+            store
+                .seen_urls(vec![url.clone()])
+                .await
+                .unwrap()
+                .contains(&url)
+        );
+        assert_eq!(
+            store
+                .list_results(Some(resumed_runtime.job_id), 10)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        drop(engine);
+        drop(store);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

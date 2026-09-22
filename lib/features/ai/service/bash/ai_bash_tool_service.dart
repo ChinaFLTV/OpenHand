@@ -20,10 +20,33 @@ import '../sandbox/ai_sandbox_service.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
 const String _capturedOutputTruncatedMarker = '\n...[输出已截断]';
+const Duration _bashProgressInterval = Duration(seconds: 1);
+const Duration _bashStallCheckInterval = Duration(seconds: 5);
+const Duration _bashStallThreshold = Duration(seconds: 45);
+const int _bashOutputUpdateIntervalMs = 160;
+const int _bashPromptTailCharacters = 1024;
+final RegExp _interactivePromptHeuristic = RegExp(
+  r'(\(y/[nN]\)|\(yes/no\)|Continue\??|password\s*:|Press [a-z ]+ to continue|>>> |\? .*$|\bare you sure\b|\bproceed\b\??)',
+  caseSensitive: false,
+  multiLine: true,
+);
 
 const String _kCmdStartMarkerPrefix = '__OPENHAND_CMD_START__';
 const String _kExitMarkerPrefix = '__OPENHAND_EXIT__';
 const String _kPwdEndMarkerPrefix = '__OPENHAND_PWD_END__';
+
+String _bashStallWarning(int idleMs, String stdout, String stderr) {
+  for (final output in [stdout, stderr]) {
+    final tail = output.substring(
+      safeUtf16SuffixStart(output, output.length - _bashPromptTailCharacters),
+    );
+    final match = _interactivePromptHeuristic.firstMatch(tail)?.group(0);
+    if (match != null) {
+      return '已 ${idleMs ~/ Duration.millisecondsPerSecond}s 无新输出，疑似在等待交互式输入：${match.trim()}';
+    }
+  }
+  return '已 ${idleMs ~/ Duration.millisecondsPerSecond}s 无新输出，命令可能已停滞';
+}
 
 void _appendCapturedOutput(
   StringBuffer buffer,
@@ -247,22 +270,6 @@ class BashToolExecutionResult {
   }
 }
 
-class _WriteConfirmationOutcome {
-  const _WriteConfirmationOutcome._({
-    required this.decision,
-    required this.cancelled,
-  });
-
-  const _WriteConfirmationOutcome.fromDecision(BashCommandApprovalDecision d)
-    : this._(decision: d, cancelled: false);
-
-  const _WriteConfirmationOutcome.cancelled()
-    : this._(decision: BashCommandApprovalDecision.cancelled, cancelled: true);
-
-  final BashCommandApprovalDecision decision;
-  final bool cancelled;
-}
-
 class _PersistentBashCommandOutcome {
   const _PersistentBashCommandOutcome({
     required this.exitCode,
@@ -303,70 +310,43 @@ class _PersistentBashExecution {
   bool _awaitingPwdLine = false;
   int _lastRunningEmitMs = -1;
 
-  /// 最近一次接收到 stdout/stderr 的时间戳（ms，相对 stopwatch）。
-  /// 用于停滞检测：若 45s 内没有新增输出，且尾部内容匹配交互式 prompt
-  /// 启发式正则，则向 onUpdate 发送一次 stallWarning。
   int _lastOutputAtMs = 0;
   bool _stallWarningEmitted = false;
   Timer? _stallTimer;
 
-  /// 启发式：常见交互式提示词正则。匹配末尾 1024 字符的尾段。
-  static final RegExp _interactivePromptHeuristic = RegExp(
-    r'(\(y/[nN]\)|\(yes/no\)|Continue\??|password\s*:|Press [a-z ]+ to continue|>>> |\? .*$|\bare you sure\b|\bproceed\b\??)',
-    caseSensitive: false,
-    multiLine: true,
-  );
-
-  void startStallWatcher({
-    Duration interval = const Duration(seconds: 5),
-    Duration threshold = const Duration(seconds: 45),
-  }) {
+  void startStallWatcher() {
     _lastOutputAtMs = stopwatch.elapsedMilliseconds;
     _stallTimer?.cancel();
-    _stallTimer = startSafePeriodicTimer(interval, (_) {
+    _stallTimer = startSafePeriodicTimer(_bashStallCheckInterval, (_) {
       if (outcome.isCompleted) {
-        _stallTimer?.cancel();
-        _stallTimer = null;
+        cancelStallWatcher();
         return;
       }
       final now = stopwatch.elapsedMilliseconds;
-      if (now - _lastOutputAtMs < threshold.inMilliseconds) return;
-      if (_stallWarningEmitted) return;
-      // 取尾部 1024 字符做 prompt 启发式匹配，避免大输出全量正则。
-      final stdoutTail = _tailString(stdoutBuffer.toString(), 1024);
-      final stderrTail = _tailString(stderrBuffer.toString(), 1024);
-      final match =
-          _interactivePromptHeuristic.firstMatch(stdoutTail)?.group(0) ??
-          _interactivePromptHeuristic.firstMatch(stderrTail)?.group(0);
-      final warning = match != null
-          ? '已 ${(now - _lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
-          : '已 ${(now - _lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
-      _stallWarningEmitted = true;
-      final callback = onUpdate;
-      if (callback != null) {
-        callback(
-          BashToolExecutionUpdate(
-            phase: BashToolExecutionPhase.running,
-            command: command,
-            workingDirectory: workingDirectory,
-            stdout: stdoutBuffer.toString(),
-            stderr: stderrBuffer.toString(),
-            durationMs: now,
-            stallWarning: warning,
-          ),
-        );
+      final idleMs = now - _lastOutputAtMs;
+      if (idleMs < _bashStallThreshold.inMilliseconds || _stallWarningEmitted) {
+        return;
       }
+      _stallWarningEmitted = true;
+      final stdout = stdoutBuffer.toString();
+      final stderr = stderrBuffer.toString();
+      onUpdate?.call(
+        BashToolExecutionUpdate(
+          phase: BashToolExecutionPhase.running,
+          command: command,
+          workingDirectory: workingDirectory,
+          stdout: stdout,
+          stderr: stderr,
+          durationMs: now,
+          stallWarning: _bashStallWarning(idleMs, stdout, stderr),
+        ),
+      );
     });
   }
 
   void cancelStallWatcher() {
     _stallTimer?.cancel();
     _stallTimer = null;
-  }
-
-  static String _tailString(String text, int maxChars) {
-    if (text.length <= maxChars) return text;
-    return text.substring(safeUtf16SuffixStart(text, text.length - maxChars));
   }
 
   void appendStdoutChunk(String chunk, int maxCapturedCharacters) {
@@ -465,7 +445,7 @@ class _PersistentBashExecution {
     if (phase == BashToolExecutionPhase.running &&
         !force &&
         _lastRunningEmitMs != -1 &&
-        durationMs - _lastRunningEmitMs < 160) {
+        durationMs - _lastRunningEmitMs < _bashOutputUpdateIntervalMs) {
       return;
     }
     if (phase == BashToolExecutionPhase.running) {
@@ -747,9 +727,9 @@ class AiBashToolService {
           !forceWriteConfirmation;
       if (!canSkipConfirmation) {
         final missingConfirmationCallback = confirmWriteCommand == null;
-        late final _WriteConfirmationOutcome outcome;
+        late final BashCommandApprovalDecision? decision;
         try {
-          outcome = await runBeforeLaunchProxyTransfer(() async {
+          decision = await runBeforeLaunchProxyTransfer(() async {
             final confirmationTimeout = Duration(
               milliseconds: writeConfirmationTimeoutMs,
             );
@@ -767,22 +747,10 @@ class AiBashToolService {
                       expiresAt: requestedAt.add(confirmationTimeout),
                     ),
                   );
-            final approvalFuture = approvalDecisionFuture
-                .timeout(confirmationTimeout)
-                .then<_WriteConfirmationOutcome>(
-                  _WriteConfirmationOutcome.fromDecision,
-                );
-            if (cancelSignal == null) {
-              return approvalFuture;
-            }
-            return Future.any<_WriteConfirmationOutcome>([
-              approvalFuture,
-              cancelSignal.then(
-                (_) => const _WriteConfirmationOutcome.cancelled(),
-                onError: (Object _, StackTrace _) =>
-                    const _WriteConfirmationOutcome.cancelled(),
-              ),
-            ]);
+            return awaitWithCancelSignal(
+              approvalDecisionFuture.timeout(confirmationTimeout),
+              cancelSignal: cancelSignal,
+            );
           });
         } on TimeoutException {
           await closeLaunchProxy();
@@ -805,7 +773,7 @@ class AiBashToolService {
             ),
           );
         }
-        if (outcome.cancelled) {
+        if (decision == null) {
           await closeLaunchProxy();
           return BashToolExecutionResult(
             status: BashToolExecutionStatus.cancelled,
@@ -825,7 +793,7 @@ class AiBashToolService {
             ),
           );
         }
-        switch (outcome.decision) {
+        switch (decision) {
           case BashCommandApprovalDecision.approved:
             break;
           case BashCommandApprovalDecision.rejected:
@@ -909,6 +877,21 @@ class AiBashToolService {
       }
     }
 
+    if (_disposed || await isCancelSignalCompleted(cancelSignal)) {
+      await closeLaunchProxy();
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.cancelled,
+        command: normalizedCommand,
+        workingDirectory: displayedWorkingDirectory,
+        stdout: '',
+        stderr: '命令在启动前已取消，未执行任何命令。',
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
+      );
+    }
+
     if (shouldUsePersistentSession) {
       final persistentResult = await _executeWithPersistentSession(
         sessionId: normalizedSessionId,
@@ -984,7 +967,7 @@ class AiBashToolService {
     final stdoutBuffer = StringBuffer();
     final stderrBuffer = StringBuffer();
     var lastRunningEmitMs = -1;
-    var lastOutputAtMs = 0;
+    var lastOutputAtMs = stopwatch.elapsedMilliseconds;
     var stallWarningEmitted = false;
 
     void emitUpdate({
@@ -1001,7 +984,7 @@ class AiBashToolService {
           !force &&
           stallWarning == null &&
           lastRunningEmitMs != -1 &&
-          durationMs - lastRunningEmitMs < 160) {
+          durationMs - lastRunningEmitMs < _bashOutputUpdateIntervalMs) {
         return;
       }
       if (phase == BashToolExecutionPhase.running && stallWarning == null) {
@@ -1037,41 +1020,29 @@ class AiBashToolService {
         );
         AiToolExecutionRegistry.instance.attachKiller(
           registeredToolCallId,
-          () async => _killProcess(process),
+          () => _killProcess(process),
         );
       }
 
       emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-      progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
+      progressTimer = startSafePeriodicTimer(_bashProgressInterval, (_) {
         emitUpdate(phase: BashToolExecutionPhase.running, force: true);
       });
-      stallTimer = startSafePeriodicTimer(const Duration(seconds: 5), (_) {
-        final now = stopwatch.elapsedMilliseconds;
-        if (now - lastOutputAtMs < 45 * 1000) return;
-        if (stallWarningEmitted) return;
-        final stdoutTail = _PersistentBashExecution._tailString(
-          stdoutBuffer.toString(),
-          1024,
-        );
-        final stderrTail = _PersistentBashExecution._tailString(
-          stderrBuffer.toString(),
-          1024,
-        );
-        final match =
-            _PersistentBashExecution._interactivePromptHeuristic
-                .firstMatch(stdoutTail)
-                ?.group(0) ??
-            _PersistentBashExecution._interactivePromptHeuristic
-                .firstMatch(stderrTail)
-                ?.group(0);
-        final warning = match != null
-            ? '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
-            : '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
+      stallTimer = startSafePeriodicTimer(_bashStallCheckInterval, (_) {
+        final idleMs = stopwatch.elapsedMilliseconds - lastOutputAtMs;
+        if (idleMs < _bashStallThreshold.inMilliseconds ||
+            stallWarningEmitted) {
+          return;
+        }
         stallWarningEmitted = true;
         emitUpdate(
           phase: BashToolExecutionPhase.running,
           force: true,
-          stallWarning: warning,
+          stallWarning: _bashStallWarning(
+            idleMs,
+            stdoutBuffer.toString(),
+            stderrBuffer.toString(),
+          ),
         );
       });
       stdoutSubscription = process.stdout.transform(_shellOutputDecoder).listen(
@@ -1119,40 +1090,18 @@ class AiBashToolService {
     try {
       // 执行阶段的 finally 从此处接管代理和进程输出资源。
       launchProxyTransferred = true;
-      final waitForExit = process.exitCode.timeout(
-        Duration(milliseconds: timeoutMs),
-        onTimeout: () async {
-          timedOut = true;
-          _killProcess(process);
-          try {
-            await process.exitCode.timeout(const Duration(seconds: 2));
-          } catch (_) {
-            // 强制终止后的清理失败不覆盖原始结果。
-          }
-          return -1;
-        },
-      );
-      if (cancelSignal != null) {
-        Future<int> cancelAndKillProcess() async {
-          cancelled = true;
-          _killProcess(process);
-          try {
-            await process.exitCode.timeout(const Duration(seconds: 2));
-          } catch (_) {
-            // 强制终止后的清理失败不覆盖原始结果。
-          }
-          return -2;
-        }
-
-        exitCode = await Future.any<int>([
-          waitForExit,
-          cancelSignal.then<int>(
-            (_) => cancelAndKillProcess(),
-            onError: (Object _, StackTrace _) => cancelAndKillProcess(),
-          ),
-        ]);
-      } else {
-        exitCode = await waitForExit;
+      try {
+        exitCode = await awaitWithCancelSignal(
+          process.exitCode.timeout(Duration(milliseconds: timeoutMs)),
+          cancelSignal: cancelSignal,
+        );
+        cancelled = exitCode == null;
+      } on TimeoutException {
+        timedOut = true;
+      }
+      if (cancelled || timedOut) {
+        await _killProcess(process);
+        exitCode = cancelled ? -2 : -1;
       }
     } finally {
       progressTimer.cancel();
@@ -1319,7 +1268,7 @@ class AiBashToolService {
       session.activeExecution = execution;
       execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
       execution.startStallWatcher();
-      progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
+      progressTimer = startSafePeriodicTimer(_bashProgressInterval, (_) {
         execution.emitUpdate(
           phase: BashToolExecutionPhase.running,
           force: true,
@@ -1351,19 +1300,11 @@ class AiBashToolService {
       final waitForCompletion = execution.outcome.future.timeout(
         Duration(milliseconds: timeoutMs),
       );
-      late final _PersistentBashCommandOutcome outcome;
-      if (cancelSignal == null) {
-        outcome = await waitForCompletion;
-      } else {
-        outcome = await Future.any<_PersistentBashCommandOutcome>([
-          waitForCompletion,
-          cancelSignal.then(
-            (_) => throw const _CancelledPersistentBashExecution(),
-            onError: (Object _, StackTrace _) =>
-                throw const _CancelledPersistentBashExecution(),
-          ),
-        ]);
-      }
+      final outcome = await awaitWithCancelSignal(
+        waitForCompletion,
+        cancelSignal: cancelSignal,
+      );
+      if (outcome == null) throw const _CancelledPersistentBashExecution();
       execution.finalizeStdout(maxCapturedCharacters);
       execution.stopwatch.stop();
       session.currentWorkingDirectory = outcome.workingDirectory;
@@ -1522,7 +1463,11 @@ class AiBashToolService {
     }) {
       if (onUpdate == null) return;
       final elapsed = stopwatch.elapsedMilliseconds;
-      if (!force && lastEmitMs >= 0 && elapsed - lastEmitMs < 160) return;
+      if (!force &&
+          lastEmitMs >= 0 &&
+          elapsed - lastEmitMs < _bashOutputUpdateIntervalMs) {
+        return;
+      }
       lastEmitMs = elapsed;
       onUpdate(
         BashToolExecutionUpdate(
@@ -1581,9 +1526,7 @@ class AiBashToolService {
       );
     }
     emit(BashToolExecutionPhase.running, force: true);
-    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
-      _,
-    ) {
+    final progressTimer = startSafePeriodicTimer(_bashProgressInterval, (_) {
       emit(BashToolExecutionPhase.running, force: true);
     });
     var cancelled = false;
@@ -1593,23 +1536,15 @@ class AiBashToolService {
       final resultFuture = handle.result.then<_RemoteBashCompletion>(
         _RemoteBashCompletion.result,
       );
-      final waits = <Future<_RemoteBashCompletion>>[
-        resultFuture,
-        Future<_RemoteBashCompletion>.delayed(
-          Duration(milliseconds: timeoutMs),
-          () => const _RemoteBashCompletion.timedOut(),
-        ),
-      ];
-      if (cancelSignal != null) {
-        waits.add(
-          cancelSignal.then<_RemoteBashCompletion>(
-            (_) => const _RemoteBashCompletion.cancelled(),
-            onError: (Object _, StackTrace _) =>
-                const _RemoteBashCompletion.cancelled(),
-          ),
-        );
-      }
-      final completion = await Future.any(waits);
+      final completion =
+          await awaitWithCancelSignal(
+            resultFuture.timeout(
+              Duration(milliseconds: timeoutMs),
+              onTimeout: () => const _RemoteBashCompletion.timedOut(),
+            ),
+            cancelSignal: cancelSignal,
+          ) ??
+          const _RemoteBashCompletion.cancelled();
       remoteResult = completion.result;
       cancelled = completion.cancelled;
       timedOut = completion.timedOut;
@@ -2259,13 +2194,11 @@ class AiBashToolService {
   }
 
   /// 跨平台终止进程：Windows 使用默认终止，POSIX 先 SIGTERM 后 SIGKILL。
-  static void _killProcess(Process process) {
-    unawaited(
-      runAsyncCleanupBounded(
-        () => terminateTrackedProcessTree(process),
-        onError: (error, stack) =>
-            silentLog('ai_bash_tool_service', '终止 Bash 进程树', error, stack),
-      ),
+  static Future<void> _killProcess(Process process) async {
+    await runAsyncCleanupBounded(
+      () => terminateTrackedProcessTree(process),
+      onError: (error, stack) =>
+          silentLog('ai_bash_tool_service', '终止 Bash 进程树', error, stack),
     );
   }
 }

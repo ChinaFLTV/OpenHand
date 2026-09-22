@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../workflows/index.dart';
@@ -106,6 +107,7 @@ class WorkflowExecutionCoordinator {
     required WorkflowResourcesProvider resourcesProvider,
     required Map<String, Object?> inputs,
   }) async {
+    void Function()? removeCancelListener;
     try {
       final loadedResources = await resourcesProvider(workflow, context);
       if (loadedResources == null) {
@@ -117,11 +119,9 @@ class WorkflowExecutionCoordinator {
         final cancellation =
             resources.cancellation ?? WorkflowExecutionCancellationToken();
         resources = resources.withCancellation(cancellation);
-        unawaited(
-          cancelSignal.then<void>(
-            (_) => cancellation.cancel(),
-            onError: (_, _) => cancellation.cancel(),
-          ),
+        removeCancelListener = addCancelSignalListener(
+          cancelSignal,
+          cancellation.cancel,
         );
       }
       final executor = WorkflowNodeExecutor();
@@ -166,6 +166,7 @@ class WorkflowExecutionCoordinator {
       record.status = 'failed';
       record.error = '$error';
     } finally {
+      removeCancelListener?.call();
       record.finishedAt = DateTime.now().toUtc();
     }
   }

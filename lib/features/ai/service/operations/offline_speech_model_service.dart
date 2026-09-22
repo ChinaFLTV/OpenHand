@@ -1616,7 +1616,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
     if (socket == null) {
       unawaited(
         connectionFuture.then<void>((lateSocket) async {
-          await lateSocket.close();
+          await runAsyncCleanupBounded(
+            () => lateSocket.close(WebSocketStatus.normalClosure),
+            onError: (error, stack) =>
+                silentLog('offline_speech', '关闭迟到的实时语音连接', error, stack),
+          );
           client.close(force: true);
         }, onError: (Object _, StackTrace _) => client.close(force: true)),
       );
@@ -1626,28 +1630,36 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final audio = StreamController<Uint8List>();
     final started = Completer<(int, int)>();
     final done = Completer<void>();
+    // 启动消息构造或发送可能先于等待器失败，关闭产生的取消错误仍需观察。
+    started.future.ignore();
+    done.future.ignore();
+    final closing = OpenHandAsyncOnce();
     StreamSubscription<dynamic>? subscription;
+    void Function() removeCancelListener = () {};
     var closed = false;
     var finished = false;
 
-    Future<void> close() async {
-      if (closed) return;
+    Future<void> close() => closing.run(() async {
       closed = true;
-      try {
-        await subscription?.cancel().timeout(_realtimeCloseTimeout);
-      } catch (_) {}
-      try {
-        await activeSocket
-            .close(WebSocketStatus.normalClosure)
-            .timeout(_realtimeCloseTimeout);
-      } catch (_) {}
-      client.close(force: true);
-      if (!audio.isClosed) await audio.close();
+      removeCancelListener();
+      // 音频消费方可能尚未订阅或处于暂停状态，资源释放不等待其接收结束事件。
+      if (!audio.isClosed) audio.close().ignore();
       if (!started.isCompleted) {
         started.completeError(const OfflineSpeechTestCancelled());
       }
       if (!done.isCompleted) done.complete();
-    }
+      await cancelStreamSubscriptionBounded(
+        subscription,
+        onError: (error, stack) =>
+            silentLog('offline_speech', '取消实时语音订阅', error, stack),
+      );
+      await runAsyncCleanupBounded(
+        () => activeSocket.close(WebSocketStatus.normalClosure),
+        onError: (error, stack) =>
+            silentLog('offline_speech', '关闭实时语音连接', error, stack),
+      );
+      client.close(force: true);
+    });
 
     void fail(Object error, [StackTrace? stack]) {
       final streamStarted = started.isCompleted;
@@ -1658,7 +1670,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
       }
       if (!audio.isClosed) {
         audio.addError(error, stack);
-        unawaited(audio.close());
       }
       if (!done.isCompleted) {
         if (!streamStarted) {
@@ -1669,6 +1680,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
               : done.completeError(error, stack);
         }
       }
+      unawaited(close());
     }
 
     void addText(String text) {
@@ -1681,7 +1693,8 @@ class OfflineSpeechModelService extends ChangeNotifier {
     }
 
     Future<void> finish() async {
-      if (closed || finished) return;
+      if (closed) return done.future;
+      if (finished) return;
       finished = true;
       activeSocket.add(jsonEncode(const <String, Object?>{'type': 'finish'}));
     }
@@ -1689,7 +1702,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
     subscription = activeSocket.listen(
       (event) {
         if (event is List<int>) {
-          if (!started.isCompleted || closed || event.isEmpty) return;
+          if (!started.isCompleted ||
+              closed ||
+              audio.isClosed ||
+              event.isEmpty) {
+            return;
+          }
           audio.add(Uint8List.fromList(event));
           return;
         }
@@ -1713,20 +1731,12 @@ class OfflineSpeechModelService extends ChangeNotifier {
                 started.complete((sampleRate.toInt(), channels.toInt()));
               }
             case 'end':
-              if (!audio.isClosed) unawaited(audio.close());
-              if (!done.isCompleted) done.complete();
-              unawaited(activeSocket.close(WebSocketStatus.normalClosure));
+              unawaited(close());
             case 'error':
               fail(StateError('${payload['message'] ?? '实时语音生成失败。'}'));
-              unawaited(
-                activeSocket.close(WebSocketStatus.internalServerError),
-              );
           }
         } catch (error, stack) {
           fail(StateError('无法解析实时语音响应：$error'), stack);
-          unawaited(
-            activeSocket.close(WebSocketStatus.invalidFramePayloadData),
-          );
         }
       },
       onError: fail,
@@ -1736,13 +1746,14 @@ class OfflineSpeechModelService extends ChangeNotifier {
         }
       },
     );
-    if (cancelSignal != null) {
-      unawaited(cancelSignal.then<void>((_) => close()));
-    }
-    activeSocket.add(
-      jsonEncode(const <String, Object?>{'operation': 'synthesize_stream'}),
+    removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      () => unawaited(close()),
     );
     try {
+      activeSocket.add(
+        jsonEncode(const <String, Object?>{'operation': 'synthesize_stream'}),
+      );
       final format = await awaitWithCancelSignal<(int, int)>(
         started.future,
         cancelSignal: cancelSignal,
@@ -1997,16 +2008,39 @@ class OfflineSpeechModelService extends ChangeNotifier {
     final audio = StreamController<Uint8List>();
     final ready = Completer<void>();
     final done = Completer<void>();
+    ready.future.ignore();
+    done.future.ignore();
+    final closing = OpenHandAsyncOnce();
     final manualCommit =
         realtime && _configurationText(configuration, 'mode') == 'commit';
     final pendingCommits = Queue<String>();
     Completer<void>? commitsDrained;
     StreamSubscription<dynamic>? subscription;
+    void Function() removeCancelListener = () {};
     var closed = false;
     var finishing = false;
     var commitResponseActive = false;
     var audioBytes = 0;
     var textCharacters = 0;
+
+    Future<void> close() => closing.run(() async {
+      closed = true;
+      removeCancelListener();
+      pendingCommits.clear();
+      if (!audio.isClosed) audio.close().ignore();
+      if (!ready.isCompleted) {
+        ready.completeError(const OfflineSpeechTestCancelled());
+      }
+      if (!done.isCompleted) done.complete();
+      final drain = commitsDrained;
+      if (drain != null && !drain.isCompleted) drain.complete();
+      await cancelStreamSubscriptionBounded(
+        subscription,
+        onError: (error, stack) =>
+            silentLog('offline_speech', '取消百炼语音订阅', error, stack),
+      );
+      await _closeBailianConnection(connection);
+    });
 
     void fail(Object error, [StackTrace? stack]) {
       if (!ready.isCompleted) {
@@ -2016,7 +2050,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
       }
       if (!audio.isClosed) {
         stack == null ? audio.addError(error) : audio.addError(error, stack);
-        unawaited(audio.close());
       }
       if (!done.isCompleted) {
         stack == null
@@ -2029,11 +2062,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             ? drain.completeError(error)
             : drain.completeError(error, stack);
       }
-    }
-
-    void complete() {
-      if (!audio.isClosed) unawaited(audio.close());
-      if (!done.isCompleted) done.complete();
+      unawaited(close());
     }
 
     void addAudio(Uint8List chunk) {
@@ -2106,7 +2135,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
                   pumpManualCommit();
                 }
               case 'session.finished':
-                complete();
+                unawaited(close());
               case 'error':
                 final detail = payload['error'];
                 fail(
@@ -2124,7 +2153,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             case 'task-started':
               if (!ready.isCompleted) ready.complete();
             case 'task-finished':
-              complete();
+              unawaited(close());
             case 'task-failed':
               fail(
                 StateError(
@@ -2146,17 +2175,10 @@ class OfflineSpeechModelService extends ChangeNotifier {
       },
     );
 
-    Future<void> close() async {
-      if (closed) return;
-      closed = true;
-      if (!audio.isClosed) await audio.close();
-      if (!done.isCompleted) done.complete();
-      final drain = commitsDrained;
-      if (drain != null && !drain.isCompleted) drain.complete();
-      await subscription?.cancel();
-      await _closeBailianConnection(connection);
-    }
-
+    removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      () => unawaited(close()),
+    );
     try {
       if (realtime) {
         socket.add(
@@ -2228,7 +2250,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     }
 
     Future<void> finish() async {
-      if (closed) return;
+      if (closed) return done.future;
       if (!finishing) {
         finishing = true;
         if (manualCommit &&
@@ -2273,9 +2295,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
       finish: finish,
       close: close,
     );
-    if (cancelSignal != null) {
-      unawaited(cancelSignal.then((_) => close(), onError: (_, _) => close()));
-    }
     return stream;
   }
 
@@ -2286,7 +2305,9 @@ class OfflineSpeechModelService extends ChangeNotifier {
   }) async {
     final audio = StreamController<Uint8List>();
     final done = Completer<void>();
+    done.future.ignore();
     final localCancellation = Completer<void>();
+    final closing = OpenHandAsyncOnce();
     final queue = <String>[];
     final sampleRate = model.onlineService == OnlineSpeechService.xfyunTts
         ? _xfyunSampleRate(configuration)
@@ -2294,13 +2315,23 @@ class OfflineSpeechModelService extends ChangeNotifier {
     var processing = false;
     var finishing = false;
     var closed = false;
+    void Function() removeCancelListener = () {};
+
+    Future<void> close() => closing.run(() {
+      closed = true;
+      removeCancelListener();
+      queue.clear();
+      if (!localCancellation.isCompleted) localCancellation.complete();
+      if (!audio.isClosed) audio.close().ignore();
+      if (!done.isCompleted) done.complete();
+    });
 
     void fail(Object error, StackTrace stack) {
       if (!audio.isClosed) {
         audio.addError(error, stack);
-        unawaited(audio.close());
       }
       if (!done.isCompleted) done.completeError(error, stack);
+      unawaited(close());
     }
 
     Future<void> pump() async {
@@ -2309,10 +2340,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
       try {
         while (queue.isNotEmpty && !closed) {
           final text = queue.removeAt(0);
-          final operationCancelSignal = combineCancelSignals(<Future<void>?>[
-            cancelSignal,
-            localCancellation.future,
-          ]);
           void addAudio(Uint8List chunk) {
             if (!closed && !audio.isClosed) audio.add(chunk);
           }
@@ -2321,7 +2348,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
             await _synthesizeXfyunText(
               configuration,
               text,
-              cancelSignal: operationCancelSignal,
+              cancelSignal: localCancellation.future,
               onAudio: addAudio,
             );
           } else {
@@ -2329,14 +2356,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
               model,
               configuration,
               text,
-              cancelSignal: operationCancelSignal,
+              cancelSignal: localCancellation.future,
               onAudio: addAudio,
             );
           }
         }
         if (finishing && !closed) {
-          if (!audio.isClosed) await audio.close();
-          if (!done.isCompleted) done.complete();
+          await close();
         }
       } catch (error, stack) {
         if (!closed) fail(error, stack);
@@ -2356,19 +2382,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
     }
 
     Future<void> finish() async {
-      if (closed || finishing) return;
-      finishing = true;
-      await pump();
+      if (!closed && !finishing) {
+        finishing = true;
+        await pump();
+      }
       await done.future;
-    }
-
-    Future<void> close() async {
-      if (closed) return;
-      closed = true;
-      queue.clear();
-      if (!localCancellation.isCompleted) localCancellation.complete();
-      if (!audio.isClosed) await audio.close();
-      if (!done.isCompleted) done.complete();
     }
 
     final stream = OfflineSpeechAudioStream._(
@@ -2380,16 +2398,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
       finish: finish,
       close: close,
     );
-    _activeAudioStreams[stream] = model.id;
-    unawaited(
-      stream.done.then<void>(
-        (_) => _activeAudioStreams.remove(stream),
-        onError: (Object _, StackTrace _) => _activeAudioStreams.remove(stream),
-      ),
+    _trackAudioStream(stream, model.id);
+    removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      () => unawaited(close()),
     );
-    if (cancelSignal != null) {
-      unawaited(cancelSignal.then<void>((_) => close()));
-    }
     return stream;
   }
 
@@ -3660,10 +3673,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
       if (socket == null) {
         unawaited(
-          connecting.then<void>(
-            (lateSocket) => lateSocket.close(WebSocketStatus.normalClosure),
-            onError: (Object _, StackTrace _) {},
-          ),
+          connecting.then<void>((lateSocket) async {
+            await runAsyncCleanupBounded(
+              () => lateSocket.close(WebSocketStatus.normalClosure),
+              onError: (error, stack) =>
+                  silentLog('offline_speech', '关闭迟到的百炼语音连接', error, stack),
+            );
+          }, onError: (Object _, StackTrace _) {}),
         );
         throw const OfflineSpeechTestCancelled();
       }
@@ -3677,11 +3693,11 @@ class OfflineSpeechModelService extends ChangeNotifier {
   Future<void> _closeBailianConnection(
     ({WebSocket socket, HttpClient client}) connection,
   ) async {
-    try {
-      await connection.socket
-          .close(WebSocketStatus.normalClosure)
-          .timeout(_realtimeCloseTimeout);
-    } catch (_) {}
+    await runAsyncCleanupBounded(
+      () => connection.socket.close(WebSocketStatus.normalClosure),
+      onError: (error, stack) =>
+          silentLog('offline_speech', '关闭百炼语音连接', error, stack),
+    );
     connection.client.close(force: true);
   }
 

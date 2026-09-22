@@ -7,6 +7,7 @@ import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -328,7 +329,7 @@ Future<Socket> _connectProxyCancellable(
   Uri proxy,
   Duration timeout,
   AiExposureProxyProbeCancellation? cancellation,
-) {
+) async {
   final connection = _connectProxy(proxy, timeout);
   if (cancellation == null) return connection;
   unawaited(
@@ -336,12 +337,12 @@ Future<Socket> _connectProxyCancellable(
       if (cancellation.isCancelled) socket.destroy();
     }, onError: (Object _, StackTrace _) {}),
   );
-  return Future.any<Socket>(<Future<Socket>>[
+  final socket = await awaitWithCancelSignal(
     connection,
-    cancellation.whenCancelled.then<Socket>(
-      (_) => throw const AiExposureProxyProbeCancelledException(),
-    ),
-  ]);
+    cancelSignal: cancellation.whenCancelled,
+  );
+  if (socket == null) throw const AiExposureProxyProbeCancelledException();
+  return socket;
 }
 
 void _throwIfCancelled(AiExposureProxyProbeCancellation? cancellation) {

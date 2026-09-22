@@ -2291,24 +2291,19 @@ class _LegacySseSession {
     observeMcpPendingFuture(responseFuture);
     try {
       await _post(payload, timeout: timeout, cancelSignal: cancelSignal);
-      if (cancelSignal == null) return await responseFuture;
-      return await Future.any<Map<String, Object?>?>(
-        <Future<Map<String, Object?>?>>[
-          responseFuture,
-          cancelSignal.then<Map<String, Object?>?>(
-            (_) => throw const McpToolDiscoveryException(
-              'MCP 请求已取消。',
-              isExpectedLifecycleCancellation: true,
-            ),
-            onError: (Object _, StackTrace _) =>
-                throw const McpToolDiscoveryException(
-                  'MCP 请求已取消。',
-                  isExpectedLifecycleCancellation: true,
-                ),
-          ),
-        ],
+      final message = await awaitWithCancelSignal(
+        responseFuture,
+        cancelSignal: cancelSignal,
       );
+      if (message == null) {
+        throw const McpToolDiscoveryException(
+          'MCP 请求已取消。',
+          isExpectedLifecycleCancellation: true,
+        );
+      }
+      return message;
     } finally {
+      if (!response.isCompleted) response.complete(null);
       await _cancelMcpStreamSubscription(
         responseSubscription,
         where: '旧版 SSE 请求响应',

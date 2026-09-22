@@ -260,23 +260,21 @@ class WorkflowExecutionCancellationToken {
 
   Future<T> race<T>(Future<T> operation) async {
     throwIfCancelled();
-    final result = await Future.any<T>(<Future<T>>[
+    final result = await awaitWithCancelSignal(
       operation,
-      whenCancelled.then<T>(
-        (_) => throw const WorkflowNodeExecutionCancelledException(),
-      ),
-    ]);
+      cancelSignal: whenCancelled,
+    );
     throwIfCancelled();
-    return result;
+    return result as T;
   }
 
   Future<void> delay(Duration duration) async {
     throwIfCancelled();
     if (duration <= Duration.zero) return;
-    final cancelled = await Future.any<bool>(<Future<bool>>[
-      Future<bool>.delayed(duration, () => false),
-      whenCancelled.then<bool>((_) => true),
-    ]);
+    final cancelled = await delayUntilCancelled(
+      duration,
+      cancelSignal: whenCancelled,
+    );
     if (cancelled) throw const WorkflowNodeExecutionCancelledException();
   }
 }
@@ -284,8 +282,9 @@ class WorkflowExecutionCancellationToken {
 Future<T> _awaitWorkflowOperation<T>(
   WorkflowExecutionCancellationToken? cancellation,
   Future<T> Function() operation,
-) {
+) async {
   if (cancellation == null) return operation();
+  cancellation.throwIfCancelled();
   return cancellation.race(Future<T>.sync(operation));
 }
 
@@ -1708,9 +1707,10 @@ class WorkflowNodeExecutor {
       client.close(force: true);
     }
 
-    if (cancellation != null) {
-      unawaited(cancellation.whenCancelled.then<void>((_) => abortRequest()));
-    }
+    final removeCancelListener = addCancelSignalListener(
+      cancellation?.whenCancelled,
+      abortRequest,
+    );
     try {
       cancellation?.throwIfCancelled();
       final request = await openHttpClientRequestBounded(
@@ -1789,6 +1789,7 @@ class WorkflowNodeExecutor {
         files: _httpResponseFiles(response, responseBytes, uri),
       );
     } finally {
+      removeCancelListener();
       client.close(force: true);
     }
   }

@@ -218,21 +218,16 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       timeoutMessage: '更新包下载超过总时限。',
     );
     Duration remainingBudget() => deadline.remaining();
-    var finished = false;
     var cancelled = false;
     void cancelDownload() {
       cancelled = true;
-      if (!finished) client.close(force: true);
+      client.close(force: true);
     }
 
-    if (cancelSignal != null) {
-      unawaited(
-        cancelSignal.then<void>(
-          (_) => cancelDownload(),
-          onError: (Object _, StackTrace _) => cancelDownload(),
-        ),
-      );
-    }
+    final removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      cancelDownload,
+    );
     Directory? downloadDirectory;
     try {
       final result = await _getFollowingSecureRedirects(
@@ -391,7 +386,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       }
       rethrow;
     } finally {
-      finished = true;
+      removeCancelListener();
       deadline.stop();
       client.close(force: true);
     }

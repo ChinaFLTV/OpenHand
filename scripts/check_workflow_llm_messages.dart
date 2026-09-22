@@ -32,6 +32,29 @@ Future<void> main() async {
 
 const _checks = '''
 void main() {
+  test('工作流取消保留可空结果与异常，并阻止已取消任务启动', () async {
+    final token = WorkflowExecutionCancellationToken();
+    expect(await token.race(Future<int>.value(7)), 7);
+    expect(await token.race(Future<int?>.value(null)), isNull);
+    await token.race(Future<void>.value());
+    await expectLater(token.race(Future<int>.error(StateError('节点失败'))), throwsStateError);
+    token.cancel();
+    var started = false;
+    await expectLater(_awaitWorkflowOperation(token, () async {
+      started = true;
+      return 1;
+    }), throwsA(isA<WorkflowNodeExecutionCancelledException>()));
+    expect(started, isFalse);
+  });
+
+  testWidgets('工作流取消立即移除长重试计时器', (tester) async {
+    final token = WorkflowExecutionCancellationToken();
+    final waiting = token.delay(const Duration(hours: 1));
+    final rejected = expectLater(waiting, throwsA(isA<WorkflowNodeExecutionCancelledException>()));
+    token.cancel();
+    await rejected;
+  });
+
   Map<String, Object?> message(String text, [String? phase]) => {
     'type': 'message', 'role': 'assistant', if (phase != null) 'phase': phase,
     'content': [{'type': 'output_text', 'text': text}],

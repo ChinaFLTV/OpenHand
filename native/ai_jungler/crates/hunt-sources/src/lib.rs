@@ -1249,21 +1249,20 @@ impl CdpAutomation {
                     .map_err(SourceError::Cdp)?,
             );
         }
-        let result = session
-            .as_mut()
-            .ok_or_else(|| SourceError::Cdp("Chrome 进程未就绪".to_owned()))?
-            .fetch_page(target)
-            .await;
+        // 抓取期间独占进程，取消时由 Drop 回收页面和浏览器资源。
+        let mut process = session
+            .take()
+            .ok_or_else(|| SourceError::Cdp("Chrome 进程未就绪".to_owned()))?;
+        let result = process.fetch_page(target).await;
         match result {
             Ok(content) => {
+                *session = Some(process);
                 observation.complete(HttpRequestOutcome::Success(200));
                 Ok(content)
             }
             Err(error) => {
                 observation.complete(HttpRequestOutcome::TransportFailure);
-                if let Some(process) = session.take() {
-                    process.shutdown().await;
-                }
+                process.shutdown().await;
                 Err(SourceError::Cdp(error))
             }
         }
@@ -1515,20 +1514,31 @@ impl CdpBrowserProcess {
 
 impl Drop for CdpBrowserProcess {
     fn drop(&mut self) {
-        let Some(mut child) = self.child.take() else {
-            return;
-        };
-        let _ = child.start_kill();
+        let mut child = self.child.take();
+        if let Some(child) = child.as_mut() {
+            let _ = child.start_kill();
+        }
         if let Some(task) = self.stderr_task.take() {
             task.abort();
         }
         let directory = std::mem::take(&mut self.profile_directory);
+        if child.is_none() && directory.as_os_str().is_empty() {
+            return;
+        }
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             runtime.spawn(async move {
-                let _ = timeout(CDP_PROCESS_STOP_TIMEOUT, child.wait()).await;
-                let _ = tokio::fs::remove_dir_all(directory).await;
+                if let Some(mut child) = child {
+                    let _ = timeout(CDP_PROCESS_STOP_TIMEOUT, child.wait()).await;
+                }
+                if !directory.as_os_str().is_empty() {
+                    let _ = timeout(
+                        CDP_PROCESS_STOP_TIMEOUT,
+                        tokio::fs::remove_dir_all(directory),
+                    )
+                    .await;
+                }
             });
-        } else {
+        } else if !directory.as_os_str().is_empty() {
             let _ = std::fs::remove_dir_all(directory);
         }
     }
@@ -4595,6 +4605,75 @@ mod tests {
             loaded: false,
             last_network_event: Instant::now(),
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelling_cdp_fetch_releases_browser_and_profile() {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (accepted, ready) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            accepted.send(()).unwrap();
+            std::future::pending::<()>().await;
+            drop(stream);
+        });
+        let directory = std::env::temp_dir().join(format!(
+            "openhand-cdp-cancel-{}-{}",
+            std::process::id(),
+            CDP_PROFILE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        tokio::fs::create_dir(&directory).await.unwrap();
+        let child = Command::new("sleep")
+            .arg("30")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        ensure_rustls_crypto_provider();
+        let client = Client::builder().no_proxy().build().unwrap();
+        let observed =
+            ObservedHttpClient::new(client.clone(), Arc::new(CompletionObserver::default()));
+        let automation = CdpAutomation::new(observed);
+        automation
+            .configure(Some(CdpBrowserConfiguration {
+                executable: std::env::current_exe().unwrap(),
+                version: String::new(),
+            }))
+            .unwrap();
+        *automation.session.lock().await = Some(CdpBrowserProcess {
+            child: Some(child),
+            port,
+            profile_directory: directory.clone(),
+            generation: automation.generation.load(Ordering::Acquire),
+            proxy: None,
+            http: client,
+            stderr: Arc::new(AsyncMutex::new(String::new())),
+            stderr_task: None,
+        });
+        let target = Url::parse("https://example.com/").unwrap();
+        let mut fetch = Box::pin(automation.fetch(&target, false));
+        timeout(Duration::from_secs(5), async {
+            tokio::select! {
+                result = ready => result.unwrap(),
+                result = &mut fetch => panic!("CDP 请求不应提前结束：{result:?}"),
+            }
+        })
+        .await
+        .unwrap();
+        drop(fetch);
+        assert!(automation.session.lock().await.is_none());
+        assert_eq!(automation.slots.available_permits(), MAX_CDP_CONCURRENCY);
+        timeout(Duration::from_secs(5), async {
+            while directory.exists() {
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("取消后必须回收浏览器配置目录");
+        server.abort();
     }
 
     #[test]

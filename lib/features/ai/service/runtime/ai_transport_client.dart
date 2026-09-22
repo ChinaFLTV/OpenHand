@@ -1007,17 +1007,14 @@ class AiTransportClient {
       throw StateError('AI 传输客户端已释放。');
     }
     final abort = _createAbort();
-    if (cancelSignal != null) {
-      unawaited(
-        cancelSignal.then<void>(
-          (_) => _abort(abort),
-          onError: (Object _, StackTrace _) => _abort(abort),
-        ),
-      );
-    }
+    final removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      () => _abort(abort),
+    );
     try {
       return await operation(abort);
     } finally {
+      removeCancelListener();
       _abort(abort);
       _requestSlots.release();
     }

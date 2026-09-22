@@ -1890,30 +1890,14 @@ class AiToolUtils {
       expiresAt: requestedAt.add(confirmationTimeout),
     );
 
-    late final _WriteConfirmationOutcome outcome;
+    late final BashCommandApprovalDecision decision;
     try {
-      final approvalFuture = confirmWriteCommand(request)
-          .timeout(confirmationTimeout)
-          .then<_WriteConfirmationOutcome>(
-            _WriteConfirmationOutcome.fromDecision,
-          );
-
-      if (cancelSignal == null) {
-        outcome = await approvalFuture;
-      } else {
-        outcome = await Future.any<_WriteConfirmationOutcome>([
-          approvalFuture,
-          cancelSignal.then(
-            (_) => const _WriteConfirmationOutcome.fromDecision(
-              BashCommandApprovalDecision.cancelled,
-            ),
-            onError: (Object _, StackTrace _) =>
-                const _WriteConfirmationOutcome.fromDecision(
-                  BashCommandApprovalDecision.cancelled,
-                ),
-          ),
-        ]);
-      }
+      decision =
+          await awaitWithCancelSignal(
+            confirmWriteCommand(request).timeout(confirmationTimeout),
+            cancelSignal: cancelSignal,
+          ) ??
+          BashCommandApprovalDecision.cancelled;
     } on TimeoutException {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
@@ -1935,7 +1919,7 @@ class AiToolUtils {
       );
     }
 
-    switch (outcome.decision) {
+    switch (decision) {
       case BashCommandApprovalDecision.approved:
         return null;
       case BashCommandApprovalDecision.rejected:
@@ -2097,13 +2081,6 @@ class AiFileMutationPreparation {
   final String? historyVersionId;
   final String? beforeContent;
   final AiToolExecutionResult? error;
-}
-
-/// 写确认结果内部类型。
-class _WriteConfirmationOutcome {
-  const _WriteConfirmationOutcome.fromDecision(this.decision);
-
-  final BashCommandApprovalDecision decision;
 }
 
 class _MissingPathSuggestion {

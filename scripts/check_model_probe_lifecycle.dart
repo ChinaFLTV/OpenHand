@@ -24,11 +24,40 @@ import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/model_registry/ai_model_scanner.dart';
 import 'package:openhand/features/services/ai_model_health_controller.dart';
+import 'package:openhand/features/services/model/ai_exposure_models.dart';
+import 'package:openhand/features/services/service/ai_exposure_proxy_probe.dart';
 import 'package:openhand/features/ai/service/usage/ai_usage_tracker.dart';
 import 'package:openhand/shared/db/database_service.dart';
 import 'package:openhand/shared/util/localized_text.dart';
 
 const timeout = Duration(seconds: 2);
+
+final class ObservedCancelFuture implements Future<void> {
+  ObservedCancelFuture(this.future);
+  final Future<void> future;
+  int listeners = 0;
+  @override
+  Future<R> then<R>(FutureOr<R> Function(void) onValue, {Function? onError}) {
+    listeners++;
+    return future.then<R>(onValue, onError: onError);
+  }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class ObservedHealthCancellation extends AiModelHealthCancellation {
+  ObservedHealthCancellation() { signal = ObservedCancelFuture(super.whenCancelled); }
+  late final ObservedCancelFuture signal;
+  @override
+  Future<void> get whenCancelled => signal;
+}
+
+class ObservedProxyCancellation extends AiExposureProxyProbeCancellation {
+  ObservedProxyCancellation() { signal = ObservedCancelFuture(super.whenCancelled); }
+  late final ObservedCancelFuture signal;
+  @override
+  Future<void> get whenCancelled => signal;
+}
 
 AiModelConfig model({AiProtocolType protocol = AiProtocolType.stepfun, String? baseUrl}) => AiModelConfig(
   id: '测试配置',
@@ -263,7 +292,7 @@ void main() {
     expect(client.closed, isFalse);
   });
 
-  test('Jev 健康检查使用决策请求并忽略旧媒体路由', () async {
+  test('Jev 健康检查使用决策请求并复用整批取消监听', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     final paths = <String>[];
@@ -283,12 +312,66 @@ void main() {
     addTearDown(controller.dispose);
     final config = model(protocol: AiProtocolType.jev, baseUrl: 'http://127.0.0.1:${server.port}').copyWith(
       modelId: 'custom-router', operationRouting: const AiOperationRouting(imageModelId: 'custom-router'));
-    final record = await controller.checkModel(config);
-    expect(record?.success, isTrue, reason: record?.errorMessage);
-    expect(record?.modelKind, 'decisions');
-    expect(record?.metadata['probe_type'], 'decision_availability_probe');
-    expect(record?.metadata['protocol'], 'jev');
-    expect(paths, ['/v1/systemone']);
+    final cancellation = ObservedHealthCancellation();
+    for (var i = 0; i < 3; i++) {
+      final record = await controller.checkModel(config, cancellation: cancellation);
+      expect(record?.success, isTrue, reason: record?.errorMessage);
+      expect(record?.modelKind, 'decisions');
+      expect(record?.metadata['probe_type'], 'decision_availability_probe');
+      expect(record?.metadata['protocol'], 'jev');
+    }
+    expect(paths, List.filled(3, '/v1/systemone'));
+    expect(cancellation.signal.listeners, 1);
+    cancellation.cancel();
+  });
+
+  test('代理巡检成功后复用取消监听', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final subscription = server.listen((request) async {
+      request.response.statusCode = HttpStatus.ok;
+      await request.response.close();
+    });
+    addTearDown(subscription.cancel);
+    final endpoint = AiExposureProxyEndpoint(url: 'http://127.0.0.1:${server.port}');
+    final cancellation = ObservedProxyCancellation();
+    for (var i = 0; i < 3; i++) {
+      final sample = await const AiExposureProxyProbe().inspect(endpoint, cancellation: cancellation);
+      expect(sample.reachable, isTrue, reason: sample.error);
+    }
+    expect(cancellation.signal.listeners, 1);
+    cancellation.cancel();
+  });
+
+  test('代理巡检取消后销毁迟到的真实连接', () async {
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+    final accepted = server.first;
+    final socket = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+    final peer = await accepted;
+    addTearDown(socket.destroy);
+    addTearDown(peer.destroy);
+    final disconnected = peer.drain<void>();
+    final connection = Completer<Socket>();
+    final started = Completer<void>();
+    final cancellation = ObservedProxyCancellation();
+    final pending = IOOverrides.runZoned(
+      () => const AiExposureProxyProbe().inspect(
+        AiExposureProxyEndpoint(url: 'http://127.0.0.1:${server.port}'),
+        cancellation: cancellation,
+      ),
+      socketConnect: (host, port, {sourceAddress, sourcePort = 0, Duration? timeout}) {
+        started.complete();
+        return connection.future;
+      },
+    );
+    final cancelled = expectLater(pending, throwsA(isA<AiExposureProxyProbeCancelledException>()));
+    await started.future.timeout(timeout);
+    cancellation.cancel();
+    await cancelled.timeout(timeout);
+    connection.complete(socket);
+    await disconnected.timeout(timeout);
+    expect(cancellation.signal.listeners, 1);
   });
 
   for (final dispose in [false, true]) {

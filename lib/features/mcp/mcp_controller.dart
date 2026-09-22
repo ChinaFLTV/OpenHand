@@ -1473,17 +1473,12 @@ class McpController extends ChangeNotifier {
       kind: AiToolExecutionKind.mcp,
       displayName: tool.name,
     );
-    unawaited(
-      context.cancelSignal.then<void>(
-        (_) => registry.cancelRegistration(registration),
-        onError: (Object _, StackTrace _) =>
-            registry.cancelRegistration(registration),
-      ),
-    );
-    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+    final removeCancelListener = addCancelSignalListener(
       context.cancelSignal,
-      registration?.cancelSignal,
-    ])!;
+      () => unawaited(registry.cancelRegistration(registration)),
+    );
+    final effectiveCancelSignal =
+        registration?.cancelSignal ?? context.cancelSignal;
     try {
       final result = await registry.runRegistered(
         registration,
@@ -1504,6 +1499,7 @@ class McpController extends ChangeNotifier {
         },
       );
     } finally {
+      removeCancelListener();
       if (registration != null) registry.unregister(registration);
     }
   }

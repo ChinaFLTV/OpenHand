@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +8,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/workflow_definition.dart';
@@ -54,6 +53,7 @@ class _WorkflowHumanInterventionDialogState
           ),
       };
   late final OpenHandDebouncer _timeout;
+  late final VoidCallback _removeCancelListener;
   bool _completed = false;
   String? _error;
 
@@ -64,14 +64,15 @@ class _WorkflowHumanInterventionDialogState
       delay: widget.request.timeout,
       maxDelay: widget.request.timeout,
     )..schedule(_handleTimeout);
-    final cancelSignal = widget.request.cancelSignal;
-    if (cancelSignal != null) {
-      unawaited(cancelSignal.then<void>((_) => _cancel()));
-    }
+    _removeCancelListener = addCancelSignalListener(
+      widget.request.cancelSignal,
+      _cancel,
+    );
   }
 
   @override
   void dispose() {
+    _removeCancelListener();
     _timeout.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();

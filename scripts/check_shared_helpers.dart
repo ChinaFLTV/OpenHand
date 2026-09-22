@@ -63,6 +63,7 @@ Future<void> main() async {
   failures += _checkSensitiveTextRedaction();
   failures += _checkSseFraming();
   failures += await _checkBatchSubscriptionCancellation();
+  failures += await _checkCancelSignalListeners();
   failures += await _checkAbortableResponseLifetime();
   failures += await _checkHttpCancellation();
   failures += await _checkLateNativeHttpResponse();
@@ -1156,6 +1157,34 @@ int _checkLifecycleCache() {
   });
   if (created || !nullable.removeIfIdentical('空值', null)) {
     stderr.writeln('缓存未正确区分空值与缺失条目');
+    return 1;
+  }
+  return 0;
+}
+
+Future<int> _checkCancelSignalListeners() async {
+  final signal = Completer<void>();
+  var calls = 0;
+  final remove = addCancelSignalListener(signal.future, () => calls++);
+  remove();
+  addCancelSignalListener(signal.future, () => calls++);
+  signal.completeError(StateError('取消信号异常'));
+  await Future<void>.delayed(Duration.zero);
+  final removeLate = addCancelSignalListener(signal.future, () => calls++);
+  removeLate();
+  await Future<void>.delayed(Duration.zero);
+  if (calls != 1) {
+    stderr.writeln('取消监听未正确解绑，或未处理异常完成的取消信号。');
+    return 1;
+  }
+  final reentrant = Completer<void>();
+  late void Function() removeSecond;
+  addCancelSignalListener(reentrant.future, () => removeSecond());
+  removeSecond = addCancelSignalListener(reentrant.future, () => calls++);
+  reentrant.complete();
+  await Future<void>.delayed(Duration.zero);
+  if (calls != 1) {
+    stderr.writeln('取消派发期间解绑的监听仍被执行。');
     return 1;
   }
   return 0;
