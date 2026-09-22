@@ -105,6 +105,9 @@ import 'mcp_stdio_dialogs.dart';
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
+const int _mcpToolPreviewWrapLimit = 64;
+const double _mcpToolPreviewGridSpacing = 10;
+const double _mcpToolPreviewGridVerticalPadding = 28;
 
 /// 运维头部由并排切换为上下两行的宽度阈值。
 const double _mcpOpsHeaderCompactBreakpoint = 1020;
@@ -200,6 +203,8 @@ class _McpBottomAnchoredScrollPosition extends ScrollPositionWithSingleContext {
   final bool Function() shouldKeepBottomAnchored;
   final ValueChanged<ScrollDirection> onUserScrollDirection;
 
+  bool _bottomCorrectionPending = false;
+
   @override
   void updateUserScrollDirection(ScrollDirection value) {
     onUserScrollDirection(value);
@@ -211,11 +216,22 @@ class _McpBottomAnchoredScrollPosition extends ScrollPositionWithSingleContext {
     ScrollMetrics oldPosition,
     ScrollMetrics newPosition,
   ) {
-    if (!shouldKeepBottomAnchored()) {
+    // 仅在静止且原本贴底时跟随真实尺寸变化，不能把拖动或滚动条跳转拉回底部。
+    if (!shouldKeepBottomAnchored() ||
+        isScrollingNotifier.value ||
+        _bottomCorrectionPending ||
+        oldPosition.extentAfter > _mcpListBottomAnchorThreshold ||
+        oldPosition.maxScrollExtent == newPosition.maxScrollExtent ||
+        !newPosition.maxScrollExtent.isFinite) {
       return super.correctForNewDimensions(oldPosition, newPosition);
     }
     final target = newPosition.maxScrollExtent;
     if ((target - pixels).abs() <= _mcpScrollCorrectionEpsilon) return true;
+    // 懒列表的总高度是估算值；每帧最多贴底一次，避免修正位置与估算互相反馈。
+    _bottomCorrectionPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bottomCorrectionPending = false;
+    });
     correctPixels(target);
     return false;
   }
@@ -10681,7 +10697,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
     _scheduleScrollMetricsSync();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _readyForItemTransitions = true);
+      if (mounted) _readyForItemTransitions = true;
     });
   }
 
@@ -12797,12 +12813,6 @@ class _McpHealthStatusDot extends StatelessWidget {
   }
 }
 
-int _mcpToolVisualKey(Iterable<McpTool> tools) {
-  return Object.hashAll(
-    tools.map((tool) => Object.hash(tool.id, tool.name, tool.metadataWarning)),
-  );
-}
-
 class _McpToolPreview extends StatefulWidget {
   const _McpToolPreview({
     required this.server,
@@ -12822,13 +12832,30 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   final _expandedScrollController = ScrollController();
   bool _expanded = false;
   bool _collapsedOverflow = false;
+  late List<McpTool> _filteredTools;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateFilteredTools();
+  }
+
+  void _updateFilteredTools() {
+    final keyword = widget.searchKeyword;
+    final tools = widget.toolCatalog.tools;
+    _filteredTools = keyword.isEmpty
+        ? tools
+        : tools
+              .where((tool) => tool.name.toLowerCase().contains(keyword))
+              .toList(growable: false);
+  }
 
   @override
   void didUpdateWidget(covariant _McpToolPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.searchKeyword != widget.searchKeyword ||
-        _mcpToolVisualKey(oldWidget.toolCatalog.tools) !=
-            _mcpToolVisualKey(widget.toolCatalog.tools)) {
+        !identical(oldWidget.toolCatalog.tools, widget.toolCatalog.tools)) {
+      _updateFilteredTools();
       dismissOpenHandTooltipsSafely(debugLabel: '更新MCP工具列表前收起工具提示');
     }
   }
@@ -12843,12 +12870,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final keyword = widget.searchKeyword;
-    final allTools = widget.toolCatalog.tools;
-    final filteredTools = keyword.isEmpty
-        ? allTools
-        : allTools
-              .where((t) => t.name.toLowerCase().contains(keyword))
-              .toList(growable: false);
+    final filteredTools = _filteredTools;
     final previewTools = _expanded
         ? filteredTools
         : filteredTools
@@ -12903,45 +12925,71 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
       child: _expanded
           ? OpenHandSafeScrollbar(
               controller: _expandedScrollController,
-              child: SingleChildScrollView(
-                controller: _expandedScrollController,
-                primary: false,
-                padding: const EdgeInsets.only(right: 12),
-                child: AnimatedSwitcher(
-                  duration: animationDuration,
-                  reverseDuration: chipSettings.exitDuration,
-                  transitionBuilder: (child, animation) =>
-                      buildAnimationStyleTransition(
-                        animation: animation,
-                        settings: chipSettings,
-                        profile: kOpenHandLayoutSafeTransitionProfile,
-                        child: child,
-                      ),
-                  child: filteredTools.isEmpty
-                      ? _buildEmptyState(
-                          context,
-                          key: ValueKey<String>(
-                            'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
-                          ),
-                          label: emptyLabel,
-                        )
-                      : Align(
-                          key: const ValueKey('mcp-tools-expanded'),
-                          alignment: Alignment.topLeft,
-                          child: OpenHandAnimatedChipWrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final tool in previewTools)
-                                KeyedSubtree(
-                                  key: ValueKey(tool.id),
-                                  child: _buildToolChip(context, tool),
-                                ),
-                            ],
-                          ),
+              child: filteredTools.length > _mcpToolPreviewWrapLimit
+                  // 大目录只创建视口附近的胶囊，避免展开时集中构建数千个动画节点。
+                  ? GridView.builder(
+                      key: const ValueKey<String>('mcp-tools-virtual-grid'),
+                      controller: _expandedScrollController,
+                      primary: false,
+                      physics: kOpenHandClampingPhysics,
+                      padding: const EdgeInsets.only(right: 12),
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: _mcpToolChipMaxWidth,
+                        mainAxisExtent: math.max(
+                          kMinInteractiveDimension,
+                          MediaQuery.textScalerOf(context).scale(
+                                theme.textTheme.labelLarge?.fontSize ?? 14,
+                              ) +
+                              _mcpToolPreviewGridVerticalPadding,
                         ),
-                ),
-              ),
+                        crossAxisSpacing: _mcpToolPreviewGridSpacing,
+                        mainAxisSpacing: _mcpToolPreviewGridSpacing,
+                      ),
+                      itemCount: filteredTools.length,
+                      itemBuilder: (context, index) => Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _buildToolChip(context, filteredTools[index]),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      controller: _expandedScrollController,
+                      primary: false,
+                      padding: const EdgeInsets.only(right: 12),
+                      child: AnimatedSwitcher(
+                        duration: animationDuration,
+                        reverseDuration: chipSettings.exitDuration,
+                        transitionBuilder: (child, animation) =>
+                            buildAnimationStyleTransition(
+                              animation: animation,
+                              settings: chipSettings,
+                              profile: kOpenHandLayoutSafeTransitionProfile,
+                              child: child,
+                            ),
+                        child: filteredTools.isEmpty
+                            ? _buildEmptyState(
+                                context,
+                                key: ValueKey<String>(
+                                  'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
+                                ),
+                                label: emptyLabel,
+                              )
+                            : Align(
+                                key: const ValueKey('mcp-tools-expanded'),
+                                alignment: Alignment.topLeft,
+                                child: OpenHandAnimatedChipWrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    for (final tool in previewTools)
+                                      KeyedSubtree(
+                                        key: ValueKey(tool.id),
+                                        child: _buildToolChip(context, tool),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
             )
           : AnimatedSwitcher(
               duration: animationDuration,

@@ -223,5 +223,141 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await probe.settle();
   });
+
+  testWidgets('四千工具按需构建，滚动到底及筛选切换不残留空白', (tester) async {
+    final probe = _PreviewProbe(tester)
+      ..tools = List.generate(kMcpMaxCatalogToolCount, (index) => _tool('工具_$index'));
+    await probe.mount();
+    await probe.toggle();
+    expect(find.byType(ActionChip).evaluate().length, lessThan(80),
+      reason: '构建量只随视口变化，不能随目录总量增长');
+    final controller = probe.state._expandedScrollController;
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await probe.settle();
+    expect(find.text('工具_${kMcpMaxCatalogToolCount - 1}'), findsOneWidget);
+    expect(find.byType(ActionChip).evaluate().length, lessThan(80));
+    await probe.search('工具_4095');
+    expect(controller.offset, closeTo(0, 1));
+    expect(find.text('工具_4095'), findsOneWidget);
+    await probe.search('');
+    probe.rebuild(() { probe.width = 260; probe.scale = 2; });
+    await probe.settle();
+    expect(find.byType(ActionChip).evaluate().length, lessThan(30));
+    await probe.toggle();
+    await probe.toggle();
+    expect(find.byType(GridView), findsOneWidget);
+  });
+
+  testWidgets('无关刷新复用筛选结果，替换目录后更新工具内容', (tester) async {
+    final probe = _PreviewProbe(tester);
+    await probe.mount(animated: false);
+    await probe.search('cdn');
+    final filtered = probe.state._filteredTools;
+    probe.rebuild(() {});
+    await probe.settle();
+    expect(identical(filtered, probe.state._filteredTools), isTrue);
+    probe.rebuild(() => probe.tools = [_tool('cdn_新工具')]);
+    await probe.settle();
+    expect(find.text('cdn_新工具'), findsOneWidget);
+    expect(find.text('cdn_domain_blocked_check'), findsNothing);
+  });
+
+  testWidgets('底部吸附不劫持位置且每帧最多修正一次', (tester) async {
+    final controller = _McpBottomAnchoredScrollController(
+      shouldKeepBottomAnchored: () => true,
+      onUserScrollDirection: (_) {},
+    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ListView.builder(
+      controller: controller,
+      itemCount: 100,
+      itemExtent: 100,
+      itemBuilder: (_, index) => Text('服务 $index'),
+    ))));
+    final position = controller.position as _McpBottomAnchoredScrollPosition;
+    FixedScrollMetrics metrics(double maxExtent, double pixels) => FixedScrollMetrics(
+      minScrollExtent: 0, maxScrollExtent: maxExtent, pixels: pixels,
+      viewportDimension: 600, axisDirection: AxisDirection.down, devicePixelRatio: 1,
+    );
+    position.correctPixels(400);
+    position.correctForNewDimensions(metrics(1000, 400), metrics(1200, 400));
+    expect(position.pixels, 400, reason: '未贴底时保持阅读位置');
+    position.correctForNewDimensions(metrics(400, 400), metrics(400, 400));
+    expect(position.pixels, 400, reason: '尺寸未变时不强制校正');
+    position.correctPixels(1000);
+    expect(position.correctForNewDimensions(metrics(1000, 1000), metrics(1200, 1000)), isFalse);
+    expect(position.pixels, 1200);
+    position.correctForNewDimensions(metrics(1200, 1200), metrics(1400, 1200));
+    expect(position.pixels, 1200, reason: '估算变化不能在同一帧反复追逐底部');
+    await tester.pump();
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(ListView)));
+    await gesture.moveBy(const Offset(0, -40));
+    await tester.pump();
+    expect(position.isScrollingNotifier.value, isTrue);
+    position.correctPixels(1000);
+    position.correctForNewDimensions(metrics(1000, 1000), metrics(1200, 1000));
+    expect(position.pixels, 1000, reason: '拖动优先于底部吸附');
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+
+  testWidgets('两百张真实服务卡片快速往返滚动仍保持懒构建', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = await SettingsController.create(store: _PreviewSettingsStore(true));
+    final directory = await tester.runAsync(() => Directory.systemTemp.createTemp('mcp_scroll_'));
+    final mcp = (await tester.runAsync(() async =>
+      McpController.uninitialized(initialFilePath: '${directory!.path}/mcp.json')))!;
+    final catalog = McpToolCatalog(status: McpToolCatalogStatus.ready,
+      tools: List.generate(41, (index) => _tool('工具_$index')));
+    var builds = 0;
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SettingsController>.value(value: settings),
+        ChangeNotifierProvider<McpController>.value(value: mcp),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh'),
+        home: Scaffold(body: _AnimatedMcpServerList(
+          servers: List.generate(200, (index) => McpServer(
+            name: '服务_$index', type: McpServerType.streamableHttp,
+            enabled: true, url: 'https://example.com/mcp',
+          )),
+          prefixChildren: const [], emptyChild: const Text('暂无服务'),
+          itemBuilder: (context, server, health, tools) {
+            builds++;
+            return _McpServerCard(
+              server: server, healthStatus: health, toolCatalog: catalog,
+              onTap: () {}, onToggleEnabled: (_) {}, onCheckHealth: () {},
+              onRefreshTools: () {}, onReconnect: () {}, onActionSelected: (_) {},
+            );
+          },
+        )),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(builds, lessThan(20));
+    final list = find.byType(ListView).first;
+    for (final direction in [-1, -1, 1, 1]) {
+      await tester.fling(list, Offset(0, direction * 1800), 5000);
+      await tester.pumpAndSettle();
+      expect(find.byType(_McpServerCard).evaluate().length, lessThan(20));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await mcp.shutdown();
+      settings.dispose();
+      await directory!.delete(recursive: true);
+    });
+  });
+
 }
 ''';
