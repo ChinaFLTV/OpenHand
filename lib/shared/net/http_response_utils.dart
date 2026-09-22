@@ -13,6 +13,31 @@ import 'network_limits.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
+/// 限制本次服务端写出时间；失败时断开底层连接，成功后不影响后续流式生成。
+Future<void> flushHttpResponseBounded(
+  HttpResponse response, {
+  required Duration timeout,
+  bool close = false,
+}) async {
+  requirePositiveDurationAtMost(
+    timeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'timeout',
+  );
+  if (response.deadline == Duration.zero) {
+    throw const HttpException('HTTP 响应连接已中止。');
+  }
+  response.deadline = timeout;
+  try {
+    await (close ? response.close() : response.flush()).timeout(timeout);
+    response.deadline = null;
+  } catch (_) {
+    unawaited(response.done.then<void>((_) {}, onError: (Object _) {}));
+    response.deadline = Duration.zero;
+    rethrow;
+  }
+}
+
 sealed class ByteStreamLimitException extends HttpException {
   ByteStreamLimitException(super.message);
 }

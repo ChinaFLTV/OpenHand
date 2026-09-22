@@ -78,10 +78,17 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
     }
     _showScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_showScheduled) return;
       _showScheduled = false;
-      if (!mounted || !_isHovered || _overlay.hasEntry) return;
+      if (!mounted ||
+          !_isHovered ||
+          !_isControlOrMetaPressed ||
+          _overlay.hasEntry) {
+        return;
+      }
       _showOverlayNow();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _showOverlayNow() {
@@ -324,6 +331,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
       }
       _overlay.close();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _removeOverlayImmediately() {

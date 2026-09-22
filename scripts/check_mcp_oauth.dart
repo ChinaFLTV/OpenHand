@@ -37,6 +37,16 @@ const server = McpServer(name: '通用服务', type: McpServerType.streamableHtt
 
 class _RealHttpOverrides extends HttpOverrides {}
 
+class _TrackedClient extends http.BaseClient {
+  _TrackedClient(this.inner);
+  final http.Client inner;
+  bool closed = false;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) => inner.send(request);
+  @override
+  void close() { closed = true; inner.close(); }
+}
+
 class _PanelOAuth extends McpOAuthService {
   McpOAuthStatus value = McpOAuthStatus.authorized;
   bool supportsRefresh = false;
@@ -76,16 +86,23 @@ class Fixture {
   String resourceId = server.url;
   bool wrongIssuer = false;
   bool cancelBrowser = false;
+  bool disposeBrowser = false;
   Completer<void>? refreshGate;
   final refreshStarted = Completer<void>();
+  final clients = <_TrackedClient>[];
   Uri? browserUrl;
   late final McpOAuthService oauth = McpOAuthService(
     read: (_) async => saved,
     write: (_, value) async { saved = value; },
-    clientFactory: () => MockClient(handle),
+    clientFactory: () {
+      final client = _TrackedClient(MockClient(handle));
+      clients.add(client);
+      return client;
+    },
     openBrowser: (value) async {
       browserUrl = Uri.parse(value);
       if (cancelBrowser) { oauth.cancel(server); return true; }
+      if (disposeBrowser) { oauth.dispose(); return true; }
       final params = browserUrl!.queryParameters;
       expect(params['resource'], resourceId);
       expect(params['code_challenge_method'], 'S256');
@@ -153,6 +170,70 @@ class Fixture {
 }
 
 void main() {
+
+  test('清除授权后忽略迟到的数据库读取，不恢复旧令牌', () async {
+    final reading = Completer<Map<String, dynamic>?>();
+    final oauth = McpOAuthService(read: (_) => reading.future, write: (_, _) async {});
+    addTearDown(oauth.dispose);
+    final loading = oauth.load(server);
+    await oauth.forget(server);
+    reading.complete({'access_token': 'obsolete'});
+    await loading;
+    expect(oauth.status(server), McpOAuthStatus.required);
+    await expectLater(oauth.headers(server, {}), throwsA(isA<McpOAuthRequiredException>()));
+  });
+
+  test('服务释放后拒绝迟到的读取及新操作，重复释放安全', () async {
+    final reading = Completer<Map<String, dynamic>?>();
+    final oauth = McpOAuthService(read: (_) => reading.future);
+    final loading = oauth.load(server);
+    final assertion = expectLater(loading, throwsA(isA<StateError>()));
+    oauth.dispose();
+    reading.complete({'access_token': 'obsolete'});
+    await assertion;
+    expect(oauth.status(server), McpOAuthStatus.required);
+    await expectLater(oauth.load(server), throwsA(isA<StateError>()));
+    await expectLater(oauth.authorize(server), throwsA(isA<StateError>()));
+    await expectLater(oauth.forget(server), throwsA(isA<StateError>()));
+    oauth.dispose();
+  });
+
+  test('服务释放回收刷新客户端，迟到刷新不写回凭证', () async {
+    final f = Fixture();
+    await f.oauth.authorize(server);
+    f.refreshGate = Completer<void>();
+    final refreshing = f.oauth.refresh(server);
+    final assertion = expectLater(refreshing, throwsA(isA<StateError>()));
+    await f.refreshStarted.future;
+    expect(f.clients.last.closed, isFalse);
+    f.oauth.dispose();
+    expect(f.clients.every((client) => client.closed), isTrue);
+    f.refreshGate!.complete();
+    await assertion;
+    expect(f.saved!['access_token'], 'initial');
+  });
+
+  test('等待浏览器授权时释放服务，取消回调等待并回收客户端', () async {
+    final f = Fixture()..disposeBrowser = true;
+    await expectLater(f.oauth.authorize(server), throwsA(isA<StateError>()));
+    expect(f.clients.every((client) => client.closed), isTrue);
+    expect(f.oauth.status(server), McpOAuthStatus.required);
+    expect(f.saved, isNull);
+  });
+
+  test('网络客户端初始化失败不留下占用中的授权任务', () async {
+    var attempts = 0;
+    final oauth = McpOAuthService(clientFactory: () {
+      attempts++;
+      throw StateError('模拟网络初始化失败');
+    });
+    addTearDown(oauth.dispose);
+    for (var index = 0; index < 2; index++) {
+      await expectLater(oauth.authorize(server), throwsA(isA<StateError>()));
+      expect(oauth.status(server), McpOAuthStatus.required);
+    }
+    expect(attempts, 2);
+  });
 
   test('标准资源发现、OpenID 回退、跨域授权端点及 PKCE 回调完整贯通', () async {
     final f = Fixture();

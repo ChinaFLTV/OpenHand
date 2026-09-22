@@ -520,6 +520,30 @@ Future<int> _checkTemporaryByteStreamWrite() async {
         return 1;
       }
     }
+    final emptyChunks = Stream<List<int>>.periodic(
+      const Duration(milliseconds: 5),
+      (_) => const <int>[],
+    );
+    final elapsed = Stopwatch()..start();
+    try {
+      await writeTemporaryByteStreamBounded(
+        output,
+        emptyChunks,
+        maxBytes: 5,
+        idleTimeout: const Duration(milliseconds: 40),
+        totalTimeout: const Duration(seconds: 2),
+      );
+      stderr.writeln('持续空块应触发写入空闲超时');
+      return 1;
+    } on TimeoutException {
+      if (elapsed.elapsed >= const Duration(seconds: 1) ||
+          output.existsSync()) {
+        stderr.writeln('空数据块错误刷新了写入空闲时限或遗留半文件');
+        return 1;
+      }
+    } finally {
+      elapsed.stop();
+    }
     return 0;
   } catch (error) {
     stderr.writeln('有界临时字节流写入检查失败：$error');

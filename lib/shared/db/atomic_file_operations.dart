@@ -418,37 +418,15 @@ Future<void> _writeByteStreamFileAtomicallyLocked(
   required Duration idleTimeout,
   required Duration totalTimeout,
 }) async {
-  await _writeAtomicallyLocked(
-    targetFile,
-    (tempFile, remainingBudget) => _writeAtomicTempFile(
+  await _writeAtomicallyLocked(targetFile, (tempFile, remainingBudget) async {
+    await writeTemporaryByteStreamBounded(
       tempFile,
-      remainingBudget,
-      (output, nextOperationTimeout) async {
-        var writtenBytes = 0;
-        final boundedStream = bytes.timeout(
-          idleTimeout,
-          onTimeout: (sink) =>
-              sink.addError(TimeoutException('读取原子字节流超时。', idleTimeout)),
-        );
-        await for (final chunk in boundedStream) {
-          remainingBudget();
-          if (chunk.isEmpty) continue;
-          if (chunk.length > maxBytes - writtenBytes) {
-            throw FileSystemException(
-              '字节流超过 $maxBytes 字节写入上限。',
-              targetFile.path,
-            );
-          }
-          await output.run(
-            (file) => file.writeFrom(chunk),
-            timeout: nextOperationTimeout(),
-          );
-          writtenBytes += chunk.length;
-        }
-      },
-    ),
-    totalTimeout: totalTimeout,
-  );
+      bytes,
+      maxBytes: maxBytes,
+      idleTimeout: idleTimeout,
+      totalTimeout: remainingBudget(),
+    );
+  }, totalTimeout: totalTimeout);
 }
 
 Future<void> _writeAtomicTempFile(

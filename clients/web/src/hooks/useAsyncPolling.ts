@@ -78,6 +78,7 @@ export function useAsyncPolling(
     if (!enabled) return undefined;
 
     let stopped = false;
+    let immediatePending = immediate;
     let activeController: AbortController | null = null;
     const delayMs = normalizeIntervalMs(intervalMs);
     const timeoutMs = normalizeTaskTimeoutMs(taskTimeoutMs);
@@ -93,6 +94,7 @@ export function useAsyncPolling(
     const run = async () => {
       if (stopped || taskRunningRef.current) return;
       taskRunningRef.current = true;
+      immediatePending = false;
       const controller = new AbortController();
       activeController = controller;
       let taskSettled = true;
@@ -131,7 +133,7 @@ export function useAsyncPolling(
       }
     };
 
-    resumePollingRef.current = () => schedule(delayMs);
+    resumePollingRef.current = () => schedule(immediatePending ? 0 : delayMs);
     if (immediate) {
       void run();
     } else {

@@ -51,6 +51,7 @@ class AiModelProxyHttpServer {
   static const Duration _requestReadIdleTimeout = Duration(seconds: 30);
   static const Duration _requestReadTotalTimeout = Duration(minutes: 2);
   static const Duration _requestKeepAliveTimeout = Duration(seconds: 30);
+  static const Duration _responseWriteTimeout = Duration(seconds: 30);
   static const String _logoCacheControl = 'public, max-age=86400';
 
   final AiModelProxyController _controller;
@@ -58,6 +59,7 @@ class AiModelProxyHttpServer {
   HttpServer? _server;
   final Set<int> _activeRequestTokens = <int>{};
   int _requestSequence = 0;
+  int _pendingRejections = 0;
   bool _closing = false;
   Uint8List? _logoPng;
 
@@ -108,7 +110,7 @@ class AiModelProxyHttpServer {
     try {
       await for (final request in server) {
         if (_server != server || _closing) {
-          await _closeRequest(request);
+          _abortRequest(request);
           continue;
         }
         final path = _normalizePath(request.uri.path);
@@ -119,11 +121,18 @@ class AiModelProxyHttpServer {
           );
         }
         if (_activeRequestTokens.length >= aiModelProxyMaxConcurrentRequests) {
-          await _writeError(
-            request,
-            429,
-            '当前中转站请求过多，请稍后重试。',
-            type: 'rate_limit_error',
+          if (_pendingRejections >= aiModelProxyMaxConcurrentRequests) {
+            _abortRequest(request);
+            continue;
+          }
+          _pendingRejections++;
+          unawaited(
+            _writeError(
+              request,
+              HttpStatus.tooManyRequests,
+              '当前中转站请求过多，请稍后重试。',
+              type: 'rate_limit_error',
+            ).whenComplete(() => _pendingRejections--),
           );
           continue;
         }
@@ -397,6 +406,8 @@ class AiModelProxyHttpServer {
         '中转站网络服务不可用：${error.message}',
         apiStyle: _controller.settings.apiStyle,
       );
+    } on HttpException {
+      await _closeRequest(request);
     } on Object catch (error, stack) {
       silentLog('ai_model_proxy_http_server', '处理中转请求', error, stack);
       await _writeError(
@@ -1112,16 +1123,6 @@ class AiModelProxyHttpServer {
     Map<String, Object?>? requestBody,
     required bool includeUsage,
   }) async {
-    request.response
-      ..statusCode = 200
-      ..headers.contentType = ContentType(
-        'text',
-        'event-stream',
-        charset: 'utf-8',
-      )
-      ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
-      ..headers.set(HttpHeaders.connectionHeader, kConnectionKeepAlive);
-    _applyCorsHeaders(request, methods: _corsApiMethods);
     final id = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
     final created = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final chatStreamMetadata = <String, Object?>{
@@ -1139,79 +1140,89 @@ class AiModelProxyHttpServer {
       return _writeSse(request, payload);
     }
 
-    if (route == _ProxyRoute.chat) {
-      await writeSse(<String, Object?>{
-        'id': id,
-        'object': 'chat.completion.chunk',
-        'created': created,
-        'model': requestedModel,
-        ...chatStreamMetadata,
-        'choices': <Object?>[
-          <String, Object?>{
-            'index': 0,
-            'delta': <String, Object?>{'role': 'assistant'},
-            'finish_reason': null,
-          },
-        ],
-      });
-    } else if (route == _ProxyRoute.claude) {
-      await writeSse(<String, Object?>{
-        'type': 'message_start',
-        'message': <String, Object?>{
-          'id': id,
-          'type': 'message',
-          'role': 'assistant',
-          'model': requestedModel,
-          'content': const <Object?>[],
-          'stop_reason': null,
-          'stop_sequence': null,
-          'usage': const <String, Object?>{
-            'input_tokens': 0,
-            'output_tokens': 0,
-          },
-        },
-      });
-    } else if (route == _ProxyRoute.responses) {
-      await writeSse(<String, Object?>{
-        'type': 'response.created',
-        'response': <String, Object?>{
-          'id': id,
-          'object': 'response',
-          'created_at': created,
-          'status': 'in_progress',
-          'model': requestedModel,
-          'output': const <Object?>[],
-        },
-      });
-      await writeSse(<String, Object?>{
-        'type': 'response.in_progress',
-        'response': <String, Object?>{
-          'id': id,
-          'object': 'response',
-          'created_at': created,
-          'status': 'in_progress',
-          'model': requestedModel,
-          'output': const <Object?>[],
-        },
-      });
-    }
-    var nextClaudeBlockIndex = 0;
-    int? claudeTextBlockIndex;
-    int? claudeThinkingBlockIndex;
-    final claudeToolBlockIndexes = <int, int>{};
-    final responseToolArguments = <int, StringBuffer>{};
-    final responseToolIds = <int, String>{};
-    final responseToolNames = <int, String>{};
-    final responseToolOutputIndexes = <int, int>{};
-    final responseText = StringBuffer();
-    final responseReasoning = StringBuffer();
-    var nextResponseOutputIndex = 0;
-    int? responseTextOutputIndex;
-    int? responseReasoningOutputIndex;
-    var responseTextStarted = false;
-    var responseReasoningStarted = false;
-    final responseToolStarted = <int>{};
     try {
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType(
+          'text',
+          'event-stream',
+          charset: 'utf-8',
+        )
+        ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
+        ..headers.set(HttpHeaders.connectionHeader, kConnectionKeepAlive);
+      _applyCorsHeaders(request, methods: _corsApiMethods);
+      if (route == _ProxyRoute.chat) {
+        await writeSse(<String, Object?>{
+          'id': id,
+          'object': 'chat.completion.chunk',
+          'created': created,
+          'model': requestedModel,
+          ...chatStreamMetadata,
+          'choices': <Object?>[
+            <String, Object?>{
+              'index': 0,
+              'delta': <String, Object?>{'role': 'assistant'},
+              'finish_reason': null,
+            },
+          ],
+        });
+      } else if (route == _ProxyRoute.claude) {
+        await writeSse(<String, Object?>{
+          'type': 'message_start',
+          'message': <String, Object?>{
+            'id': id,
+            'type': 'message',
+            'role': 'assistant',
+            'model': requestedModel,
+            'content': const <Object?>[],
+            'stop_reason': null,
+            'stop_sequence': null,
+            'usage': const <String, Object?>{
+              'input_tokens': 0,
+              'output_tokens': 0,
+            },
+          },
+        });
+      } else if (route == _ProxyRoute.responses) {
+        await writeSse(<String, Object?>{
+          'type': 'response.created',
+          'response': <String, Object?>{
+            'id': id,
+            'object': 'response',
+            'created_at': created,
+            'status': 'in_progress',
+            'model': requestedModel,
+            'output': const <Object?>[],
+          },
+        });
+        await writeSse(<String, Object?>{
+          'type': 'response.in_progress',
+          'response': <String, Object?>{
+            'id': id,
+            'object': 'response',
+            'created_at': created,
+            'status': 'in_progress',
+            'model': requestedModel,
+            'output': const <Object?>[],
+          },
+        });
+      }
+      var nextClaudeBlockIndex = 0;
+      int? claudeTextBlockIndex;
+      int? claudeThinkingBlockIndex;
+      final claudeToolBlockIndexes = <int, int>{};
+      final responseToolArguments = <int, StringBuffer>{};
+      final responseToolIds = <int, String>{};
+      final responseToolNames = <int, String>{};
+      final responseToolOutputIndexes = <int, int>{};
+      final responseText = StringBuffer();
+      final responseReasoning = StringBuffer();
+      var nextResponseOutputIndex = 0;
+      int? responseTextOutputIndex;
+      int? responseReasoningOutputIndex;
+      var responseTextStarted = false;
+      var responseReasoningStarted = false;
+      final responseToolStarted = <int>{};
       await for (final event in dispatch.events) {
         switch (route) {
           case _ProxyRoute.chat:
@@ -1921,7 +1932,11 @@ class AiModelProxyHttpServer {
       if (!headOnly) {
         request.response.add(bytes);
       }
-      await request.response.close();
+      await flushHttpResponseBounded(
+        request.response,
+        timeout: _responseWriteTimeout,
+        close: true,
+      );
     } on Object {
       await _closeRequest(request);
     }
@@ -1964,7 +1979,11 @@ class AiModelProxyHttpServer {
       if (!headOnly) {
         request.response.add(bytes);
       }
-      await request.response.close();
+      await flushHttpResponseBounded(
+        request.response,
+        timeout: _responseWriteTimeout,
+        close: true,
+      );
     } on Object {
       await _closeRequest(request);
     }
@@ -2028,7 +2047,11 @@ class AiModelProxyHttpServer {
       if (!headOnly && !notModified) {
         request.response.add(bytes);
       }
-      await request.response.close();
+      await flushHttpResponseBounded(
+        request.response,
+        timeout: _responseWriteTimeout,
+        close: true,
+      );
     } on Object {
       await _closeRequest(request);
     }
@@ -2117,7 +2140,11 @@ class AiModelProxyHttpServer {
     if (status != 204) {
       await _writeUtf8Payload(request, jsonEncode(body), statusCode: status);
     }
-    await request.response.close();
+    await flushHttpResponseBounded(
+      request.response,
+      timeout: _responseWriteTimeout,
+      close: true,
+    );
   }
 
   Future<void> _writeUtf8Payload(
@@ -2132,7 +2159,12 @@ class AiModelProxyHttpServer {
       outboundBytes: bytes.length,
       statusCode: statusCode,
     );
-    if (flush) await request.response.flush();
+    if (flush) {
+      await flushHttpResponseBounded(
+        request.response,
+        timeout: _responseWriteTimeout,
+      );
+    }
   }
 
   Future<void> _writeError(
@@ -2145,7 +2177,8 @@ class AiModelProxyHttpServer {
     try {
       final style = apiStyle ?? _controller.settings.apiStyle;
       if (status == HttpStatus.requestTimeout ||
-          status == HttpStatus.requestEntityTooLarge) {
+          status == HttpStatus.requestEntityTooLarge ||
+          status == HttpStatus.tooManyRequests) {
         request.response.headers.set(
           HttpHeaders.connectionHeader,
           kConnectionClose,
@@ -2202,10 +2235,21 @@ class AiModelProxyHttpServer {
 
   Future<void> _closeRequest(HttpRequest request) async {
     try {
-      await request.response.close();
+      await flushHttpResponseBounded(
+        request.response,
+        timeout: _responseWriteTimeout,
+        close: true,
+      );
     } on Object {
       // 客户端提前断开时无需继续抛出异常。
     }
+  }
+
+  void _abortRequest(HttpRequest request) {
+    request.response.deadline = Duration.zero;
+    unawaited(
+      request.response.close().then<void>((_) {}, onError: (Object _) {}),
+    );
   }
 
   void _applyCorsHeaders(

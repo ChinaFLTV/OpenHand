@@ -660,3 +660,42 @@ fn json_enum<T: serde::Serialize>(value: T) -> anyhow::Result<String> {
         .unwrap_or_default()
         .to_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::HuntStore;
+
+    #[tokio::test]
+    async fn slow_mirror_does_not_lock_configuration() {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let url = format!(
+            "postgres://test:test@{}/test?sslmode=disable",
+            listener.local_addr().unwrap()
+        );
+        let directory = std::env::temp_dir().join(format!("openhand-mirror-{}", Uuid::new_v4()));
+        let store = HuntStore::open(&directory).await.unwrap();
+        *store.postgres.write().await = Some(PostgresMirror {
+            pool: PgPoolOptions::new().connect_lazy(&url).unwrap(),
+            available: Arc::new(AtomicBool::new(true)),
+        });
+        let mut querying = Box::pin(store.seen_urls(vec!["https://example.test/".to_owned()]));
+        let (connection, _) = tokio::time::timeout(Duration::from_secs(3), async {
+            tokio::select! {
+                result = listener.accept() => result.unwrap(),
+                result = &mut querying => panic!("镜像请求不应在连接完成前结束：{result:?}"),
+            }
+        })
+        .await
+        .expect("镜像请求应及时发起连接");
+        let unlocked = store.postgres.try_write().is_ok();
+        drop(querying);
+        drop(connection);
+        store.clear_postgres().await;
+        drop(store);
+        std::fs::remove_dir_all(directory).unwrap();
+        assert!(unlocked, "等待镜像响应时不能占用配置锁");
+    }
+}

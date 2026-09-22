@@ -9,16 +9,27 @@ Future<void> main() => runFlutterWidgetCheck(
 );
 
 const _checks = '''
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:openhand/app/model/dialog_animation_settings.dart';
+import 'package:openhand/app/state/settings_controller.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_expandable.dart';
+import 'package:openhand/shared/ui/animated_overlay.dart';
+import 'package:openhand/shared/ui/auto_follow_scroll_guard.dart';
+import 'package:openhand/shared/ui/choice_input_dialog.dart';
 import 'package:openhand/shared/ui/bounded_animation.dart';
 import 'package:openhand/shared/ui/list_removal_transition.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/openhand_image_reveal.dart';
 import 'package:openhand/shared/ui/openhand_hover_state.dart';
+import 'package:openhand/shared/ui/openhand_hover_overlay.dart';
+import 'package:openhand/shared/ui/openhand_file_hover_popup.dart';
 import 'package:openhand/shared/ui/openhand_reveal_switcher.dart';
 import 'package:openhand/shared/ui/openhand_snack_bar.dart';
 import 'package:openhand/shared/ui/spring_entrance.dart';
@@ -49,7 +60,196 @@ class _TrackedController extends AnimationController {
   }
 }
 
+class _MotionSettings extends ChangeNotifier implements SettingsController {
+  @override
+  DialogAnimationSettings chipAnimationSettings = OpenHandMotionDefaults.chip;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ObservedCancelFuture implements Future<void> {
+  _ObservedCancelFuture(this.future);
+  final Future<void> future;
+  int listeners = 0;
+  @override
+  Future<R> then<R>(FutureOr<R> Function(void) onValue, {Function? onError}) {
+    listeners++;
+    return future.then<R>(onValue, onError: onError);
+  }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  testWidgets('输入选择支持空闲、首帧前及被覆盖时取消', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(builder: (value) {
+        context = value;
+        return const SizedBox.shrink();
+      }),
+    ));
+    await tester.pumpAndSettle();
+    for (final phase in ['被覆盖', '空闲', '首帧前']) {
+      final cancellation = Completer<void>();
+      final result = showChoiceInputDialog(
+        context: context,
+        title: '等待取消的选择',
+        options: const [ChoiceInputOption(value: 'one', label: '唯一选项')],
+        cancelSignal: cancellation.future,
+      );
+      Future<void>? cover;
+      if (phase != '首帧前') await tester.pumpAndSettle();
+      if (phase == '被覆盖') {
+        await tester.pumpAndSettle();
+        cover = showAnimatedDialog<void>(
+          context: context,
+          builder: (_) => const Center(child: Text('上层弹窗')),
+        );
+        await tester.pumpAndSettle();
+      }
+      cancellation.complete();
+      await tester.idle();
+      if (phase == '空闲') expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      if (phase == '被覆盖') {
+        expect(find.text('上层弹窗'), findsOneWidget);
+        Navigator.of(context).pop();
+        await tester.pumpAndSettle();
+        await cover;
+      }
+      expect(await result, isNull);
+      expect(find.text('等待取消的选择'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+    final cancellation = Completer<void>();
+    final signal = _ObservedCancelFuture(cancellation.future);
+    for (var index = 0; index < 8; index++) {
+      final result = showChoiceInputDialog(
+        context: context,
+        title: '共享取消信号',
+        options: const [ChoiceInputOption(value: 'one', label: '唯一选项')],
+        cancelSignal: signal,
+      );
+      await tester.pumpAndSettle();
+      Navigator.of(context).pop();
+      await tester.pumpAndSettle();
+      await result;
+    }
+    expect(signal.listeners, 1);
+    final remaining = showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => const Center(child: Text('独立弹窗')),
+    );
+    await tester.pumpAndSettle();
+    cancellation.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('独立弹窗'), findsOneWidget);
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    await remaining;
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('自动贴底兼容零时长与负时长，空闲调度主动请求绘制帧', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final guard = AutoFollowScrollGuard();
+    await tester.pumpWidget(MaterialApp(home: ListView(
+      controller: controller,
+      children: const [SizedBox(height: 2000)],
+    )));
+    await tester.pumpAndSettle();
+    for (final duration in [Duration.zero, const Duration(milliseconds: -1)]) {
+      controller.jumpTo(0);
+      guard.followToBottom(controller, animated: true, animationDuration: duration);
+      expect(controller.offset, controller.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+    }
+    controller.jumpTo(0);
+    await tester.pumpAndSettle();
+    guard.scheduleFollowToBottom(controller);
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpAndSettle();
+    expect(controller.offset, controller.position.maxScrollExtent);
+  });
+
+  testWidgets('关闭动效的浮层仍响应独立可见性信号', (tester) async {
+    final visibility = ValueNotifier(true);
+    addTearDown(visibility.dispose);
+    await tester.pumpWidget(MaterialApp(home: AnimatedOverlayContent(
+      customSettings: OpenHandMotionDefaults.disabled,
+      visibility: visibility,
+      child: const Text('浮层内容'),
+    )));
+    visibility.value = false;
+    await tester.pump();
+    expect(find.text('浮层内容'), findsNothing);
+    visibility.value = true;
+    await tester.pump();
+    expect(find.text('浮层内容'), findsOneWidget);
+  });
+
+  testWidgets('悬停浮层同步内容与全局动效设置', (tester) async {
+    final settings = _MotionSettings();
+    addTearDown(settings.dispose);
+    var label = '初始内容';
+    late StateSetter rebuild;
+    await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(
+      value: settings,
+      child: MaterialApp(home: Center(child: StatefulBuilder(builder: (_, setState) {
+        rebuild = setState;
+        return OpenHandHoverOverlay(
+          showDelay: Duration.zero,
+          hideDelay: Duration.zero,
+          builder: (_, _) => Material(child: Text(label)),
+          child: const SizedBox(width: 100, height: 60, child: Text('悬停锚点')),
+        );
+      }))),
+    ));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(10, 10));
+    await mouse.moveTo(tester.getCenter(find.text('悬停锚点')));
+    await tester.pumpAndSettle();
+    expect(find.text('初始内容'), findsOneWidget);
+    rebuild(() => label = '最新内容');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('最新内容'), findsOneWidget);
+    settings.chipAnimationSettings = OpenHandMotionDefaults.disabled;
+    settings.notifyListeners();
+    await tester.pump();
+    await mouse.moveTo(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('最新内容'), findsNothing);
+    expect(tester.binding.transientCallbackCount, 0);
+    await mouse.removePointer();
+  });
+
+  testWidgets('文件提示在空闲快捷键操作时请求帧，松键取消待显示内容', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Center(child: OpenHandFileHoverPopup(
+      resolvedPath: '/不存在的悬停检查文件',
+      child: SizedBox(width: 100, height: 60, child: Text('文件锚点')),
+    ))));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(10, 10));
+    await mouse.moveTo(tester.getCenter(find.text('文件锚点')));
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AnimatedOverlayContent), findsNothing);
+    await mouse.removePointer();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('列表删除保留内容直至退场完成，失败恢复时连续展开', (tester) async {
     var collapsed = false;
     Widget content() => MaterialApp(home: Center(child: OpenHandListRemovalTransition(

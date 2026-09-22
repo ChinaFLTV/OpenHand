@@ -305,7 +305,7 @@ class _AnimatedOverlayEntrySession {
 
 /// 为悬停浮窗、工具提示和自动补全面板等浮层提供进退场动画。
 ///
-/// 动效一律取自全局菜单动画设置；[customSettings] 供已自行解析过设置的宿主
+/// 动效默认取自全局菜单动画设置；[customSettings] 供已自行解析过设置的宿主
 /// 透传，不提供绕过全局设置的固定时长通道。
 ///
 /// 所有者移除 [OverlayEntry] 时应传入 [visibility] 和 [onExitCompleted]；
@@ -316,14 +316,16 @@ class AnimatedOverlayContent extends StatefulWidget {
     required this.child,
     this.alignment = Alignment.center,
     this.customSettings,
+    this.motionScope = OpenHandMotionSettingsScope.menu,
     this.visibility,
     this.onExitCompleted,
   });
 
   final Widget child;
 
-  /// 已由宿主解析好的动画设置；为空时读取全局菜单动画设置。
+  /// 已由宿主解析好的动画设置；为空时持续跟随 [motionScope] 对应的全局设置。
   final DialogAnimationSettings? customSettings;
+  final OpenHandMotionSettingsScope motionScope;
 
   final Alignment alignment;
 
@@ -384,6 +386,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       _cancelExitCompletion();
     }
     if (oldWidget.customSettings != widget.customSettings ||
+        oldWidget.motionScope != widget.motionScope ||
         oldWidget.alignment != widget.alignment ||
         oldWidget.visibility != widget.visibility ||
         oldWidget.onExitCompleted != widget.onExitCompleted) {
@@ -393,10 +396,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
 
   DialogAnimationSettings _resolveSettings() {
     return widget.customSettings ??
-        openHandMotionSettingsFallbackOf(
-          context,
-          OpenHandMotionSettingsScope.menu,
-        );
+        openHandMotionSettingsFallbackOf(context, widget.motionScope);
   }
 
   void _bindSettingsController() {
@@ -452,7 +452,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       _exitCompletionDelivered = false;
     }
     if (_animationsDisabled) {
-      _controller.value = _isVisible ? 1.0 : 0.0;
+      setState(() => _controller.value = _isVisible ? 1.0 : 0.0);
       if (!_isVisible) {
         _scheduleExitCompletion();
       }

@@ -8,17 +8,17 @@ import { DialogGlyph } from '../../../components/DialogChrome';
 import {
   type PluginSummary,
   type PluginStatus,
+  type PluginAction,
   listPlugins,
   pluginDiagnostics,
-  installPlugin,
-  updatePlugin,
-  uninstallPlugin,
+  performPluginAction,
   rescanPlugins,
   checkPluginUpdate,
 } from '../../../api/plugins';
 import { useDialogMotionDurations } from '../../../hooks/useDialogMotionSettings';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
+import { useAsyncAction } from '../../../hooks/useAsyncAction';
 import { t } from '../../../i18n';
 import { showSnackbar } from '../../../components/Snackbar';
 import { describeApiError } from '../../../utils/api_error';
@@ -35,6 +35,10 @@ import {
 import { templateAssociationLabel } from '../../../shared/util/template_association';
 
 const PLUGINS_POLL_INTERVAL_MS = 5_000;
+
+type PluginOperation =
+  | { kind: 'rescan' }
+  | { kind: 'action' | 'check'; pluginId: string };
 
 function statusBadge(status: PluginStatus): { color: string; bg: string; label: string } {
   switch (status) {
@@ -156,32 +160,30 @@ export function PluginsPage() {
   const [plugins, setPlugins] = useState<PluginSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [operating, setOperating] = useState<string | null>(null);
-  const [checkingUpdate, setCheckingUpdate] = useState<string | null>(null);
+  const { pending, run } = useAsyncAction<PluginOperation>();
+  const revisionRef = useRef(0);
   const [diagnosticTarget, setDiagnosticTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     pluginId: string;
     pluginName: string;
-    action: 'install' | 'update' | 'uninstall';
+    action: PluginAction;
   } | null>(null);
 
-  const fetchPlugins = async (
-    isActive: () => boolean = () => true,
-    signal?: AbortSignal,
-  ) => {
+  useAsyncPolling(async (isActive, signal) => {
+    const revision = revisionRef.current;
+    const isCurrent = () => isActive() && revision === revisionRef.current;
     try {
       const result = await listPlugins({ signal });
-      if (!isActive()) return;
+      if (!isCurrent()) return;
       setPlugins(result.items);
       setError(null);
     } catch (err) {
-      if (isActive()) setError(describeApiError(err));
+      if (isCurrent()) setError(describeApiError(err));
     } finally {
-      if (isActive()) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  };
-
-  useAsyncPolling(fetchPlugins, {
+  }, {
+    immediate: pending === null,
     intervalMs: PLUGINS_POLL_INTERVAL_MS,
     onError: (err) => {
       setError(describeApiError(err));
@@ -189,47 +191,59 @@ export function PluginsPage() {
     },
   });
 
-  const handleAction = async (pluginId: string, action: 'install' | 'update' | 'uninstall') => {
-    setOperating(pluginId);
-    try {
-      const fn = action === 'install' ? installPlugin
-        : action === 'update' ? updatePlugin
-        : uninstallPlugin;
-      const result = await fn(pluginId);
+  // 插件共享依赖，变更串行执行；保留进度轮询，完成后立即刷新最终状态。
+  const runOperation = <T,>(
+    operation: PluginOperation,
+    request: (signal: AbortSignal) => Promise<T>,
+    applyResult: (result: T) => void,
+  ) => run(operation,
+    async (signal) => {
+      revisionRef.current += 1;
+      try {
+        return await request(signal);
+      } finally {
+        revisionRef.current += 1;
+      }
+    },
+    (result) => {
+      setError(null);
+      applyResult(result);
+    },
+    (error) => showSnackbar(describeApiError(error), { tone: 'error' }),
+  );
+
+  const handleAction = (pluginId: string, action: PluginAction) => runOperation(
+    { kind: 'action', pluginId },
+    (signal) => performPluginAction(pluginId, action, { signal }),
+    (result) => {
       if (result.success) {
         showSnackbar(result.message || t('plugins.actionSuccess', '操作成功'), { tone: 'success' });
       } else {
         showSnackbar(result.message || t('plugins.actionFailed', '操作失败'), { tone: 'error' });
       }
-      await fetchPlugins();
-    } catch (err) {
-      showSnackbar(describeApiError(err), { tone: 'error' });
-    } finally {
-      setOperating(null);
-    }
-  };
+    },
+  );
 
-  const handleRescan = async () => {
-    setLoading(true);
-    try {
-      const result = await rescanPlugins();
+  const handleRescan = () => runOperation(
+    { kind: 'rescan' },
+    (signal) => rescanPlugins({ signal }),
+    (result) => {
       setPlugins(result.items);
-      showSnackbar(t('plugins.rescanDone', '扫描完成'), { tone: 'success' });
-    } catch (err) {
-      showSnackbar(describeApiError(err), { tone: 'error' });
-    } finally {
       setLoading(false);
-    }
-  };
+      showSnackbar(t('plugins.rescanDone', '扫描完成'), { tone: 'success' });
+    },
+  );
 
-  const handleCheckUpdate = async (pluginId: string) => {
-    setCheckingUpdate(pluginId);
-    try {
-      const result = await checkPluginUpdate(pluginId);
+  const handleCheckUpdate = (pluginId: string) => runOperation(
+    { kind: 'check', pluginId },
+    (signal) => checkPluginUpdate(pluginId, { signal }),
+    (result) => {
       setPlugins((current) => current?.map((plugin) =>
         plugin.id === pluginId ? result.item : plugin,
       ) ?? current);
-      if (result.item.has_update && result.item.latest_version) {
+      if (!result.success) {
+        showSnackbar(result.message || t('plugins.actionFailed', '操作失败'), { tone: 'error' });
+      } else if (result.item.has_update && result.item.latest_version) {
         showSnackbar(
           t('plugins.updateFound', `发现新版本：${result.item.latest_version}`),
           { tone: 'success' },
@@ -240,12 +254,8 @@ export function PluginsPage() {
           { tone: 'success' },
         );
       }
-    } catch (err) {
-      showSnackbar(describeApiError(err), { tone: 'error' });
-    } finally {
-      setCheckingUpdate(null);
-    }
-  };
+    },
+  );
 
   const confirmActionLabel = confirmAction
     ? confirmAction.action === 'install'
@@ -288,7 +298,7 @@ export function PluginsPage() {
               color: 'var(--m3-primary)',
             }}
             onClick={() => void handleRescan()}
-            disabled={loading || !!operating}
+            disabled={loading || pending !== null}
           >
             {t('plugins.rescan', '重新扫描')}
           </button>
@@ -306,9 +316,8 @@ export function PluginsPage() {
             <ul class="space-y-3">
               {plugins.map((plugin, idx) => {
                 const badge = statusBadge(plugin.status);
-                const isChecking = checkingUpdate === plugin.id;
-                const isBusy = operating === plugin.id ||
-                  isChecking ||
+                const isChecking = pending?.kind === 'check' && pending.pluginId === plugin.id;
+                const isBusy = pending !== null ||
                   plugin.status === 'installing' ||
                   plugin.status === 'updating' ||
                   plugin.status === 'uninstalling';
@@ -500,6 +509,8 @@ export function PluginsPage() {
           body={confirmActionBody}
           confirmLabel={confirmActionLabel}
           danger={confirmAction.action === 'uninstall'}
+          busy={pending !== null}
+          closeOnConfirm
           onConfirm={() => {
             const { pluginId, action } = confirmAction;
             setConfirmAction(null);

@@ -65,12 +65,7 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
       _hideImmediately();
       return;
     }
-    if (_overlay.hasEntry &&
-        (oldWidget.maxWidth != widget.maxWidth ||
-            oldWidget.maxHeight != widget.maxHeight ||
-            oldWidget.motionScope != widget.motionScope)) {
-      _overlay.markNeedsBuild();
-    }
+    _overlay.markNeedsBuild();
   }
 
   @override
@@ -168,10 +163,6 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
     VoidCallback onExitCompleted,
   ) {
     if (!mounted) return const SizedBox.shrink();
-    final settings = openHandMotionSettingsOf(
-      overlayContext,
-      widget.motionScope,
-    );
     final maxWidth = widget.maxWidth.isFinite && widget.maxWidth > 0
         ? widget.maxWidth
         : kOpenHandHoverOverlayDefaultWidth;
@@ -196,7 +187,7 @@ class _OpenHandHoverOverlayState extends State<OpenHandHoverOverlay> {
           _showAbove ? -kOpenHandHoverOverlayGap : kOpenHandHoverOverlayGap,
         ),
         child: AnimatedOverlayContent(
-          customSettings: settings,
+          motionScope: widget.motionScope,
           visibility: visibility,
           onExitCompleted: onExitCompleted,
           alignment: overlayAlignment,

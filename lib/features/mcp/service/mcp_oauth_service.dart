@@ -4,12 +4,12 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/core/managed_change_notifier.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_response_utils.dart';
@@ -49,7 +49,7 @@ class McpOAuthRequiredException extends McpToolDiscoveryException {
 }
 
 /// 凭证独立保存在本机数据库，不写入 MCP 配置或导出文件。
-class McpOAuthService extends ChangeNotifier {
+class McpOAuthService extends ManagedChangeNotifier {
   McpOAuthService({
     Future<Map<String, dynamic>?> Function(String)? read,
     Future<void> Function(String, Map<String, dynamic>?)? write,
@@ -71,9 +71,42 @@ class McpOAuthService extends ChangeNotifier {
   final _refreshes = <String, Future<Map<String, dynamic>>>{};
   final _pending = <String, Completer<String>>{};
   final _authorizationClients = <String, http.Client>{};
+  final _clients = <http.Client>{};
   final _rejected = <String>{};
   final _invalidations = <String, int>{};
   final _challenges = <String, String>{};
+
+  void _ensureActive() {
+    if (isDisposed) throw StateError('MCP OAuth 服务已释放。');
+  }
+
+  http.Client _createClient() {
+    _ensureActive();
+    final client = _clientFactory();
+    _clients.add(client);
+    return client;
+  }
+
+  void _closeClient(http.Client client) {
+    if (_clients.remove(client)) client.close();
+  }
+
+  @override
+  void dispose() {
+    if (isDisposed) return;
+    super.dispose();
+    for (final completion in _pending.values) {
+      if (!completion.isCompleted) {
+        completion.completeError(StateError('MCP OAuth 服务已释放。'));
+      }
+    }
+    for (final client in _clients.toList(growable: false)) {
+      _closeClient(client);
+    }
+    _records.clear();
+    _rejected.clear();
+    _challenges.clear();
+  }
 
   static Future<Map<String, dynamic>?> _readDatabase(String key) async {
     final rows = await DatabaseService.instance.database.query(
@@ -108,10 +141,14 @@ class McpOAuthService extends ChangeNotifier {
   }
 
   Future<void> load(McpServer server) async {
+    _ensureActive();
     final key = server.oauthKey;
     if (_records.containsKey(key)) return;
     await (_loads[key] ??= (() async {
+      final generation = _invalidations[key];
       final record = await _read(key);
+      _ensureActive();
+      if (_invalidations[key] != generation) return;
       if (_records.length >= kMcpMaxServerCount) {
         final evict = _records.keys
             .where(
@@ -194,6 +231,7 @@ class McpOAuthService extends ChangeNotifier {
     McpServer server,
     Map<String, String> headers,
   ) async {
+    _ensureActive();
     if (!server.usesOAuth) return headers;
     await load(server);
     final key = server.oauthKey;
@@ -235,6 +273,7 @@ class McpOAuthService extends ChangeNotifier {
           final expired = {...previous, 'expires_at': 0, 'refresh_at': 0}
             ..remove('refresh_token');
           await _write(server.oauthKey, expired);
+          _ensureActive();
           _records[server.oauthKey] = expired;
           notifyListeners();
         }
@@ -244,6 +283,7 @@ class McpOAuthService extends ChangeNotifier {
   }
 
   void rejected(Uri uri, Map<String, String> headers, String? challenge) {
+    if (isDisposed) return;
     if (challenge != null) {
       if (_challenges.length >= kMcpMaxServerCount) {
         _challenges.remove(_challenges.keys.first);
@@ -266,7 +306,7 @@ class McpOAuthService extends ChangeNotifier {
     McpServer server,
     Map<String, dynamic> previous,
   ) async {
-    final client = _clientFactory();
+    final client = _createClient();
     final generation = _invalidations[server.oauthKey];
     try {
       final token = await _token(client, previous, {
@@ -274,16 +314,22 @@ class McpOAuthService extends ChangeNotifier {
         'refresh_token': previous['refresh_token'] as String,
         'resource': previous['resource'] as String? ?? server.url.trim(),
       });
+      _ensureActive();
       if (_invalidations[server.oauthKey] != generation) {
         throw const McpOAuthRequiredException('授权已变更，请重试。');
       }
       final record = {...previous, ...token};
       await _write(server.oauthKey, record);
+      _ensureActive();
+      if (_invalidations[server.oauthKey] != generation) {
+        throw const McpOAuthRequiredException('授权已变更，请重试。');
+      }
       _records[server.oauthKey] = record;
       _rejected.remove(server.oauthKey);
       notifyListeners();
       return record;
     } on _OAuthHttpError catch (error) {
+      _ensureActive();
       if (_invalidations[server.oauthKey] != generation) {
         throw const McpOAuthRequiredException('授权已变更，请重试。');
       }
@@ -291,6 +337,10 @@ class McpOAuthService extends ChangeNotifier {
         final record = {...previous, 'expires_at': 0, 'refresh_at': 0}
           ..remove('refresh_token');
         await _write(server.oauthKey, record);
+        _ensureActive();
+        if (_invalidations[server.oauthKey] != generation) {
+          throw const McpOAuthRequiredException('授权已变更，请重试。');
+        }
         _records[server.oauthKey] = record;
         _rejected.add(server.oauthKey);
         notifyListeners();
@@ -298,11 +348,12 @@ class McpOAuthService extends ChangeNotifier {
       }
       rethrow;
     } finally {
-      client.close();
+      _closeClient(client);
     }
   }
 
   void cancel(McpServer server) {
+    if (isDisposed) return;
     final pending = _pending[server.oauthKey];
     if (pending == null) return;
     _invalidations.update(
@@ -310,13 +361,15 @@ class McpOAuthService extends ChangeNotifier {
       (value) => value + 1,
       ifAbsent: () => 1,
     );
-    _authorizationClients[server.oauthKey]?.close();
+    final client = _authorizationClients[server.oauthKey];
+    if (client != null) _closeClient(client);
     if (!pending.isCompleted) {
       pending.completeError(const McpOAuthRequiredException('已取消 OAuth 授权。'));
     }
   }
 
   Future<void> forget(McpServer server) async {
+    _ensureActive();
     cancel(server);
     _invalidations.update(
       server.oauthKey,
@@ -327,7 +380,9 @@ class McpOAuthService extends ChangeNotifier {
       (_) {},
       onError: (Object _) {},
     );
+    _ensureActive();
     await _write(server.oauthKey, null);
+    _ensureActive();
     _records[server.oauthKey] = null;
     _rejected.remove(server.oauthKey);
     notifyListeners();
@@ -337,31 +392,31 @@ class McpOAuthService extends ChangeNotifier {
     McpServer server, {
     McpOAuthCallbackPage? callbackPage,
   }) async {
+    _ensureActive();
     final key = server.oauthKey;
     if (_pending.containsKey(key)) return;
     if (_pending.length >= 4) {
       throw const McpOAuthRequiredException('请先完成正在进行的授权。');
     }
+    final client = _createClient();
     _invalidations.update(key, (value) => value + 1, ifAbsent: () => 1);
     final generation = _invalidations[key];
     final completion = Completer<String>();
     _pending[key] = completion;
     // 立即监听取消与超时，防止发现端点阶段出现未处理的异步错误。
     final codeFuture = completion.future.timeout(_authorizationTimeout);
-    unawaited(codeFuture.then<void>((_) {}, onError: (Object _) {}));
-    final client = _clientFactory();
     _authorizationClients[key] = client;
     final deadline = startSafeTimer(_authorizationTimeout, () {
       if (!completion.isCompleted) {
         completion.completeError(TimeoutException('授权超时'));
       }
-      client.close();
+      _closeClient(client);
     });
     unawaited(
       codeFuture.then<void>(
         (_) {},
         onError: (Object _) {
-          client.close();
+          _closeClient(client);
         },
       ),
     );
@@ -370,6 +425,7 @@ class McpOAuthService extends ChangeNotifier {
     notifyListeners();
     try {
       await _refreshes[key]?.then<void>((_) {}, onError: (Object _) {});
+      _ensureActive();
       if (completion.isCompleted) await codeFuture;
       final resource = _safeUri(server.url.trim());
       final metadata = await _discover(client, resource);
@@ -427,9 +483,15 @@ class McpOAuthService extends ChangeNotifier {
           ),
         );
         try {
-          await request.response.close();
-        } on SocketException {
+          await flushHttpResponseBounded(
+            request.response,
+            timeout: _requestTimeout,
+            close: true,
+          );
+        } on IOException {
           /* 浏览器提前断开不影响已经收到的授权结果。 */
+        } on TimeoutException {
+          /* 写出超时已断开连接，授权结果保持不变。 */
         }
       });
       var registration = <String, dynamic>{
@@ -512,10 +574,12 @@ class McpOAuthService extends ChangeNotifier {
         'redirect_uri': redirect,
         'resource': metadata['_resource'] as String,
       });
+      _ensureActive();
       if (_invalidations[key] != generation) {
         throw const McpOAuthRequiredException('已取消 OAuth 授权。');
       }
       await _write(key, {...record, ...tokens});
+      _ensureActive();
       if (_invalidations[key] != generation) {
         await _write(key, null);
         throw const McpOAuthRequiredException('已取消 OAuth 授权。');
@@ -529,7 +593,7 @@ class McpOAuthService extends ChangeNotifier {
       deadline.cancel();
       await subscription?.cancel();
       await listener?.close(force: true);
-      client.close();
+      _closeClient(client);
       _pending.remove(key);
       _authorizationClients.remove(key);
       notifyListeners();
@@ -691,6 +755,7 @@ class McpOAuthService extends ChangeNotifier {
     bool jsonBody = false,
     Map<String, String> headers = const {},
   }) async {
+    _ensureActive();
     final request = http.Request(body == null ? 'GET' : 'POST', uri)
       ..followRedirects = false;
     request.headers.addAll({'Accept': 'application/json', ...headers});

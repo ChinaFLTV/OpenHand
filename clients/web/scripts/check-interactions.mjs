@@ -8,6 +8,8 @@ const hooksId = '\0交互检查钩子';
 const locationId = '\0交互检查路由';
 const noticesId = '\0交互检查通知';
 const workspaceId = '\0交互检查工作区';
+const pluginsId = '\0交互检查插件';
+const preferencesId = '\0交互检查偏好';
 const server = await createServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -24,10 +26,31 @@ const server = await createServer({
       if (source === 'preact/hooks' || source === hooksId) return hooksId;
       if (source.endsWith('/components/Snackbar') || source === noticesId) return noticesId;
       if (source.endsWith('/api/workspace') || source === workspaceId) return workspaceId;
+      if (source.endsWith('/api/plugins') || source === pluginsId) return pluginsId;
+      if (source.endsWith('/api/preferences') || source === preferencesId) return preferencesId;
     },
     load(id) {
       if (id === locationId) return 'export const routes = []; export function useLocation() { return { route: (...args) => routes.push(args) }; }';
       if (id === noticesId) return 'export const notices = []; export function showSnackbar(message) { notices.push(message); }';
+      if (id === preferencesId) return `
+        export const requests = [];
+        function request(kind, args) {
+          return new Promise((resolve, reject) => requests.push({ kind, args, resolve, reject }));
+        }
+        export const fetchPreferences = (...args) => request('load', args);
+        export const updatePreferences = (...args) => request('save', args);
+      `;
+      if (id === pluginsId) return `
+        export const requests = [];
+        function request(kind, args) {
+          return new Promise((resolve, reject) => requests.push({ kind, args, resolve, reject }));
+        }
+        export const listPlugins = (...args) => request('list', args);
+        export const performPluginAction = (...args) => request('action', args);
+        export const rescanPlugins = (...args) => request('rescan', args);
+        export const checkPluginUpdate = (...args) => request('check', args);
+        export const pluginDiagnostics = plugin => plugin.diagnostics ?? [];
+      `;
       if (id === workspaceId) return `
         export const requests = [];
         function request(kind, args) {
@@ -356,9 +379,8 @@ try {
   assert.equal(runs[0].isActive(), false, '旧任务不能更新新配置的页面');
   runs[0].resolve();
   await settle();
-  assert.equal(timers.size, 1, '旧任务结束后只恢复一个轮询计时器');
-  await tick(750);
-  assert.equal(runs.length, 2, '旧任务结束后必须按最新配置恢复轮询');
+  assert.equal(timers.size, 1, '旧任务结束后只能保留新任务的超时计时器');
+  assert.equal(runs.length, 2, '旧任务结束后必须补执行尚未启动的立即刷新');
   await tick(1000);
   assert.equal(pollingErrors.length, 1, '任务超时必须报告一次');
   assert.equal(runs[1].signal.aborted, true);
@@ -369,16 +391,20 @@ try {
   assert.equal(runs.length, 2, '超时后改配置仍不能绕过运行门闩');
   runs[1].resolve();
   await settle();
-  await tick(900);
-  assert.equal(runs.length, 3);
-  hooks.unmount();
+  assert.equal(runs.length, 3, '超时旧任务退出后不能把待执行的立即刷新推迟到下一周期');
   runs[2].resolve();
+  await settle();
+  assert.equal(runs.length, 3, '完成立即刷新后必须恢复正常间隔，不能形成无延迟轮询');
+  await tick(900);
+  assert.equal(runs.length, 4);
+  hooks.unmount();
+  runs[3].resolve();
   await settle();
   assert.equal(timers.size, 0, '卸载必须清除计时器且阻止迟到任务重新调度');
   renderPoll();
   hooks.unmount();
   await settle();
-  assert.equal(runs.length, 3, '开始前卸载不得启动底层轮询任务');
+  assert.equal(runs.length, 4, '开始前卸载不得启动底层轮询任务');
   const { routes } = await server.ssrLoadModule(locationId);
   const { useAnimatedLocation } = await server.ssrLoadModule('/src/hooks/useAnimatedLocation.ts');
   const transitionRoot = { dataset: {}, removeAttribute() {} };
@@ -696,7 +722,209 @@ try {
     assert.equal(notices.length, mutationNotices, '卸载后的创建或删除结果不得继续显示通知');
     assert.equal(workspaceRequests.length, mutationRequests, '卸载后的创建或删除不得重新请求列表');
   }
-  console.log('[交互检查] 决策草稿、手势、轮询、浮层退场及文件并发状态检查通过。');
+  browser.setTimeout = (callback, delay) => {
+    const id = ++timerId;
+    timers.set(id, { callback, delay });
+    return id;
+  };
+  browser.clearTimeout = id => timers.delete(id);
+  const { PluginsPage } = await server.ssrLoadModule('/src/features/plugins/components/PluginsPage.tsx');
+  const { requests: pluginRequests } = await server.ssrLoadModule(pluginsId);
+  let pluginsPage;
+  const renderPlugins = () => { pluginsPage = hooks.render(PluginsPage); };
+  const pluginNodes = predicate => nodes(pluginsPage, predicate);
+  const pluginButton = label => pluginNodes(node => node.type === 'button' && (
+    node.props.children === label || Array.isArray(node.props.children) && node.props.children.includes(label)
+  ))[0];
+  const latestPluginRequest = kind => pluginRequests.findLast(request => request.kind === kind);
+  const plugin = {
+    id: 'python', name: 'Python', description: '', status: 'installed', enabled: true,
+    installed_version: '3.12', latest_version: null, dependencies: [], dependents: [],
+    supports_uninstall: true, has_update: false, template_associations: [],
+  };
+  const pluginVersions = () => pluginNodes(node => node.type === 'code').map(node => node.props.children);
+  renderPlugins();
+  await settle();
+  latestPluginRequest('list').resolve({ items: [plugin] });
+  await settle();
+  renderPlugins();
+  await tick(5000);
+  const stalePluginPoll = latestPluginRequest('list');
+  const checkUpdate = pluginButton('检查更新').props.onClick;
+  checkUpdate();
+  checkUpdate();
+  assert.equal(pluginRequests.filter(request => request.kind === 'check').length, 1, '插件检查更新必须阻止同帧重复提交');
+  stalePluginPoll.resolve({ items: [{ ...plugin, installed_version: '旧版本' }] });
+  await settle();
+  renderPlugins();
+  assert.ok(!pluginVersions().includes('旧版本'), '开始插件操作后不能接受尚未取消的旧轮询快照');
+  assert.equal(pluginButton('重新扫描').props.disabled, true, '检查更新期间不能并发扫描共享插件状态');
+  latestPluginRequest('check').resolve({ success: false, item: plugin, message: '检查更新失败' });
+  await settle();
+  renderPlugins();
+  assert.equal(notices.at(-1), '检查更新失败', '服务端检查更新失败不得显示未发现新版本');
+  await settle();
+  latestPluginRequest('list').resolve({ items: [plugin] });
+  await settle();
+  renderPlugins();
+
+  for (const kind of ['rescan', 'check']) {
+    pluginButton(kind === 'rescan' ? '重新扫描' : '检查更新').props.onClick();
+    renderPlugins();
+    await tick(5000);
+    const pollDuringOperation = latestPluginRequest('list');
+    const updatedPlugin = { ...plugin, installed_version: '操作新版本' };
+    latestPluginRequest(kind).resolve(kind === 'rescan'
+      ? { items: [updatedPlugin] }
+      : { success: true, item: updatedPlugin });
+    await settle();
+    renderPlugins();
+    await settle();
+    assert.equal(latestPluginRequest('list'), pollDuringOperation, '立即刷新必须等待忽略取消的旧轮询释放门闩');
+    pollDuringOperation.resolve({ items: [{ ...plugin, installed_version: '操作期间旧版本' }] });
+    await settle();
+    renderPlugins();
+    assert.ok(pluginVersions().includes('操作新版本'), '操作完成后必须屏蔽此前发起的轮询快照');
+    await settle();
+    assert.notEqual(latestPluginRequest('list'), pollDuringOperation, '操作结束必须立即重新读取最终状态');
+    latestPluginRequest('list').resolve({ items: [plugin] });
+    await settle();
+    renderPlugins();
+  }
+
+  pluginButton('卸载').props.onClick();
+  renderPlugins();
+  pluginNodes(node => node.props.confirmLabel === '确认卸载')[0].props.onConfirm();
+  renderPlugins();
+  await tick(5000);
+  latestPluginRequest('list').resolve({ items: [{ ...plugin, status: 'uninstalling' }] });
+  await settle();
+  renderPlugins();
+  assert.ok(pluginNodes(node => node.type === 'span' && node.props.children === '卸载中…').length > 0, '长操作期间仍需轮询并展示真实进度');
+  const progressRequest = latestPluginRequest('list');
+  latestPluginRequest('action').resolve({ success: true });
+  await settle();
+  renderPlugins();
+  await settle();
+  assert.notEqual(latestPluginRequest('list'), progressRequest, '插件变更结束后必须立即刷新最终状态');
+  latestPluginRequest('list').resolve({ items: [plugin] });
+  await settle();
+  renderPlugins();
+
+  for (const kind of ['rescan', 'action', 'check']) {
+    const operationsBefore = pluginRequests.filter(request => request.kind === kind).length;
+    if (kind === 'rescan') {
+      const rescan = pluginButton('重新扫描').props.onClick;
+      rescan();
+      rescan();
+    } else if (kind === 'action') {
+      pluginButton('卸载').props.onClick();
+      renderPlugins();
+      const confirmation = pluginNodes(node => node.props.confirmLabel === '确认卸载')[0];
+      confirmation.props.onConfirm();
+      confirmation.props.onConfirm();
+    } else {
+      pluginButton('检查更新').props.onClick();
+    }
+    const pendingOperation = latestPluginRequest(kind);
+    assert.ok(pendingOperation);
+    assert.equal(pluginRequests.filter(request => request.kind === kind).length, operationsBefore + 1, '插件操作不能同帧重复提交');
+    renderPlugins();
+    const signal = pendingOperation.args[kind === 'rescan' ? 0 : kind === 'action' ? 2 : 1].signal;
+    const noticesBeforePluginUnmount = notices.length;
+    const requestsBeforePluginUnmount = pluginRequests.length;
+    hooks.unmount();
+    assert.equal(signal.aborted, true, '卸载插件页必须取消所有用户操作请求');
+    pendingOperation.resolve(kind === 'rescan' ? { items: [plugin] } : kind === 'check'
+      ? { success: true, item: { ...plugin, has_update: true, latest_version: '3.14' } }
+      : { success: true, message: '迟到成功' });
+    await settle();
+    assert.equal(notices.length, noticesBeforePluginUnmount, '插件页卸载后不得显示迟到操作通知');
+    assert.equal(pluginRequests.length, requestsBeforePluginUnmount, '插件页卸载后不得重新发起刷新请求');
+    assert.equal(timers.size, 0, '插件页卸载后必须释放轮询计时器');
+    if (kind !== 'check') {
+      renderPlugins();
+      await settle();
+      latestPluginRequest('list').resolve({ items: [plugin] });
+      await settle();
+      renderPlugins();
+    }
+  }
+  documentSurface.documentElement.dataset = {};
+  documentSurface.documentElement.style = { setProperty() {} };
+  const { SettingsPage } = await server.ssrLoadModule('/src/features/settings/components/SettingsPage.tsx');
+  const { requests: preferenceRequests } = await server.ssrLoadModule(preferencesId);
+  const { isReducedMotion } = await server.ssrLoadModule('/src/hooks/useReducedMotion.ts');
+  const { getDialogEnterDurationMs } = await server.ssrLoadModule('/src/hooks/useDialogMotionSettings.ts');
+  let settingsPage;
+  const renderSettings = () => { settingsPage = hooks.render(SettingsPage); };
+  const settingsNodes = predicate => nodes(settingsPage, predicate);
+  const refreshSettings = () => settingsNodes(node => node.props.actionSlot)[0].props.actionSlot;
+  const motionInput = () => settingsNodes(node => node.type === 'input' && node.props.type === 'checkbox')[0];
+  const languageMenu = () => settingsNodes(node => node.props.ariaLabel === '界面语言')[0];
+  const preferences = {
+    reduce_motion: false, locale: 'zh', language_storage_value: 'zh_Hans',
+    memory_enabled: true, ai_message_compression_threshold_chars: 10000,
+    dialog_animation_settings: { duration_ms: 360 },
+    limits: { ai_message_compression_threshold_chars_min: 2000, ai_message_compression_threshold_chars_max: 1000000 },
+    language_options: ['zh_Hans', 'en'],
+  };
+  renderSettings();
+  preferenceRequests.at(-1).reject(new Error('初次加载失败'));
+  await settle();
+  renderSettings();
+  assert.equal(refreshSettings().props.disabled, false, '偏好加载失败后必须允许刷新重试');
+  const refresh = refreshSettings().props.onClick;
+  refresh();
+  refresh();
+  assert.equal(preferenceRequests.length, 2, '偏好刷新必须阻止同帧重复提交');
+  preferenceRequests.at(-1).resolve(preferences);
+  await settle();
+  renderSettings();
+  assert.equal(motionInput().props.checked, false);
+  const changeMotion = motionInput().props.onChange;
+  const changeLanguage = languageMenu().props.onChange;
+  changeMotion({ currentTarget: { checked: true } });
+  changeMotion({ currentTarget: { checked: true } });
+  changeLanguage('en');
+  assert.equal(preferenceRequests.length, 3, '偏好保存必须串行执行，避免不同字段响应互相覆盖');
+  renderSettings();
+  assert.equal(languageMenu().props.disabled, true, '保存期间必须禁用其他远程偏好输入');
+  assert.equal(refreshSettings().props.disabled, true, '保存期间不能并发刷新全量设置');
+  preferenceRequests.at(-1).resolve({ ...preferences, reduce_motion: true });
+  await settle();
+  renderSettings();
+  assert.equal(isReducedMotion(), true, '有效保存必须同步全局动效状态');
+  assert.equal(motionInput().props.checked, true);
+  assert.equal(languageMenu().props.disabled, false, '保存结束后必须恢复其他设置输入');
+
+  for (const operation of ['refresh', 'load', 'save']) {
+    if (operation === 'load') renderSettings();
+    else if (operation === 'refresh') refreshSettings().props.onClick();
+    else {
+      renderSettings();
+      preferenceRequests.at(-1).resolve({ ...preferences, reduce_motion: true });
+      await settle();
+      renderSettings();
+      motionInput().props.onChange({ currentTarget: { checked: false } });
+    }
+    const request = preferenceRequests.at(-1);
+    const signal = request.args[operation === 'save' ? 1 : 0].signal;
+    const noticesBeforeSettingsUnmount = notices.length;
+    hooks.unmount();
+    assert.equal(signal.aborted, true, '设置页卸载必须中止加载、刷新及保存请求');
+    if (operation === 'save') request.reject(new Error('迟到保存失败'));
+    else request.resolve({ ...preferences, reduce_motion: false, dialog_animation_settings: { duration_ms: 900 } });
+    await settle();
+    assert.equal(isReducedMotion(), true, '卸载后的旧设置响应不能覆盖全局动效开关');
+    assert.equal(getDialogEnterDurationMs(), 360, '卸载后的旧设置响应不能覆盖弹窗动效时长');
+    assert.equal(notices.length, noticesBeforeSettingsUnmount, '卸载后的设置请求不得显示迟到通知');
+    assert.equal(timers.size, 0, '设置页卸载必须清除保存反馈计时器');
+  }
+  const requestsBeforeStaleSettingsClick = preferenceRequests.length;
+  changeMotion({ currentTarget: { checked: false } });
+  assert.equal(preferenceRequests.length, requestsBeforeStaleSettingsClick, '卸载后的旧设置回调不能重新发送请求');
+  console.log('[交互检查] 决策草稿、手势、轮询、浮层退场及文件、插件、设置并发状态检查通过。');
 } finally {
   for (const [name, descriptor] of saved) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

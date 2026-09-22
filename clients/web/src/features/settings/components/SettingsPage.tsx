@@ -34,6 +34,7 @@ import {
   syncRemoteDialogMotionSettings,
 } from '../../../hooks/useDialogMotionSettings';
 import { useTransientFlag } from '../../../hooks/useTransientFlag';
+import { useAsyncAction } from '../../../hooks/useAsyncAction';
 import { showSnackbar } from '../../../components/Snackbar';
 import { clampNumber, finiteNumberFromText } from '../../../shared/util/number';
 import { truncateEndText } from '../../../shared/util/text';
@@ -441,9 +442,11 @@ function friendlyTtsError(error: unknown): string {
 
 export function SettingsPage() {
   const [prefs, setPrefs] = useState<RemotePreferences | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const { pending, run } = useAsyncAction<string>();
+  const loading = pending === 'load' || pending === 'refresh' || (prefs == null && loadError == null);
+  const savingKey = loading ? null : pending;
+  const busy = loading || pending !== null;
   const { active: saved, trigger: showSaved } = useTransientFlag();
   const [saveError, setSaveError] = useState<string | null>(null);
   const { format: messageContentFormat, htmlFallback: htmlRenderFallback } = useMessageContentFormat();
@@ -458,56 +461,45 @@ export function SettingsPage() {
   };
 
   useEffect(() => {
-    let stop = false;
-    setLoading(true);
-    fetchPreferences()
-      .then((next) => {
-        if (stop) return;
-        applyPreferences(next);
-      })
-      .catch((err) => {
-        if (!stop) setLoadError(describeApiError(err));
-      })
-      .finally(() => {
-        if (!stop) setLoading(false);
-      });
-    return () => {
-      stop = true;
-    };
-  }, []);
+    void run('load',
+      (signal) => fetchPreferences({ signal }),
+      applyPreferences,
+      (error) => setLoadError(describeApiError(error)),
+    );
+  }, [run]);
 
-  const refresh = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const next = await fetchPreferences();
+  const refresh = () => run('refresh',
+    (signal) => {
+      setLoadError(null);
+      return fetchPreferences({ signal });
+    },
+    (next) => {
       applyPreferences(next);
       showSnackbar(t('settings.refresh.ok', '设置已刷新'), { tone: 'success' });
-    } catch (err) {
+    },
+    (err) => {
       const message = describeApiError(err);
       setLoadError(message);
       showSnackbar(`${t('settings.refresh.failed', '刷新设置失败')}：${message}`, { tone: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  );
 
-  const commit = async (key: string, update: PreferencesUpdate) => {
-    setSavingKey(key);
-    setSaveError(null);
-    try {
-      const next = await updatePreferences(update);
+  const commit = (key: string, update: PreferencesUpdate) => run(key,
+    (signal) => {
+      setSaveError(null);
+      return updatePreferences(update, { signal });
+    },
+    (next) => {
       applyPreferences(next);
       showSaved();
       showSnackbar(t('settings.saved', '已保存'), { tone: 'success' });
-    } catch (err) {
+    },
+    (err) => {
       const message = describeApiError(err);
       setSaveError(message);
       showSnackbar(`${t('settings.save.failed', '保存设置失败')}：${message}`, { tone: 'error' });
-    } finally {
-      setSavingKey(null);
-    }
-  };
+    },
+  );
 
   const thresholdValue = prefs
     ? normalizedThreshold(thresholdInput, prefs) ?? prefs.ai_message_compression_threshold_chars
@@ -528,7 +520,7 @@ export function SettingsPage() {
             <button
               type="button"
               onClick={() => void refresh()}
-              disabled={loading || savingKey != null}
+              disabled={busy}
               class="oh-tap-press oh-topbar-action text-sm rounded-m3-sm px-3 py-1.5"
             >
               {loading ? t('common.loading', '加载中…') : t('common.refresh', '刷新')}
@@ -599,7 +591,7 @@ export function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={prefs.reduce_motion}
-                        disabled={savingKey === 'reduce_motion'}
+                        disabled={busy}
                         onChange={(event) => void commit('reduce_motion', { reduce_motion: (event.currentTarget as HTMLInputElement).checked })}
                       />
                       <span class="oh-settings-switch-track"><span /></span>
@@ -622,7 +614,7 @@ export function SettingsPage() {
                         onChange={(next) => void commit('language_storage_value', { language_storage_value: next })}
                         options={languageOptions}
                         minWidth={190}
-                        disabled={savingKey === 'language_storage_value'}
+                        disabled={busy}
                         ariaLabel={t('settings.language.title', '界面语言')}
                       />
                     </div>
@@ -643,7 +635,7 @@ export function SettingsPage() {
                         max={prefs.limits.ai_message_compression_threshold_chars_max}
                         step={500}
                         value={thresholdValue}
-                        disabled={savingKey === 'ai_message_compression_threshold_chars'}
+                        disabled={busy}
                         onInput={(event) => setThresholdInput((event.currentTarget as HTMLInputElement).value)}
                         onChange={(event) => {
                           const next = normalizedThreshold((event.currentTarget as HTMLInputElement).value, prefs);
@@ -654,7 +646,7 @@ export function SettingsPage() {
                         type="number"
                         class="oh-settings-number"
                         value={thresholdInput}
-                        disabled={savingKey === 'ai_message_compression_threshold_chars'}
+                        disabled={busy}
                         onInput={(event) => setThresholdInput((event.currentTarget as HTMLInputElement).value)}
                         onBlur={() => {
                           const next = normalizedThreshold(thresholdInput, prefs);

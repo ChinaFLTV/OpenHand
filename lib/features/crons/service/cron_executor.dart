@@ -257,45 +257,28 @@ class CronExecutor {
     final workDir =
         entry.workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
 
-    ProcessResult? result;
     int? pid;
     var timedOut = false;
-    try {
-      result = await runProcessWithTimeout(
-        cmd.executable,
-        cmd.arguments,
-        workingDirectory: workDir,
-        environment: <String, String>{
-          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-          if (entry.environment.isNotEmpty) ...entry.environment,
-        },
-        timeout: timeout,
-        tag: 'cron_executor',
-        maxStdoutBytes: _maxCronOutputBytes,
-        maxStderrBytes: _maxCronOutputBytes,
-        outputDecoder: const SystemEncoding().decoder,
-        onProcessStarted: (process) {
-          pid = process.pid;
-          // 启动过程中发生的取消会在进程句柄就绪后立即终止进程树。
-          cancellationToken.onCancel = () {
-            unawaited(
-              terminateTrackedProcessTree(process).catchError((
-                Object error,
-                StackTrace stack,
-              ) {
-                silentLog('cron_executor', '取消定时任务进程', error, stack);
-              }),
-            );
-          };
-        },
-        timeoutResultBuilder: (processId, stdout, stderr) {
-          timedOut = true;
-          return ProcessResult(processId, -1, stdout, stderr);
-        },
-      );
-    } finally {
-      cancellationToken.clearOnCancel();
-    }
+    final result = await runProcessWithTimeout(
+      cmd.executable,
+      cmd.arguments,
+      workingDirectory: workDir,
+      environment: <String, String>{
+        ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+        if (entry.environment.isNotEmpty) ...entry.environment,
+      },
+      timeout: timeout,
+      cancelSignal: cancellationToken.cancelled,
+      tag: 'cron_executor',
+      maxStdoutBytes: _maxCronOutputBytes,
+      maxStderrBytes: _maxCronOutputBytes,
+      outputDecoder: const SystemEncoding().decoder,
+      onProcessStarted: (process) => pid = process.pid,
+      timeoutResultBuilder: (processId, stdout, stderr) {
+        timedOut = true;
+        return ProcessResult(processId, -1, stdout, stderr);
+      },
+    );
 
     final killed = cancellationToken.isCancelled;
     if (result == null) {
@@ -437,24 +420,13 @@ class _RunResult {
 
 class _ExecutionCancelToken {
   final Completer<void> _cancelCompleter = Completer<void>();
-  void Function()? _onCancel;
 
   bool get isCancelled => _cancelCompleter.isCompleted;
 
   Future<void> get cancelled => _cancelCompleter.future;
 
-  set onCancel(void Function() callback) {
-    _onCancel = callback;
-    if (isCancelled) {
-      callback();
-    }
-  }
-
-  void clearOnCancel() => _onCancel = null;
-
   void cancel() {
     if (isCancelled) return;
     _cancelCompleter.complete();
-    _onCancel?.call();
   }
 }

@@ -604,7 +604,9 @@ Future<int> writeTemporaryByteStreamBounded(
     totalTimeout,
     timeoutMessage: '临时字节流写入超过总时限。',
   );
-  final iterator = StreamIterator<List<int>>(bytes);
+  final iterator = StreamIterator<List<int>>(
+    bytes.where((chunk) => chunk.isNotEmpty),
+  );
   BoundedRandomAccessFileLease? output;
   var deleteAfterRelease = true;
   var writtenBytes = 0;
@@ -631,7 +633,6 @@ Future<int> writeTemporaryByteStreamBounded(
 
     while (await iterator.moveNext().timeout(deadline.limit(idleTimeout))) {
       final chunk = iterator.current;
-      if (chunk.isEmpty) continue;
       if (chunk.length > maxBytes - writtenBytes) {
         throw FileSystemException('字节流超过 $maxBytes 字节写入上限。', file.path);
       }

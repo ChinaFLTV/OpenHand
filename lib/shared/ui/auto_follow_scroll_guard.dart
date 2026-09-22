@@ -181,11 +181,12 @@ class AutoFollowScrollGuard {
         curve: curve,
       );
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   /// 尝试把 [controller] 移到底部；用户滚动期间直接跳过。
   ///
-  /// [animated] 为 true 时使用短动画，否则直接 jumpTo。
+  /// [animated] 为 true 且时长大于 0 时使用动画，否则直接跳转。
   void followToBottom(
     ScrollController controller, {
     bool animated = false,
@@ -200,7 +201,7 @@ class AutoFollowScrollGuard {
       position.maxScrollExtent,
     );
     if ((targetOffset - position.pixels).abs() < 0.5) return;
-    if (!animated) {
+    if (!animated || animationDuration <= Duration.zero) {
       _programmaticScroll.begin();
       try {
         position.jumpTo(targetOffset);
@@ -208,6 +209,7 @@ class AutoFollowScrollGuard {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _programmaticScroll.end();
         });
+        WidgetsBinding.instance.ensureVisualUpdate();
       }
       return;
     }

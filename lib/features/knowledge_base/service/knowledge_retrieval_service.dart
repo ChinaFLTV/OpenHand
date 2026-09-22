@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
@@ -52,115 +52,115 @@ class KnowledgeRetrievalService {
     final cancelToken = cancelSignal == null
         ? null
         : KnowledgeIndexingCancelToken();
-    if (cancelToken != null) {
-      unawaited(
-        cancelSignal!.then<void>(
-          (_) => cancelToken.cancel(),
-          onError: (Object _, StackTrace _) => cancelToken.cancel(),
-        ),
-      );
-    }
-    final vectors = await _embeddingService.embedBatch(
-      settings: settings,
-      model: embeddingModel,
-      inputs: <String>[query],
-      isQuery: true,
-      cancelToken: cancelToken,
+    final removeCancelListener = addCancelSignalListener(
+      cancelSignal,
+      () => cancelToken?.cancel(),
     );
-    cancelToken?.throwIfCancelled();
-    final rawHits = await _vectorStore.search(
-      collectionName: settings.effectiveCollectionName,
-      vector: vectors.first,
-      limit: settings.topN,
-      scoreThreshold: settings.minSimilarity,
-      filter: _filterForQuery(query, settings),
-      includeVector: true,
-      cancelSignal: cancelSignal,
-    );
-    cancelToken?.throwIfCancelled();
-    final chunkIds = stringListFromValue(
-      rawHits
-          .map((hit) => hit.payload['chunk_id'] ?? hit.id)
-          .toList(growable: false),
-    );
-    final chunksById = await _store.loadChunksByIds(chunkIds);
-    cancelToken?.throwIfCancelled();
-    final sourcesById = await _store.loadSourcesByIds(
-      chunksById.values.map((chunk) => chunk.sourceId),
-    );
-    cancelToken?.throwIfCancelled();
-    final scored = <KnowledgeRetrievalHit>[];
-    for (final raw in rawHits) {
-      final chunkId = '${raw.payload['chunk_id'] ?? raw.id}'.trim();
-      final chunk = chunksById[chunkId];
-      if (chunk == null) continue;
-      final source = sourcesById[chunk.sourceId];
-      if (source == null) continue;
-      final sourceTags = source.metadata['tags'];
-      final effectiveChunk = chunk.tags.isNotEmpty || sourceTags is! List
-          ? chunk
-          : chunk.copyWith(tags: sourceTags.cast<String>());
-      final finalScore = _hybridScore(
-        query: query,
-        vectorScore: raw.score,
-        title: '${raw.payload['source_title'] ?? source.title}',
-        tags: effectiveChunk.tags,
-        documentTime: effectiveChunk.documentTime ?? source.documentTime,
+    try {
+      final vectors = await _embeddingService.embedBatch(
         settings: settings,
+        model: embeddingModel,
+        inputs: <String>[query],
+        isQuery: true,
+        cancelToken: cancelToken,
       );
-      scored.add(
-        KnowledgeRetrievalHit(
-          chunk: effectiveChunk,
-          source: source,
-          score: raw.score,
-          vector: raw.vector,
-          finalScore: finalScore,
-          timeField: effectiveChunk.documentTime != null
-              ? 'document_time'
-              : source.documentTime != null
-              ? 'source.document_time'
-              : 'updated_at',
-        ),
+      cancelToken?.throwIfCancelled();
+      final rawHits = await _vectorStore.search(
+        collectionName: settings.effectiveCollectionName,
+        vector: vectors.first,
+        limit: settings.topN,
+        scoreThreshold: settings.minSimilarity,
+        filter: _filterForQuery(query, settings),
+        includeVector: true,
+        cancelSignal: cancelSignal,
       );
+      cancelToken?.throwIfCancelled();
+      final chunkIds = stringListFromValue(
+        rawHits
+            .map((hit) => hit.payload['chunk_id'] ?? hit.id)
+            .toList(growable: false),
+      );
+      final chunksById = await _store.loadChunksByIds(chunkIds);
+      cancelToken?.throwIfCancelled();
+      final sourcesById = await _store.loadSourcesByIds(
+        chunksById.values.map((chunk) => chunk.sourceId),
+      );
+      cancelToken?.throwIfCancelled();
+      final scored = <KnowledgeRetrievalHit>[];
+      for (final raw in rawHits) {
+        final chunkId = '${raw.payload['chunk_id'] ?? raw.id}'.trim();
+        final chunk = chunksById[chunkId];
+        if (chunk == null) continue;
+        final source = sourcesById[chunk.sourceId];
+        if (source == null) continue;
+        final sourceTags = source.metadata['tags'];
+        final effectiveChunk = chunk.tags.isNotEmpty || sourceTags is! List
+            ? chunk
+            : chunk.copyWith(tags: sourceTags.cast<String>());
+        final finalScore = _hybridScore(
+          query: query,
+          vectorScore: raw.score,
+          title: '${raw.payload['source_title'] ?? source.title}',
+          tags: effectiveChunk.tags,
+          documentTime: effectiveChunk.documentTime ?? source.documentTime,
+          settings: settings,
+        );
+        scored.add(
+          KnowledgeRetrievalHit(
+            chunk: effectiveChunk,
+            source: source,
+            score: raw.score,
+            vector: raw.vector,
+            finalScore: finalScore,
+            timeField: effectiveChunk.documentTime != null
+                ? 'document_time'
+                : source.documentTime != null
+                ? 'source.document_time'
+                : 'updated_at',
+          ),
+        );
+      }
+      final ranked = await _rankHits(
+        query: query,
+        hits: scored,
+        settings: settings,
+        embeddingModel: embeddingModel,
+        rerankModel: rerankModel,
+        cancelSignal: cancelSignal,
+        cancelToken: cancelToken,
+      );
+      cancelToken?.throwIfCancelled();
+      final capped = <KnowledgeRetrievalHit>[];
+      final perSource = <String, int>{};
+      final perSourceLimit = math.min(
+        settings.sourceCap,
+        settings.maxChunksPerSource,
+      );
+      for (final hit in ranked.hits) {
+        final count = perSource[hit.source.id] ?? 0;
+        if (count >= perSourceLimit) continue;
+        perSource[hit.source.id] = count + 1;
+        capped.add(hit);
+        if (capped.length >= settings.topK) break;
+      }
+      final prompt = _buildPromptContext(hits: capped, settings: settings);
+      final rerankTrace = ranked.trace.copyWith(
+        keptCount: capped.length,
+        discardedCount: nonNegativeRemaining(scored.length, capped.length),
+      );
+      return KnowledgeRetrievalResult(
+        query: query,
+        hits: capped,
+        durationMs: stopwatch.elapsedMilliseconds,
+        promptAppend: prompt.text,
+        promptTokenEstimate: prompt.tokenEstimate,
+        queryVector: vectors.first,
+        rerankTrace: rerankTrace,
+      );
+    } finally {
+      removeCancelListener();
+      stopwatch.stop();
     }
-    final ranked = await _rankHits(
-      query: query,
-      hits: scored,
-      settings: settings,
-      embeddingModel: embeddingModel,
-      rerankModel: rerankModel,
-      cancelSignal: cancelSignal,
-      cancelToken: cancelToken,
-    );
-    cancelToken?.throwIfCancelled();
-    final capped = <KnowledgeRetrievalHit>[];
-    final perSource = <String, int>{};
-    final perSourceLimit = math.min(
-      settings.sourceCap,
-      settings.maxChunksPerSource,
-    );
-    for (final hit in ranked.hits) {
-      final count = perSource[hit.source.id] ?? 0;
-      if (count >= perSourceLimit) continue;
-      perSource[hit.source.id] = count + 1;
-      capped.add(hit);
-      if (capped.length >= settings.topK) break;
-    }
-    final prompt = _buildPromptContext(hits: capped, settings: settings);
-    final rerankTrace = ranked.trace.copyWith(
-      keptCount: capped.length,
-      discardedCount: nonNegativeRemaining(scored.length, capped.length),
-    );
-    stopwatch.stop();
-    return KnowledgeRetrievalResult(
-      query: query,
-      hits: capped,
-      durationMs: stopwatch.elapsedMilliseconds,
-      promptAppend: prompt.text,
-      promptTokenEstimate: prompt.tokenEstimate,
-      queryVector: vectors.first,
-      rerankTrace: rerankTrace,
-    );
   }
 
   Future<({List<KnowledgeRetrievalHit> hits, KnowledgeRerankTrace trace})>

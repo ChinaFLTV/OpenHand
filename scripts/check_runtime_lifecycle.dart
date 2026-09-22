@@ -12,6 +12,7 @@ const _checks = r'''
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -28,6 +29,7 @@ import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dar
 import 'package:openhand/features/ai/service/runtime/ai_tool_usage_promotion_store.dart';
 import 'package:openhand/features/ai/tools/ai_tool_registry.dart';
 import 'package:openhand/shared/db/database_service.dart';
+import 'package:openhand/shared/db/atomic_file_operations.dart';
 import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/mcp/service/mcp_tool_discovery_service.dart';
 import 'package:openhand/features/web_reverse/lsp/web_reverse_lsp_client.dart';
@@ -37,6 +39,101 @@ import 'package:openhand/features/hooks/hooks_controller.dart';
 import 'package:openhand/features/hooks/service/hooks_executor.dart';
 import 'package:openhand/app/support/app_runtime_cleanup_registry.dart';
 import 'package:openhand/features/web_reverse/web_reverse_cdp_client.dart';
+import 'package:openhand/features/message_gateway/service/dingtalk_message_gateway_service.dart';
+import 'package:openhand/features/message_gateway/model/dingtalk_message_gateway.dart';
+import 'package:openhand/features/knowledge_base/service/knowledge_embedding_service.dart';
+import 'package:openhand/features/knowledge_base/service/knowledge_retrieval_service.dart';
+import 'package:openhand/features/knowledge_base/service/knowledge_vector_store.dart';
+import 'package:openhand/features/knowledge_base/service/knowledge_indexing_control.dart';
+import 'package:openhand/features/knowledge_base/model/knowledge_base_settings.dart';
+import 'package:openhand/features/knowledge_base/model/knowledge_chunk.dart';
+import 'package:openhand/features/knowledge_base/model/knowledge_source.dart';
+import 'package:openhand/features/knowledge_base/data/knowledge_base_store.dart';
+import 'package:openhand/features/crons/service/cron_executor.dart';
+import 'package:openhand/app/model/cron_config.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
+import 'package:openhand/features/services/ai_model_proxy_controller.dart';
+import 'package:openhand/features/services/model/ai_model_proxy_models.dart';
+import 'package:openhand/features/services/service/ai_model_proxy_http_server.dart';
+
+final class _ProxyController implements AiModelProxyController {
+  int active = 0;
+  int sequence = 0;
+  @override
+  AiModelProxySettings get settings => const AiModelProxySettings(listenPort: 0);
+  @override
+  bool authorize(Map<String, String> headers) => true;
+  @override
+  int? runtimeRequestStarted({String? connectionKey, String? userAgent}) {
+    active++;
+    return ++sequence;
+  }
+  @override
+  void runtimeRequestFinished(int? id) { active--; }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final class _BlockedHttpResponse implements HttpResponse {
+  final writing = Completer<void>();
+  final deadlines = <Duration?>[];
+  @override
+  Duration? get deadline => deadlines.lastOrNull;
+  @override
+  set deadline(Duration? value) => deadlines.add(value);
+  @override
+  Future<void> flush() => writing.future;
+  @override
+  Future<HttpResponse> close() async { await writing.future; return this; }
+  @override
+  Future<HttpResponse> get done async => this;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RetrievalEmbeddings implements KnowledgeEmbeddingService {
+  final tokens = <KnowledgeIndexingCancelToken>[];
+  bool fail = false;
+  @override
+  Future<List<List<double>>> embedBatch({required KnowledgeBaseSettings settings,
+    required AiModelConfig model, required List<String> inputs, required bool isQuery,
+    KnowledgeIndexingCancelToken? cancelToken}) async {
+    if (cancelToken != null) tokens.add(cancelToken);
+    if (fail) throw StateError('模拟嵌入失败');
+    return [[1.0]];
+  }
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _EmptyKnowledgeStore implements KnowledgeBaseStore {
+  @override
+  Future<Map<String, KnowledgeChunk>> loadChunksByIds(Iterable<String> ids) async => {};
+  @override
+  Future<Map<String, KnowledgeSource>> loadSourcesByIds(Iterable<String> ids) async => {};
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _EmptyVectorStore implements KnowledgeVectorStore {
+  @override
+  Future<List<KnowledgeVectorSearchHit>> search({required String collectionName,
+    required List<double> vector, required int limit, double? scoreThreshold,
+    Map<String, Object?>? filter, bool includeVector = false,
+    Future<void>? cancelSignal}) async => [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _DeferredDingTalk extends DingTalkMessageGatewayService {
+  final lookup = Completer<String?>();
+  int lookups = 0;
+  @override
+  Future<String?> executable() { lookups++; return lookup.future; }
+  @override
+  Future<DingTalkAuthStatus> authStatus({Future<void>? cancelSignal}) async =>
+      const DingTalkAuthStatus(authenticated: false);
+}
 
 final class _ObservedCancelFuture implements Future<void> {
   _ObservedCancelFuture(this.future);
@@ -85,6 +182,212 @@ final class _DrainRuntime implements AiToolRuntimeService {
 }
 
 void main() {
+  test('中转站并发饱和后返回 429，释放请求后继续正常接收', () async {
+    final controller = _ProxyController();
+    final server = AiModelProxyHttpServer(controller: controller, modelsProvider: () => []);
+    final sockets = <Socket>[];
+    try {
+      await server.start();
+      for (var index = 0; index < aiModelProxyMaxConcurrentRequests; index++) {
+        final socket = await Socket.connect(InternetAddress.loopbackIPv4, server.boundPort!);
+        sockets.add(socket);
+        socket.write('POST /v1/responses HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1024\r\n\r\n');
+      }
+      for (var attempt = 0; attempt < 100 && controller.active != aiModelProxyMaxConcurrentRequests; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(controller.active, aiModelProxyMaxConcurrentRequests);
+      for (final status in [429, 204]) {
+        final socket = await Socket.connect(InternetAddress.loopbackIPv4, server.boundPort!);
+        sockets.add(socket);
+        socket.write('OPTIONS /v1/responses HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+        final response = await utf8.decoder.bind(socket).join().timeout(const Duration(seconds: 3));
+        expect(response, startsWith('HTTP/1.1 $status'));
+        if (status == 429) {
+          for (final socket in sockets) { socket.destroy(); }
+          sockets.clear();
+          for (var attempt = 0; attempt < 100 && controller.active != 0; attempt++) {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          expect(controller.active, 0);
+        }
+      }
+      expect(server.isRunning, isTrue);
+    } finally {
+      for (final socket in sockets) { socket.destroy(); }
+      await server.dispose();
+    }
+  });
+
+  test('服务端写出停滞会中止连接，失败后重复关闭不会延长断开期限', () async {
+    for (final close in [false, true]) {
+      final response = _BlockedHttpResponse();
+      await expectLater(flushHttpResponseBounded(response,
+        timeout: const Duration(milliseconds: 20), close: close),
+        throwsA(isA<TimeoutException>()));
+      expect(response.deadlines, [const Duration(milliseconds: 20), Duration.zero]);
+      await expectLater(flushHttpResponseBounded(response,
+        timeout: const Duration(seconds: 30), close: true), throwsA(isA<HttpException>()));
+      expect(response.deadlines.length, 2);
+      response.writing.complete();
+    }
+  });
+
+  test('实际 HTTP 写出限制只作用于写入阶段，慢接收端超时后释放套接字', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final streamed = Completer<void>();
+    final blocked = Completer<void>();
+    final handling = server.listen((request) {
+      if (request.uri.path == '/stream') {
+        streamed.complete(() async {
+          request.response.add(utf8.encode('第一段'));
+          await flushHttpResponseBounded(request.response, timeout: const Duration(milliseconds: 100));
+          expect(request.response.deadline, isNull);
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+          request.response.add(utf8.encode('第二段'));
+          await flushHttpResponseBounded(request.response, timeout: const Duration(milliseconds: 100), close: true);
+        }());
+      } else {
+        blocked.complete(() async {
+          request.response.add(Uint8List(16 * 1024 * 1024));
+          await expectLater(flushHttpResponseBounded(request.response,
+            timeout: const Duration(milliseconds: 100), close: true),
+            throwsA(anyOf(isA<TimeoutException>(), isA<IOException>())));
+          expect(request.response.deadline, Duration.zero);
+        }());
+      }
+    });
+    Socket? receiving;
+    Socket? stalled;
+    try {
+      receiving = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      receiving.write('GET /stream HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+      final text = await utf8.decoder.bind(receiving).join().timeout(const Duration(seconds: 3));
+      expect(text, contains('第一段'));
+      expect(text, contains('第二段'));
+      await streamed.future;
+      stalled = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      stalled.write('GET /blocked HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      await blocked.future.timeout(const Duration(seconds: 3));
+    } finally {
+      receiving?.destroy();
+      stalled?.destroy();
+      await handling.cancel();
+      await server.close(force: true);
+    }
+  });
+
+  test('定时任务复用进程取消机制，取消与超时保留独立终态且不重试', () async {
+    for (final cancel in [false, true]) {
+      final handle = CronExecutor.start(CronEntry(id: '进程终态检查', name: '进程终态检查',
+        scriptContent: Platform.isWindows ? 'Start-Sleep -Seconds 30' : 'sleep 30',
+        timeoutSeconds: cancel ? 30 : 1, workingDirectory: Directory.current.path,
+        collectAppMetadata: false, collectHostMetadata: false));
+      final timer = cancel ? Timer(const Duration(milliseconds: 100), handle.cancel) : null;
+      try {
+        final record = await handle.result.timeout(const Duration(seconds: 6));
+        expect(record.status, cancel ? 'killed' : 'timed_out');
+        expect(record.retryAttempt, 0);
+      } finally {
+        timer?.cancel();
+        handle.cancel();
+      }
+    }
+  });
+
+  test('知识检索共用会话取消监听，成功与失败后均释放逐次回调', () async {
+    final embeddings = _RetrievalEmbeddings();
+    final service = KnowledgeRetrievalService(store: _EmptyKnowledgeStore(),
+      embeddingService: embeddings, vectorStore: _EmptyVectorStore());
+    addTearDown(service.dispose);
+    final cancelled = Completer<void>();
+    final signal = _ObservedCancelFuture(cancelled.future);
+    const model = AiModelConfig(id: '嵌入检查', baseUrl: 'https://example.test',
+      authScheme: AiAuthScheme.bearer, token: 'test', modelId: 'embedding',
+      protocolType: AiProtocolType.openai);
+    for (final fail in [false, true, false]) {
+      embeddings.fail = fail;
+      final retrieval = service.retrieve(query: '检查', settings: const KnowledgeBaseSettings(),
+        embeddingModel: model, cancelSignal: signal);
+      if (fail) {
+        await expectLater(retrieval, throwsA(isA<StateError>()));
+      } else {
+        expect((await retrieval).hits, isEmpty);
+      }
+    }
+    expect(signal.listeners, 1);
+    cancelled.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(embeddings.tokens.every((token) => !token.isCancelled), isTrue);
+  });
+
+  test('钉钉授权启动前取消或释放不再派生进程，并发授权共用一个任务', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_dingtalk_cancel_');
+    final executable = File('${directory.path}/dws');
+    await executable.writeAsString('#!/bin/sh\necho 已执行 > "\$0.started"\n');
+    expect((await Process.run('chmod', ['+x', executable.path])).exitCode, 0);
+    try {
+      for (final dispose in [false, true]) {
+        final service = _DeferredDingTalk();
+        try {
+          final first = service.authorize(onDeviceUrl: (_) async {});
+          final second = service.authorize(onDeviceUrl: (_) async {});
+          final assertions = Future.wait([
+            expectLater(first, dispose ? throwsA(isA<StateError>()) : completes),
+            expectLater(second, dispose ? throwsA(isA<StateError>()) : completes),
+          ]);
+          expect(service.lookups, 1);
+          if (dispose) {
+            await service.dispose();
+          } else {
+            await service.cancelAuthorization();
+          }
+          service.lookup.complete(executable.path);
+          await assertions.timeout(const Duration(seconds: 3));
+          expect(await File('${executable.path}.started').exists(), isFalse);
+          if (dispose) {
+            await expectLater(service.authorize(onDeviceUrl: (_) async {}), throwsA(isA<StateError>()));
+            await expectLater(service.startEventSubscription(), throwsA(isA<StateError>()));
+          }
+        } finally {
+          if (!service.lookup.isCompleted) service.lookup.complete(executable.path);
+          await service.dispose();
+        }
+      }
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  }, skip: Platform.isWindows);
+
+  test('原子流写入失败保留旧文件，取消未完成也会释放队列并清理半文件', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_atomic_stream_');
+    final target = File('${directory.path}/状态.txt');
+    await target.writeAsString('原内容');
+    final cancellation = Completer<void>();
+    final source = StreamController<List<int>>(onCancel: () => cancellation.future);
+    source.add([1, 2, 3]);
+    try {
+      await expectLater(
+        writeByteStreamFileAtomically(
+          target, source.stream, maxBytes: 2,
+          idleTimeout: const Duration(seconds: 1),
+          totalTimeout: const Duration(seconds: 2),
+        ).timeout(const Duration(seconds: 6)),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(await target.readAsString(), '原内容');
+      expect(await directory.list().map((entry) => entry.path).toList(), [target.path]);
+      await writeByteStreamFileAtomically(
+        target, Stream.value(utf8.encode('新内容')), maxBytes: 32,
+      ).timeout(const Duration(seconds: 2));
+      expect(await target.readAsString(), '新内容');
+    } finally {
+      cancellation.complete();
+      await source.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
   test('低速长响应共享排空时限，35 秒内释放会话且正文与思考完整落库', () async {
     final directory = await Directory.systemTemp.createTemp('openhand_stream_drain_');
     final database = await DatabaseService.initialize(databasePath: '${directory.path}/test.db');

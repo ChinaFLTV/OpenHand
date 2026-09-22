@@ -332,6 +332,8 @@ class DingTalkMessageGatewayService {
     'union_id',
   };
   Process? _authProcess;
+  final OpenHandSingleFlight<DingTalkAuthStatus> _authFlight =
+      OpenHandSingleFlight<DingTalkAuthStatus>();
   final List<_DingTalkEventProcessHandle> _eventProcesses =
       <_DingTalkEventProcessHandle>[];
   final Map<String, DateTime> _messageQueryUnavailableUntil =
@@ -347,6 +349,7 @@ class DingTalkMessageGatewayService {
   int _eventGeneration = 0;
   String? _executable;
   bool _authCancelled = false;
+  bool _disposed = false;
   bool _rosterAccessDenied = false;
   final BoundedLogBuffer _runtimeLogs = BoundedLogBuffer(
     maxLines: 3000,
@@ -561,6 +564,11 @@ class DingTalkMessageGatewayService {
     Iterable<DingTalkConversationTarget> targets =
         const <DingTalkConversationTarget>[],
   }) {
+    if (_disposed) {
+      return Future<Stream<DingTalkGatewayEvent>>.error(
+        StateError('钉钉消息网关服务已释放。'),
+      );
+    }
     final current = _eventController;
     if (current != null) {
       return Future<Stream<DingTalkGatewayEvent>>.value(current.stream);
@@ -930,6 +938,7 @@ class DingTalkMessageGatewayService {
     DingTalkGatewayMedia media, {
     bool forceRetry = false,
   }) async {
+    if (_disposed) return null;
     final resourceId = normalizeDingTalkResourceId(media.resourceId);
     if (resourceId.isEmpty) return null;
     final normalizedMedia = resourceId == media.resourceId
@@ -1103,6 +1112,7 @@ class DingTalkMessageGatewayService {
   }
 
   Future<void> dispose() {
+    _disposed = true;
     return _disposeOnce.run(() async {
       _mediaDownloadSemaphore.cancelWaiters();
       await Future.wait<bool>(<Future<bool>>[
@@ -1350,6 +1360,15 @@ class DingTalkMessageGatewayService {
 
   Future<DingTalkAuthStatus> authorize({
     required Future<void> Function(String url) onDeviceUrl,
+  }) {
+    if (_disposed) {
+      return Future<DingTalkAuthStatus>.error(StateError('钉钉消息网关服务已释放。'));
+    }
+    return _authFlight.run(() => _authorize(onDeviceUrl: onDeviceUrl));
+  }
+
+  Future<DingTalkAuthStatus> _authorize({
+    required Future<void> Function(String url) onDeviceUrl,
   }) async {
     _authCancelled = false;
     _rosterAccessDenied = false;
@@ -1361,6 +1380,7 @@ class DingTalkMessageGatewayService {
       _logRuntime('ERROR', '启动授权失败，未找到 dws：$error');
       rethrow;
     }
+    if (_authCancelled) return authStatus();
     final process = await startTrackedProcessBounded(
       executable,
       const <String>[
@@ -1388,7 +1408,7 @@ class DingTalkMessageGatewayService {
     String? pendingUrl;
 
     Future<void> openPendingUrl() async {
-      if (opened || pendingUrl == null) return;
+      if (opened || pendingUrl == null || _authCancelled || _disposed) return;
       final rawUrl = pendingUrl!;
       final code = authorizationCode;
       var url = rawUrl;
@@ -1466,6 +1486,12 @@ class DingTalkMessageGatewayService {
           onDone: stderrDecoder.close,
         );
     try {
+      if (_authCancelled || _disposed) {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: const Duration(seconds: 1),
+        );
+      }
       final exitCode = await process.exitCode.timeout(
         _authTimeout,
         onTimeout: () async {
@@ -1487,7 +1513,7 @@ class DingTalkMessageGatewayService {
       _logRuntime('SUCCESS', '钉钉设备流授权进程已完成。');
       return await authStatus();
     } finally {
-      _authProcess = null;
+      if (identical(_authProcess, process)) _authProcess = null;
       await _cancelTextSubscriptions(<StreamSubscription<String>>[
         stdoutSub,
         stderrSub,
@@ -2853,7 +2879,9 @@ class DingTalkMessageGatewayService {
   }
 
   Future<String> _requireExecutable() async {
+    if (_disposed) throw StateError('钉钉消息网关服务已释放。');
     final path = await executable();
+    if (_disposed) throw StateError('钉钉消息网关服务已释放。');
     if (path == null || path.trim().isEmpty) {
       throw StateError('未找到 DingTalk Workspace CLI（dws），请先在插件板块安装。');
     }

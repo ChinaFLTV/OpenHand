@@ -118,7 +118,8 @@ impl HuntStore {
     }
 
     pub async fn clear_postgres(&self) {
-        if let Some(mirror) = self.postgres.write().await.take() {
+        let mirror = self.postgres.write().await.take();
+        if let Some(mirror) = mirror {
             let _ = tokio::time::timeout(POSTGRES_OPERATION_TIMEOUT, mirror.close()).await;
         }
     }
@@ -202,6 +203,15 @@ impl HuntStore {
             .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))
     }
 
+    // 先取得快照再执行网络请求，避免慢镜像长期占用配置锁。
+    async fn available_postgres(&self) -> Option<PostgresMirror> {
+        self.postgres
+            .read()
+            .await
+            .clone()
+            .filter(PostgresMirror::is_available)
+    }
+
     pub async fn create_job(
         &self,
         id: Uuid,
@@ -218,8 +228,7 @@ impl HuntStore {
             )?;
             Ok(())
         }).await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.create_job(id, request, progress)).await
         {
             report_postgres_failure(&mirror, "同步扫描任务", error);
@@ -243,8 +252,7 @@ impl HuntStore {
             )?;
             Ok(())
         }).await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.update_progress(progress)).await
         {
             report_postgres_failure(&mirror, "同步扫描进度", error);
@@ -261,8 +269,7 @@ impl HuntStore {
             )?;
             Ok(())
         }).await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.set_job_error(id, &mirror_message)).await
         {
             report_postgres_failure(&mirror, "同步任务错误", error);
@@ -311,8 +318,7 @@ impl HuntStore {
             )?;
             Ok(())
         }).await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) =
                 postgres_operation(mirror.insert_result(&result, encrypted_credential.as_deref()))
                     .await
@@ -492,8 +498,7 @@ impl HuntStore {
                 Ok(changed > 0)
             })
             .await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.delete_job(id)).await
         {
             report_postgres_failure(&mirror, "同步删除扫描历史", error);
@@ -538,8 +543,7 @@ impl HuntStore {
             Ok(())
         })
         .await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.finalize_correlations(job_id)).await
         {
             report_postgres_failure(&mirror, "同步关联统计", error);
@@ -573,8 +577,7 @@ impl HuntStore {
             Ok(())
         })
         .await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.insert_log(entry)).await
         {
             report_postgres_failure(&mirror, "同步扫描日志", error);
@@ -661,9 +664,7 @@ impl HuntStore {
                 Ok(seen)
             })
             .await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
-        {
+        if let Some(mirror) = self.available_postgres().await {
             match postgres_operation(mirror.seen_urls(&postgres_urls)).await {
                 Ok(urls) => seen.extend(urls),
                 Err(error) => report_postgres_failure(&mirror, "查询增量目标", error),
@@ -698,8 +699,7 @@ impl HuntStore {
             Ok(())
         })
         .await?;
-        if let Some(mirror) = self.postgres.read().await.clone()
-            && mirror.is_available()
+        if let Some(mirror) = self.available_postgres().await
             && let Err(error) = postgres_operation(mirror.record_scanned_target(
                 job_id,
                 &postgres_url,

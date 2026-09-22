@@ -1,4 +1,4 @@
-// Plugin Service API: 查询插件状态、触发安装/更新/卸载操作。
+// 插件服务接口：查询插件状态、触发安装、更新及卸载。
 // 与服务端 _listPluginsHandler / _pluginActionHandler 对齐。
 
 import {
@@ -14,6 +14,8 @@ export type PluginStatus =
   | 'updating'
   | 'uninstalling'
   | 'error';
+
+export type PluginAction = 'install' | 'update' | 'uninstall';
 
 export interface PluginSummary {
   id: string;
@@ -69,39 +71,36 @@ export function listPlugins(
   return apiRequest<{ items: PluginSummary[] }>('/api/plugins', options);
 }
 
-export function installPlugin(pluginId: string): Promise<PluginActionResult> {
-  return apiRequest<PluginActionResult>('/api/plugins/install', {
+export function performPluginAction(
+  pluginId: string,
+  action: PluginAction,
+  options: ApiRequestSignalOptions = {},
+): Promise<PluginActionResult> {
+  return apiRequest<PluginActionResult>(`/api/plugins/${action}`, {
     method: 'POST',
     body: { plugin_id: pluginId },
-    timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
+    timeoutMs: action === 'uninstall' ? undefined : LONG_API_REQUEST_TIMEOUT_MS,
+    ...options,
   });
 }
 
-export function updatePlugin(pluginId: string): Promise<PluginActionResult> {
-  return apiRequest<PluginActionResult>('/api/plugins/update', {
-    method: 'POST',
-    body: { plugin_id: pluginId },
-    timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
-  });
-}
-
-export function uninstallPlugin(pluginId: string): Promise<PluginActionResult> {
-  return apiRequest<PluginActionResult>('/api/plugins/uninstall', {
-    method: 'POST',
-    body: { plugin_id: pluginId },
-  });
-}
-
-export function rescanPlugins(): Promise<{ items: PluginSummary[] }> {
+export function rescanPlugins(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: PluginSummary[] }> {
   return apiRequest<{ items: PluginSummary[] }>('/api/plugins/rescan', {
     method: 'POST',
     timeoutMs: LONG_API_REQUEST_TIMEOUT_MS,
+    ...options,
   });
 }
 
-export function checkPluginUpdate(pluginId: string): Promise<PluginCheckUpdateResult> {
+export function checkPluginUpdate(
+  pluginId: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<PluginCheckUpdateResult> {
   return apiRequest<PluginCheckUpdateResult>('/api/plugins/check-update', {
     method: 'POST',
     body: { plugin_id: pluginId },
+    ...options,
   });
 }

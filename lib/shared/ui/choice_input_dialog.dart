@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../util/async_concurrency.dart';
 import 'animated_dialog.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -64,7 +67,7 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
   if (options.isEmpty && !allowCustomInput) {
     return Future<ChoiceInputResult?>.value();
   }
-  return showAnimatedDialog<ChoiceInputResult>(
+  final session = showTrackedAnimatedDialog<ChoiceInputResult>(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (dialogContext) => _ChoiceInputDialog(
@@ -78,9 +81,12 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
       allowCustomInput: allowCustomInput,
       initialSelectedValue: initialSelectedValue,
       initialCustomInput: initialCustomInput,
-      cancelSignal: cancelSignal,
     ),
   );
+  final removeCancelListener = addCancelSignalListener(cancelSignal, () {
+    unawaited(session.dismiss(logTag: 'choice_input', logAction: '取消输入选择弹窗'));
+  });
+  return session.result.whenComplete(removeCancelListener);
 }
 
 class _ChoiceInputDialog extends StatefulWidget {
@@ -95,7 +101,6 @@ class _ChoiceInputDialog extends StatefulWidget {
     this.customInputHint,
     this.initialSelectedValue,
     this.initialCustomInput,
-    this.cancelSignal,
   });
 
   final String title;
@@ -108,7 +113,6 @@ class _ChoiceInputDialog extends StatefulWidget {
   final bool allowCustomInput;
   final String? initialSelectedValue;
   final String? initialCustomInput;
-  final Future<void>? cancelSignal;
 
   @override
   State<_ChoiceInputDialog> createState() => _ChoiceInputDialogState();
@@ -120,7 +124,6 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   late String _selectedValue;
   late final TextEditingController _customController;
   final FocusNode _customFocusNode = FocusNode();
-  bool _dismissedByCancelSignal = false;
 
   @override
   void initState() {
@@ -151,10 +154,6 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
         if (mounted) _customFocusNode.requestFocus();
       });
     }
-    widget.cancelSignal?.then<void>(
-      (_) => _dismissForCancelSignal(),
-      onError: (Object _, StackTrace _) => _dismissForCancelSignal(),
-    );
   }
 
   @override
@@ -165,15 +164,6 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   }
 
   bool get _isCustomSelected => _selectedValue == _customValueSentinel;
-
-  void _dismissForCancelSignal() {
-    if (!mounted || _dismissedByCancelSignal) return;
-    _dismissedByCancelSignal = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Navigator.of(context).maybePop();
-    });
-  }
 
   bool get _canConfirm {
     if (_isCustomSelected) return _customController.text.trim().isNotEmpty;

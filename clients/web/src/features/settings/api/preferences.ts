@@ -1,5 +1,5 @@
 // 远程偏好 API. 服务端字段集见 _getPreferencesHandler。
-import { apiRequest } from '../../../api/client';
+import { apiRequest, type ApiRequestSignalOptions } from '../../../api/client';
 import type { ApiDialogAnimationSettings } from '../../../hooks/useDialogMotionSettings';
 
 export interface RemotePreferences {
@@ -22,13 +22,19 @@ export interface PreferencesUpdate {
   ai_message_compression_threshold_chars?: number;
 }
 
-export function fetchPreferences(): Promise<RemotePreferences> {
-  return apiRequest<RemotePreferences>('/api/settings/preferences');
+export function fetchPreferences(
+  options: ApiRequestSignalOptions = {},
+): Promise<RemotePreferences> {
+  return apiRequest<RemotePreferences>('/api/settings/preferences', options);
 }
 
-export function updatePreferences(update: PreferencesUpdate): Promise<RemotePreferences> {
+export function updatePreferences(
+  update: PreferencesUpdate,
+  options: ApiRequestSignalOptions = {},
+): Promise<RemotePreferences> {
   return apiRequest<RemotePreferences>('/api/settings/preferences', {
     method: 'PUT',
     body: update,
+    ...options,
   });
 }

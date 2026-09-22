@@ -2028,7 +2028,8 @@ impl HuntEngine {
     }
 
     pub async fn progress(&self, id: Uuid) -> Result<ScanProgress, EngineError> {
-        if let Some(runtime) = self.jobs.read().await.get(&id) {
+        let runtime = self.jobs.read().await.get(&id).cloned();
+        if let Some(runtime) = runtime {
             return Ok(runtime.progress.read().await.clone());
         }
         self.store
@@ -2066,7 +2067,8 @@ impl HuntEngine {
 
     pub async fn resume_job(&self, id: Uuid) -> Result<Uuid, EngineError> {
         let _guard = self.job_start_lock.lock().await;
-        if let Some(runtime) = self.jobs.read().await.get(&id)
+        let runtime = self.jobs.read().await.get(&id).cloned();
+        if let Some(runtime) = runtime
             && !is_terminal(runtime.progress.read().await.stage)
         {
             return Err(EngineError::JobRunning);
@@ -2093,7 +2095,8 @@ impl HuntEngine {
     }
 
     pub async fn delete_history(&self, id: Uuid) -> Result<bool, EngineError> {
-        if let Some(runtime) = self.jobs.read().await.get(&id)
+        let runtime = self.jobs.read().await.get(&id).cloned();
+        if let Some(runtime) = runtime
             && !is_terminal(runtime.progress.read().await.stage)
         {
             return Err(EngineError::JobRunning);
@@ -3612,6 +3615,31 @@ fn mask_secret(secret: &str) -> String {
 mod tests {
     use super::*;
     use hunt_core::SourceKind;
+
+    #[tokio::test]
+    async fn waiting_for_progress_does_not_lock_other_jobs() {
+        let directory = std::env::temp_dir().join(format!("openhand-job-lock-{}", Uuid::new_v4()));
+        let store = HuntStore::open(&directory).await.unwrap();
+        let engine = HuntEngine::new(store).await.unwrap();
+        let job_id = Uuid::new_v4();
+        let runtime = JobRuntime {
+            job_id,
+            progress: Arc::new(RwLock::new(ScanProgress::queued(job_id))),
+            cancellation: CancellationToken::new(),
+            retention_cancellation: CancellationToken::new(),
+            events: broadcast::channel(EVENT_BUFFER).0,
+        };
+        engine.jobs.write().await.insert(job_id, runtime.clone());
+        let progress_guard = runtime.progress.write().await;
+        let mut reading = Box::pin(engine.progress(job_id));
+        assert!(futures::poll!(&mut reading).is_pending());
+        let unlocked = engine.jobs.try_write().is_ok();
+        drop(reading);
+        drop(progress_guard);
+        drop(engine);
+        std::fs::remove_dir_all(directory).unwrap();
+        assert!(unlocked, "单个任务的进度锁不能阻塞其他任务注册或清理");
+    }
 
     fn scan_request(name: &str) -> ScanRequest {
         ScanRequest {
