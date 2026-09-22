@@ -62,7 +62,7 @@ class InstructionsController extends ManagedChangeNotifier {
   }
 
   Future<void> refresh() async {
-    await _enqueueOperation(_loadLocked);
+    await enqueueOperation(_loadLocked);
   }
 
   Future<bool> createEntry({
@@ -358,12 +358,8 @@ class InstructionsController extends ManagedChangeNotifier {
     _entriesView = List<UserInstructionEntry>.unmodifiable(entries);
   }
 
-  Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    return enqueueOperation(operation);
-  }
-
   Future<bool> _enqueueMutation(Future<bool> Function() mutation) {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       return mutation();
     });

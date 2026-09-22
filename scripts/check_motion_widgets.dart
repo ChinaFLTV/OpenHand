@@ -15,10 +15,24 @@ import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_expandable.dart';
 import 'package:openhand/shared/ui/bounded_animation.dart';
+import 'package:openhand/shared/ui/list_removal_transition.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/openhand_image_reveal.dart';
+import 'package:openhand/shared/ui/openhand_hover_state.dart';
 import 'package:openhand/shared/ui/openhand_reveal_switcher.dart';
+import 'package:openhand/shared/ui/openhand_snack_bar.dart';
 import 'package:openhand/shared/ui/spring_entrance.dart';
+
+class _HoverProbe extends StatefulWidget {
+  const _HoverProbe({super.key});
+  @override
+  State<_HoverProbe> createState() => _HoverProbeState();
+}
+
+class _HoverProbeState extends State<_HoverProbe> with OpenHandHoverState<_HoverProbe> {
+  @override
+  Widget build(BuildContext context) => Text(openHandHovered ? '悬停' : '空闲');
+}
 
 class _TrackedController extends AnimationController {
   _TrackedController() : super(vsync: const TestVSync(), duration: const Duration(seconds: 1));
@@ -36,6 +50,109 @@ class _TrackedController extends AnimationController {
 }
 
 void main() {
+  testWidgets('列表删除保留内容直至退场完成，失败恢复时连续展开', (tester) async {
+    var collapsed = false;
+    Widget content() => MaterialApp(home: Center(child: OpenHandListRemovalTransition(
+      collapsed: collapsed,
+      child: const SizedBox(width: 160, height: 100, child: Text('待删除条目')),
+    )));
+    await tester.pumpWidget(content());
+    final transition = find.byType(OpenHandListRemovalTransition);
+    expect(tester.getSize(transition).height, 100);
+    collapsed = true;
+    await tester.pumpWidget(content());
+    expect(find.text('待删除条目'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 180));
+    final height = tester.getSize(transition).height;
+    expect(height, greaterThan(0));
+    expect(height, lessThan(100));
+    collapsed = false;
+    await tester.pumpWidget(content());
+    expect(tester.getSize(transition).height, closeTo(height, 0.001));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(transition).height, 100);
+    collapsed = true;
+    await tester.pumpWidget(content());
+    await tester.pumpAndSettle();
+    expect(tester.getSize(transition).height, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('空闲悬停变化主动请求绘制帧，并合并快速进出', (tester) async {
+    final key = GlobalKey<_HoverProbeState>();
+    await tester.pumpWidget(MaterialApp(home: _HoverProbe(key: key)));
+    await tester.pumpAndSettle();
+    key.currentState!.setOpenHandHovered(true);
+    key.currentState!.setOpenHandHovered(false);
+    key.currentState!.setOpenHandHovered(true);
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('悬停'), findsOneWidget);
+    key.currentState!.setOpenHandHovered(false);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('启动前排队的提示条在依赖就绪后展示', (tester) async {
+    OpenHandGlobalSnackBarHost.showSnackBar(const SnackBar(content: Text('启动提示')));
+    await tester.pumpWidget(const MaterialApp(home: OpenHandGlobalSnackBarHost()));
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(find.text('启动提示'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('空闲时延迟提示主动请求绘制帧', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (value) {
+      context = value;
+      return const OpenHandGlobalSnackBarHost();
+    })));
+    await tester.pumpAndSettle();
+    flashOpenHandSnack(context, '延迟提示');
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('延迟提示'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('提示条退场时关闭动效，立即清理并展示下一条', (tester) async {
+    var reduceMotion = false;
+    Widget content() => MaterialApp(home: MediaQuery(
+      data: MediaQueryData(disableAnimations: reduceMotion),
+      child: const OpenHandGlobalSnackBarHost(),
+    ));
+    await tester.pumpWidget(content());
+    OpenHandGlobalSnackBarHost.showSnackBar(const SnackBar(content: Text('第一条')));
+    OpenHandGlobalSnackBarHost.showSnackBar(const SnackBar(content: Text('第二条')));
+    await tester.pumpAndSettle();
+    OpenHandGlobalSnackBarHost.hideCurrent();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    reduceMotion = true;
+    await tester.pumpWidget(content());
+    await tester.pump();
+    expect(find.text('第一条'), findsNothing);
+    expect(find.text('第二条'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('提示条可见回调失败仍会按时退场', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: OpenHandGlobalSnackBarHost()));
+    OpenHandGlobalSnackBarHost.showSnackBar(SnackBar(
+      content: const Text('失败回调'),
+      duration: kOpenHandSnackBarBriefDuration,
+      onVisible: () => throw StateError('可见回调失败'),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isStateError);
+    await tester.pump(kOpenHandSnackBarBriefDuration);
+    await tester.pumpAndSettle();
+    expect(find.text('失败回调'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   test('单向公共曲线重复创建不积累状态监听，回弹透明度保持有效', () {
     final controller = _TrackedController();
     final initialListeners = controller.listeners.length;

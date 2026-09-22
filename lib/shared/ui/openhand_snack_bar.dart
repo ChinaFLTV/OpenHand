@@ -3,8 +3,10 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
@@ -189,6 +191,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
   Timer? _dismissTimer;
   bool _isDismissing = false;
   bool _visibleNotified = false;
+  DialogAnimationSettings? _motionSettings;
 
   @override
   void initState() {
@@ -199,7 +202,33 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
         OpenHandGlobalSnackBarHost._pendingSnackBars.removeFirst(),
       );
     }
-    _showNextIfIdle();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    context.watch<SettingsController?>();
+    final settings = _resolveMotionSettings();
+    if (_motionSettings == settings) return;
+    _motionSettings = settings;
+    _controller
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
+    if (_currentSnackBar == null) {
+      _showNextIfIdle();
+    } else if (_isDismissing) {
+      if (settings.exitDisabled) {
+        _removeCurrentAndContinue();
+      } else {
+        _controller.reverse();
+      }
+    } else if (!_controller.isCompleted) {
+      if (settings.entranceDisabled) {
+        _controller.value = 1;
+      } else {
+        _controller.forward();
+      }
+    }
   }
 
   @override
@@ -225,9 +254,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
 
   void _handleAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed && !_visibleNotified) {
-      _visibleNotified = true;
-      _currentSnackBar?.onVisible?.call();
-      _armDismissTimer();
+      _notifyVisible();
       return;
     }
     if (status == AnimationStatus.dismissed && _isDismissing) {
@@ -235,27 +262,41 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     }
   }
 
+  void _notifyVisible() {
+    final current = _currentSnackBar;
+    if (current == null || _visibleNotified) return;
+    _visibleNotified = true;
+    try {
+      current.onVisible?.call();
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          context: ErrorDescription('执行提示条显示回调'),
+        ),
+      );
+    } finally {
+      if (mounted && identical(_currentSnackBar, current) && !_isDismissing) {
+        _armDismissTimer();
+      }
+    }
+  }
+
   void _showNextIfIdle() {
     if (!mounted || _currentSnackBar != null || _queue.isEmpty) return;
     final next = _queue.removeFirst();
     final settings = _resolveMotionSettings();
-    final tickerEnabled = openHandTickerMotionEnabled(context);
-    final entranceMotionEnabled = tickerEnabled && !settings.entranceDisabled;
     _dismissTimer?.cancel();
     _isDismissing = false;
     _visibleNotified = false;
-    _controller.duration = tickerEnabled
-        ? settings.entranceDuration
-        : Duration.zero;
-    _controller.reverseDuration = tickerEnabled
-        ? settings.exitDuration
-        : Duration.zero;
+    _controller
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
     setState(() => _currentSnackBar = next);
-    if (!entranceMotionEnabled) {
-      _visibleNotified = true;
+    if (settings.entranceDisabled) {
       _controller.value = 1;
-      next.onVisible?.call();
-      _armDismissTimer();
+      _notifyVisible();
       return;
     }
     _controller.value = 0;
@@ -282,12 +323,8 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (current == null || _isDismissing) return;
     _dismissTimer?.cancel();
     final settings = _resolveMotionSettings();
-    final exitMotionEnabled =
-        openHandTickerMotionEnabled(context) && !settings.exitDisabled;
-    _controller.reverseDuration = exitMotionEnabled
-        ? settings.exitDuration
-        : Duration.zero;
-    if (!exitMotionEnabled || _controller.value <= 0) {
+    _controller.reverseDuration = settings.exitDuration;
+    if (settings.exitDisabled || _controller.value <= 0) {
       _removeCurrentAndContinue();
       return;
     }
@@ -613,6 +650,7 @@ class OpenHandSnackBar {
 
     if (postFrame) {
       WidgetsBinding.instance.addPostFrameCallback((_) => dispatch());
+      WidgetsBinding.instance.ensureVisualUpdate();
     } else {
       dispatch();
     }

@@ -7,7 +7,7 @@ mixin OpenHandHoverState<W extends StatefulWidget> on State<W> {
   bool get openHandHovered => _openHandHovered;
 
   void setOpenHandHovered(bool value) {
-    if (_openHandHovered == value) return;
+    if (!mounted || _openHandHovered == value) return;
     _openHandHovered = value;
     if (_openHandHoverUpdateScheduled) return;
     _openHandHoverUpdateScheduled = true;
@@ -15,5 +15,6 @@ mixin OpenHandHoverState<W extends StatefulWidget> on State<W> {
       _openHandHoverUpdateScheduled = false;
       if (mounted) setState(() {});
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 }

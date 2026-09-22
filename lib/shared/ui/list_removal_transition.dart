@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 
-/// 列表项删除时的收起退场。
-///
-/// `ListView.builder` 的数据一旦从源列表里消失，那一行就是瞬间不见、下方内容
-/// 整体上跳——这正是「生硬的 UI 变换」。配合 [awaitOpenHandListRemoval] 使用：
-/// 先把 id 标记为退场中让本组件把行高收到 0，等动效走完再真正删数据。
-///
-/// 时长与曲线取全局动效设置的 listItem 档，关掉动效时退化为立即消失。
+/// 按全局列表动效设置淡出并收起行高，退场结束后由调用方删除数据。
 class OpenHandListRemovalTransition extends StatelessWidget {
   const OpenHandListRemovalTransition({
     super.key,
@@ -52,17 +46,21 @@ class OpenHandListRemovalTransition extends StatelessWidget {
         ),
       );
     }
-    return AnimatedSize(
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: collapsed ? 0 : 1),
       duration: duration,
       curve: curve,
-      alignment: Alignment.topCenter,
-      child: AnimatedOpacity(
-        duration: duration,
-        curve: curve,
-        opacity: collapsed ? 0 : 1,
-        child: collapsed
-            ? const SizedBox(width: double.infinity, height: 0)
-            : child,
+      builder: (context, value, content) => ClipRect(
+        child: Align(
+          alignment: Alignment.topCenter,
+          widthFactor: 1,
+          heightFactor: value,
+          child: Opacity(opacity: value, child: content),
+        ),
+      ),
+      child: IgnorePointer(
+        ignoring: collapsed,
+        child: ExcludeSemantics(excluding: collapsed, child: child),
       ),
     );
   }
@@ -81,11 +79,7 @@ Future<void> awaitOpenHandListRemoval(BuildContext context) {
   return Future<void>.delayed(duration);
 }
 
-/// 列表项删除退场的作用域。
-///
-/// 退场需要有人记住「哪些行正在收起」，但 Hooks / 定时任务 / 指令 / 记忆这些
-/// 列表页本身是 StatelessWidget。与其逐页改成 StatefulWidget，不如由这个作用域
-/// 持有那份集合，把句柄交给 [builder]。
+/// 统一管理列表项退场状态，避免列表页重复维护删除标记。
 class OpenHandRemovableListScope extends StatefulWidget {
   const OpenHandRemovableListScope({super.key, required this.builder});
 

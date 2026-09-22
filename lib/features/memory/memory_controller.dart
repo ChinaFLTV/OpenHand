@@ -91,14 +91,13 @@ class MemoryController extends ManagedChangeNotifier {
   }
 
   Future<void> refresh() async {
-    await _enqueueOperation(_loadLocked);
+    await enqueueOperation(_loadLocked);
   }
 
-  Future<bool> ensureLoaded() =>
-      _enqueueOperation(_ensureTrustedSnapshotLocked);
+  Future<bool> ensureLoaded() => enqueueOperation(_ensureTrustedSnapshotLocked);
 
   Future<List<UserMemoryEntry>?> trustedEntriesSnapshot() {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return null;
       return _entriesView;
     });
@@ -123,7 +122,7 @@ class MemoryController extends ManagedChangeNotifier {
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
     final normalizedTitle = UserMemoryEntry.normalizeTitle(title);
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return null;
       if (_isQuotaRecoveryMode) return null;
       final entry = UserMemoryEntry(
@@ -160,7 +159,7 @@ class MemoryController extends ManagedChangeNotifier {
     final normalizedTitle = title == null
         ? null
         : UserMemoryEntry.normalizeTitle(title);
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final index = _entries.indexWhere((item) => item.id == entry.id);
       if (index == -1 || !identical(_entries[index], entry)) {
@@ -213,7 +212,7 @@ class MemoryController extends ManagedChangeNotifier {
     UserMemoryEntry? expectedProfile,
     List<String>? tags,
   }) {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) {
         throw StateError('更新用户画像前无法加载记忆。');
       }
@@ -245,7 +244,7 @@ class MemoryController extends ManagedChangeNotifier {
   }
 
   Future<bool> deleteMemory(UserMemoryEntry entry) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final index = _entries.indexWhere((item) => item.id == entry.id);
       if (index == -1) return true;
@@ -259,7 +258,7 @@ class MemoryController extends ManagedChangeNotifier {
   }
 
   Future<bool> clearAll() {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       try {
         await _store.clearAll();
         _publishSuccessfulMutation(const <UserMemoryEntry>[]);
@@ -374,9 +373,5 @@ class MemoryController extends ManagedChangeNotifier {
   void _setEntries(List<UserMemoryEntry> entries) {
     _entries = entries;
     _entriesView = List<UserMemoryEntry>.unmodifiable(entries);
-  }
-
-  Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    return enqueueOperation(operation);
   }
 }

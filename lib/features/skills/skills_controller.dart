@@ -43,11 +43,11 @@ class SkillsController extends ManagedChangeNotifier {
   List<LocalSkill> get skills => _skillsView;
 
   Future<void> refresh() async {
-    await _enqueueOperation(_refreshLocked);
+    await enqueueOperation(_refreshLocked);
   }
 
   Future<bool> reloadFromPath(String storagePath) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       final previousStoragePath = _storagePath;
       _storagePath = storagePath;
       await _refreshLocked();
@@ -67,7 +67,7 @@ class SkillsController extends ManagedChangeNotifier {
     required String shortDescription,
     required String manifestContent,
   }) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       final skill = await _repository.createSkill(
         _storagePath,
         name: name,
@@ -82,7 +82,7 @@ class SkillsController extends ManagedChangeNotifier {
   }
 
   Future<LocalSkill> importSkillDirectory(String sourceDirectoryPath) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       final skill = await _repository.importSkillDirectory(
         _storagePath,
         sourceDirectoryPath,
@@ -96,7 +96,7 @@ class SkillsController extends ManagedChangeNotifier {
     required String preferredSlug,
     required Uint8List archiveBytes,
   }) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       final skill = await _repository.installSkillArchive(
         _storagePath,
         preferredSlug: preferredSlug,
@@ -120,7 +120,7 @@ class SkillsController extends ManagedChangeNotifier {
     required String manifestContent,
     bool preserveExistingIcon = false,
   }) async {
-    return _enqueueOperation(() async {
+    return enqueueOperation(() async {
       final updatedSkill = await _repository.updateSkill(
         skill,
         _storagePath,
@@ -138,7 +138,7 @@ class SkillsController extends ManagedChangeNotifier {
   }
 
   Future<void> deleteSkill(LocalSkill skill) async {
-    await _enqueueOperation(() async {
+    await enqueueOperation(() async {
       await _repository.deleteSkill(skill, _storagePath);
       await _refreshLocked(deletedManifestPath: skill.manifestPath);
     });
@@ -198,9 +198,5 @@ class SkillsController extends ManagedChangeNotifier {
   void _setSkills(List<LocalSkill> skills) {
     _skills = skills;
     _skillsView = List<LocalSkill>.unmodifiable(skills);
-  }
-
-  Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
-    return enqueueOperation(operation);
   }
 }
