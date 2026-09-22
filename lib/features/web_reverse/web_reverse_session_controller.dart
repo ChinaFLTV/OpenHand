@@ -2939,7 +2939,6 @@ class WebReverseSessionController extends ChangeNotifier {
           statusText: redirect['statusText'] is String
               ? _capPlainWebReverseText(redirect['statusText'] as String, 512)
               : null,
-          responseHeaders: _flattenHeaders(redirect['headers']),
           at: DateTime.now(),
         ),
       );
@@ -6578,7 +6577,7 @@ class WebReverseSessionController extends ChangeNotifier {
         : null;
     final bp = _matchRequestBreakpoint(method, url, postData);
     if (bp != null) {
-      unawaited(_onRequestBreakpointHit(bp, method, url, postData));
+      unawaited(_onRequestBreakpointHit(bp, method, url));
     }
     if (!_pendingFetchRequests.containsKey(requestId) &&
         _pendingFetchRequests.length >= maxPendingFetchRequests) {
@@ -6716,7 +6715,6 @@ class WebReverseSessionController extends ChangeNotifier {
       _mockHits.insert(
         0,
         WebReverseMockHit(
-          ruleId: rule.id,
           ruleName: rule.name,
           status: rule.statusCode,
           at: DateTime.now(),
@@ -9078,11 +9076,9 @@ class WebReverseSessionController extends ChangeNotifier {
     WebReverseRequestBreakpoint bp,
     String method,
     String url,
-    String? body,
   ) async {
     _breakpointHits.add(
       WebReverseRequestBreakpointHit(
-        breakpointId: bp.id,
         breakpointName: bp.name,
         method: method,
         url: url,
@@ -9625,13 +9621,11 @@ class CdpRedirectStep {
     required this.url,
     required this.status,
     required this.statusText,
-    required this.responseHeaders,
     required this.at,
   });
   final String url;
   final int? status;
   final String? statusText;
-  final Map<String, String> responseHeaders;
   final DateTime at;
 }
 
@@ -10892,14 +10886,12 @@ class WebReverseRequestBreakpoint {
 /// 单次断点命中记录。
 class WebReverseRequestBreakpointHit {
   const WebReverseRequestBreakpointHit({
-    required this.breakpointId,
     required this.breakpointName,
     required this.method,
     required this.url,
     required this.at,
   });
 
-  final String breakpointId;
   final String breakpointName;
   final String method;
   final String url;
@@ -11090,12 +11082,10 @@ RegExp _webReverseWildcardPatternToRegExp(String pattern) {
 /// 单次 mock 命中记录。
 class WebReverseMockHit {
   const WebReverseMockHit({
-    required this.ruleId,
     required this.ruleName,
     required this.status,
     required this.at,
   });
-  final String ruleId;
   final String ruleName;
   final int status;
   final DateTime at;

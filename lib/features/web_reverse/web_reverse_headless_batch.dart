@@ -32,13 +32,8 @@ const int _kHeadlessMaxScreenshotResponseCharacters = 65 * kBytesPerMiB;
 const Duration _kHeadlessMaxPerUrlTimeout = Duration(minutes: 10);
 const Duration _kHeadlessMaxSettleAfterLoad = Duration(minutes: 1);
 
-/// Headless 批量采集：复用现有 [WebReverseCdpClient]，按 URL 列表逐个建一个
-/// 后台 Page target，做最小可用的事件采集（network response 列表 / console /
-/// 截图），完成后落盘并关闭 target。完全运行在现有浏览器进程里，不另起进程，
-/// 因此目标站点能复用现有 cookie / hook / 拦截规则。
-///
-/// 设计上故意不复用 controller 的 `_PerTargetBuffer`，避免污染交互式 dashboard
-/// 的现场；批量采集是一次性命令式流水线，跑完即丢。
+/// 复用 CDP 连接逐 URL 创建后台目标，采集事件和截图并落盘。
+/// 采集缓冲与交互式面板隔离，结束后关闭目标。
 class WebReverseHeadlessBatch {
   WebReverseHeadlessBatch({
     required this.cdp,
@@ -378,7 +373,6 @@ class WebReverseHeadlessBatch {
         );
       }
 
-      String? screenshotPath;
       if (captureScreenshot && !_cancelled) {
         _emit(index, url, HeadlessBatchPhase.capturingScreenshot, total);
         try {
@@ -397,7 +391,6 @@ class WebReverseHeadlessBatch {
               maxDecodedBytes: _kHeadlessMaxScreenshotDecodedBytes,
             );
             await writeBytesFileAtomically(File(path), bytes);
-            screenshotPath = path;
           }
         } catch (e, st) {
           silentLog('web_reverse_headless_batch', '截取无头页面截图', e, st);
@@ -412,7 +405,6 @@ class WebReverseHeadlessBatch {
         consoleCount: consoleEntries.length,
         networkDropped: networkDropped,
         consoleDropped: consoleDropped,
-        screenshotPath: screenshotPath,
       );
     } catch (e, st) {
       silentLog('web_reverse_headless_batch', '执行单项批量采集', e, st);
@@ -488,7 +480,6 @@ class HeadlessBatchUrlResult {
     this.consoleCount = 0,
     this.networkDropped = 0,
     this.consoleDropped = 0,
-    this.screenshotPath,
     this.error,
   });
 
@@ -499,6 +490,5 @@ class HeadlessBatchUrlResult {
   final int consoleCount;
   final int networkDropped;
   final int consoleDropped;
-  final String? screenshotPath;
   final String? error;
 }

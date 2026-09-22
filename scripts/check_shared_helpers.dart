@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:openhand/features/skills/data/skillhub_skill_mapper.dart';
 import 'package:openhand/shared/net/abortable_http_request.dart';
 import 'package:openhand/shared/net/bounded_http_request.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
@@ -32,6 +33,7 @@ import 'package:openhand/shared/util/xml_escape.dart';
 /// 直接驱动抽出的共享实现：代表输入进、真实返回值出。
 Future<void> main() async {
   var failures = 0;
+  failures += _checkSkillMarketMapping();
   failures += _checkJsonDecode();
   failures += _checkJsonEncodeFallback();
   failures += _checkJsonMapKeyCollision();
@@ -1286,4 +1288,41 @@ final class _LateHttpResponse extends Stream<List<int>>
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+int _checkSkillMarketMapping() {
+  final detail = SkillHubSkillMapper.skillMarketDetail({
+    'skill': {
+      'slug': '检查技能',
+      'tags': {'latest': '1.2.3'},
+    },
+    'owner': {'displayName': '发布者'},
+    'latestVersion': {'version': '1.2.3', 'changelog': '更新内容'},
+    'securityReports': {
+      '扫描': {'status': 'passed', 'statusText': '通过'},
+    },
+  });
+  final files = SkillHubSkillMapper.skillMarketFiles({
+    'files': [
+      {'path': 'SKILL.md', 'size': 42},
+    ],
+  });
+  final versions = SkillHubSkillMapper.skillMarketVersions({
+    'versions': [
+      {'version': '1.2.3', 'changelog': '更新内容'},
+    ],
+  });
+  if (detail.skill.latestTag != '1.2.3' ||
+      detail.owner.displayName != '发布者' ||
+      detail.securityReports['扫描']?.status != 'passed' ||
+      detail.latestVersion?.version != '1.2.3' ||
+      files.single.path != 'SKILL.md' ||
+      files.single.size != 42 ||
+      versions.single.changelog != '更新内容' ||
+      SkillHubSkillMapper.skillMarketFiles({}).isNotEmpty ||
+      SkillHubSkillMapper.skillMarketVersions({}).isNotEmpty) {
+    stderr.writeln('技能市场精简模型后丢失展示、安装或安全报告数据。');
+    return 1;
+  }
+  return 0;
 }

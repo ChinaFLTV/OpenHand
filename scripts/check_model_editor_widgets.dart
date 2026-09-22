@@ -151,6 +151,43 @@ Future<void> _captureEditor(WidgetTester tester, Finder dialog, String name) asy
 }
 
 void main() {
+  for (final tts in [false, true]) {
+    testWidgets('${tts ? 'TTS' : '翻译'} 优先级拖放只保存一次并清理悬停状态', (tester) async {
+      final translation = AiTranslationSettings.defaults();
+      final speech = AiTtsSettings.defaults();
+      final playback = AiTtsPlaybackService();
+      addTearDown(playback.dispose);
+      final original = tts ? speech.providerPriority : translation.providerPriority;
+      final updates = <List<Object>>[];
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: tts
+          ? _AiTtsProviderDeck(settings: speech, playbackService: playback,
+              availableModels: const [], recentModelSelections: const [],
+              onChanged: (next) async { updates.add(next.providerPriority); return true; })
+          : _AiTranslationProviderDeck(settings: translation,
+              availableModels: const [], recentModelSelections: const [],
+              onChanged: (next) async { updates.add(next.providerPriority); return true; }))),
+      ));
+      final dynamic state = tester.state(find.byType(tts ? _AiTtsProviderDeck : _AiTranslationProviderDeck));
+      final dynamic details = tts
+        ? DragTargetDetails<AiTtsProvider>(data: speech.providerPriority.first, offset: const Offset(0, 100000))
+        : DragTargetDetails<AiTranslationProvider>(data: translation.providerPriority.first, offset: const Offset(0, 100000));
+      state._updateHoverInsertIndex(details);
+      await tester.pump();
+      state._acceptProviderDrop(details);
+      state._completeProviderDrag(original.first, DraggableDetails(wasAccepted: true, velocity: Velocity.zero, offset: Offset.zero));
+      await tester.pump();
+      expect(updates, [<Object>[...original.skip(1), original.first]]);
+      expect(state._hoverInsertIndex, isNull);
+      expect(state._draggingProvider, isNull);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   for (final locale in AppLocalizations.supportedLocales) {
     testWidgets('模型配置动作和元数据按当前语言展示 $locale', (tester) async {
       await _openEditor(tester, locale: locale);

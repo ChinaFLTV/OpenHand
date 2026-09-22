@@ -1277,7 +1277,7 @@ class _SkillMarketDetailView extends StatelessWidget {
         ? skill.subCategories
         : summary.subCategories;
     final source = skill.source.isNotEmpty ? skill.source : summary.source;
-    final files = bundle.files?.files ?? const <SkillMarketFileEntry>[];
+    final files = bundle.files ?? const <SkillMarketFileEntry>[];
     final requiresApiKey = skill.requiresApiKey || summary.requiresApiKey;
 
     return ClipRRect(

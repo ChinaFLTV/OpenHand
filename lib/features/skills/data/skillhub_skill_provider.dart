@@ -69,12 +69,12 @@ class SkillHubSkillProvider implements SkillMarketProvider {
       LifecycleLruCache<Future<SkillMarketDetail>>(
         maxEntries: _maxMetadataCacheEntries,
       );
-  final LifecycleLruCache<Future<SkillMarketVersionsResult>> _versionsCache =
-      LifecycleLruCache<Future<SkillMarketVersionsResult>>(
+  final LifecycleLruCache<Future<List<SkillMarketVersion>>> _versionsCache =
+      LifecycleLruCache<Future<List<SkillMarketVersion>>>(
         maxEntries: _maxMetadataCacheEntries,
       );
-  final LifecycleLruCache<Future<SkillMarketFilesResult>> _filesCache =
-      LifecycleLruCache<Future<SkillMarketFilesResult>>(
+  final LifecycleLruCache<Future<List<SkillMarketFileEntry>>> _filesCache =
+      LifecycleLruCache<Future<List<SkillMarketFileEntry>>>(
         maxEntries: _maxMetadataCacheEntries,
       );
   final LifecycleLruCache<Future<String>> _fileContentCache =
@@ -241,17 +241,20 @@ class SkillHubSkillProvider implements SkillMarketProvider {
   }) async {
     final detail = await fetchSkillDetail(slug);
     final resolvedVersion = _resolveVersion(detail, requestedVersion);
-    final versionsFuture = fetchSkillVersions(slug).then(
-      (result) => result.versions,
-      onError: (Object error, StackTrace stackTrace) {
-        _rethrowIfCancelled(error, stackTrace);
-        silentLog('skill_market_client', '获取技能版本 $slug', error, stackTrace);
-        return const <SkillMarketVersion>[];
-      },
-    );
+    final versionsFuture = fetchSkillVersions(slug).catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      _rethrowIfCancelled(error, stackTrace);
+      silentLog('skill_market_client', '获取技能版本 $slug', error, stackTrace);
+      return const <SkillMarketVersion>[];
+    });
     final filesFuture = resolvedVersion.isEmpty
-        ? Future<SkillMarketFilesResult?>.value()
-        : fetchSkillFiles(slug, resolvedVersion).then<SkillMarketFilesResult?>(
+        ? Future<List<SkillMarketFileEntry>?>.value()
+        : fetchSkillFiles(
+            slug,
+            resolvedVersion,
+          ).then<List<SkillMarketFileEntry>?>(
             (result) => result,
             onError: (Object error, StackTrace stackTrace) {
               _rethrowIfCancelled(error, stackTrace);
@@ -295,7 +298,7 @@ class SkillHubSkillProvider implements SkillMarketProvider {
     });
   }
 
-  Future<SkillMarketFilesResult> fetchSkillFiles(
+  Future<List<SkillMarketFileEntry>> fetchSkillFiles(
     String slug,
     String version,
   ) async {
@@ -315,7 +318,7 @@ class SkillHubSkillProvider implements SkillMarketProvider {
           <String, String>{'version': normalizedVersion},
         ),
       );
-      return SkillHubSkillMapper.skillMarketFilesResult(json);
+      return SkillHubSkillMapper.skillMarketFiles(json);
     });
   }
 
@@ -381,7 +384,7 @@ class SkillHubSkillProvider implements SkillMarketProvider {
     );
   }
 
-  Future<SkillMarketVersionsResult> fetchSkillVersions(String slug) async {
+  Future<List<SkillMarketVersion>> fetchSkillVersions(String slug) async {
     final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
@@ -390,20 +393,20 @@ class SkillHubSkillProvider implements SkillMarketProvider {
       final json = await _getJson(
         Uri.https(_host, '/api/v1/skills/$normalizedSlug/versions'),
       );
-      return SkillHubSkillMapper.skillMarketVersionsResult(json);
+      return SkillHubSkillMapper.skillMarketVersions(json);
     });
   }
 
   Future<String?> _bestEffortReadSkillMarkdown({
     required String slug,
     required String version,
-    required SkillMarketFilesResult? files,
+    required List<SkillMarketFileEntry>? files,
   }) async {
     if (version.isEmpty || files == null) {
       return null;
     }
     SkillMarketFileEntry? skillManifest;
-    for (final file in files.files) {
+    for (final file in files) {
       if (nullIfBlank(file.path)?.toUpperCase() == _skillManifestPath) {
         skillManifest = file;
         break;

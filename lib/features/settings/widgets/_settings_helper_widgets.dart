@@ -703,19 +703,98 @@ class _AiTranslationProviderDeck extends StatefulWidget {
       _AiTranslationProviderDeckState();
 }
 
-class _AiTranslationProviderDeckState
-    extends State<_AiTranslationProviderDeck> {
-  AiTranslationProvider? _draggingProvider;
+mixin _AiProviderPriorityDrag<W extends StatefulWidget, P extends Object>
+    on State<W> {
+  List<P> get _providerPriority;
+  void _saveProviderPriority(List<P> priority);
+
+  P? _draggingProvider;
   int? _hoverInsertIndex;
-  final Map<AiTranslationProvider, GlobalKey> _providerKeys =
-      <AiTranslationProvider, GlobalKey>{};
+  final Map<P, GlobalKey> _providerKeys = <P, GlobalKey>{};
 
   @override
-  void didUpdateWidget(covariant _AiTranslationProviderDeck oldWidget) {
+  void didUpdateWidget(covariant W oldWidget) {
     super.didUpdateWidget(oldWidget);
     _providerKeys.removeWhere(
-      (provider, _) => !widget.settings.providerPriority.contains(provider),
+      (provider, _) => !_providerPriority.contains(provider),
     );
+  }
+
+  GlobalKey _keyForProvider(P provider) {
+    return _providerKeys.putIfAbsent(provider, GlobalKey.new);
+  }
+
+  void _updateHoverInsertIndex(DragTargetDetails<P> details) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
+      _providerPriority,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (_hoverInsertIndex == insertIndex) return;
+    setState(() => _hoverInsertIndex = insertIndex);
+  }
+
+  void _clearHoverInsertIndex() {
+    if (_hoverInsertIndex == null) return;
+    setState(() => _hoverInsertIndex = null);
+  }
+
+  void _acceptProviderDrop(DragTargetDetails<P> details) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
+      _providerPriority,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (mounted && _hoverInsertIndex != null) {
+      setState(() => _hoverInsertIndex = null);
+    }
+    final next = _settingsReorderedProviderPriorityAt<P>(
+      _providerPriority,
+      details.data,
+      insertIndex,
+    );
+    if (next == null) return;
+    _saveProviderPriority(next);
+  }
+
+  void _completeProviderDrag(P provider, DraggableDetails details) {
+    if (!mounted) return;
+    final next = details.wasAccepted
+        ? null
+        : _settingsReorderedProviderPriorityAt<P>(
+            _providerPriority,
+            provider,
+            _settingsProviderPriorityInsertIndex(
+              _providerPriority,
+              provider,
+              details.offset,
+              _providerKeys,
+            ),
+          );
+    setState(() {
+      _draggingProvider = null;
+      _hoverInsertIndex = null;
+    });
+    if (next == null) return;
+    _saveProviderPriority(next);
+  }
+}
+
+class _AiTranslationProviderDeckState extends State<_AiTranslationProviderDeck>
+    with
+        _AiProviderPriorityDrag<
+          _AiTranslationProviderDeck,
+          AiTranslationProvider
+        > {
+  @override
+  List<AiTranslationProvider> get _providerPriority =>
+      widget.settings.providerPriority;
+
+  @override
+  void _saveProviderPriority(List<AiTranslationProvider> priority) {
+    widget.onChanged(widget.settings.copyWith(providerPriority: priority));
   }
 
   @override
@@ -792,72 +871,6 @@ class _AiTranslationProviderDeckState
         ),
       ],
     );
-  }
-
-  GlobalKey _keyForProvider(AiTranslationProvider provider) {
-    return _providerKeys.putIfAbsent(provider, GlobalKey.new);
-  }
-
-  void _updateHoverInsertIndex(
-    DragTargetDetails<AiTranslationProvider> details,
-  ) {
-    final insertIndex = _settingsProviderPriorityInsertIndex(
-      widget.settings.providerPriority,
-      details.data,
-      details.offset,
-      _providerKeys,
-    );
-    if (_hoverInsertIndex == insertIndex) return;
-    setState(() => _hoverInsertIndex = insertIndex);
-  }
-
-  void _clearHoverInsertIndex() {
-    if (_hoverInsertIndex == null) return;
-    setState(() => _hoverInsertIndex = null);
-  }
-
-  void _acceptProviderDrop(DragTargetDetails<AiTranslationProvider> details) {
-    final insertIndex = _settingsProviderPriorityInsertIndex(
-      widget.settings.providerPriority,
-      details.data,
-      details.offset,
-      _providerKeys,
-    );
-    if (mounted && _hoverInsertIndex != null) {
-      setState(() => _hoverInsertIndex = null);
-    }
-    final next = _settingsReorderedProviderPriorityAt<AiTranslationProvider>(
-      widget.settings.providerPriority,
-      details.data,
-      insertIndex,
-    );
-    if (next == null) return;
-    widget.onChanged(widget.settings.copyWith(providerPriority: next));
-  }
-
-  void _completeProviderDrag(
-    AiTranslationProvider provider,
-    DraggableDetails details,
-  ) {
-    if (!mounted) return;
-    final next = details.wasAccepted
-        ? null
-        : _settingsReorderedProviderPriorityAt<AiTranslationProvider>(
-            widget.settings.providerPriority,
-            provider,
-            _settingsProviderPriorityInsertIndex(
-              widget.settings.providerPriority,
-              provider,
-              details.offset,
-              _providerKeys,
-            ),
-          );
-    setState(() {
-      _draggingProvider = null;
-      _hoverInsertIndex = null;
-    });
-    if (next == null) return;
-    widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
 
@@ -1514,18 +1527,14 @@ class _AiTtsProviderDeck extends StatefulWidget {
   State<_AiTtsProviderDeck> createState() => _AiTtsProviderDeckState();
 }
 
-class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
-  AiTtsProvider? _draggingProvider;
-  int? _hoverInsertIndex;
-  final Map<AiTtsProvider, GlobalKey> _providerKeys =
-      <AiTtsProvider, GlobalKey>{};
+class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck>
+    with _AiProviderPriorityDrag<_AiTtsProviderDeck, AiTtsProvider> {
+  @override
+  List<AiTtsProvider> get _providerPriority => widget.settings.providerPriority;
 
   @override
-  void didUpdateWidget(covariant _AiTtsProviderDeck oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _providerKeys.removeWhere(
-      (provider, _) => !widget.settings.providerPriority.contains(provider),
-    );
+  void _saveProviderPriority(List<AiTtsProvider> priority) {
+    widget.onChanged(widget.settings.copyWith(providerPriority: priority));
   }
 
   @override
@@ -1599,67 +1608,6 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
         ),
       ],
     );
-  }
-
-  GlobalKey _keyForProvider(AiTtsProvider provider) {
-    return _providerKeys.putIfAbsent(provider, GlobalKey.new);
-  }
-
-  void _updateHoverInsertIndex(DragTargetDetails<AiTtsProvider> details) {
-    final insertIndex = _settingsProviderPriorityInsertIndex(
-      widget.settings.providerPriority,
-      details.data,
-      details.offset,
-      _providerKeys,
-    );
-    if (_hoverInsertIndex == insertIndex) return;
-    setState(() => _hoverInsertIndex = insertIndex);
-  }
-
-  void _clearHoverInsertIndex() {
-    if (_hoverInsertIndex == null) return;
-    setState(() => _hoverInsertIndex = null);
-  }
-
-  void _acceptProviderDrop(DragTargetDetails<AiTtsProvider> details) {
-    final insertIndex = _settingsProviderPriorityInsertIndex(
-      widget.settings.providerPriority,
-      details.data,
-      details.offset,
-      _providerKeys,
-    );
-    if (mounted && _hoverInsertIndex != null) {
-      setState(() => _hoverInsertIndex = null);
-    }
-    final next = _settingsReorderedProviderPriorityAt<AiTtsProvider>(
-      widget.settings.providerPriority,
-      details.data,
-      insertIndex,
-    );
-    if (next == null) return;
-    widget.onChanged(widget.settings.copyWith(providerPriority: next));
-  }
-
-  void _completeProviderDrag(AiTtsProvider provider, DraggableDetails details) {
-    if (!mounted) return;
-    final next = details.wasAccepted
-        ? null
-        : _settingsReorderedProviderPriorityAt<AiTtsProvider>(
-            widget.settings.providerPriority,
-            provider,
-            _settingsProviderPriorityInsertIndex(
-              widget.settings.providerPriority,
-              provider,
-              details.offset,
-              _providerKeys,
-            ),
-          );
-    setState(() {
-      _draggingProvider = null;
-      _hoverInsertIndex = null;
-    });
-    if (next == null) return;
-    widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
 

@@ -23,7 +23,6 @@ class WebSearchEngineProgress {
     required this.stage,
     this.message,
     this.hitCount = 0,
-    this.attempt = 0,
     this.elapsedMs = 0,
   });
 
@@ -31,7 +30,6 @@ class WebSearchEngineProgress {
   final WebSearchProgressStage stage;
   final String? message;
   final int hitCount;
-  final int attempt;
   final int elapsedMs;
 }
 
@@ -219,7 +217,6 @@ class WebSearchOrchestrator {
             ? WebSearchProgressStage.succeeded
             : WebSearchProgressStage.failed,
         hitCount: result.hits.length,
-        attempt: result.attempts,
         elapsedMs: result.elapsedMs,
         message: result.error,
       ),

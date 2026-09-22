@@ -931,7 +931,6 @@ class _InitiatorTab extends StatelessWidget {
               url: entry.url,
               status: entry.statusCode,
               statusText: entry.statusText,
-              responseHeaders: entry.responseHeaders,
               at: entry.responseReceivedAt ?? entry.timestamp,
             ),
             isFinal: true,

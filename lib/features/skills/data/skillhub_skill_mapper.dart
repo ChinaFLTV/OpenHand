@@ -26,7 +26,6 @@ abstract final class SkillHubSkillMapper {
   static SkillMarketSummary skillMarketSummary(Map<Object?, Object?> json) {
     return SkillMarketSummary(
       category: _readString(json['category']),
-      createdAt: _readInt(json['created_at']),
       description: _readString(json['description']),
       descriptionZh: _readString(json['description_zh']),
       downloads: _readInt(json['downloads']),
@@ -36,13 +35,10 @@ abstract final class SkillHubSkillMapper {
       ownerName: _readString(json['ownerName']),
       publisherName: _readPublisherName(json['publisher']),
       requiresApiKey: _readRequiresApiKey(json),
-      score: _readDouble(json['score']),
       slug: _readString(json['slug']),
       source: _readString(json['source']),
       stars: _readInt(json['stars']),
       subCategories: _readSubCategories(json['subCategories']),
-      tags: stringListFromValue(json['tags']),
-      updatedAt: _readInt(json['updated_at']),
       version: _readString(json['version']),
     );
   }
@@ -66,7 +62,6 @@ abstract final class SkillHubSkillMapper {
   ) {
     return SkillMarketDetailSkill(
       category: _readString(json['category']),
-      createdAt: _readInt(json['createdAt']),
       displayName: _readString(json['displayName']),
       iconUrl: _readNullableString(json['iconUrl']),
       requiresApiKey: _readRequiresApiKey(json),
@@ -77,7 +72,6 @@ abstract final class SkillHubSkillMapper {
       summaryZh: _readString(json['summary_zh']),
       subCategories: _readSubCategories(json['subCategories']),
       tags: _readStringMap(json['tags']),
-      updatedAt: _readInt(json['updatedAt']),
     );
   }
 
@@ -94,7 +88,6 @@ abstract final class SkillHubSkillMapper {
     return SkillMarketOwner(
       displayName: _readString(json['displayName']),
       handle: _readString(json['handle']),
-      image: _readNullableString(json['image']),
     );
   }
 
@@ -103,7 +96,6 @@ abstract final class SkillHubSkillMapper {
       downloads: _readInt(json['downloads']),
       installs: _readInt(json['installs']),
       stars: _readInt(json['stars']),
-      versions: _readInt(json['versions']),
     );
   }
 
@@ -116,47 +108,33 @@ abstract final class SkillHubSkillMapper {
     );
   }
 
-  static SkillMarketFilesResult skillMarketFilesResult(
+  static List<SkillMarketFileEntry> skillMarketFiles(
     Map<String, Object?> json,
   ) {
-    final rawFiles = json['files'];
-    return SkillMarketFilesResult(
-      count: _readInt(json['count']),
-      files: stringKeyedMapListFromValue(
-        rawFiles,
-      ).map(SkillHubSkillMapper.skillMarketFileEntry).toList(growable: false),
-      version: _readString(json['version']),
-    );
+    return stringKeyedMapListFromValue(
+      json['files'],
+    ).map(SkillHubSkillMapper.skillMarketFileEntry).toList(growable: false);
   }
 
   static SkillMarketFileEntry skillMarketFileEntry(Map<Object?, Object?> json) {
     return SkillMarketFileEntry(
       path: _readString(json['path']),
-      sha256: _readString(json['sha256']),
       size: _readInt(json['size']),
     );
   }
 
-  static SkillMarketVersionsResult skillMarketVersionsResult(
+  static List<SkillMarketVersion> skillMarketVersions(
     Map<String, Object?> json,
   ) {
-    final rawVersions = json['versions'];
-    return SkillMarketVersionsResult(
-      slug: _readString(json['slug']),
-      source: _readString(json['source']),
-      versions: stringKeyedMapListFromValue(
-        rawVersions,
-      ).map(SkillHubSkillMapper.skillMarketVersion).toList(growable: false),
-    );
+    return stringKeyedMapListFromValue(
+      json['versions'],
+    ).map(SkillHubSkillMapper.skillMarketVersion).toList(growable: false);
   }
 
   static SkillMarketVersion skillMarketVersion(Map<Object?, Object?> json) {
     return SkillMarketVersion(
       changelog: _readString(json['changelog']),
-      createdAt: _readInt(json['createdAt']),
       version: _readString(json['version']),
-      versionId: _readInt(json['versionId']),
-      securityReports: _readSecurityReports(json['securityReports']),
     );
   }
 
@@ -201,10 +179,6 @@ String? _readNullableString(Object? value) {
 
 int _readInt(Object? value) {
   return nonNegativeRoundedIntFromValue(value, fallback: 0);
-}
-
-double _readDouble(Object? value) {
-  return doubleFromValue(value, fallback: 0);
 }
 
 Map<String, String> _readStringMap(Object? value) {

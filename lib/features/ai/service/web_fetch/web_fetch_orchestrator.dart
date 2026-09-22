@@ -25,7 +25,6 @@ class WebFetchEngineProgress {
     required this.stage,
     this.message,
     this.contentBytes = 0,
-    this.attempt = 0,
     this.elapsedMs = 0,
   });
 
@@ -33,7 +32,6 @@ class WebFetchEngineProgress {
   final WebFetchProgressStage stage;
   final String? message;
   final int contentBytes;
-  final int attempt;
   final int elapsedMs;
 }
 
@@ -222,7 +220,6 @@ class WebFetchOrchestrator {
         contentBytes: result.contents.isEmpty
             ? 0
             : result.contents.first.content.length,
-        attempt: result.attempts,
         elapsedMs: result.elapsedMs,
         message: result.error,
       ),

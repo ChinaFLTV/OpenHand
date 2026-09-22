@@ -15,7 +15,6 @@ class SkillMarketSearchResult {
 class SkillMarketSummary {
   const SkillMarketSummary({
     required this.category,
-    required this.createdAt,
     required this.description,
     required this.descriptionZh,
     required this.downloads,
@@ -25,18 +24,14 @@ class SkillMarketSummary {
     required this.ownerName,
     required this.publisherName,
     required this.requiresApiKey,
-    required this.score,
     required this.slug,
     required this.source,
     required this.stars,
     required this.subCategories,
-    required this.tags,
-    required this.updatedAt,
     required this.version,
   });
 
   final String category;
-  final int createdAt;
   final String description;
   final String descriptionZh;
   final int downloads;
@@ -46,13 +41,10 @@ class SkillMarketSummary {
   final String ownerName;
   final String publisherName;
   final bool requiresApiKey;
-  final double score;
   final String slug;
   final String source;
   final int stars;
   final List<SkillMarketSubCategory> subCategories;
-  final List<String> tags;
-  final int updatedAt;
   final String version;
 
   String get displayName => name.isNotEmpty ? name : slug;
@@ -68,7 +60,7 @@ class SkillMarketBundle {
   });
 
   final SkillMarketDetail detail;
-  final SkillMarketFilesResult? files;
+  final List<SkillMarketFileEntry>? files;
   final List<SkillMarketVersion> versions;
   final String? skillMarkdown;
   final String resolvedVersion;
@@ -93,7 +85,6 @@ class SkillMarketDetail {
 class SkillMarketDetailSkill {
   const SkillMarketDetailSkill({
     required this.category,
-    required this.createdAt,
     required this.displayName,
     required this.iconUrl,
     required this.requiresApiKey,
@@ -104,11 +95,9 @@ class SkillMarketDetailSkill {
     required this.summaryZh,
     required this.subCategories,
     required this.tags,
-    required this.updatedAt,
   });
 
   final String category;
-  final int createdAt;
   final String displayName;
   final String? iconUrl;
   final bool requiresApiKey;
@@ -119,7 +108,6 @@ class SkillMarketDetailSkill {
   final String summaryZh;
   final List<SkillMarketSubCategory> subCategories;
   final Map<String, String> tags;
-  final int updatedAt;
 
   String get latestTag => tags['latest'] ?? '';
 }
@@ -132,15 +120,10 @@ class SkillMarketSubCategory {
 }
 
 class SkillMarketOwner {
-  const SkillMarketOwner({
-    required this.displayName,
-    required this.handle,
-    required this.image,
-  });
+  const SkillMarketOwner({required this.displayName, required this.handle});
 
   final String displayName;
   final String handle;
-  final String? image;
 }
 
 class SkillMarketStats {
@@ -148,13 +131,11 @@ class SkillMarketStats {
     required this.downloads,
     required this.installs,
     required this.stars,
-    required this.versions,
   });
 
   final int downloads;
   final int installs;
   final int stars;
-  final int versions;
 }
 
 class SkillMarketSecurityReport {
@@ -167,54 +148,16 @@ class SkillMarketSecurityReport {
   final String statusText;
 }
 
-class SkillMarketFilesResult {
-  const SkillMarketFilesResult({
-    required this.count,
-    required this.files,
-    required this.version,
-  });
-
-  final int count;
-  final List<SkillMarketFileEntry> files;
-  final String version;
-}
-
 class SkillMarketFileEntry {
-  const SkillMarketFileEntry({
-    required this.path,
-    required this.sha256,
-    required this.size,
-  });
+  const SkillMarketFileEntry({required this.path, required this.size});
 
   final String path;
-  final String sha256;
   final int size;
 }
 
-class SkillMarketVersionsResult {
-  const SkillMarketVersionsResult({
-    required this.slug,
-    required this.source,
-    required this.versions,
-  });
-
-  final String slug;
-  final String source;
-  final List<SkillMarketVersion> versions;
-}
-
 class SkillMarketVersion {
-  const SkillMarketVersion({
-    required this.changelog,
-    required this.createdAt,
-    required this.version,
-    required this.versionId,
-    required this.securityReports,
-  });
+  const SkillMarketVersion({required this.changelog, required this.version});
 
   final String changelog;
-  final int createdAt;
   final String version;
-  final int versionId;
-  final Map<String, SkillMarketSecurityReport> securityReports;
 }
