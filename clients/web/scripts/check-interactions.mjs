@@ -7,6 +7,7 @@ import preact from '@preact/preset-vite';
 const hooksId = '\0交互检查钩子';
 const locationId = '\0交互检查路由';
 const noticesId = '\0交互检查通知';
+const workspaceId = '\0交互检查工作区';
 const server = await createServer({
   configFile: false,
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -22,10 +23,22 @@ const server = await createServer({
       if (source === 'preact-iso' || source === locationId) return locationId;
       if (source === 'preact/hooks' || source === hooksId) return hooksId;
       if (source.endsWith('/components/Snackbar') || source === noticesId) return noticesId;
+      if (source.endsWith('/api/workspace') || source === workspaceId) return workspaceId;
     },
     load(id) {
       if (id === locationId) return 'export const routes = []; export function useLocation() { return { route: (...args) => routes.push(args) }; }';
       if (id === noticesId) return 'export const notices = []; export function showSnackbar(message) { notices.push(message); }';
+      if (id === workspaceId) return `
+        export const requests = [];
+        function request(kind, args) {
+          return new Promise((resolve, reject) => requests.push({ kind, args, resolve, reject }));
+        }
+        export const listWorkspaceFiles = (...args) => request('list', args);
+        export const readWorkspaceFile = (...args) => request('read', args);
+        export const writeWorkspaceFile = (...args) => request('write', args);
+        export const createWorkspaceDirectory = (...args) => request('create', args);
+        export const deleteWorkspaceFile = (...args) => request('delete', args);
+      `;
       if (id !== hooksId) return;
       return `
         const slots = [];
@@ -488,7 +501,202 @@ try {
   browser.dispatchEvent(new Event('scroll'));
   browser.visualViewport.dispatchEvent(new Event('resize'));
   assert.equal(frames.size, 0, '卸载后不得留下动画帧和视口监听');
-  console.log('[交互检查] 决策草稿、手势、轮询及浮层退场生命周期检查通过。');
+  browser.setTimeout = globalThis.setTimeout;
+  browser.clearTimeout = globalThis.clearTimeout;
+  browser.matchMedia = query => Object.assign(new EventTarget(), { matches: query.includes('min-width') });
+  documentSurface.documentElement = { setAttribute() {}, removeAttribute() {} };
+  const { FilesPage } = await server.ssrLoadModule('/src/features/files/components/FilesPage.tsx');
+  const { syncLangFromAppPreferences } = await server.ssrLoadModule('/src/i18n/index.ts');
+  syncLangFromAppPreferences('zh_Hans');
+  const { requests: workspaceRequests } = await server.ssrLoadModule(workspaceId);
+  let filesPage;
+  const renderFiles = () => { filesPage = hooks.render(FilesPage); };
+  const fileNodes = predicate => nodes(filesPage, predicate);
+  const searchFiles = value => {
+    const input = fileNodes(node => node.type === 'input' && node.props.value !== undefined && node.props.class.includes('flex-1'))[0];
+    input.props.oninput({ target: { value } });
+    renderFiles();
+  };
+  const latestRequest = kind => workspaceRequests.findLast(request => request.kind === kind);
+  const fileItem = name => ({ name, path: name, type: 'file', editable: true, size: 1, modified_at: '' });
+  const fileA = fileItem('甲.txt');
+  const fileB = fileItem('乙.txt');
+  const listResult = items => ({ root: '/', path: '', items, query: '', type: 'all', write_enabled: true, max_file_bytes: 1024, allowed_extensions: [] });
+  const fileRows = () => fileNodes(node => node.type === 'button' && node.props.class?.split(' ').includes('oh-files-row'));
+  const openFile = path => {
+    fileRows().find(node => node.props.title === path).props.onClick();
+    renderFiles();
+  };
+  const editor = () => fileNodes(node => node.props.filename != null && node.props.onChange)[0];
+  const saveButton = () => fileNodes(node => node.type === 'button' && ['保存', '保存中…'].includes(node.props.children))[0];
+  const savedBadge = () => fileNodes(node => node.props.class === 'oh-files-status is-saved');
+  const dirtyBadge = () => fileNodes(node => node.props.class === 'oh-files-status is-dirty');
+  const editFile = text => { editor().props.onChange(text); renderFiles(); };
+  const completeRead = async content => {
+    latestRequest('read').resolve({ content, size: content.length, modified_at: '' });
+    await settle();
+    renderFiles();
+  };
+  renderFiles();
+  const staleList = latestRequest('list');
+  searchFiles('新');
+  const currentList = latestRequest('list');
+  assert.equal(staleList.args[0].signal.aborted, true, '筛选变更必须中止旧列表请求');
+  currentList.resolve(listResult([fileA, fileB]));
+  await settle();
+  staleList.resolve(listResult([fileItem('过期.txt')]));
+  await settle();
+  renderFiles();
+  assert.deepEqual(fileRows().map(node => node.props.title), [fileA.path, fileB.path], '忽略取消的旧响应也不能覆盖最新文件列表');
+  searchFiles('旧失败');
+  const staleFailure = latestRequest('list');
+  searchFiles('当前');
+  latestRequest('list').resolve(listResult([fileA, fileB]));
+  await settle();
+  staleFailure.reject(new Error('过期列表失败'));
+  await settle();
+  renderFiles();
+  assert.equal(fileRows().length, 2, '旧请求失败不能清空已成功加载的新列表');
+
+  openFile(fileA.path);
+  const staleRead = latestRequest('read');
+  openFile(fileB.path);
+  assert.equal(staleRead.args[1].signal.aborted, true, '切换文件必须取消旧内容读取');
+  await completeRead('乙正文');
+  staleRead.resolve({ content: '过期甲正文', size: 6, modified_at: '' });
+  await settle();
+  renderFiles();
+  assert.equal(editor().props.value, '乙正文');
+  editFile('乙第一次修改');
+  const saveClick = saveButton().props.onClick;
+  saveClick();
+  saveClick();
+  assert.equal(workspaceRequests.filter(request => request.kind === 'write').length, 1, '同帧重复保存只能提交一次');
+  editFile('乙保存期间的新修改');
+  latestRequest('write').resolve({ size: 8, modified_at: '' });
+  await settle();
+  renderFiles();
+  assert.equal(dirtyBadge().length, 1, '保存期间的新修改必须继续标记为未保存');
+  assert.equal(savedBadge().length, 0, '旧版本保存成功不能显示当前内容已保存');
+  assert.equal(saveButton().props.disabled, false);
+
+  saveButton().props.onClick();
+  latestRequest('write').resolve({ size: 12, modified_at: '' });
+  await settle();
+  renderFiles();
+  assert.equal(dirtyBadge().length, 0, '未继续编辑时保存成功应清除未保存状态');
+  assert.equal(savedBadge().length, 1, '当前版本保存成功应显示成功状态');
+  editFile('乙再次修改');
+  saveButton().props.onClick();
+  const oldSave = latestRequest('write');
+  openFile(fileA.path);
+  await completeRead('甲正文');
+  editFile('甲未保存修改');
+  oldSave.resolve({ size: 888, modified_at: '' });
+  await settle();
+  renderFiles();
+  assert.equal(editor().props.value, '甲未保存修改');
+  assert.equal(dirtyBadge().length, 1, '其他文件的保存响应不能清除当前文件未保存状态');
+  assert.equal(savedBadge().length, 0);
+  assert.ok(!JSON.stringify(fileNodes(node => node.props.class === 'oh-files-detail-meta')[0].props.children).includes('888'), '其他文件的保存响应不能覆盖当前文件元信息');
+
+  saveButton().props.onClick();
+  const pendingSave = latestRequest('write');
+  openFile(fileB.path);
+  const pendingRead = latestRequest('read');
+  searchFiles('卸载');
+  const pendingList = latestRequest('list');
+  const noticesBeforeUnmount = notices.length;
+  hooks.unmount();
+  assert.equal(pendingSave.args[2].signal.aborted, true, '卸载必须取消文件保存等待');
+  assert.equal(pendingRead.args[1].signal.aborted, true, '卸载必须取消文件读取');
+  assert.equal(pendingList.args[0].signal.aborted, true, '卸载必须取消列表请求');
+  pendingSave.resolve({ size: 999, modified_at: '' });
+  pendingRead.resolve({ content: '迟到内容', size: 4, modified_at: '' });
+  pendingList.resolve(listResult([]));
+  await settle();
+  assert.equal(notices.length, noticesBeforeUnmount, '卸载后的迟到保存响应不得再显示成功通知');
+
+  renderFiles();
+  latestRequest('list').resolve(listResult([fileA, fileB]));
+  await settle();
+  renderFiles();
+  const deleteFile = path => {
+    const row = fileNodes(node => node.type === 'li' && node.key === path)[0];
+    nodes(row, node => node.props.class?.includes('oh-files-delete-button'))[0].props.onClick();
+    renderFiles();
+    return fileNodes(node => node.props.confirmBeforeClose)[0];
+  };
+  openFile(fileA.path);
+  await completeRead('甲正文');
+  const deleteDialog = deleteFile(fileA.path);
+  const deletion = deleteDialog.props.onConfirm();
+  const staleDelete = latestRequest('delete');
+  assert.equal(await deleteDialog.props.onConfirm(), false, '删除等待期间必须阻止同帧重复提交');
+  assert.equal(workspaceRequests.filter(request => request.kind === 'delete').length, 1);
+  openFile(fileB.path);
+  await completeRead('乙正文');
+  editFile('乙仍未保存');
+  staleDelete.resolve({ ok: true });
+  await settle();
+  latestRequest('list').resolve(listResult([fileB]));
+  assert.equal(await deletion, true);
+  deleteDialog.props.onConfirmSuccess();
+  renderFiles();
+  assert.equal(editor().props.filename, fileB.path, '删除旧文件不能清空后来选择的文件');
+  assert.equal(editor().props.value, '乙仍未保存');
+  assert.equal(dirtyBadge().length, 1);
+
+  const currentDeleteDialog = deleteFile(fileB.path);
+  const currentDeletion = currentDeleteDialog.props.onConfirm();
+  latestRequest('delete').resolve({ ok: true });
+  await settle();
+  renderFiles();
+  assert.equal(editor(), undefined, '删除当前选中的文件必须清空详情');
+  const deleteRefresh = latestRequest('list');
+  hooks.unmount();
+  deleteRefresh.resolve(listResult([]));
+  assert.equal(await currentDeletion, false, '删除后刷新期间卸载不能继续执行弹窗成功收尾');
+
+  for (const createKind of ['file', 'directory']) {
+    renderFiles();
+    latestRequest('list').resolve(listResult([fileA]));
+    await settle();
+    renderFiles();
+    const createButtons = fileNodes(node => node.type === 'button' && node.props.class?.includes('oh-files-secondary-button'));
+    createButtons[createKind === 'file' ? 0 : 1].props.onClick();
+    renderFiles();
+    fileNodes(node => node.type === 'input' && node.props.autoFocus)[0].props.oninput({ target: { value: '新项目' } });
+    renderFiles();
+    const createForm = fileNodes(node => node.type === 'form' && node.props.class?.includes('min-w-'))[0];
+    const requestCount = workspaceRequests.length;
+    createForm.props.onSubmit({ preventDefault() {} });
+    createForm.props.onSubmit({ preventDefault() {} });
+    assert.equal(workspaceRequests.length, requestCount + 1, '创建文件或目录不能重复提交');
+    const pendingCreate = latestRequest(createKind === 'file' ? 'write' : 'create');
+    renderFiles();
+    assert.equal(fileNodes(node => node.type === 'input' && node.props.autoFocus)[0].props.disabled, true, '创建期间不能修改即将被清空的名称');
+    const pendingDeleteDialog = deleteFile(fileA.path);
+    const pendingDeletion = pendingDeleteDialog.props.onConfirm();
+    const pendingDelete = latestRequest('delete');
+    const mutationNotices = notices.length;
+    const mutationRequests = workspaceRequests.length;
+    hooks.unmount();
+    assert.equal(pendingCreate.args[createKind === 'file' ? 2 : 1].signal.aborted, true, '卸载必须取消创建请求');
+    assert.equal(pendingDelete.args[1].signal.aborted, true, '卸载必须取消删除请求');
+    if (createKind === 'file') {
+      pendingCreate.resolve({ ok: true });
+      pendingDelete.resolve({ ok: true });
+    } else {
+      pendingCreate.reject(new Error('迟到创建失败'));
+      pendingDelete.reject(new Error('迟到删除失败'));
+    }
+    assert.equal(await pendingDeletion, false);
+    await settle();
+    assert.equal(notices.length, mutationNotices, '卸载后的创建或删除结果不得继续显示通知');
+    assert.equal(workspaceRequests.length, mutationRequests, '卸载后的创建或删除不得重新请求列表');
+  }
+  console.log('[交互检查] 决策草稿、手势、轮询、浮层退场及文件并发状态检查通过。');
 } finally {
   for (const [name, descriptor] of saved) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

@@ -16,8 +16,10 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { useTransientFlag } from '../../../hooks/useTransientFlag';
+import { useEventCallback } from '../../../hooks/useEventCallback';
 import { TopBar } from '../../../components/TopBar';
 import { describeApiError } from '../../../utils/api_error';
+import { isAbortError } from '../../../shared/util/errors';
 
 const SAVE_OK_RESET_MS = 2_000;
 
@@ -59,10 +61,22 @@ export function FilesPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  const selectedPathRef = useRef<string | null>(null);
+  const editVersionRef = useRef(0);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const contentAbortRef = useRef<AbortController | null>(null);
+  const saveAbortRef = useRef<AbortController | null>(null);
+  const createAbortRef = useRef<AbortController | null>(null);
+  const deleteAbortRef = useRef<AbortController | null>(null);
   const detailSectionRef = useRef<HTMLElement | null>(null);
   const detailScrollFrameRef = useRef<number | null>(null);
 
-  const refresh = async () => {
+  const refresh = useEventCallback(async () => {
+    if (!mountedRef.current) return;
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
     setListLoading(true);
     setListError(null);
     try {
@@ -70,23 +84,36 @@ export function FilesPage() {
         path,
         q: query.trim(),
         type: typeFilter,
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       setList(res);
     } catch (err) {
+      if (controller.signal.aborted || isAbortError(err)) return;
       setListError(describeApiError(err));
       setList(null);
     } finally {
-      setListLoading(false);
+      if (listAbortRef.current === controller) {
+        listAbortRef.current = null;
+        if (!controller.signal.aborted) setListLoading(false);
+      }
     }
-  };
+  });
 
   // 初次进入 + path/query/type 变化时拉列表
   useEffect(() => {
     void refresh();
     setPathInput(path);
-  }, [path, query, typeFilter]);
+    return () => listAbortRef.current?.abort();
+  }, [path, query, typeFilter, refresh]);
 
   useEffect(() => () => {
+    mountedRef.current = false;
+    reqIdRef.current += 1;
+    contentAbortRef.current?.abort();
+    saveAbortRef.current?.abort();
+    createAbortRef.current?.abort();
+    deleteAbortRef.current?.abort();
     if (detailScrollFrameRef.current != null) {
       window.cancelAnimationFrame(detailScrollFrameRef.current);
       detailScrollFrameRef.current = null;
@@ -96,10 +123,9 @@ export function FilesPage() {
   const onOpenItem = (item: WorkspaceItem) => {
     if (item.type === 'directory') {
       setPath(item.path);
-      setSelected(null);
+      void loadContent(null);
       return;
     }
-    setSelected(item);
     void loadContent(item);
     if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
       if (detailScrollFrameRef.current != null) {
@@ -115,52 +141,71 @@ export function FilesPage() {
     }
   };
 
-  const loadContent = async (item: WorkspaceItem) => {
+  const loadContent = async (item: WorkspaceItem | null) => {
     const myReq = ++reqIdRef.current;
-    setContentLoading(true);
+    contentAbortRef.current?.abort();
+    contentAbortRef.current = null;
+    selectedPathRef.current = item?.path ?? null;
+    setSelected(item);
+    setContentLoading(item != null);
     setContentError(null);
     setContent('');
     setContentMeta(null);
     setDirty(false);
     setSaveError(null);
     resetSaveOk();
+    if (!item) return;
+    const controller = new AbortController();
+    contentAbortRef.current = controller;
     try {
-      const res = await readWorkspaceFile(item.path);
-      if (myReq !== reqIdRef.current) return;
+      const res = await readWorkspaceFile(item.path, { signal: controller.signal });
+      if (myReq !== reqIdRef.current || controller.signal.aborted) return;
       setContent(res.content);
       setContentMeta({ size: res.size, modified_at: res.modified_at });
     } catch (err) {
-      if (myReq !== reqIdRef.current) return;
+      if (myReq !== reqIdRef.current || controller.signal.aborted || isAbortError(err)) return;
       setContentError(describeApiError(err));
     } finally {
-      if (myReq === reqIdRef.current) setContentLoading(false);
+      if (contentAbortRef.current === controller) contentAbortRef.current = null;
+      if (myReq === reqIdRef.current && !controller.signal.aborted) setContentLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!selected || !list?.write_enabled || !selected.editable) return;
+    if (!selected || !list?.write_enabled || !selected.editable || saveAbortRef.current) return;
+    const controller = new AbortController();
+    saveAbortRef.current = controller;
+    // 保存结果只影响发起时的文件；等待期间的新修改仍保持未保存。
+    const selectionId = reqIdRef.current;
+    const editVersion = editVersionRef.current;
     setSaving(true);
     setSaveError(null);
     resetSaveOk();
     try {
-      const res = await writeWorkspaceFile(selected.path, content);
-      setContentMeta({ size: res.size, modified_at: res.modified_at });
-      setDirty(false);
-      showSaveOk();
+      const res = await writeWorkspaceFile(selected.path, content, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       showSnackbar(`${t('files.saveOk', '已保存')}：${selected.path}`, { tone: 'success' });
+      if (selectionId !== reqIdRef.current) return;
+      setContentMeta({ size: res.size, modified_at: res.modified_at });
+      if (editVersion === editVersionRef.current) {
+        setDirty(false);
+        showSaveOk();
+      }
     } catch (err) {
+      if (controller.signal.aborted || isAbortError(err)) return;
       const message = describeApiError(err);
-      setSaveError(message);
+      if (selectionId === reqIdRef.current) setSaveError(message);
       showSnackbar(`${t('files.save.failed', '保存失败')}：${message}`, { tone: 'error' });
     } finally {
-      setSaving(false);
+      if (saveAbortRef.current === controller) saveAbortRef.current = null;
+      if (!controller.signal.aborted) setSaving(false);
     }
   };
 
   const onPathSubmit = (ev: Event) => {
     ev.preventDefault();
     setPath(pathInput.trim());
-    setSelected(null);
+    void loadContent(null);
   };
 
   const breadcrumbs = useMemo(() => {
@@ -180,44 +225,50 @@ export function FilesPage() {
 
   const confirmDeleteTarget = async (): Promise<boolean> => {
     const item = deleteTarget;
-    if (!fileOperationsEnabled || !item || deleteBusy) return false;
+    if (!mountedRef.current || !fileOperationsEnabled || !item || deleteAbortRef.current) return false;
+    const controller = new AbortController();
+    deleteAbortRef.current = controller;
     setDeleteBusy(true);
     setActionError(null);
     try {
-      await deleteWorkspaceFile(item.path);
-      if (selected?.path === item.path) {
-        setSelected(null);
-        setContent('');
-        setContentMeta(null);
+      await deleteWorkspaceFile(item.path, { signal: controller.signal });
+      if (controller.signal.aborted) return false;
+      if (selectedPathRef.current === item.path) {
+        void loadContent(null);
       }
       showSnackbar(`${t('files.delete.ok', '已删除')}：${item.path}`, { tone: 'success' });
       await refresh();
-      return true;
+      return !controller.signal.aborted;
     } catch (err) {
+      if (controller.signal.aborted || isAbortError(err)) return false;
       const message = describeApiError(err);
       setActionError(message);
       showSnackbar(`${t('files.delete.failed', '删除失败')}：${message}`, { tone: 'error' });
       return false;
     } finally {
-      setDeleteBusy(false);
+      if (deleteAbortRef.current === controller) deleteAbortRef.current = null;
+      if (!controller.signal.aborted) setDeleteBusy(false);
     }
   };
 
   // 创建文件 / 目录：文件复用 PUT，目录走专用 mkdir API，避免 placeholder 文件污染。
   const handleCreate = async () => {
-    if (!fileOperationsEnabled || !creating) return;
+    if (!mountedRef.current || !fileOperationsEnabled || !creating || createAbortRef.current) return;
     const name = createName.trim();
     if (!name) return;
+    const controller = new AbortController();
+    createAbortRef.current = controller;
     setCreateBusy(true);
     setActionError(null);
     const createKind = creating;
     try {
       const targetPath = path ? `${path}/${name}` : name;
       if (createKind === 'directory') {
-        await createWorkspaceDirectory(targetPath);
+        await createWorkspaceDirectory(targetPath, { signal: controller.signal });
       } else {
-        await writeWorkspaceFile(targetPath, '');
+        await writeWorkspaceFile(targetPath, '', { signal: controller.signal });
       }
+      if (controller.signal.aborted) return;
       setCreating(null);
       setCreateName('');
       showSnackbar(
@@ -230,11 +281,13 @@ export function FilesPage() {
       );
       await refresh();
     } catch (err) {
+      if (controller.signal.aborted || isAbortError(err)) return;
       const message = describeApiError(err);
       setActionError(message);
       showSnackbar(`${t('files.create.failed', '创建失败')}：${message}`, { tone: 'error' });
     } finally {
-      setCreateBusy(false);
+      if (createAbortRef.current === controller) createAbortRef.current = null;
+      if (!controller.signal.aborted) setCreateBusy(false);
     }
   };
 
@@ -285,7 +338,7 @@ export function FilesPage() {
                 type="button"
                 onClick={() => {
                   setPath(b.path);
-                  setSelected(null);
+                  void loadContent(null);
                 }}
                 class="oh-files-breadcrumb"
               >
@@ -350,6 +403,7 @@ export function FilesPage() {
                     setActionError(null);
                   }}
                   class={`oh-tap-press oh-files-secondary-button${creating === 'file' ? ' is-active' : ''}`}
+                  disabled={createBusy}
                 >
                   + {t('files.newFile', '新建文件')}
                 </button>
@@ -361,6 +415,7 @@ export function FilesPage() {
                     setActionError(null);
                   }}
                   class={`oh-tap-press oh-files-secondary-button${creating === 'directory' ? ' is-active' : ''}`}
+                  disabled={createBusy}
                 >
                   + {t('files.newDir', '新建目录')}
                 </button>
@@ -375,6 +430,7 @@ export function FilesPage() {
                     <input
                       type="text"
                       value={createName}
+                      disabled={createBusy}
                       autoFocus
                       onInput={(ev) => setCreateName((ev.target as HTMLInputElement).value)}
                       placeholder={
@@ -413,7 +469,7 @@ export function FilesPage() {
                 type="button"
                 onClick={() => {
                   setPath(parentOf(path));
-                  setSelected(null);
+                  void loadContent(null);
                 }}
                 class="oh-files-parent-row"
               >
@@ -555,6 +611,7 @@ export function FilesPage() {
                       filename={selected.path}
                       readOnly={writeDisabled}
                       onChange={(next) => {
+                        editVersionRef.current += 1;
                         setContent(next);
                         setDirty(true);
                         resetSaveOk();

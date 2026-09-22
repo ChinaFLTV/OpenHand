@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 export interface WorkspaceItem {
   name: string;
@@ -42,7 +42,7 @@ interface WorkspaceDirectoryResponse {
   modified_at: string;
 }
 
-interface ListFilesOptions {
+interface ListFilesOptions extends ApiRequestSignalOptions {
   path?: string;
   q?: string;
   type?: 'all' | 'file' | 'directory';
@@ -62,27 +62,38 @@ export function listWorkspaceFiles(
   const qs = params.toString();
   return apiRequest<WorkspaceListResponse>(
     `/api/workspace/files${qs ? `?${qs}` : ''}`,
+    { signal: options.signal, timeoutMs: options.timeoutMs },
   );
 }
 
-export function readWorkspaceFile(path: string): Promise<WorkspaceReadResponse> {
+export function readWorkspaceFile(
+  path: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<WorkspaceReadResponse> {
   return apiRequest<WorkspaceReadResponse>(
     `/api/workspace/file?path=${encodeURIComponent(path)}`,
+    options,
   );
 }
 
 export function writeWorkspaceFile(
   path: string,
   content: string,
+  options: ApiRequestSignalOptions = {},
 ): Promise<WorkspaceWriteResponse> {
   return apiRequest<WorkspaceWriteResponse>('/api/workspace/file', {
+    ...options,
     method: 'PUT',
     body: { path, content },
   });
 }
 
-export function createWorkspaceDirectory(path: string): Promise<WorkspaceDirectoryResponse> {
+export function createWorkspaceDirectory(
+  path: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<WorkspaceDirectoryResponse> {
   return apiRequest<WorkspaceDirectoryResponse>('/api/workspace/directory', {
+    ...options,
     method: 'POST',
     body: { path },
   });
@@ -93,9 +104,12 @@ interface WorkspaceDeleteResponse {
   path: string;
 }
 
-export function deleteWorkspaceFile(path: string): Promise<WorkspaceDeleteResponse> {
+export function deleteWorkspaceFile(
+  path: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<WorkspaceDeleteResponse> {
   return apiRequest<WorkspaceDeleteResponse>(
     `/api/workspace/file?path=${encodeURIComponent(path)}`,
-    { method: 'DELETE' },
+    { ...options, method: 'DELETE' },
   );
 }
