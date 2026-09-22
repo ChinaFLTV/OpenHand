@@ -39,15 +39,19 @@ function runWithRouteTransition(update: () => void): void {
       delete document.documentElement.dataset.routeTransition;
     }
   };
-  cleanupTimer = window.setTimeout(cleanup, ROUTE_TRANSITION_CLEANUP_TIMEOUT_MS);
+  const finish = () => {
+    cleanup();
+    // 浏览器过渡失败或停滞时仍提交导航；代次和门闩阻止旧回调重复更新。
+    commitUpdate();
+  };
+  cleanupTimer = window.setTimeout(finish, ROUTE_TRANSITION_CLEANUP_TIMEOUT_MS);
   try {
     const transition = doc.startViewTransition(commitUpdate);
     void transition.ready?.catch(ignoreError);
     void transition.updateCallbackDone?.catch(ignoreError);
-    void transition.finished.catch(ignoreError).finally(cleanup);
+    void transition.finished.then(finish, finish).catch(ignoreError);
   } catch {
-    cleanup();
-    commitUpdate();
+    finish();
   }
 }
 

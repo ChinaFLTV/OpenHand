@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/json_rpc_message.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -18,6 +19,7 @@ import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/message_frame_scan.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
@@ -45,7 +47,7 @@ class WebReverseLspClient {
   Process? _proc;
   StreamSubscription<List<int>>? _stdoutSub;
   StreamSubscription<List<int>>? _stderrSub;
-  Future<void>? _cleanupFuture;
+  final _cleanupQueue = SerialTaskQueue();
   final List<int> _buf = <int>[];
   int _nextId = 1;
   final Map<int, Completer<Map<String, Object?>>> _pending = {};
@@ -243,11 +245,6 @@ class WebReverseLspClient {
       return;
     }
     _lifecycleGeneration += 1;
-    final stdoutSub = _stdoutSub;
-    final stderrSub = _stderrSub;
-    _proc = null;
-    _stdoutSub = null;
-    _stderrSub = null;
     _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
@@ -259,11 +256,7 @@ class WebReverseLspClient {
     _failPendingRequests('进程已退出');
     final initDone = _initDone;
     if (initDone != null) _completeInitialization(initDone, false);
-    _observeCleanup(
-      _enqueueCleanup(
-        () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
-      ),
-    );
+    _observeCleanup(_cleanupCurrentProcess());
   }
 
   void _completeInitialization(Completer<bool> completer, bool value) {
@@ -293,34 +286,14 @@ class WebReverseLspClient {
     _stdoutSub = null;
     _stderrSub = null;
     if (process == null && stdoutSub == null && stderrSub == null) {
-      return _cleanupFuture ?? Future<void>.value();
+      return _cleanupQueue.idle;
     }
-    return _enqueueCleanup(() {
+    return _cleanupQueue.enqueue(() {
       if (process != null) {
         return _releaseDetachedProcess(process, stdoutSub, stderrSub);
       }
       return _cancelSubscriptions(stdoutSub, stderrSub);
     });
-  }
-
-  Future<void> _enqueueCleanup(Future<void> Function() operation) {
-    final previous = _cleanupFuture;
-    late final Future<void> tracked;
-    tracked =
-        (() async {
-          if (previous != null) {
-            try {
-              await previous;
-            } catch (error, stack) {
-              silentLog('web_reverse_lsp_client', '等待上一次资源清理', error, stack);
-            }
-          }
-          await operation();
-        })().whenComplete(() {
-          if (identical(_cleanupFuture, tracked)) _cleanupFuture = null;
-        });
-    _cleanupFuture = tracked;
-    return tracked;
   }
 
   Future<void> _releaseDetachedProcess(
@@ -378,7 +351,7 @@ class WebReverseLspClient {
 
   /// 把当前进程 PATH 与常见的 LSP 安装目录拼起来，避免 GUI 启动的 Flutter
   /// 子进程因为 PATH 不全导致 npm/brew 全局 bin 命令都找不到。仅在 macOS
-  /// 与 Linux 下生效，Windows 直接返回原样让 PowerShell 自己解析。
+  /// 与 Linux 下生效，Windows 沿用系统环境。
   Future<Map<String, String>> _augmentedEnvironment() async {
     final base = Map<String, String>.from(Platform.environment);
     if (Platform.isWindows) return base;
@@ -576,7 +549,7 @@ class WebReverseLspClient {
     final completer = Completer<Map<String, Object?>>();
     _pending[id] = completer;
     final sent = _send(<String, Object?>{
-      'jsonrpc': '2.0',
+      'jsonrpc': kJsonRpcVersion,
       'id': id,
       'method': method,
       'params': params,
@@ -597,7 +570,7 @@ class WebReverseLspClient {
 
   bool _notify(String method, Map<String, Object?> params) {
     return _send(<String, Object?>{
-      'jsonrpc': '2.0',
+      'jsonrpc': kJsonRpcVersion,
       'method': method,
       'params': params,
     });
@@ -642,6 +615,10 @@ class WebReverseLspClient {
         }
         return;
       }
+      if (frame.headerEnd > _kMaxLspHeaderBytes) {
+        _failProtocol('LSP 消息头超过 $_kMaxLspHeaderBytes 字节上限');
+        return;
+      }
       final header = utf8.decode(
         _buf.sublist(0, frame.headerEnd),
         allowMalformed: true,
@@ -670,14 +647,24 @@ class WebReverseLspClient {
           maxTextCodeUnits: _kMaxLspFrameBytes,
           config: _kLspJsonConversionConfig,
         );
-        if (decoded is Map && decoded['id'] is num) {
-          final id = (decoded['id'] as num).toInt();
+        if (decoded is Map && isJsonRpcResponse(decoded)) {
+          final id = decoded['id'];
           final c = _pending.remove(id);
           if (c != null && !c.isCompleted) {
             c.complete(stringKeyedMapFromValue(decoded));
           }
+        } else if (decoded is Map &&
+            decoded['method'] is String &&
+            (decoded['id'] is String || decoded['id'] is int)) {
+          _send(<String, Object?>{
+            'jsonrpc': kJsonRpcVersion,
+            'id': decoded['id'],
+            'error': <String, Object?>{
+              'code': kJsonRpcMethodNotFound,
+              'message': '客户端不支持此方法。',
+            },
+          });
         }
-        // notification（无 id）暂不处理。
       } catch (error, stack) {
         _failProtocol('收到无效的 JSON-RPC 载荷。', cause: error, stack: stack);
         return;
@@ -710,13 +697,7 @@ class WebReverseLspClient {
   }
 
   void _failProtocol(String message, {Object? cause, StackTrace? stack}) {
-    final process = _proc;
-    final stdoutSub = _stdoutSub;
-    final stderrSub = _stderrSub;
     _lifecycleGeneration += 1;
-    _proc = null;
-    _stdoutSub = null;
-    _stderrSub = null;
     _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
@@ -725,17 +706,7 @@ class WebReverseLspClient {
     _failPendingRequests(message);
     final initDone = _initDone;
     if (initDone != null) _completeInitialization(initDone, false);
-    if (process != null) {
-      _observeCleanup(
-        _enqueueCleanup(
-          () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
-        ),
-      );
-    } else {
-      _observeCleanup(
-        _enqueueCleanup(() => _cancelSubscriptions(stdoutSub, stderrSub)),
-      );
-    }
+    _observeCleanup(_cleanupCurrentProcess());
     silentLog(
       'web_reverse_lsp_client',
       '处理协议消息',

@@ -5,6 +5,7 @@ import preact from '@preact/preset-vite';
 
 // 只替换 Hook 生命周期和浏览器出口，直接驱动真实交互与轮询逻辑。
 const hooksId = '\0交互检查钩子';
+const locationId = '\0交互检查路由';
 const noticesId = '\0交互检查通知';
 const server = await createServer({
   configFile: false,
@@ -13,15 +14,17 @@ const server = await createServer({
   optimizeDeps: { noDiscovery: true, include: [] },
   server: { middlewareMode: true, watch: null, ws: false },
   appType: 'custom',
-  ssr: { noExternal: ['preact'] },
+  ssr: { noExternal: ['preact', 'preact-iso'] },
   plugins: [preact(), {
     name: '交互检查环境',
     enforce: 'pre',
     resolveId(source) {
+      if (source === 'preact-iso' || source === locationId) return locationId;
       if (source === 'preact/hooks' || source === hooksId) return hooksId;
       if (source.endsWith('/components/Snackbar') || source === noticesId) return noticesId;
     },
     load(id) {
+      if (id === locationId) return 'export const routes = []; export function useLocation() { return { route: (...args) => routes.push(args) }; }';
       if (id === noticesId) return 'export const notices = []; export function showSnackbar(message) { notices.push(message); }';
       if (id !== hooksId) return;
       return `
@@ -363,6 +366,45 @@ try {
   hooks.unmount();
   await settle();
   assert.equal(runs.length, 3, '开始前卸载不得启动底层轮询任务');
+  const { routes } = await server.ssrLoadModule(locationId);
+  const { useAnimatedLocation } = await server.ssrLoadModule('/src/hooks/useAnimatedLocation.ts');
+  const transitionRoot = { dataset: {}, removeAttribute() {} };
+  replace('document', { documentElement: transitionRoot });
+  let completeTransition;
+  let delayedUpdate;
+  document.startViewTransition = (update) => {
+    delayedUpdate = update;
+    return { finished: new Promise(resolve => { completeTransition = resolve; }) };
+  };
+  const location = hooks.render(useAnimatedLocation);
+  location.route('/sessions', true);
+  assert.equal(routes.length, 0, '导航应等待过渡更新回调');
+  await tick(720);
+  assert.deepEqual(routes, [['/sessions', true]], '过渡停滞不能让导航永久丢失');
+  delayedUpdate();
+  completeTransition();
+  await settle();
+  assert.equal(routes.length, 1, '迟到过渡不得重复提交导航');
+  assert.equal(transitionRoot.dataset.routeTransition, undefined);
+  location.route('/old');
+  const staleUpdate = delayedUpdate;
+  const staleCompletion = completeTransition;
+  location.route('/latest');
+  const latestUpdate = delayedUpdate;
+  staleUpdate();
+  staleCompletion();
+  await settle();
+  assert.equal(routes.length, 1, '旧过渡不能覆盖新导航');
+  latestUpdate();
+  completeTransition();
+  await settle();
+  assert.deepEqual(routes.at(-1), ['/latest', undefined]);
+  document.startViewTransition = () => ({ finished: Promise.reject(new Error('过渡不可用')) });
+  location.route('/fallback');
+  await settle();
+  assert.deepEqual(routes.at(-1), ['/fallback', undefined], '过渡失败仍必须完成导航');
+  assert.equal(timers.size, 0, '过渡结束必须清除所有兜底计时器');
+  hooks.unmount();
   const browser = new EventTarget();
   const documentSurface = new Surface();
   replace('window', browser);

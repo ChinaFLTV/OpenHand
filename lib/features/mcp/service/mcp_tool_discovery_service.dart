@@ -13,6 +13,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/net/json_rpc_message.dart';
 import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -1444,7 +1445,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, Object?>? params,
   }) {
     return <String, Object?>{
-      'jsonrpc': '2.0',
+      'jsonrpc': kJsonRpcVersion,
       'id': id,
       'method': method,
       ...?(params == null ? null : <String, Object?>{'params': params}),
@@ -1474,7 +1475,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, Object?>? params,
   }) {
     return <String, Object?>{
-      'jsonrpc': '2.0',
+      'jsonrpc': kJsonRpcVersion,
       'method': method,
       ...?(params == null ? null : <String, Object?>{'params': params}),
     };
@@ -1906,7 +1907,7 @@ Map<String, Object?>? _firstJsonRpcMessageForRequestId(
 ) {
   final requestIdText = '$requestId';
   for (final message in _jsonRpcMessagesFromDecoded(value)) {
-    if ('${message['id']}' == requestIdText) {
+    if (isJsonRpcResponse(message) && '${message['id']}' == requestIdText) {
       return message;
     }
   }
@@ -2269,7 +2270,9 @@ class _LegacySseSession {
     late final StreamSubscription<Map<String, Object?>> responseSubscription;
     responseSubscription = _messages.stream.listen(
       (message) {
-        if ('${message['id']}' == requestIdText && !response.isCompleted) {
+        if (isJsonRpcResponse(message) &&
+            '${message['id']}' == requestIdText &&
+            !response.isCompleted) {
           response.complete(message);
         }
       },
@@ -2700,7 +2703,7 @@ class _StdioSession {
         _appendTrace(
           'stdout:message:${messageIdText.isEmpty ? message['method'] ?? 'unknown' : messageIdText}',
         );
-        if (messageIdText.isEmpty) {
+        if (!isJsonRpcResponse(message)) {
           continue;
         }
         final pendingResponse = _pendingResponses.remove(messageIdText);
