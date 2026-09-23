@@ -11,9 +11,16 @@ class AiModelCatalog {
 
   /// 仅接受已核实版本及日期快照，不把后续版本套用为旧版规格。
   static bool matchesVersion(String modelId, String version) {
-    final id = AiOneMillionContextPolicy.stripModelIdSuffix(
-      modelId.trim().toLowerCase(),
-    ).split('/').last.split(':').first.replaceAll('.', '-');
+    final id =
+        AiOneMillionContextPolicy.stripModelIdSuffix(
+              modelId.trim().toLowerCase(),
+            )
+            .split('/')
+            .last
+            .split(':')
+            .first
+            .replaceAll('.', '-')
+            .replaceFirst(RegExp('^anthropic-'), '');
     final base = version.replaceAll('.', '-');
     if (id == base) return true;
     if (!id.startsWith('$base-')) return false;
@@ -107,7 +114,7 @@ class AiModelCatalog {
   ) {
     return switch (protocolType) {
       AiProtocolType.openai => _openai(id),
-      AiProtocolType.jev => _jev(id) ?? const AiModelProfile(),
+      AiProtocolType.jev => _laya(id) ?? _jev(id) ?? const AiModelProfile(),
       AiProtocolType.dots => _dots(id),
       AiProtocolType.claude => _claude(id),
       AiProtocolType.gemini => _gemini(id),
@@ -135,7 +142,8 @@ class AiModelCatalog {
 
   static AiModelProfile? _lookupAcrossProtocols(String id) {
     // 顺序敏感：先匹配者胜出，更专一的匹配器必须排在前面。
-    return _jev(id) ??
+    return _laya(id) ??
+        _jev(id) ??
         _openai(id) ??
         _dots(id) ??
         _gemini(id) ??
@@ -1130,6 +1138,52 @@ class AiModelCatalog {
     }
 
     // ── GPT-6 / GPT-5.6 系列 ───────────────────────────────────────────
+    if (matchesVersion(id, 'gpt-6-sol')) {
+      return _p(
+        name: 'GPT-6 Sol',
+        desc: '面向复杂编程与智能体工作流的 OpenAI 推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 10.00,
+        cacheReadUsdPer1M: 0.20,
+        cacheWriteUsdPer1M: 2.50,
+        canonicalSlug: 'gpt-6-sol',
+        sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-sol',
+        knowledgeCutoff: '2026-04-20',
+        supportedParameters: _gpt6Parameters,
+      );
+    }
+    if (matchesVersion(id, 'gpt-6-luna')) {
+      return _p(
+        name: 'GPT-6 Luna',
+        desc: '面向高吞吐、目标明确任务的 OpenAI 高效推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
+        inputUsdPer1M: 0.10,
+        outputUsdPer1M: 0.50,
+        cacheReadUsdPer1M: 0.01,
+        cacheWriteUsdPer1M: 0.125,
+        canonicalSlug: 'gpt-6-luna',
+        sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-luna',
+        knowledgeCutoff: '2026-05-18',
+        supportedParameters: _gpt6Parameters,
+      );
+    }
     if (matchesVersion(id, 'gpt-6-astra')) {
       return _p(
         name: 'GPT-6 Astra',
@@ -1400,6 +1454,41 @@ class AiModelCatalog {
     return null;
   }
 
+  // Laya 自托管服务兼容 Jev 决策接口，检查点的上下文长度各不相同。
+  static AiModelProfile? _laya(String id) {
+    final checkpoint = id.split('/').last;
+    final context = switch (checkpoint) {
+      'laya' => 512,
+      'laya-multilingual' || 'laya-typed-decisions' => 1024,
+      _ => null,
+    };
+    if (context == null) return null;
+    final name = switch (checkpoint) {
+      'laya-multilingual' => 'Laya Multilingual',
+      'laya-typed-decisions' => 'Laya Typed-Decisions',
+      _ => 'Laya',
+    };
+    return AiModelProfile(
+      displayName: name,
+      description: 'ConvAI Innovations 开源的非自回归结构化决策模型；自托管服务兼容 Jev 决策接口。',
+      maxContextLength: context,
+      isMultimodal: false,
+      supportsAttachments: false,
+      supportedModalities: const {AiModelModality.text},
+      thinkingEnabled: false,
+      reasoningEffortControlEnabled: false,
+      architecture: const AiModelArchitectureMetadata(
+        modality: 'text->decisions',
+        inputModalities: ['text'],
+        outputModalities: ['decisions'],
+      ),
+      supportedParameters: const ['model', 'state', 'questions'],
+      links: AiModelLinksMetadata(
+        details: 'https://huggingface.co/convaiinnovations/$checkpoint',
+      ),
+    );
+  }
+
   // Jev 仅返回结构化决策，不能作为聊天或标题生成模型。
   static AiModelProfile? _jev(String id) {
     final nativeId = id.split('/').last;
@@ -1446,6 +1535,32 @@ class AiModelCatalog {
 
   static AiModelProfile? _claude(String id) {
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
+    if (matchesVersion(id, 'claude-opus-5-5') ||
+        matchesVersion(id, 'claude-5-5-opus')) {
+      return _p(
+        name: 'Claude Opus 5.5',
+        desc: '面向长时程智能体编程与知识工作的 Claude 模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 4.00,
+        outputUsdPer1M: 20.00,
+        cacheReadUsdPer1M: 0.20,
+        cacheWriteUsdPer1M: 5.00,
+        canonicalSlug: 'claude-opus-5-5',
+        sourceUrl:
+            'https://platform.claude.com/docs/en/models/opus-5-5/overview',
+        knowledgeCutoff: '2026-06',
+        supportedParameters: _claude51Parameters,
+      );
+    }
     if (matchesVersion(id, 'claude-fable-5-1') ||
         matchesVersion(id, 'claude-5-1-fable')) {
       return _p(

@@ -249,8 +249,22 @@ abstract final class AiThinkingRequestPolicy {
       }
     }
 
+    if ((AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
+            AiModelCatalog.matchesVersion(modelId, 'gpt-6-luna')) &&
+        Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
+        body.containsKey('messages') &&
+        body['tools'] is List &&
+        (body['tools'] as List).isNotEmpty &&
+        body['reasoning_effort'] != 'none') {
+      throw UnsupportedError(
+        'GPT-6 Sol/Luna 的 Chat Completions 工具调用需要将推理强度设为 none，或改用 Responses API。',
+      );
+    }
+
     if (AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
-        AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1')) {
+        AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1') ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-opus-5-5') ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-5-5-opus')) {
       final thinking = body[_thinkingField];
       if (thinking is Map) {
         body[_thinkingField] = <String, Object?>{

@@ -2055,6 +2055,10 @@ class AiModelConfig {
     if (normalizedModelId.contains('gpt-6-astra')) {
       return AiReasoningEffortOption.lowMediumHighXHighMax;
     }
+    if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-luna')) {
+      return AiReasoningEffortOption.openAiGpt56;
+    }
     if (normalizedModelId.contains('gpt-5-6')) {
       return AiReasoningEffortOption.openAiGpt56;
     }
@@ -2266,6 +2270,8 @@ class AiModelConfig {
     String normalizedModelId,
   ) {
     return const [
+      'claude-opus-5-5',
+      'claude-5-5-opus',
       'claude-fable-5',
       'claude-fable-5-1',
       'claude-mythos-5',

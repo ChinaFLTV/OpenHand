@@ -149,6 +149,8 @@ class AiModelScanner {
       case AiProtocolType.openai:
         return const <String>[
           'gpt-6-astra',
+          'gpt-6-sol',
+          'gpt-6-luna',
           'gpt-5.6-sol',
           'gpt-5.6-terra',
           'gpt-5.6-luna',
@@ -158,6 +160,7 @@ class AiModelScanner {
       case AiProtocolType.claude:
         return const <String>[
           'claude-fable-5-1',
+          'claude-opus-5-5',
           'claude-mythos-5-1',
           'claude-opus-5',
           'claude-sonnet-5',
