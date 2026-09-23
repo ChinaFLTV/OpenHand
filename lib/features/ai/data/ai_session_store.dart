@@ -1230,6 +1230,7 @@ class AiSessionStore {
     bool deferTelemetryMetadata = false,
     int? contentPreviewChars,
     int? knownTotalCount,
+    bool includeToolCallContext = true,
   }) async {
     // 网关已查询过总数时直接复用，避免一次消息窗口请求重复执行 COUNT。
     final totalCount = knownTotalCount ?? await _countMessages(sessionId);
@@ -1242,13 +1243,15 @@ class AiSessionStore {
       deferTelemetryMetadata: deferTelemetryMetadata,
       contentPreviewChars: contentPreviewChars,
     );
-    final expanded = await _prependTranscriptToolCallContext(
-      sessionId,
-      messages: messages,
-      offset: safeOffset,
-      deferTelemetryMetadata: deferTelemetryMetadata,
-      contentPreviewChars: contentPreviewChars,
-    );
+    final expanded = includeToolCallContext
+        ? await _prependTranscriptToolCallContext(
+            sessionId,
+            messages: messages,
+            offset: safeOffset,
+            deferTelemetryMetadata: deferTelemetryMetadata,
+            contentPreviewChars: contentPreviewChars,
+          )
+        : (messages: messages, offset: safeOffset);
     final hasMore = expanded.offset + expanded.messages.length < totalCount;
 
     return AiSessionMessagePage(

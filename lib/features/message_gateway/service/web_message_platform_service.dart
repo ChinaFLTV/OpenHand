@@ -4719,6 +4719,7 @@ class WebMessagePlatformService {
             limit: limit,
             offset: rawOffset,
             tail: tail,
+            failOnReadError: !tail,
           )
         : await _loadTranscriptRevealWindow(
             session,
@@ -7971,22 +7972,12 @@ class WebMessagePlatformService {
     required int limit,
     int offset = 0,
     bool tail = false,
+    bool failOnReadError = false,
   }) async {
     final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
     try {
       final rawTotal = await _sessionController.store.countMessages(session.id);
-      final inMemoryComplete =
-          session.messages.isNotEmpty && session.messages.length >= rawTotal;
-      if (inMemoryComplete &&
-          session.messages.length <= _inMemoryMessageWindowDirectLimit) {
-        return _messageWindowFromDisplayMessages(
-          session.displayMessages,
-          limit: safeLimit,
-          offset: offset,
-          tail: tail,
-        );
-      }
-
+      // 已入库窗口始终使用原始记录偏移，避免工具结果折叠后切换分页坐标。
       final requestedOffset = math.min(math.max(0, offset), rawTotal);
       int scanLimitFor({
         required int multiplier,
@@ -8013,10 +8004,10 @@ class WebMessagePlatformService {
         final rawOffset = rawOffsetFor(scanLimit, context);
         final liveMessages = _liveMessagesForStoredWindowMerge(
           session: session,
-          inMemoryComplete: inMemoryComplete,
           rawOffset: rawOffset,
           scanLimit: scanLimit,
           rawTotal: rawTotal,
+          tail: tail,
         );
         final page = await _sessionController.store.loadMessages(
           session.id,
@@ -8025,6 +8016,7 @@ class WebMessagePlatformService {
           deferTelemetryMetadata: true,
           contentPreviewChars: _webMessageContentPreviewCharacters,
           knownTotalCount: rawTotal,
+          includeToolCallContext: false,
         );
         return _boundedStoredMessageWindow(
           session: session,
@@ -8060,6 +8052,7 @@ class WebMessagePlatformService {
       return window;
     } catch (error, stack) {
       silentLog('web_message_platform_service', '加载已存消息窗口', error, stack);
+      if (failOnReadError) rethrow;
       final cheapDisplayMessages = _displayMessagesIfCheap(session);
       if (cheapDisplayMessages.isNotEmpty) {
         return _messageWindowFromDisplayMessages(
@@ -8252,26 +8245,36 @@ class WebMessagePlatformService {
 
   List<AiSessionMessage> _liveMessagesForStoredWindowMerge({
     required AiSession session,
-    required bool inMemoryComplete,
     required int rawOffset,
     required int scanLimit,
     required int rawTotal,
+    required bool tail,
   }) {
     final liveMessages = session.messages;
     if (liveMessages.isEmpty) return const <AiSessionMessage>[];
-    if (!inMemoryComplete ||
-        liveMessages.length <= _inMemoryMessageWindowDirectLimit) {
-      return liveMessages;
-    }
-
-    final storedStart = math.max(0, math.min(rawOffset, liveMessages.length));
+    final liveStart =
+        session.messageLoadState == AiSessionMessageLoadState.windowed
+        ? session.messageWindowStartIndex
+        : 0;
+    final storedStart = math.max(
+      0,
+      math.min(rawOffset - liveStart, liveMessages.length),
+    );
     final storedEnd = math.max(
       storedStart,
-      math.min(rawOffset + scanLimit, math.min(rawTotal, liveMessages.length)),
+      math.min(
+        rawOffset + scanLimit - liveStart,
+        math.min(rawTotal - liveStart, liveMessages.length),
+      ),
     );
-    final unsavedStart = math.max(0, math.min(rawTotal, liveMessages.length));
+    final unsavedStart = math.max(
+      0,
+      math.min(rawTotal - liveStart, liveMessages.length),
+    );
     final hasStoredOverlap = storedEnd > storedStart;
-    final hasUnsavedTail = unsavedStart < liveMessages.length;
+    final hasUnsavedTail =
+        (tail || rawOffset + scanLimit >= rawTotal) &&
+        unsavedStart < liveMessages.length;
     final boundedUnsavedStart = hasUnsavedTail
         ? math.max(
             unsavedStart,

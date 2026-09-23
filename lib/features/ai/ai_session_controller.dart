@@ -2394,6 +2394,7 @@ class AiSessionController extends ChangeNotifier {
               offset: offset,
               deferTelemetryMetadata: true,
               contentPreviewChars: _olderMessageHydrationContentPreviewChars,
+              includeToolCallContext: false,
             );
           }).timeout(
             deadline.remaining(),
