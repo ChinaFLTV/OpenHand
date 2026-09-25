@@ -16,6 +16,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_metadata_tiles.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -764,7 +765,6 @@ class _StdioMetricStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth.isFinite
@@ -780,41 +780,11 @@ class _StdioMetricStrip extends StatelessWidget {
             for (final item in items)
               SizedBox(
                 width: width,
-                child: OpenHandTintedPanel(
+                child: OpenHandMetadataSummaryTile(
+                  icon: item.icon,
+                  label: item.label,
+                  value: item.value,
                   accent: item.accent,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: Row(
-                    children: [
-                      Icon(item.icon, size: 18, color: item.accent),
-                      kOpenHandHGap8,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: item.accent,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            kOpenHandGap2,
-                            Text(
-                              item.value,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                height: 1.25,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
           ],

@@ -128,16 +128,17 @@ String? extractPluginFirstSemver(String output, {String? prefix}) {
   return null;
 }
 
-/// 取输出里所有独占一行的稳定版本号，按 [prefix] 过滤后去重。
-List<String> extractPluginStableVersionLines(String output, {String? prefix}) {
-  final versions = <String>{};
+/// 从独占一行的稳定版本号中取最大版本，跳过预览版和不匹配的前缀。
+String? extractPluginLatestStableVersion(String output, {String? prefix}) {
+  String? latest;
   for (final match in _pluginStableVersionLinePattern.allMatches(output)) {
-    final value = match.group(1);
-    if (value == null) continue;
+    final value = match.group(1)!;
     if (prefix != null && !value.startsWith(prefix)) continue;
-    versions.add(value);
+    if (latest == null || compareSemanticVersions(value, latest) > 0) {
+      latest = value;
+    }
   }
-  return versions.toList(growable: false);
+  return latest;
 }
 
 String? extractPluginAbsolutePath(String output) {

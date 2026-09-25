@@ -18,7 +18,9 @@ Future<void> main() async {
     root: root,
     name: 'plugin_diagnostics',
     source:
-        "import 'package:flutter_test/flutter_test.dart';\n$source\n$_checks",
+        "import 'package:flutter_test/flutter_test.dart';\n"
+        "import 'package:openhand/features/plugin_service/service/plugin_environment_probe.dart';\n"
+        "$source\n$_checks",
   );
 }
 
@@ -72,6 +74,14 @@ Widget _app(_DiagnosticController controller, {double scale = 1, bool reduceMoti
 }
 
 void main() {
+  test('稳定版本选择按数值比较，过滤预览版、错误前缀及无效输出', () {
+    const output = ' 3.12.9\n3.12.10\n3.12.10\n3.13.1\n3.12.11rc1\n提示 3.12.99\n';
+    expect(extractPluginLatestStableVersion(output, prefix: '3.12.'), '3.12.10');
+    expect(extractPluginLatestStableVersion(output), '3.13.1');
+    expect(extractPluginLatestStableVersion(output, prefix: '3.11.'), isNull);
+    expect(extractPluginLatestStableVersion(''), isNull);
+  });
+
   test('诊断过滤空白、合并重复消息并保留错误状态兜底', () {
     expect(_plugin.copyWith(errorMessage: '  ', metadata: {'update_check_error': '\n'}).diagnostics, isEmpty);
     final duplicate = _plugin.copyWith(errorMessage: ' 同一错误 ', metadata: {'update_check_error': '同一错误'});

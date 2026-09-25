@@ -416,13 +416,10 @@ class PluginScannerService {
 
     final listResult = await _shellRun('pyenv install --list');
     if (listResult.exitCode != 0) return null;
-    final versions = extractPluginStableVersionLines(
+    return extractPluginLatestStableVersion(
       listResult.stdout.toString(),
       prefix: '$majorMinor.',
     );
-    if (versions.isEmpty) return null;
-    versions.sort(compareSemanticVersions);
-    return versions.last;
   }
 
   Future<String?> _queryBrewLatestVersion(String formula) {
