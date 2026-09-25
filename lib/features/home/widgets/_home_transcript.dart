@@ -114,13 +114,9 @@ class _TranscriptScrollView extends CustomScrollView {
     super.physics,
     super.primary,
     super.center,
-    super.anchor,
-    this.correctedPixels,
     super.scrollCacheExtent,
     super.slivers,
   });
-
-  final double? correctedPixels;
 
   @override
   Widget buildViewport(
@@ -131,8 +127,6 @@ class _TranscriptScrollView extends CustomScrollView {
   ) => _TranscriptViewport(
     offset: offset,
     center: center,
-    anchor: anchor,
-    correctedPixels: correctedPixels,
     scrollCacheExtent: scrollCacheExtent,
     slivers: slivers,
   );
@@ -142,29 +136,14 @@ class _TranscriptViewport extends Viewport {
   _TranscriptViewport({
     required super.offset,
     super.center,
-    super.anchor,
-    this.correctedPixels,
     super.scrollCacheExtent,
     super.slivers,
   });
-
-  final double? correctedPixels;
-
-  @override
-  void updateRenderObject(BuildContext context, RenderViewport renderObject) {
-    final anchorChanged = renderObject.anchor != anchor;
-    super.updateRenderObject(context, renderObject);
-    final pixels = correctedPixels;
-    if (anchorChanged && pixels != null) {
-      renderObject.offset.correctBy(pixels - renderObject.offset.pixels);
-    }
-  }
 
   @override
   RenderViewport createRenderObject(BuildContext context) =>
       _RenderTranscriptViewport(
         offset: offset,
-        anchor: anchor,
         crossAxisDirection: Viewport.getDefaultCrossAxisDirection(
           context,
           axisDirection,
@@ -177,9 +156,55 @@ class _RenderTranscriptViewport extends RenderViewport {
   _RenderTranscriptViewport({
     required super.offset,
     required super.crossAxisDirection,
-    super.anchor,
     super.scrollCacheExtent,
   });
+
+  // 布局内部更新，不通过会再次标记布局的 anchor setter。
+  double _layoutAnchor = 1;
+
+  @override
+  double get anchor => _layoutAnchor;
+
+  @override
+  void performLayout() {
+    final position = offset;
+    final keepAtBottom =
+        position is ScrollPosition &&
+        position.hasContentDimensions &&
+        !position.isScrollingNotifier.value &&
+        position.extentAfter <= _scrollToBottomSettleTolerance;
+    // 短内容延迟展开到超屏时保留尾部，避免首次揭示后停在正文中间。
+    final wasUnderfilled =
+        position is ScrollPosition &&
+        position.hasContentDimensions &&
+        position.maxScrollExtent == position.minScrollExtent;
+    super.performLayout();
+    if (center == null || size.height <= 0) return;
+    final historyExtent = childBefore(center!)?.geometry?.scrollExtent ?? 0;
+    final nextAnchor = (historyExtent / size.height).clamp(0.0, 1.0);
+    if ((nextAnchor - anchor).abs() <= precisionErrorTolerance &&
+        !(keepAtBottom &&
+            wasUnderfilled &&
+            position is ScrollPosition &&
+            position.extentAfter > _scrollToBottomSettleTolerance)) {
+      return;
+    }
+    // 测高与坐标重定基准在同一帧完成，滚动期间也不能暴露虚假的顶部空间。
+    final nextMin = math.min(0.0, nextAnchor * size.height - historyExtent);
+    final nextMax = math.max(
+      0.0,
+      center!.geometry!.scrollExtent - (1 - nextAnchor) * size.height,
+    );
+    final pixels = keepAtBottom
+        ? nextMax
+        : (offset.pixels + (nextAnchor - anchor) * size.height).clamp(
+            nextMin,
+            nextMax,
+          );
+    offset.correctBy(pixels - offset.pixels);
+    _layoutAnchor = nextAnchor;
+    super.performLayout();
+  }
 
   @override
   RevealedOffset getOffsetToReveal(
@@ -575,9 +600,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _listCenterMessageId;
   final _listHistoryKey = GlobalKey();
   final _listCenterKey = GlobalKey();
-  double _listAnchor = 1;
-  ({double anchor, double pixels})? _pendingAnchorCorrection;
-  double? _listViewportDimension;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
@@ -888,9 +910,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _initialLayoutSettleGeneration += 1;
     _selectedMessageId = null;
     _listCenterMessageId = null;
-    _listAnchor = 1;
-    _pendingAnchorCorrection = null;
-    _listViewportDimension = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
     _targetHighlightTimer = null;
@@ -1064,45 +1083,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final centerExtent = center!.geometry!.scrollExtent;
       final contentExtent = historyExtent + centerExtent;
       final underfilled = contentExtent < position.viewportDimension;
-      final previousViewportDimension =
-          _listViewportDimension ?? position.viewportDimension;
-      _listViewportDimension = position.viewportDimension;
-      // 锚点前方只能预留历史实际占用的高度；即使总内容超屏，前置历史
-      // 不足一屏时也不能使用底部锚点，否则滚到首条上方仍会留下空白。
-      final anchor = (historyExtent / position.viewportDimension).clamp(
-        0.0,
-        1.0,
-      );
-      if ((_listAnchor - anchor).abs() > precisionErrorTolerance) {
-        final correction = (anchor - _listAnchor) * position.viewportDimension;
-        final nextMin = math.min(
-          0.0,
-          anchor * position.viewportDimension - historyExtent,
-        );
-        final nextMax = math.max(
-          0.0,
-          centerExtent - (1 - anchor) * position.viewportDimension,
-        );
-        // 锚点变动只重定基准，避免旧滚动坐标把长记录推离当前视口。
-        // 缩放视口会先改变尾部范围，判断是否贴底须扣除这部分尺寸变化。
-        final viewportExtentChange =
-            (previousViewportDimension - position.viewportDimension) *
-            (1 - _listAnchor);
-        final keepAtBottom =
-            position.extentAfter - viewportExtentChange <=
-                _scrollToBottomSettleTolerance &&
-            !_isTranscriptScrollActive(context) &&
-            !position.isScrollingNotifier.value;
-        final nextPixels = keepAtBottom
-            ? nextMax
-            : (position.pixels + correction).clamp(nextMin, nextMax);
-        // 坐标与锚点在下一次布局一起提交，帧尾不能提前改写当前视口。
-        setState(() {
-          _pendingAnchorCorrection = (anchor: anchor, pixels: nextPixels);
-        });
-        _scheduleViewportFill();
-        return;
-      }
       if (_staggerFillActive ||
           _loadingOlderMessages ||
           _viewportFillMessagesRemaining <= 0 ||
@@ -1148,18 +1128,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       unawaited(_revealOlderMessages(fillViewport: true));
     });
     WidgetsBinding.instance.ensureVisualUpdate();
-  }
-
-  double? _takePendingAnchorPixels() {
-    final correction = _pendingAnchorCorrection;
-    _pendingAnchorCorrection = null;
-    if (correction == null ||
-        widget.controller.positions.length != 1 ||
-        _isTranscriptViewportMotionActive(widget.controller.position)) {
-      return null;
-    }
-    _listAnchor = correction.anchor;
-    return correction.pixels;
   }
 
   void _scheduleStaggeredWindowFill() {
@@ -3340,7 +3308,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               _listCenterMessageId = _renderEntries[centerIndex].id;
               final beforeCenterCount = hiddenLoadMoreCount + centerIndex;
               final hasPrecedingContent = beforeCenterCount > 0;
-              final correctedPixels = _takePendingAnchorPixels();
               int? findIndex(Key key) => _findTranscriptListChildIndex(
                 key,
                 hiddenLoadMoreCount: hiddenLoadMoreCount,
@@ -3403,8 +3370,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       ),
                       primary: false,
                       center: hasPrecedingContent ? _listCenterKey : null,
-                      anchor: hasPrecedingContent ? _listAnchor : 0,
-                      correctedPixels: correctedPixels,
                       slivers: [
                         // 历史向负方向增长，不改动当前消息的布局坐标。
                         if (beforeCenterCount > 0)

@@ -842,6 +842,46 @@ void main() {
     });
   }
 
+  for (final hidden in [0, 98]) {
+    testWidgets('持续滚动及视口变化时顶部当帧收敛，隐藏=$hidden', (tester) async {
+      final session = _probeSession('动态顶部边界', 8, hidden: hidden);
+      final probe = _TranscriptProbe(tester, session);
+      await probe.mount(size: const Size(800, 400));
+      await probe.settle();
+      for (var page = 0; page < session.messages.length && probe.state._windowStartIndex > 0; page++) {
+        final reveal = probe.state._revealOlderMessages();
+        await probe.settle();
+        await reveal;
+      }
+      double top() {
+        if (hidden == 0) return probe.state._viewportOffsetForMessage(session.messages.first.id)!;
+        final viewport = tester.renderObject<RenderViewport>(find.byType(_TranscriptViewport));
+        final button = tester.renderObject<RenderBox>(
+          find.byKey(const ValueKey<String>(_kTranscriptLoadEarlierKey)));
+        return button.localToGlobal(Offset.zero, ancestor: viewport).dy;
+      }
+      probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+      await probe.settle();
+      probe.activity.value = true;
+      for (final height in [1200.0, 500.0, 900.0]) {
+        tester.view.physicalSize = Size(800, height);
+        await tester.pump();
+        probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+        await tester.pump();
+        expect(top(), closeTo(0, 1), reason: '滚动期间不能等待空闲后再移除顶部空白');
+      }
+      await tester.fling(find.byKey(const ValueKey<String>('session-transcript-list')),
+        const Offset(0, 1500), 10000);
+      for (var frame = 0; frame < 24; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(top(), closeTo(0, 1), reason: '持续冲击顶部不能露出空白或拉走历史入口');
+      }
+      probe.activity.value = false;
+      await probe.settle();
+      expect(top(), closeTo(0, 1), reason: '滚动停止后不能再次移动顶部内容');
+    });
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     testWidgets('点击可见用户正文不改变阅读位置，平台=$platform', (tester) async {
       final session = _probeSession('点击位置', 4);
@@ -883,9 +923,9 @@ void main() {
     final probe = _TranscriptProbe(tester, _probeSession('显露坐标', 8));
     await probe.mount(size: const Size(800, 500));
     await probe.settle();
-    expect(probe.state._listAnchor, greaterThan(0));
     final viewport = tester.renderObject<RenderViewport>(
       find.byType(_TranscriptViewport));
+    expect(viewport.anchor, greaterThan(0));
     for (final id in probe.state._bubbleRegistry._contexts.keys) {
       final box = probe.state._bubbleRegistry.contextOf(id)!.findRenderObject()! as RenderBox;
       final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
@@ -1590,7 +1630,7 @@ void main() {
       for (var frame = 0; frame < 24; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
         expect(probe.state._viewportOffsetForMessage(anchor.messageId),
-          closeTo(anchor.viewportOffset, 1), reason: '用户阅读历史时连续响应不能抢回底部：轮次=$turn，帧=$frame，消息=${anchor.messageId}，锚点=${probe.state._listAnchor}，滚动=${probe.controller.position.pixels}');
+          closeTo(anchor.viewportOffset, 1), reason: '用户阅读历史时连续响应不能抢回底部：轮次=$turn，帧=$frame，消息=${anchor.messageId}，滚动=${probe.controller.position.pixels}');
       }
     }
     await probe.settle();

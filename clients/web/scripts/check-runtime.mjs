@@ -661,6 +661,13 @@ try {
   heightAnchor.current = savedAnchor;
   restoreHeight();
   assert.equal(heightScroller.scrollTop, 120, '空闲时仍须补偿正文测高造成的位移');
+  for (const top of [0, -20]) {
+    heightScroller.scrollTop = top;
+    heightAnchor.current = savedAnchor;
+    restoreHeight();
+    assert.equal(heightScroller.scrollTop, top, '到达顶部或浏览器回弹时，测高补偿不能拉离历史入口');
+    assert.equal(heightAnchor.current, null, '丢弃顶部旧锚点，避免空闲后补偿');
+  }
   restoreBindings.followBottomRef.current = true;
   heightScroller.scrollTop = 100;
   heightAnchor.current = savedAnchor;

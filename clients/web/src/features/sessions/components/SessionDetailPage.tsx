@@ -1475,6 +1475,8 @@ export function VirtualMessageList({
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
     if (!scroller || !list) return;
+    // 已到顶部时优先保留历史入口，测高补偿不能把用户再次拉离边界。
+    if (scroller.scrollTop <= 0) return;
     const scrollerRect = scroller.getBoundingClientRect();
     const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
     for (const row of rows) {
