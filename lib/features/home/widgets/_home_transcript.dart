@@ -68,6 +68,44 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
   }
 }
 
+/// 贴底时尾部外推不超过一屏。长正文就绪增高会把尾随消息挤出缓存区，默认
+/// 按平均高度外推会远超真实底部；贴底跳到空白处后可见长消息被回收，重建时
+/// 正文退回骨架、就绪后再次增高，循环往复永不收敛。
+class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
+  const _TranscriptTailChildDelegate(
+    super.builder, {
+    required this.controller,
+    required this.anchorsBottom,
+    super.childCount,
+    super.addRepaintBoundaries,
+    super.findChildIndexCallback,
+  });
+
+  final ScrollController controller;
+  final bool Function(ScrollMetrics) anchorsBottom;
+
+  @override
+  double? estimateMaxScrollOffset(
+    int firstIndex,
+    int lastIndex,
+    double leadingScrollOffset,
+    double trailingScrollOffset,
+  ) {
+    final count = childCount;
+    if (count == null || controller.positions.length != 1) return null;
+    final position = controller.position;
+    if (!anchorsBottom(position)) return null;
+    final averageExtent =
+        (trailingScrollOffset - leadingScrollOffset) /
+        (lastIndex - firstIndex + 1);
+    return trailingScrollOffset +
+        math.min(
+          averageExtent * (count - lastIndex - 1),
+          position.viewportDimension,
+        );
+  }
+}
+
 class _TranscriptScrollView extends CustomScrollView {
   const _TranscriptScrollView({
     super.key,
@@ -987,6 +1025,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     _scheduleViewportFill();
   }
+
+  /// 首帧揭示期间恒贴底；之后仅在跟随模式且视口已在底部时贴底。
+  bool _anchorsTranscriptBottom(ScrollMetrics metrics) =>
+      mounted &&
+      !_isTranscriptScrollActive(context) &&
+      (_initialRevealPhase != _TranscriptInitialRevealPhase.ready ||
+          (!widget.preserveViewportAfterUserScroll &&
+              metrics.hasContentDimensions &&
+              metrics.extentAfter <= _scrollToBottomSettleTolerance));
 
   bool _isTranscriptViewportMotionActive(ScrollPosition position) {
     return position.outOfRange ||
@@ -3352,14 +3399,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: _TranscriptScrollPhysics(
                         parent: const AlwaysScrollableScrollPhysics(),
-                        shouldAnchorBottom: (previous) =>
-                            mounted &&
-                            !_isTranscriptScrollActive(context) &&
-                            (_initialRevealPhase !=
-                                    _TranscriptInitialRevealPhase.ready ||
-                                (!widget.preserveViewportAfterUserScroll &&
-                                    previous.extentAfter <=
-                                        _scrollToBottomSettleTolerance)),
+                        shouldAnchorBottom: _anchorsTranscriptBottom,
                       ),
                       primary: false,
                       center: hasPrecedingContent ? _listCenterKey : null,
@@ -3390,9 +3430,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                           key: _listCenterKey,
                           padding: const EdgeInsets.only(bottom: 12),
                           sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
+                            delegate: _TranscriptTailChildDelegate(
                               (context, index) =>
                                   buildItem(context, beforeCenterCount + index),
+                              controller: widget.controller,
+                              anchorsBottom: _anchorsTranscriptBottom,
                               childCount: listItemCount - beforeCenterCount,
                               addRepaintBoundaries: false,
                               findChildIndexCallback: (key) {

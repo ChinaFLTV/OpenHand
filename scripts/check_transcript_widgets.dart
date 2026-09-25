@@ -1031,6 +1031,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final hiddenTail in [true, false]) {
+    testWidgets('尾部长富文本就绪后贴底，不被回收重建成骨架，尾随隐藏=$hiddenTail', (tester) async {
+      final base = _probeSession('尾部富文本', 3);
+      final longMarkdown = [
+        '## 抓取结果',
+        '| 序号 | 标题 |\n| --- | --- |\n'
+            '${List.generate(16, (i) => '| $i | 评论标题$i |').join('\n')}',
+        '```bash\n${List.generate(12, (i) => 'echo 抓取第$i页').join('\n')}\n```',
+        List.filled(8, '这是一段用于撑高最终回复的说明文字。').join(),
+      ].join('\n\n');
+      final tailId = base.messages.last.id;
+      final probe = _TranscriptProbe(tester, base.copyWith(
+        messageTotalCount: 4,
+        messages: [
+          ...base.messages.take(2),
+          base.messages.last.copyWith(content: longMarkdown),
+          // 尾随记录远矮于长正文，尾部列表按平均高度外推会远超真实底部。
+          hiddenTail
+              ? AiSessionMessage.selfLearning(id: '尾部富文本-尾随', content: '过滤的内部消息',
+                  createdAt: DateTime.utc(2026, 9, 16), metadata: const {})
+              : AiSessionMessage.assistant(id: '尾部富文本-尾随', content: '已完成',
+                  createdAt: DateTime.utc(2026, 9, 16)),
+        ],
+      ));
+      probe.preserveViewportAfterUserScroll = false;
+      await probe.mount(size: const Size(1100, 420));
+      await probe.settle();
+      final bubble = find.byKey(ValueKey<String>(tailId));
+      final element = tester.element(bubble);
+      for (var frame = 0; frame < 12; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(tester.element(bubble), same(element), reason: '贴底修正不能回收并重建可见的长消息');
+      expect(find.byType(_RichContentPendingPreview), findsNothing);
+      expect(find.text('抓取结果'), findsOneWidget);
+      expect(tester.binding.hasScheduledFrame, false, reason: '富文本就绪后不能持续产生帧');
+      expect(probe.controller.position.extentAfter, lessThan(1));
+    });
+  }
+
   testWidgets('慢首帧揭示后用户开始阅读，剩余定位帧不得抢占滚动', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('阅读保护', 30, mixed: true));
     WidgetsBinding.instance.addPostFrameCallback((_) {
