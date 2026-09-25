@@ -147,7 +147,6 @@ class _CollapsedPreviewScrollCoordinator {
 Widget _buildCollapsedPreviewScrollableFrame({
   required BuildContext context,
   required double maxHeight,
-  required bool hasOverflow,
   required bool showFade,
   required ScrollController controller,
   required Color fadeColor,
@@ -178,9 +177,11 @@ Widget _buildCollapsedPreviewScrollableFrame({
                     child: SingleChildScrollView(
                       controller: controller,
                       primary: false,
-                      physics: hasOverflow
-                          ? openHandDialogAwareScrollPhysics(context)
-                          : const NeverScrollableScrollPhysics(),
+                      // 滚动能力由实际范围决定，不能依赖可能失效的异步测高缓存。
+                      physics: openHandDialogAwareScrollPhysics(
+                        context,
+                        fallback: const ClampingScrollPhysics(),
+                      ),
                       child: SizedBox(
                         width: constrainedWidth,
                         child: _MeasureSize(
@@ -480,7 +481,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   double? _contentHeight;
   bool _atBottom = false;
   int? _lockedPreviewLength;
-  // 用户滚动预览区期间跳过高度变化通知，防止外层视口被拽回底部。
+  // 用户滚动预览区时直接同步渐隐，避免渐隐动画拖尾。
   bool _userScrollingPreview = false;
 
   /// 预览原文。
@@ -541,7 +542,7 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
   /// 内容标识或布局输入发生变化时重置预览状态；仅追加时保留滚动位置。
   void _resetPreviewState() {
     _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
-    _contentHeight = null;
+    // 同尺寸正文替换不会再次通知测高，保留当前高度直到下一次测量。
     _atBottom = false;
     _userScrollingPreview = false;
     _lockedPreviewLength = null;
@@ -589,15 +590,6 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
       _contentHeight = size.height;
       return;
     }
-    if (_scrollController.hasClients &&
-        _scrollController.position.isScrollingNotifier.value) {
-      _scrollCoordinator.markUserScrolling();
-      return;
-    }
-    if (_userScrollingPreview) {
-      _scrollCoordinator.armSettleTimer();
-      return;
-    }
     final nextHeight = size.height;
     final currentHeight = _contentHeight;
     final nextLockedLength =
@@ -630,7 +622,6 @@ mixin _CollapsedPreviewBodyState<T extends StatefulWidget> on State<T> {
     return _buildCollapsedPreviewScrollableFrame(
       context: context,
       maxHeight: _previewExpanded ? double.infinity : _previewMaxHeight,
-      hasOverflow: hasOverflow,
       showFade: hasOverflow && !_atBottom,
       controller: _scrollController,
       fadeColor: fadeColor,
@@ -649,8 +640,10 @@ class _PlainTextPreviewBody extends StatefulWidget {
     required this.fadeColor,
     this.style,
     this.scrollStateKey,
+    this.expanded = false,
   });
 
+  final bool expanded;
   final String data;
   final double maxHeight;
   final Color textColor;
@@ -664,6 +657,9 @@ class _PlainTextPreviewBody extends StatefulWidget {
 
 class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody>
     with _CollapsedPreviewBodyState<_PlainTextPreviewBody> {
+  @override
+  bool get _previewExpanded => widget.expanded;
+
   @override
   String get _previewSource => widget.data;
 
@@ -694,6 +690,10 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody>
       _resetPreviewState();
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
+    }
+    if (oldWidget.expanded != widget.expanded) {
+      _resetPreviewState();
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
     _restoreScrollOffset();
   }

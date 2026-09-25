@@ -1210,11 +1210,15 @@ class _MessageBubbleState extends State<_MessageBubble>
                   )
                 else if (isReasoning)
                   _showRawContent
-                      ? SelectableText(
-                          effectiveContent.isEmpty ? ' ' : effectiveContent,
-                          style: markdownStyleSheet.styleSheet.p?.copyWith(
-                            color: textColor,
-                          ),
+                      ? _PlainTextPreviewBody(
+                          data: effectiveContent,
+                          expanded: reasoningExpanded,
+                          maxHeight: _reasoningPreviewMaxHeight,
+                          textColor: textColor,
+                          fadeColor: backgroundColor,
+                          scrollStateKey:
+                              '$reasoningBodyScrollStateKey|raw-preview',
+                          style: markdownStyleSheet.styleSheet.p,
                         )
                       : _ReasoningBody(
                           content: effectiveContent,

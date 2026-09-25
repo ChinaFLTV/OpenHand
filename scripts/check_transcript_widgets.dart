@@ -399,6 +399,84 @@ void main() {
     expect(cache.get(secondKey), isNull);
     expect(cache.get(firstKey), same(nodes));
   });
+  for (final plain in [false, true]) {
+    for (final animated in [false, true]) {
+      testWidgets('折叠预览同尺寸更新后仍能内部滚动，纯文本=$plain，动画=$animated', (tester) async {
+        final original = _probeSession('折叠滚动-$plain', 1);
+        final message = AiSessionMessage.reasoning(id: original.messages.first.id,
+          createdAt: original.createdAt, content: List.filled(24, '甲：检查折叠内容的内部滚动。').join('\n\n'));
+        final probe = _TranscriptProbe(tester, original.copyWith(messages: [message]));
+        await probe.mount(size: const Size(800, 700), animated: animated);
+        await probe.settle();
+        if (plain) {
+          final bubble = tester.state<_MessageBubbleState>(find.byType(_MessageBubble));
+          bubble.setState(() => bubble._showRawContent = true);
+          await probe.settle();
+        }
+        final previewFinder = find.byType(plain ? _PlainTextPreviewBody : _MarkdownPreviewBody);
+        expect(previewFinder, findsOneWidget);
+        final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
+        probe.update(original.copyWith(messages: [message.copyWith(content: message.content.replaceAll('甲', '乙'))]));
+        await probe.settle();
+        expect(preview._scrollController.position.maxScrollExtent, greaterThan(0));
+        final outerOffset = probe.controller.offset;
+        await tester.sendEventToBinding(PointerScrollEvent(
+          position: tester.getCenter(previewFinder),
+          scrollDelta: const Offset(0, 50),
+        ));
+        await probe.settle();
+        expect(preview._scrollController.offset, greaterThan(0), reason: '滚轮必须能滚动折叠正文');
+        preview._scrollController.jumpTo(0);
+        await probe.settle();
+        await tester.drag(previewFinder, const Offset(0, -65));
+        await probe.settle();
+        expect(preview._scrollController.offset, greaterThan(0), reason: '不能因测高缓存失效而禁止内部滚动');
+        expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '内部阅读不能拖动整条会话');
+        final capsule = find.byType(_ReasoningMetaRow);
+        for (var cycle = 0; cycle < 3; cycle++) {
+          await tester.tap(capsule);
+          await probe.settle();
+          expect(preview._previewExpanded, true, reason: '胶囊必须驱动实际正文展开');
+          probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+          await probe.settle();
+          await tester.tap(capsule);
+          await probe.settle();
+          expect(preview._previewExpanded, false);
+          await tester.drag(previewFinder, const Offset(0, -65));
+          await probe.settle();
+          expect(preview._scrollController.offset, greaterThan(0), reason: '重新折叠后仍能内部滚动');
+        }
+      });
+    }
+  }
+
+  for (final kind in [AiSessionMessageKind.assistant, AiSessionMessageKind.user,
+      AiSessionMessageKind.tool, AiSessionMessageKind.compressionPoint]) {
+    for (final plain in [false, true]) {
+      testWidgets('多类型折叠消息更新后可滚动，类型=$kind，纯文本=$plain', (tester) async {
+        final original = _probeSession('多类型-$kind-$plain', 1);
+        final message = original.messages.first.copyWith(kind: kind,
+          role: kind == AiSessionMessageKind.user ? AiSessionMessageRole.user : AiSessionMessageRole.assistant,
+          content: List.filled(60, '甲：折叠内容需要保持滚动能力。').join('\n\n'),
+          metadata: {aiSessionMessageContentFormatKey: plain ? 'plain_text' : 'markdown'});
+        final probe = _TranscriptProbe(tester, original.copyWith(messages: [message]));
+        await probe.mount(size: const Size(800, 700));
+        await probe.settle();
+        final previewFinder = find.byWidgetPredicate((widget) =>
+          widget is _PlainTextPreviewBody || widget is _MarkdownPreviewBody);
+        expect(previewFinder, findsOneWidget);
+        probe.update(original.copyWith(messages: [message.copyWith(content: message.content.replaceAll('甲', '乙'))]));
+        await probe.settle();
+        final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
+        final outerOffset = probe.controller.offset;
+        await tester.drag(previewFinder, const Offset(0, -65));
+        await probe.settle();
+        expect(preview._scrollController.offset, greaterThan(0));
+        expect(probe.controller.offset, closeTo(outerOffset, 1));
+      });
+    }
+  }
+
   test('长消息复用已有字符数，预览的元数据更新不覆盖全文统计', () {
     final message = _probeSession('字符统计', 1).messages.single.copyWith(
       content: '预览正文', characterCount: 300000,

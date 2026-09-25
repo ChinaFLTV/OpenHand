@@ -134,6 +134,28 @@ try {
     render(null, root);
   }
 
+  for (const kind of ['reasoning', 'assistant', 'tool'] as const) {
+    for (const format of ['markdown', 'plain_text'] as const) {
+      const message: SessionMessage = { ...reasoning, id: `内部滚动-${kind}-${format}`, kind,
+        content: content.repeat(5), metadata: { content_format: format } };
+      markMessagesAsAppeared([message.id]);
+      await act(async () => { render(<div style={{ width: '680px', maxWidth: '100%' }}><MessageCard message={message} /></div>, root); });
+      const preview = root.querySelector<HTMLElement>('.oh-reasoning-collapsible-body')!;
+      await until(() => preview.scrollHeight > preview.clientHeight);
+      verify(preview.dataset.collapsed === 'true' && getComputedStyle(preview).overflowY === 'auto',
+        `${kind}/${format} 折叠正文保持内部滚动`);
+      preview.scrollTop = 60;
+      await act(async () => { preview.dispatchEvent(new Event('scroll')); });
+      await wait(40);
+      verify(preview.scrollTop > 0, `${kind}/${format} 滚动位置不会被测高恢复覆盖`);
+      await clickToggle();
+      verify(preview.dataset.collapsed === 'false', `${kind}/${format} 胶囊实际展开正文`);
+      await clickToggle();
+      verify(preview.dataset.collapsed === 'true', `${kind}/${format} 胶囊实际折叠正文`);
+      render(null, root);
+    }
+  }
+
   syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: durationMs });
   const messages = Array.from({ length: 100 }, (_, index) => ({ ...reasoning, id: `虚拟折叠-${index}` }));
   markMessagesAsAppeared(messages.map((message) => message.id));
