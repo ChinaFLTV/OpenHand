@@ -640,13 +640,14 @@ class AiSessionStore {
       try {
         final sessionId = row['id'] as String;
         sessions.add(
-          _sessionFromRow(
+          await _sessionFromRowCooperatively(
             row,
             const <Map<String, Object?>>[],
             messageLoadState: AiSessionMessageLoadState.header,
             messageTotalCount: messageCountsBySessionId[sessionId] ?? 0,
           ),
         );
+        await _yieldAfterSessionDecodeIfNeeded(sessions.length);
       } catch (error) {
         issues.add(
           AiSessionPersistenceIssue(
@@ -684,7 +685,7 @@ class AiSessionStore {
             countRows.first['message_count'],
             fallback: 0,
           );
-    return _sessionFromRow(
+    return _sessionFromRowCooperatively(
       rows.first,
       const <Map<String, Object?>>[],
       messageLoadState: AiSessionMessageLoadState.header,
@@ -2047,27 +2048,6 @@ class AiSessionStore {
         .timeout(defaultBoundedFileReadIdleTimeout);
   }
 
-  // 数据库行与模型转换。
-  AiSession _sessionFromRow(
-    Map<String, Object?> row,
-    List<Map<String, Object?>> messageRows, {
-    AiSessionMessageLoadState messageLoadState =
-        AiSessionMessageLoadState.complete,
-    int messageWindowStartIndex = 0,
-    int? messageTotalCount,
-  }) {
-    final messages = _normalizeKnowledgeBaseAssistantMetadata(
-      messageRows.map(_messageFromRow).toList(growable: false),
-    );
-    return _sessionFromRowWithMessages(
-      row,
-      messages,
-      messageLoadState: messageLoadState,
-      messageWindowStartIndex: messageWindowStartIndex,
-      messageTotalCount: messageTotalCount,
-    );
-  }
-
   Future<AiSession> _sessionFromRowCooperatively(
     Map<String, Object?> row,
     List<Map<String, Object?>> messageRows, {
@@ -2081,6 +2061,29 @@ class AiSessionStore {
       messageRows,
       leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
     );
+    // 会话头也可能保存整轮提示词；消息分窗不能免除这部分解码成本。
+    final headerCost = row.entries
+        .where((entry) => entry.key.endsWith('_json'))
+        .fold<int>(
+          0,
+          (sum, entry) =>
+              sum +
+              (entry.value is String ? (entry.value as String).length : 0),
+        );
+    if (headerCost >= _kMessageJsonWorkerThreshold) {
+      final header = await _decodeSessionHeaderOffThread(
+        row,
+        messageLoadState: messageLoadState,
+        messageWindowStartIndex: messageWindowStartIndex,
+        messageTotalCount: messageTotalCount,
+      );
+      return header.copyWith(
+        messages: messages,
+        messageLoadState: messageLoadState,
+        messageWindowStartIndex: messageWindowStartIndex,
+        messageTotalCount: header.messageTotalCount,
+      );
+    }
     return _sessionFromRowWithMessages(
       row,
       messages,
@@ -2089,6 +2092,24 @@ class AiSessionStore {
       messageTotalCount: messageTotalCount,
     );
   }
+
+  // 独立静态入口只传会话行，避免闭包携带数据库或整窗消息进入工作 isolate。
+  static Future<AiSession> _decodeSessionHeaderOffThread(
+    Map<String, Object?> row, {
+    required AiSessionMessageLoadState messageLoadState,
+    required int messageWindowStartIndex,
+    required int? messageTotalCount,
+  }) => _messageDecodeQueue.enqueue(
+    () => Isolate.run(
+      () => _sessionFromRowWithMessages(
+        row,
+        const <AiSessionMessage>[],
+        messageLoadState: messageLoadState,
+        messageWindowStartIndex: messageWindowStartIndex,
+        messageTotalCount: messageTotalCount,
+      ),
+    ),
+  );
 
   Future<List<AiSessionMessage>> _decodeMessagesCooperatively(
     List<Map<String, Object?>> messageRows, {
@@ -2249,7 +2270,7 @@ class AiSessionStore {
     }
   }
 
-  AiSession _sessionFromRowWithMessages(
+  static AiSession _sessionFromRowWithMessages(
     Map<String, Object?> row,
     List<AiSessionMessage> messages, {
     required AiSessionMessageLoadState messageLoadState,

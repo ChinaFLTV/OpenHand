@@ -643,10 +643,25 @@ void main() {
         'request_payload': {'内部遥测': '按需恢复'},
       },
     );
-    await store.save(session.copyWith(messages: [
-      ...session.messages.take(session.messages.length - 1), tail,
-    ]));
+    await store.save(session.copyWith(
+      lastPromptMetadata: {'历史提示词': largeMetadata},
+      metadata: {'会话审计': largeMetadata},
+      messages: [
+        ...session.messages.take(session.messages.length - 1), tail,
+      ],
+    ));
+    final header = (await store.loadHeader(session.id))!;
+    expect(header.messages.isEmpty, true);
+    expect(header.messageTotalCount, 1000);
+    expect(header.messageLoadState, AiSessionMessageLoadState.header);
+    expect(header.lastPromptMetadata['历史提示词'], largeMetadata);
+    expect(header.metadata['会话审计'], largeMetadata);
+    final headers = await store.loadAllHeaders();
+    expect(headers.issues.isEmpty, true);
+    expect(headers.sessions.single.lastPromptMetadata, header.lastPromptMetadata);
     final window = (await store.loadSessionTailWindow(session.id, limit: 8))!;
+    expect(window.lastPromptMetadata, header.lastPromptMetadata);
+    expect(window.metadata, header.metadata);
     expect(window.messages.length, 8);
     expect(window.messageWindowStartIndex, 992);
     expect(window.messageTotalCount, 1000);
@@ -818,6 +833,39 @@ void main() {
     for (var frame = 0; frame < 6; frame++) await tester.pump();
     expect(built, 1);
     expect(find.text('已渲染正文'), findsOneWidget);
+  });
+
+  testWidgets('已挂载历史正文批量补齐时逐帧解析，等待期间保留旧树', (tester) async {
+    var revision = 0;
+    late StateSetter rebuild;
+    String source(int index) => '**历史-$index-$revision** ${'正文 ' * 300}';
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: StatefulBuilder(
+      builder: (_, setState) {
+        rebuild = setState;
+        return SingleChildScrollView(child: Column(children: [
+          for (var index = 0; index < 4; index++)
+            _SafeMarkdownRichBody(_SafeMarkdownBody(
+              data: source(index), styleSheet: MarkdownStyleSheet(),
+              deferInitialParse: false,
+            )),
+        ]));
+      },
+    ))));
+    final states = tester.stateList<_SafeMarkdownBodyState>(
+      find.byType(_SafeMarkdownRichBody)).toList();
+    final oldTrees = states.map((state) => state._children).toList();
+    rebuild(() => revision++);
+    await tester.pump();
+    expect(states.where((state) => state._lastData == state.config.data).length, 1);
+    for (var index = 1; index < states.length; index++) {
+      expect(identical(states[index]._children, oldTrees[index]), true);
+    }
+    for (var completed = 2; completed <= states.length; completed++) {
+      await tester.pump();
+      expect(states.where((state) => state._lastData == state.config.data).length, completed);
+    }
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('富文本等待解析时不暴露 Markdown 源码', (tester) async {

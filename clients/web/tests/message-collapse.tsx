@@ -39,6 +39,27 @@ async function clickToggle() {
 }
 
 try {
+  const largeCode = 'const value = "长代码正文";\n'.repeat(1200);
+  await act(async () => { render(<Markdown source={`\`\`\`js\n${largeCode}\`\`\``} deferInitialRender={false} />, root); });
+  await until(() => root.querySelector('code') != null);
+  await wait(120);
+  verify(root.querySelector('code')?.textContent === largeCode, '大代码块保留完整正文');
+  verify(root.querySelector('code .hljs-keyword') == null, '大代码块跳过同步高亮');
+  render(null, root);
+
+  let streamed = '**流式正文**';
+  for (let chunk = 0; chunk < 12; chunk++) {
+    streamed += `\n\n第 ${chunk} 段${'连续追加内容'.repeat(16)}`;
+    await act(async () => { render(<Markdown source={streamed} streaming />, root); });
+    await wait(8);
+  }
+  await until(() => root.textContent?.includes('第 11 段') === true);
+  verify(root.querySelector('strong')?.textContent === '流式正文', '流式合并保留 Markdown 格式与最后一段');
+  streamed += '\n\n**结束内容**';
+  await act(async () => { render(<Markdown source={streamed} streaming={false} />, root); });
+  verify(root.textContent?.includes('结束内容') === true, '流式结束立即呈现最终内容');
+  render(null, root);
+
   // 同一轮中立即反向切换，检查加载许可不会回退。
   const mountDeferred = (deferred: boolean) => render(<div style={{ marginTop: '2000px' }}>
     <Markdown source="### 历史正文\n\n**已显示的内容**" deferInitialRender={deferred} />
@@ -168,7 +189,11 @@ try {
   }
 
   syncRemoteDialogMotionSettings({ entrance_style: 'spring_scale', exit_style: 'spring_scale', duration_ms: durationMs });
-  const messages = Array.from({ length: 100 }, (_, index) => ({ ...reasoning, id: `虚拟折叠-${index}` }));
+  const messages = Array.from({ length: 1000 }, (_, index) => ({
+    ...reasoning, id: `虚拟折叠-${index}`,
+    content: index % 2 ? content : '<h3>历史 HTML 卡片</h3><p>正文内容</p>',
+    metadata: { content_format: index % 2 ? 'markdown' : 'html' },
+  }));
   markMessagesAsAppeared(messages.map((message) => message.id));
   const scrollRef: { current: HTMLDivElement | null } = { current: null };
   let settled = false;
@@ -178,9 +203,9 @@ try {
       onInitialLayoutSettled={() => { settled = true; }}
       renderMessage={(message) => <MessageCard message={message} />} />
   </div>, root); });
-  await until(() => settled && root.querySelector('[data-message-id="虚拟折叠-99"] h3') != null);
+  await until(() => settled && root.querySelector('[data-message-id="虚拟折叠-999"] h3') != null);
   await wait(100);
-  const row = root.querySelector<HTMLElement>('[data-message-id="虚拟折叠-99"]')!;
+  const row = root.querySelector<HTMLElement>('[data-message-id="虚拟折叠-999"]')!;
   const heading = row.querySelector('h3');
   for (let cycle = 0; cycle < 12; cycle++) {
     await act(async () => { row.querySelector<HTMLButtonElement>('.oh-message-badge-toggle')!.click(); });

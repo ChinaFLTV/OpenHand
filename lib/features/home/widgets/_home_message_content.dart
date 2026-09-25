@@ -1547,14 +1547,15 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
     final deferredThreshold = config.streaming
         ? _markdownStreamingDeferredParseThresholdChars
         : _markdownDeferredParseThresholdChars;
-    // 缓存只省去语法解析，首屏组件树构建仍须分帧；等待中的占位不算已完成。
+    // 首屏、正文补齐和主题更新共用帧预算；等待中的占位不算已完成。
     final deferHistoricalInitial =
         config.shouldDeferInitialParse &&
         !config.streaming &&
         _lastData == null;
     final overDeferredThreshold = config.data.length > deferredThreshold;
     final shouldDeferParse =
-        deferHistoricalInitial || (config.streaming && overDeferredThreshold);
+        deferHistoricalInitial ||
+        (overDeferredThreshold && (config.streaming || !initial));
     if (shouldDeferParse &&
         config.data.length <= _markdownPlainTextSkipThresholdChars &&
         (overDeferredThreshold ||

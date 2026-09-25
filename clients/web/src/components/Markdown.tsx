@@ -100,9 +100,9 @@ const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
 const HTML_SNIFF_SCAN_CHARS = 8 * 1024;
 const MARKDOWN_PENDING_PREVIEW_MAX_CHARS = 1200;
-// 小增量流式更新合并到固定间隔，避免重复解析整棵 Markdown 树。
+// 流式更新按时间合并，大增量也不能绕过间隔触发连续解析。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
-const MARKDOWN_STREAM_FLUSH_DELTA = 64;
+const MARKDOWN_HIGHLIGHT_MAX_CHARS = 16 * 1024;
 // 无围栏代码块时跳过高亮插件。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
 const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
@@ -1121,10 +1121,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     || (format === 'html' && !streaming && !stickyLooksHtml && htmlFallback === 'plain_text');
   const renderAsHtml = !renderAsPlainText
     && ((format === 'html' && streaming) || stickyLooksHtml);
-  const markdownContent = useMemo(
-    () => tooBig || renderAsPlainText || renderAsHtml ? '' : stripLocalMediaReferences(content),
-    [content, tooBig, renderAsPlainText, renderAsHtml],
-  );
+  const markdownContent = tooBig || renderAsPlainText || renderAsHtml ? '' : content;
   const oversizedMarkdownPreview = useMemo(
     () => tooBig
       ? truncateEndText(content, OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS, { ellipsis: '' })
@@ -1139,13 +1136,11 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
   const [renderedMarkdownContent, setRenderedMarkdownContent] = useState(markdownContent);
   const lastFlushAtRef = useRef<number>(0);
   useEffect(() => {
-    if (markdownContent === renderedMarkdownContent) return;
+    if (!streaming || markdownContent === renderedMarkdownContent) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const ageMs = now - lastFlushAtRef.current;
-    const delta = Math.abs(markdownContent.length - renderedMarkdownContent.length);
     const shouldFlushNow =
       markdownContent.length < renderedMarkdownContent.length // 内容回退/截断
-      || delta >= MARKDOWN_STREAM_FLUSH_DELTA
       || ageMs >= MARKDOWN_STREAM_FLUSH_MS;
     const flush = () => {
       lastFlushAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -1176,16 +1171,22 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     markdownContent,
     renderedMarkdownContent,
     scheduleStreamFlushTimer,
+    streaming,
   ]);
+  const committedMarkdownContent = streaming ? renderedMarkdownContent : markdownContent;
   const renderedContent = useMemo(
-    () => normalizeMarkdownMathDelimiters(streaming ? renderedMarkdownContent : markdownContent),
-    [streaming, renderedMarkdownContent, markdownContent],
+    () => normalizeMarkdownMathDelimiters(stripLocalMediaReferences(
+      committedMarkdownContent,
+    )),
+    [committedMarkdownContent],
   );
 
-  // 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
-  // auto-detect。中长文本（占绝大多数 AI 消息）受益最大。
-  const hasFencedCode = useMemo(() => FENCED_CODE_RE.test(renderedContent), [renderedContent]);
-  const hasMath = useMemo(() => MATH_DELIMITER_RE.test(markdownContent), [markdownContent]);
+  // 长正文或无代码围栏时跳过高亮遍历，保留完整文本与复制入口。
+  const hasFencedCode = useMemo(
+    () => renderedContent.length <= MARKDOWN_HIGHLIGHT_MAX_CHARS && FENCED_CODE_RE.test(renderedContent),
+    [renderedContent],
+  );
+  const hasMath = useMemo(() => MATH_DELIMITER_RE.test(renderedContent), [renderedContent]);
   // 懒载入：消息含代码块时再 dynamic import；插件 module 加载完成前先空插件
   // 渲染 markdown（代码块降级为普通 pre），加载完成 setState 触发一次重渲。
   // 进程级共享缓存，多张含代码消息只触发一次网络请求。
