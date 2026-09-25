@@ -20,8 +20,9 @@ concurrency:
 
 jobs:
   flutter:
-    name: Flutter 静态与架构检查
+    name: Flutter 静态与回归检查
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: 安装 Flutter
@@ -34,26 +35,20 @@ jobs:
         run: flutter pub get
       - name: 检查格式
         run: dart format --output=none --set-exit-if-changed lib scripts
-      - name: 检查架构边界
-        run: dart run scripts/check_imports.dart
-      - name: 检查共享辅助逻辑
-        run: dart run scripts/check_shared_helpers.dart
-      - name: 检查模型档案与持久化一致性
-        run: dart run scripts/check_model_metadata.dart
-      - name: 检查会话首屏与历史滚动
-        run: dart run scripts/check_transcript_widgets.dart
-      - name: 检查动效边界与资源释放
-        run: dart run scripts/check_motion_widgets.dart
-      - name: 检查连接与关闭生命周期
-        run: dart run scripts/check_runtime_lifecycle.dart
-      - name: 检查图像资源与导入边界
-        run: dart run scripts/check_image_resources.dart
+      - name: 执行全部 Dart 与 Flutter 回归检查
+        shell: bash
+        run: |
+          for check in scripts/check_*.dart; do
+            printf '检查：%s\n' "$check"
+            dart run "$check"
+          done
       - name: 执行静态分析
         run: flutter analyze
 
   web:
     name: Web 类型与产物检查
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: 安装 Flutter

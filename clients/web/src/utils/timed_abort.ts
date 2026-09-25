@@ -88,23 +88,19 @@ export function createTimedAbortController(
     timer = null;
   };
 
-  const abortWithReason = (reason?: unknown) => {
-    clear();
-    clearExternalAbortListener();
-    abortController(controller, reason);
-  };
-
   const abortFromExternalSignal = () => {
-    abortWithReason(abortReasonFromSignal(externalSignal));
+    abortController(controller, abortReasonFromSignal(externalSignal));
   };
 
-  const abort = () => abortWithReason();
+  const abort = () => abortController(controller);
 
   const dispose = () => {
     clear();
     clearExternalAbortListener();
+    controller.signal.removeEventListener('abort', dispose);
   };
 
+  controller.signal.addEventListener('abort', dispose, { once: true });
   if (externalSignal?.aborted) {
     abortFromExternalSignal();
   } else {
@@ -117,7 +113,7 @@ export function createTimedAbortController(
     timer = timers.setTimeout(() => {
       timer = null;
       timedOut = true;
-      abortWithReason(new OperationTimeoutError(effectiveTimeoutMs));
+      abortController(controller, new OperationTimeoutError(effectiveTimeoutMs));
     }, effectiveTimeoutMs);
   }
 

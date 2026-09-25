@@ -16,11 +16,7 @@ import {
   readResponseBlobBounded,
   readResponseTextBounded,
 } from '../utils/bounded_response';
-import {
-  createTimedAbortController,
-  OperationTimeoutError,
-  type TimedAbortController,
-} from '../utils/timed_abort';
+import { runWithAbortableTimeout } from '../utils/timed_abort';
 
 const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
 const MIN_API_REQUEST_TIMEOUT_MS = 1_000;
@@ -127,26 +123,14 @@ function normalizeApiRequestTimeoutMs(value: number | undefined): number {
   });
 }
 
-function timeoutErrorFromAbortSignal(
-  timed: TimedAbortController,
-  error: unknown,
-): OperationTimeoutError | null {
-  if (!isAbortError(error)) return null;
-  const reason = timed.controller.signal.reason;
-  if (reason instanceof OperationTimeoutError) return reason;
-  if (timed.timedOut) {
-    return new OperationTimeoutError(timed.timeoutMs);
-  }
-  return null;
-}
-
 async function readAuthenticatedApiResponse<T>(
   path: string,
   opts: ApiOptions,
   readResponse: ApiResponseReader<T>,
 ): Promise<T> {
   const isCurrentSession = captureAuthSession();
-  const checkSession = () => {
+  const checkSession = (signal: AbortSignal) => {
+    signal.throwIfAborted();
     if (!opts.anonymous && !isCurrentSession()) {
       throw new DOMException('登录状态已变更，忽略旧请求响应。', 'AbortError');
     }
@@ -161,39 +145,38 @@ async function readAuthenticatedApiResponse<T>(
     body = JSON.stringify(opts.body);
   }
 
-  const timed = createTimedAbortController(
-    normalizeApiRequestTimeoutMs(opts.timeoutMs),
-    opts.signal,
-  );
-  const signal = timed.controller.signal;
-  let response: Response | undefined;
-  try {
-    response = await fetch(path, {
-      method: opts.method ?? 'GET',
-      headers,
-      body,
-      credentials: 'same-origin',
-      signal,
-    });
-    checkSession();
-    if (!response.ok) {
-      const errorBody = await readApiErrorBody(response, signal);
-      checkSession();
-      if (response.status === 401) {
-        if (!opts.anonymous) clearAuthStorage();
-        throw new UnauthorizedError(errorBody);
+  return runWithAbortableTimeout(async (signal) => {
+    let response: Response | undefined;
+    try {
+      checkSession(signal);
+      response = await fetch(path, {
+        method: opts.method ?? 'GET',
+        headers,
+        body,
+        credentials: 'same-origin',
+        signal,
+      });
+      checkSession(signal);
+      if (!response.ok) {
+        const errorBody = await readApiErrorBody(response, signal);
+        checkSession(signal);
+        if (response.status === 401) {
+          if (!opts.anonymous) clearAuthStorage();
+          throw new UnauthorizedError(errorBody);
+        }
+        throw new ApiError(response.status, errorBody);
       }
-      throw new ApiError(response.status, errorBody);
+      const result = await readResponse(response, signal);
+      checkSession(signal);
+      return result;
+    } catch (error) {
+      if (response) cancelResponseBodyQuietly(response, error);
+      throw error;
     }
-    const result = await readResponse(response, signal);
-    checkSession();
-    return result;
-  } catch (error) {
-    if (response) cancelResponseBodyQuietly(response, error);
-    throw timeoutErrorFromAbortSignal(timed, error) ?? error;
-  } finally {
-    timed.dispose();
-  }
+  }, {
+    timeoutMs: normalizeApiRequestTimeoutMs(opts.timeoutMs),
+    signal: opts.signal,
+  });
 }
 
 export async function apiRequest<T = unknown>(

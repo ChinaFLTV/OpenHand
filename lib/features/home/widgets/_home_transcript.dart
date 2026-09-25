@@ -185,7 +185,6 @@ class _RenderTranscriptViewport extends RenderViewport {
     if ((nextAnchor - anchor).abs() <= precisionErrorTolerance &&
         !(keepAtBottom &&
             wasUnderfilled &&
-            position is ScrollPosition &&
             position.extentAfter > _scrollToBottomSettleTolerance)) {
       return;
     }

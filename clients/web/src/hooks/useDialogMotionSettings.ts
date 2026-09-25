@@ -76,10 +76,14 @@ export function useDialogMotionDurations() {
     exitMs: getDialogExitDurationMs(),
   }));
   useEffect(() => {
-    const update = () => setDurations({
-      enterMs: getDialogEnterDurationMs(),
-      exitMs: getDialogExitDurationMs(),
-    });
+    const update = () => {
+      const enterMs = getDialogEnterDurationMs();
+      const exitMs = getDialogExitDurationMs();
+      setDurations(previous =>
+        previous.enterMs === enterMs && previous.exitMs === exitMs
+          ? previous
+          : { enterMs, exitMs });
+    };
     motionListeners.add(update);
     update();
     return () => { motionListeners.delete(update); };

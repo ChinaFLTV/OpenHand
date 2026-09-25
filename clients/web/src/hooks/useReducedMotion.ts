@@ -28,6 +28,7 @@ function syncRootAttribute(reduced: boolean): void {
 }
 
 function readOsPref(): boolean {
+  if (reducedMotionMediaQuery) return reducedMotionMediaQuery.matches;
   if (
     typeof window === 'undefined'
     || typeof window.matchMedia !== 'function'

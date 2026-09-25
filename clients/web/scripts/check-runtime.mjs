@@ -386,6 +386,7 @@ try {
   replaceGlobal('fetch', () => staleResponse.promise);
   const staleRequest = apiRequest('/api/check');
   const staleCheck = assert.rejects(staleRequest, { name: 'AbortError' });
+  await Promise.resolve();
   auth.writeToken('重新登录凭据', null);
   let staleBodyCancelled = false;
   staleResponse.resolve(new Response(new ReadableStream({
@@ -415,7 +416,59 @@ try {
   await assert.rejects(apiRequest('/api/check'), UnauthorizedError);
   assert.equal(auth.readToken(), null, '当前会话认证失败应清除凭据');
 
-  const { runWithTimeout, runWithAbortableTimeout } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
+  const { createTimedAbortController, runWithTimeout, runWithAbortableTimeout } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
+  const manualAbort = createTimedAbortController(10);
+  const manualReason = new Error('手动取消');
+  manualAbort.controller.abort(manualReason);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(manualAbort.timedOut, false, '直接取消控制器必须释放超时计时器');
+  assert.equal(manualAbort.controller.signal.reason, manualReason);
+  manualAbort.dispose();
+
+  let apiFetchCalls = 0;
+  const cancelledApi = new AbortController();
+  cancelledApi.abort();
+  replaceGlobal('fetch', async () => {
+    apiFetchCalls++;
+    return new Response('{}');
+  });
+  await assert.rejects(apiRequest('/api/check', { signal: cancelledApi.signal }), { name: 'AbortError' });
+  assert.equal(apiFetchCalls, 0, '取消在请求前发生时不得调用传输层');
+  const obsoleteApi = apiRequest('/api/check');
+  auth.writeToken('发送前切换的凭据', null);
+  await assert.rejects(obsoleteApi, { name: 'AbortError' });
+  assert.equal(apiFetchCalls, 0, '发送前登录态已变化时不得携带旧凭据请求');
+
+  for (const shouldTimeout of [false, true]) {
+    const pendingResponse = deferred();
+    const requestStarted = deferred();
+    const cancellation = new AbortController();
+    let requestSignal;
+    replaceGlobal('fetch', (_path, options) => {
+      requestSignal = options.signal;
+      requestStarted.resolve();
+      return pendingResponse.promise;
+    });
+    auth.writeToken('保留的当前凭据', null);
+    const pendingApi = apiRequest('/api/check', {
+      signal: cancellation.signal,
+      timeoutMs: 1000,
+    });
+    const rejected = assert.rejects(runWithTimeout(pendingApi, { timeoutMs: 2000 }), {
+      name: shouldTimeout ? 'OperationTimeoutError' : 'AbortError',
+    }, '传输层忽略取消时，调用方仍须及时结束等待');
+    await requestStarted.promise;
+    if (!shouldTimeout) cancellation.abort();
+    await rejected;
+    assert.equal(requestSignal.aborted, true);
+    let lateCancelled = false;
+    pendingResponse.resolve(new Response(new ReadableStream({
+      cancel() { lateCancelled = true; },
+    }), { status: 401 }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(lateCancelled, true, '取消后的迟到响应必须释放流');
+    assert.equal(auth.readToken(), '保留的当前凭据', '取消后的迟到认证失败不得注销当前用户');
+  }
   const { readResponseTextBounded } = await server.ssrLoadModule('/src/utils/bounded_response.ts');
   let cancelCalls = 0;
   const blockedCancellation = new Response(new ReadableStream({
@@ -774,7 +827,7 @@ try {
   assert.equal(layoutFailure.bindings.olderMessagesAbortRef.current, null);
 
   replaceGlobal('window', undefined);
-  const { createTimedAbortController, waitForDelayOrAbort } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
+  const { waitForDelayOrAbort } = await server.ssrLoadModule('/src/utils/timed_abort.ts');
   await assert.rejects(runWithTimeout(new Promise(() => {}), { timeoutMs: 1 }),
     { name: 'OperationTimeoutError' }, '无窗口环境也必须遵守总时限');
   const backgroundTimer = createTimedAbortController(1);
@@ -937,8 +990,10 @@ try {
     return request.promise;
   });
   const oldRefresh = refreshMeta();
+  await Promise.resolve();
   auth.writeToken('元数据新凭据', { username: '新用户' });
   markLoggedIn({ username: '新用户' });
+  await Promise.resolve();
   assert.equal(metaRequests.length, 2, '登录切换必须发起独立元数据刷新');
   assert.equal(metaRequests[0].signal.aborted, true, '登录切换必须取消旧元数据请求');
   const newRefresh = refreshMeta();
