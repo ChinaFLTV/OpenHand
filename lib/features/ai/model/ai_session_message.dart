@@ -111,6 +111,7 @@ const List<String> aiSessionMessageDeferredTelemetryMetadataKeys = <String>[
   'composed_prompt_turns',
   'composed_prompt_text',
   'prompt_metadata',
+  'environment',
   aiSessionMessageStreamThroughputSamplesMetadataKey,
 ];
 final Set<String> _aiSessionMessageDeferredTelemetryMetadataKeySet =

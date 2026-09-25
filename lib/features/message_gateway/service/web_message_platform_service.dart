@@ -4835,11 +4835,8 @@ class WebMessagePlatformService {
     if (session.hasCompleteMessages) {
       return session.messages;
     }
-    final stored = await _sessionController.store.loadSession(session.id);
-    if (stored == null) {
-      return session.messages;
-    }
-    return _mergeStoredAndLiveMessages(stored.messages, session.messages);
+    final stored = await _sessionController.store.loadUserMessages(session.id);
+    return _mergeStoredAndLiveMessages(stored, session.messages);
   }
 
   Future<AiSession> _loadExportSessionSnapshot(AiSession session) async {

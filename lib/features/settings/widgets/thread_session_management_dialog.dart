@@ -29,6 +29,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 
 const Duration _kReorderPersistDebounceDelay = Duration(milliseconds: 400);
+const int _kPreviewMessageCount = 6;
 
 /// 打开线程会话管理弹窗，进退场动效由 [showAnimatedDialog] 统一读取全局设置。
 Future<void> showThreadSessionManagementDialog(BuildContext context) {
@@ -640,18 +641,28 @@ class _ThreadSessionManagementDialogState
       _previewLoading = true;
       _previewSession = session;
     });
-    AiSession? full;
+    AiSession? loaded;
     try {
-      final controller = context.read<AiSessionController>();
-      full = await controller.store.loadSession(session.id);
+      // 抽屉只展示末尾几条消息的摘要，按尾窗读取；千条长会话不再为预览
+      // 整段解码正文与遥测大字段。
+      loaded = session.hasCompleteMessages
+          ? session
+          : await context
+                .read<AiSessionController>()
+                .store
+                .loadSessionTailWindow(
+                  session.id,
+                  limit: _kPreviewMessageCount,
+                  sessionHeader: session,
+                );
     } catch (error, stack) {
       silentLog('thread_session_management_dialog', '打开预览：加载会话', error, stack);
     }
     if (!mounted || generation != _previewGeneration) return;
     setState(() {
       _previewLoading = false;
-      // 加载失败时保留概要，成功后再替换为完整消息。
-      if (full != null) _previewSession = full;
+      // 加载失败时保留概要，成功后再替换为末尾消息。
+      if (loaded != null) _previewSession = loaded;
     });
   }
 
@@ -667,10 +678,10 @@ class _ThreadSessionManagementDialogState
     final l10n = AppLocalizations.of(context)!;
     final session = _previewSession!;
     final stats = session.statistics;
-    // 仅展示最后 6 条消息，保持抽屉紧凑。
+    // 仅展示末尾几条消息，保持抽屉紧凑。
     final allMessages = session.messages;
-    final tail = allMessages.length > 6
-        ? allMessages.sublist(allMessages.length - 6)
+    final tail = allMessages.length > _kPreviewMessageCount
+        ? allMessages.sublist(allMessages.length - _kPreviewMessageCount)
         : allMessages;
     return Container(
       width: 340,

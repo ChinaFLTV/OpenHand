@@ -888,6 +888,30 @@ class AiSessionStore {
     return _sessionFromRowCooperatively(rows.first, messageRows);
   }
 
+  /// 仅加载未删除且正文非空的用户消息（遥测已裁剪）。
+  ///
+  /// 标题摘要选源等只关心用户输入的场景使用，千条长会话无需为此解码
+  /// 全部助手回复与工具结果。
+  Future<List<AiSessionMessage>> loadUserMessages(String sessionId) async {
+    final normalizedId = sessionId.trim();
+    if (!isSafeStorageIdentifier(normalizedId)) {
+      return const <AiSessionMessage>[];
+    }
+    final rows = await _queryMessageRows(
+      columnsWithoutMetadata: _kMessageRowColumnsWithoutMetadata,
+      where:
+          'session_id = ? AND kind = ? AND is_deleted = 0 AND '
+          "TRIM(content) <> ''",
+      whereArgs: <Object?>[
+        normalizedId,
+        AiSessionMessageKind.user.storageValue,
+      ],
+      orderBy: 'sort_order ASC',
+      deferTelemetryMetadata: true,
+    );
+    return _decodeMessagesCooperatively(rows);
+  }
+
   /// 仅加载会话最新的 [limit] 条消息。
   ///
   /// 这是长会话首次打开时的快速路径，使首个可交互帧不受历史总量影响；

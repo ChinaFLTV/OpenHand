@@ -105,6 +105,7 @@ class _HistoryStore extends AiSessionStore {
   Future<AiSessionMessagePage> loadMessages(String sessionId, {
     int limit = 50, int offset = 0, bool deferTelemetryMetadata = false,
     int? contentPreviewChars, int? knownTotalCount,
+    bool includeToolCallContext = true,
   }) {
     final request = Completer<AiSessionMessagePage>();
     requests.add(request);
