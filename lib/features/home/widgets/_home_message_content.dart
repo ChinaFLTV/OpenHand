@@ -169,9 +169,11 @@ Widget _buildCollapsedPreviewScrollableFrame({
             children: [
               ClipRect(
                 child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    scrollbars: false,
+                    // 正文中的可选文字不能继承全局“始终可滚”，否则空滚动区会抢走触控板手势。
+                    physics: const ClampingScrollPhysics(),
+                  ),
                   child: Listener(
                     onPointerSignal: (event) {
                       if (event is! PointerScrollEvent ||

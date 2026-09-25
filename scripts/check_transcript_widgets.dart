@@ -284,6 +284,7 @@ class _TranscriptProbe {
           ),
         ],
         child: MaterialApp(
+          scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh'),
@@ -570,6 +571,27 @@ void main() {
         expect(probe.controller.position.extentAfter, greaterThan(60));
         expect(preview._scrollController.position.maxScrollExtent, greaterThan(0));
         for (var cycle = 0; cycle < 2; cycle++) {
+          final point = tester.getCenter(previewFinder);
+          final down = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+          await down.panZoomStart(point);
+          for (var step = 1; step <= 4; step++) {
+            await down.panZoomUpdate(point, pan: Offset(0, -2500.0 * step),
+              timeStamp: Duration(milliseconds: 16 * step));
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          await down.panZoomEnd(timeStamp: const Duration(milliseconds: 80));
+          await probe.settle();
+          final bottom = preview._scrollController.position.maxScrollExtent;
+          expect(preview._scrollController.offset, closeTo(bottom, 1));
+          final up = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+          await up.panZoomStart(point);
+          await up.panZoomUpdate(point, pan: const Offset(0, 80), timeStamp: const Duration(milliseconds: 16));
+          await tester.pump(const Duration(milliseconds: 16));
+          await up.panZoomUpdate(point, pan: const Offset(0, 160), timeStamp: const Duration(milliseconds: 32));
+          expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '抬手后从正文开始的新触控板手势必须能反向滚动');
+          await up.panZoomEnd(timeStamp: const Duration(milliseconds: 48));
+          await probe.settle();
+          expect(probe.controller.offset, closeTo(outerOffset, 1));
           for (final delta in [10000.0, 40.0, -60.0, -10000.0, -40.0, 60.0]) {
             final before = preview._scrollController.offset;
             await tester.sendEventToBinding(PointerScrollEvent(
