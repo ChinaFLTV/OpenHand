@@ -61,6 +61,9 @@ class RichContentFrameScheduler {
     }
   }
 
+  /// 暂停源恢复后唤醒积压任务。
+  static void resume() => _scheduleFrame();
+
   static void _scheduleFrame() {
     if (_frameScheduled || _active.isEmpty) return;
     _frameScheduled = true;
@@ -70,6 +73,7 @@ class RichContentFrameScheduler {
 
   static void _drain() {
     // 执行期间保留标记，任务内新增工作也只能进入下一帧。
+    var allPaused = false;
     try {
       for (var invalid = 0; invalid < _maxInvalidTasksPerFrame; invalid++) {
         RichContentFrameScheduler? selected;
@@ -81,7 +85,10 @@ class RichContentFrameScheduler {
             break;
           }
         }
-        if (selected == null) return;
+        if (selected == null) {
+          allPaused = true;
+          return;
+        }
         final queue = selected._priorityPending.isNotEmpty
             ? selected._priorityPending
             : selected._pending;
@@ -101,7 +108,8 @@ class RichContentFrameScheduler {
       }
     } finally {
       _frameScheduled = false;
-      _scheduleFrame();
+      // 全部队列暂停时不逐帧空转，由新任务或 [resume] 重新唤醒。
+      if (!allPaused) _scheduleFrame();
     }
   }
 }

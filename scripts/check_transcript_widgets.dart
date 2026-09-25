@@ -575,6 +575,21 @@ void main() {
     scheduler.clear();
   });
 
+  testWidgets('滚动静默期富文本队列不逐帧空转，静默结束后继续执行', (tester) async {
+    final activity = TranscriptScrollActivity();
+    addTearDown(activity.dispose);
+    final scheduler = RichContentFrameScheduler(isPaused: () => activity.value);
+    var executed = 0;
+    activity.markActive();
+    scheduler.schedule(() => executed += 1);
+    await tester.pump();
+    expect(executed, 0);
+    expect(tester.binding.hasScheduledFrame, false, reason: '暂停期间不能逐帧空转');
+    await tester.pump(TranscriptScrollActivity.settleDelay);
+    await tester.pump();
+    expect(executed, 1);
+  });
+
   testWidgets('前方布局收缩后富文本进入视口，无滚动也能继续渲染', (tester) async {
     final spacer = ValueNotifier<double>(1200);
     addTearDown(spacer.dispose);

@@ -239,7 +239,10 @@ class TranscriptScrollActivity extends ValueNotifier<bool> {
   void markInactive() {
     _settleTimer?.cancel();
     _settleTimer = null;
-    if (value) value = false;
+    if (!value) return;
+    value = false;
+    // 富文本队列在静默期暂停且不空转出帧，静默结束时唤醒积压任务。
+    RichContentFrameScheduler.resume();
   }
 
   @override
