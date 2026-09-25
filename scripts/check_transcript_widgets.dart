@@ -432,6 +432,23 @@ void main() {
         await probe.settle();
         expect(preview._scrollController.offset, greaterThan(0), reason: '不能因测高缓存失效而禁止内部滚动');
         expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '内部阅读不能拖动整条会话');
+        for (var cycle = 0; cycle < 3; cycle++) {
+          await tester.sendEventToBinding(PointerScrollEvent(
+            position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, 10000)));
+          await probe.settle();
+          final bottom = preview._scrollController.position.maxScrollExtent;
+          expect(preview._scrollController.offset, closeTo(bottom, 1));
+          await tester.sendEventToBinding(PointerScrollEvent(
+            position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, -60)));
+          await probe.settle();
+          expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '触底后滚轮必须能反向滚动');
+          await tester.drag(previewFinder, const Offset(0, -2000));
+          await probe.settle();
+          expect(preview._scrollController.offset, closeTo(bottom, 1));
+          await tester.drag(previewFinder, const Offset(0, 70));
+          await probe.settle();
+          expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '触底后拖动必须能反向滚动');
+        }
         final capsule = find.byType(_ReasoningMetaRow);
         for (var cycle = 0; cycle < 3; cycle++) {
           await tester.tap(capsule);
@@ -450,30 +467,120 @@ void main() {
     }
   }
 
+  for (final plain in [false, true]) {
+    testWidgets('折叠卡片触底后滚轮不转交会话，纯文本=$plain', (tester) async {
+      final original = _probeSession('嵌套触底-$plain', 3);
+      final message = AiSessionMessage.reasoning(id: original.messages.first.id,
+        createdAt: original.createdAt,
+        content: List.filled(24, '检查卡片滚到边界后仍能反向阅读。').join('\n\n'));
+      final probe = _TranscriptProbe(tester, original.copyWith(messages: [message,
+        for (final tail in original.messages.skip(1)) tail.copyWith(
+          content: List.filled(30, '会话下方仍有其他消息。').join('\n\n'))]));
+      await probe.mount(size: const Size(800, 500));
+      await probe.settle();
+      probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+      await probe.settle();
+      if (plain) {
+        final bubble = tester.state<_MessageBubbleState>(find.byType(_MessageBubble).first);
+        bubble.setState(() => bubble._showRawContent = true);
+        await probe.settle();
+      }
+      final previewFinder = find.byType(plain ? _PlainTextPreviewBody : _MarkdownPreviewBody).first;
+      final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
+      final point = tester.getCenter(previewFinder);
+      final outerOffset = probe.controller.offset;
+      expect(probe.controller.position.extentAfter, greaterThan(100));
+      await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, 10000)));
+      await probe.settle();
+      final bottom = preview._scrollController.position.maxScrollExtent;
+      expect(preview._scrollController.offset, closeTo(bottom, 1));
+      for (var tick = 0; tick < 3; tick++) {
+        await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, 40)));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '卡片触底后不能把滚动交给会话并移走当前命中区域');
+      await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, -60)));
+      await probe.settle();
+      expect(preview._scrollController.offset, lessThan(bottom - 30));
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+      await gesture.panZoomStart(point);
+      await gesture.panZoomUpdate(point, pan: const Offset(0, -2000));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.panZoomUpdate(point, pan: const Offset(0, -4000));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(preview._scrollController.offset, closeTo(bottom, 1));
+      probe.rebuild(() {});
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.panZoomUpdate(point, pan: const Offset(0, -3920));
+      expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '触控板同一次手势触底后可以反向，父级重建不能取消拖动');
+      await gesture.panZoomEnd();
+      await probe.settle();
+      preview._scrollController.jumpTo(0);
+      probe.controller.jumpTo(probe.controller.position.minScrollExtent + 40);
+      await probe.settle();
+      final topOuterOffset = probe.controller.offset;
+      await tester.sendEventToBinding(PointerScrollEvent(
+        position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, -60)));
+      await probe.settle();
+      expect(probe.controller.offset, closeTo(topOuterOffset, 1), reason: '触顶也不能将滚轮转交外层');
+      probe.update(probe.session.copyWith(messages: [message.copyWith(content: '短内容'), ...probe.session.messages.skip(1)]));
+      await probe.settle();
+      probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+      await probe.settle();
+      expect(preview._scrollController.position.maxScrollExtent, 0);
+      final shortOuterOffset = probe.controller.offset;
+      await tester.sendEventToBinding(PointerScrollEvent(
+        position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, 60)));
+      await probe.settle();
+      expect(probe.controller.offset, greaterThan(shortOuterOffset), reason: '不溢出的短内容不能吞掉会话滚动');
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
   for (final kind in [AiSessionMessageKind.assistant, AiSessionMessageKind.user,
-      AiSessionMessageKind.tool, AiSessionMessageKind.compressionPoint]) {
-    for (final plain in [false, true]) {
-      testWidgets('多类型折叠消息更新后可滚动，类型=$kind，纯文本=$plain', (tester) async {
-        final original = _probeSession('多类型-$kind-$plain', 1);
+      AiSessionMessageKind.tool, AiSessionMessageKind.mcp, AiSessionMessageKind.skill,
+      AiSessionMessageKind.compressionPoint]) {
+    for (final format in kind == AiSessionMessageKind.compressionPoint
+        ? ['markdown'] : ['markdown', 'plain_text', 'html']) {
+      testWidgets('多类型折叠消息触边后可反向滚动，类型=$kind，格式=$format', (tester) async {
+        final original = _probeSession('多类型-$kind-$format', 3);
+        final content = format == 'html'
+          ? '<article>${List.filled(120, '<p>甲：折叠内容需要保持滚动能力。</p>').join()}</article>'
+          : List.filled(60, '甲：折叠内容需要保持滚动能力。').join('\n\n');
         final message = original.messages.first.copyWith(kind: kind,
           role: kind == AiSessionMessageKind.user ? AiSessionMessageRole.user : AiSessionMessageRole.assistant,
-          content: List.filled(60, '甲：折叠内容需要保持滚动能力。').join('\n\n'),
-          metadata: {aiSessionMessageContentFormatKey: plain ? 'plain_text' : 'markdown'});
-        final probe = _TranscriptProbe(tester, original.copyWith(messages: [message]));
-        await probe.mount(size: const Size(800, 700));
+          content: content, metadata: {aiSessionMessageContentFormatKey: format});
+        final session = original.copyWith(messages: [message,
+          for (final tail in original.messages.skip(1)) tail.copyWith(
+            content: List.filled(60, '会话下方的其他消息。').join('\n\n'))]);
+        final probe = _TranscriptProbe(tester, session);
+        await probe.mount(size: const Size(800, 500));
         await probe.settle();
-        final previewFinder = find.byWidgetPredicate((widget) =>
-          widget is _PlainTextPreviewBody || widget is _MarkdownPreviewBody);
+        probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+        await probe.settle();
+        final previewFinder = find.descendant(
+          of: find.byWidgetPredicate((widget) => widget is _MessageBubble && widget.message.id == message.id),
+          matching: find.byWidgetPredicate((widget) => widget is _PlainTextPreviewBody ||
+            widget is _MarkdownPreviewBody || widget is _ProgressiveHtmlMessageBody));
         expect(previewFinder, findsOneWidget);
-        probe.update(original.copyWith(messages: [message.copyWith(content: message.content.replaceAll('甲', '乙'))]));
+        probe.update(session.copyWith(messages: [message.copyWith(content: content.replaceAll('甲', '乙')),
+          ...session.messages.skip(1)]));
         await probe.settle();
         final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
         final outerOffset = probe.controller.offset;
-        await tester.drag(previewFinder, const Offset(0, -65));
-        await probe.settle();
-        expect(preview._scrollController.offset, greaterThan(0));
-        expect(probe.controller.offset, closeTo(outerOffset, 1));
-      });
+        expect(probe.controller.position.extentAfter, greaterThan(60));
+        expect(preview._scrollController.position.maxScrollExtent, greaterThan(0));
+        for (var cycle = 0; cycle < 2; cycle++) {
+          for (final delta in [10000.0, 40.0, -60.0, -10000.0, -40.0, 60.0]) {
+            final before = preview._scrollController.offset;
+            await tester.sendEventToBinding(PointerScrollEvent(
+              position: tester.getCenter(previewFinder), scrollDelta: Offset(0, delta)));
+            await probe.settle();
+            expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '所有类型的预览触边后都不能带动会话');
+            if (delta == -60) expect(preview._scrollController.offset, lessThan(before - 30));
+            if (delta == 60) expect(preview._scrollController.offset, greaterThan(before + 30));
+          }
+        }
+      }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
     }
   }
 

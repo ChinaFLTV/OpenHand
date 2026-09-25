@@ -172,21 +172,41 @@ Widget _buildCollapsedPreviewScrollableFrame({
                   behavior: ScrollConfiguration.of(
                     context,
                   ).copyWith(scrollbars: false),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _consumeNestedMessageScrollNotification,
-                    child: SingleChildScrollView(
-                      controller: controller,
-                      primary: false,
-                      // 滚动能力由实际范围决定，不能依赖可能失效的异步测高缓存。
-                      physics: openHandDialogAwareScrollPhysics(
-                        context,
-                        fallback: const ClampingScrollPhysics(),
-                      ),
-                      child: SizedBox(
-                        width: constrainedWidth,
-                        child: _MeasureSize(
-                          onChange: onSizeChanged,
-                          child: child,
+                  child: Listener(
+                    onPointerSignal: (event) {
+                      if (event is! PointerScrollEvent ||
+                          event.scrollDelta.dy == 0 ||
+                          !maxHeight.isFinite ||
+                          !controller.hasClients) {
+                        return;
+                      }
+                      final position = controller.position;
+                      if (position.maxScrollExtent <=
+                          position.minScrollExtent) {
+                        return;
+                      }
+                      // 子滚动区优先处理；触底或触顶时仍消费滚轮，防止外层会话移走卡片。
+                      GestureBinding.instance.pointerSignalResolver.register(
+                        event,
+                        (_) => event.respond(allowPlatformDefault: false),
+                      );
+                    },
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _consumeNestedMessageScrollNotification,
+                      child: SingleChildScrollView(
+                        controller: controller,
+                        primary: false,
+                        // 滚动能力由实际范围决定，不能依赖可能失效的异步测高缓存。
+                        physics: openHandDialogAwareScrollPhysics(
+                          context,
+                          fallback: const ClampingScrollPhysics(),
+                        ),
+                        child: SizedBox(
+                          width: constrainedWidth,
+                          child: _MeasureSize(
+                            onChange: onSizeChanged,
+                            child: child,
+                          ),
                         ),
                       ),
                     ),

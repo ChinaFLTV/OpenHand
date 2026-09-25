@@ -134,7 +134,7 @@ try {
     render(null, root);
   }
 
-  for (const kind of ['reasoning', 'assistant', 'tool'] as const) {
+  for (const kind of ['reasoning', 'assistant', 'tool', 'mcp', 'skill', 'tool_call', 'hook'] as const) {
     for (const format of ['markdown', 'plain_text'] as const) {
       const message: SessionMessage = { ...reasoning, id: `内部滚动-${kind}-${format}`, kind,
         content: content.repeat(5), metadata: { content_format: format } };
@@ -148,6 +148,17 @@ try {
       await act(async () => { preview.dispatchEvent(new Event('scroll')); });
       await wait(40);
       verify(preview.scrollTop > 0, `${kind}/${format} 滚动位置不会被测高恢复覆盖`);
+      verify(getComputedStyle(preview).overscrollBehaviorY === 'contain', `${kind}/${format} 边界滚动不传递给会话`);
+      for (let cycle = 0; cycle < 3; cycle++) {
+        preview.scrollTop = preview.scrollHeight;
+        await act(async () => { preview.dispatchEvent(new Event('scroll')); });
+        await wait(40);
+        const bottom = preview.scrollTop;
+        preview.scrollTop -= 60;
+        await act(async () => { preview.dispatchEvent(new Event('scroll')); });
+        await wait(260);
+        verify(preview.scrollTop < bottom - 30, `${kind}/${format} 第 ${cycle + 1} 次触底后反向滚动保持位置`);
+      }
       await clickToggle();
       verify(preview.dataset.collapsed === 'false', `${kind}/${format} 胶囊实际展开正文`);
       await clickToggle();
