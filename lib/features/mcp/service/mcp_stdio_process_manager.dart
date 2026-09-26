@@ -884,8 +884,8 @@ class McpStdioProcessManager extends ChangeNotifier {
     }
 
     // 限制日志行数
-    while (currentLogs.length > _maxLogLines) {
-      currentLogs.removeAt(0);
+    if (currentLogs.length > _maxLogLines) {
+      currentLogs.removeRange(0, currentLogs.length - _maxLogLines);
     }
 
     _processes[serverName] = managed.copyWith(

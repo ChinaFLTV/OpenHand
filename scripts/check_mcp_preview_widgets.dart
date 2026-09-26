@@ -25,11 +25,20 @@ Future<void> main() async {
         "import 'package:flutter_test/flutter_test.dart';\n"
         "import 'package:openhand/app/state/settings_store.dart';\n"
         "import 'package:openhand/app/model/app_settings_snapshot.dart';\n"
-        '$source\n$_checks',
+        // 授权面板使用固定高度占位，检查真实卡片布局且不读取本机凭证。
+        "${source.replaceAll('McpOAuthPanel(', '_PreviewOAuthPanel(')}\n$_checks",
   );
 }
 
 const _checks = r'''
+class _PreviewOAuthPanel extends StatelessWidget {
+  const _PreviewOAuthPanel({required this.server, this.onAuthorized});
+  final McpServer server;
+  final VoidCallback? onAuthorized;
+  @override
+  Widget build(BuildContext context) => const SizedBox(height: 68, child: Text('授权状态'));
+}
+
 class _PreviewSettingsStore extends SettingsStore {
   _PreviewSettingsStore(this.animated);
   final bool animated;
@@ -328,6 +337,7 @@ void main() {
           servers: List.generate(200, (index) => McpServer(
             name: '服务_$index', type: McpServerType.streamableHttp,
             enabled: true, url: 'https://example.com/mcp',
+            extraFields: index.isEven ? const {'oauth': {'enabled': true}} : const {},
           )),
           prefixChildren: const [], emptyChild: const Text('暂无服务'),
           itemBuilder: (context, server, health, tools) {
@@ -341,7 +351,10 @@ void main() {
         )),
       ),
     ));
+    final initialHeight = tester.getSize(find.byType(_McpServerCard).first).height;
     await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(_McpServerCard).first).height, initialHeight,
+      reason: '授权卡片首次挂载直接恢复完整高度，不能随滚动重新展开');
     expect(builds, lessThan(20));
     final list = find.byType(ListView).first;
     for (final direction in [-1, -1, 1, 1]) {
@@ -357,6 +370,27 @@ void main() {
       settings.dispose();
       await directory!.delete(recursive: true);
     });
+  });
+
+  testWidgets('进程日志通知不重建无变化的服务状态组件', (tester) async {
+    var builds = 0;
+    await tester.pumpWidget(MaterialApp(home: _McpProcessStateBuilder(
+      serverName: '滚动回归测试服务',
+      builder: (_, info, child) {
+        builds++;
+        return Text('进程状态：${info.state.name}');
+      },
+    )));
+    expect(builds, 1);
+    for (var index = 0; index < 30; index++) {
+      McpStdioProcessManager.instance.notifyListeners();
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(builds, 1, reason: '服务状态未变时，不随日志及其他服务通知重建');
+    await tester.pumpWidget(const SizedBox.shrink());
+    McpStdioProcessManager.instance.notifyListeners();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 
 }

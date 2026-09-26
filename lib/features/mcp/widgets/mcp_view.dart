@@ -10087,6 +10087,8 @@ class _McpServerCardState extends State<_McpServerCard> {
                     OpenHandMotionSettingsScope.dialog,
                   ),
                   present: server.usesOAuth,
+                  // 滚动重建直接恢复高度，仅真实切换授权方式时播放展开动画。
+                  animateInitialAppearance: false,
                   child: IgnorePointer(
                     ignoring: !server.usesOAuth,
                     child: Padding(
@@ -10474,6 +10476,32 @@ class _McpServerCardState extends State<_McpServerCard> {
   }
 }
 
+/// 进程日志和资源采样不影响卡片，只在当前服务的可见状态变化时重建。
+class _McpProcessStateBuilder extends StatelessWidget {
+  const _McpProcessStateBuilder({
+    required this.serverName,
+    required this.builder,
+  });
+
+  final String serverName;
+  final Widget Function(BuildContext, StdioProcessInfo, Widget?) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableProvider<McpStdioProcessManager>.value(
+      value: McpStdioProcessManager.instance,
+      child: Selector<McpStdioProcessManager, StdioProcessInfo>(
+        selector: (_, manager) => manager.infoFor(serverName),
+        shouldRebuild: (previous, next) =>
+            previous.state != next.state ||
+            previous.pid != next.pid ||
+            previous.errorMessage != next.errorMessage,
+        builder: builder,
+      ),
+    );
+  }
+}
+
 /// STDIO 类型 MCP 服务卡片右上角的专属按钮组：运行/停止、日志、运行时
 /// 详情；包管理器命令启动的服务额外提供依赖管理入口。
 class _StdioProcessButtons extends StatelessWidget {
@@ -10483,10 +10511,9 @@ class _StdioProcessButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: McpStdioProcessManager.instance,
-      builder: (context, _) {
-        final info = McpStdioProcessManager.instance.infoFor(server.name);
+    return _McpProcessStateBuilder(
+      serverName: server.name,
+      builder: (context, info, _) {
         return Wrap(
           spacing: 4,
           runSpacing: 4,
@@ -10586,10 +10613,9 @@ class _McpStdioProcessChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: McpStdioProcessManager.instance,
-      builder: (context, _) {
-        final processInfo = McpStdioProcessManager.instance.infoFor(serverName);
+    return _McpProcessStateBuilder(
+      serverName: serverName,
+      builder: (context, processInfo, _) {
         final visible =
             !processInfo.isStopped || processInfo.errorMessage != null;
         return OpenHandAnimatedChipWrap(

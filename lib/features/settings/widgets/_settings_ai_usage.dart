@@ -231,7 +231,15 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           _buildAiUsageAnimatedSwap(
             context,
             KeyedSubtree(
-              key: ValueKey<int>(snapshot.generatedAt.microsecondsSinceEpoch),
+              // 后台刷新原位更新，避免整套图表销毁、重建并与旧图表同时布局。
+              key: ValueKey((
+                snapshot.filter.range,
+                snapshot.filter.providerConfigId,
+                snapshot.filter.modelId,
+                snapshot.filter.source,
+                snapshot.filter.scope,
+                snapshot.summary.requestCount == 0,
+              )),
               child: snapshot.summary.requestCount == 0
                   ? _AiUsageEmptyState(hasFilters: _activeFilterCount > 0)
                   : _buildAnalytics(context, snapshot),
@@ -353,62 +361,61 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
   Widget _buildAnalytics(BuildContext context, AiUsageSnapshot snapshot) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _AiUsageHero(summary: snapshot.summary),
-        kOpenHandGap14,
-        _AiUsageOverviewPanel(snapshot: snapshot),
-        kOpenHandGap14,
-        _AiUsageMetricGrid(summary: snapshot.summary),
-        kOpenHandGap14,
-        _AiUsagePanel(
-          title: openHandLocalizedText(context, zh: '使用趋势', en: 'Usage Trend'),
-          subtitle: openHandLocalizedText(
-            context,
-            zh: '输入、输出与缓存命中随时间变化，双指缩放调整范围',
-            en: 'Input, output and cache hits over time; pinch to zoom the range',
+      children: _intersperse(
+        [
+          _AiUsageHero(summary: snapshot.summary),
+          _AiUsageOverviewPanel(snapshot: snapshot),
+          _AiUsageMetricGrid(summary: snapshot.summary),
+          _AiUsagePanel(
+            title: openHandLocalizedText(
+              context,
+              zh: '使用趋势',
+              en: 'Usage Trend',
+            ),
+            subtitle: openHandLocalizedText(
+              context,
+              zh: '输入、输出与缓存命中随时间变化，双指缩放调整范围',
+              en: 'Input, output and cache hits over time; pinch to zoom the range',
+            ),
+            trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
+            child: _AiUsageTrendChart(buckets: snapshot.trend),
           ),
-          trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
-          child: _AiUsageTrendChart(buckets: snapshot.trend),
-        ),
-        kOpenHandGap14,
-        _AiUsagePanel(
-          title: openHandLocalizedText(
-            context,
-            zh: '请求状态趋势',
-            en: 'Request Status Trend',
+          _AiUsagePanel(
+            title: openHandLocalizedText(
+              context,
+              zh: '请求状态趋势',
+              en: 'Request Status Trend',
+            ),
+            subtitle: openHandLocalizedText(
+              context,
+              zh: '成功、失败、超时与请求总数随时间变化，独立统计请求结果',
+              en: 'Success, failures, timeouts and total requests over time',
+            ),
+            trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
+            child: _AiUsageTrendChart(
+              buckets: snapshot.trend,
+              mode: _AiUsageTrendMode.status,
+            ),
           ),
-          subtitle: openHandLocalizedText(
-            context,
-            zh: '成功、失败、超时与请求总数随时间变化，独立统计请求结果',
-            en: 'Success, failures, timeouts and total requests over time',
+          _AiUsageHealthPanel(snapshot: snapshot),
+          _AiUsagePanel(
+            title: openHandLocalizedText(
+              context,
+              zh: '每日 Token 热力图',
+              en: 'Daily Token Heatmap',
+            ),
+            subtitle: openHandLocalizedText(
+              context,
+              zh: '最近一年每日消耗，颜色越深表示 Token 越多',
+              en: 'Daily consumption over the last year; darker cells mean more tokens',
+            ),
+            child: _AiUsageHeatmap(buckets: snapshot.heatmap),
           ),
-          trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
-          child: _AiUsageTrendChart(
-            buckets: snapshot.trend,
-            mode: _AiUsageTrendMode.status,
-          ),
-        ),
+          _AiUsageBreakdownPanel(snapshot: snapshot),
+          _AiUsageRecentPanel(filter: _filter, revision: snapshot.generatedAt),
+        ].map((panel) => RepaintBoundary(child: panel)).toList(growable: false),
         kOpenHandGap14,
-        _AiUsageHealthPanel(snapshot: snapshot),
-        kOpenHandGap14,
-        _AiUsagePanel(
-          title: openHandLocalizedText(
-            context,
-            zh: '每日 Token 热力图',
-            en: 'Daily Token Heatmap',
-          ),
-          subtitle: openHandLocalizedText(
-            context,
-            zh: '最近一年每日消耗，颜色越深表示 Token 越多',
-            en: 'Daily consumption over the last year; darker cells mean more tokens',
-          ),
-          child: _AiUsageHeatmap(buckets: snapshot.heatmap),
-        ),
-        kOpenHandGap14,
-        _AiUsageBreakdownPanel(snapshot: snapshot),
-        kOpenHandGap14,
-        _AiUsageRecentPanel(filter: _filter, revision: snapshot.generatedAt),
-      ],
+      ),
     );
   }
 }

@@ -1225,8 +1225,21 @@ class _ToolTelemetrySparklinePainter<T extends WebEngineSampleBase>
 enum _SettingsSection {
   header,
   general,
+  dialogAnimation,
+  menuAnimation,
+  pageAnimation,
+  panelAnimation,
+  chipAnimation,
+  listItemAnimation,
   shortcuts,
   ai,
+  aiSession,
+  aiProviders,
+  aiCompression,
+  aiContent,
+  aiCost,
+  aiCommands,
+  aiTelemetry,
   activeToolCalls,
   builtinTools,
   mcp,
@@ -1972,23 +1985,7 @@ class _SettingsViewState extends State<SettingsView> {
       syncTextControllerText(controller, value, focusNode: focusNode);
     }
 
-    final sections = <_SettingsSection>[
-      _SettingsSection.header,
-      _SettingsSection.general,
-      _SettingsSection.shortcuts,
-      _SettingsSection.ai,
-      _SettingsSection.activeToolCalls,
-      _SettingsSection.builtinTools,
-      _SettingsSection.mcp,
-      _SettingsSection.skills,
-      _SettingsSection.memory,
-      _SettingsSection.crons,
-      _SettingsSection.hermesTalker,
-      _SettingsSection.editor,
-      _SettingsSection.appData,
-      _SettingsSection.system,
-      _SettingsSection.about,
-    ];
+    const sections = _SettingsSection.values;
 
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -2016,6 +2013,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               Expanded(
                 child: ListView.separated(
+                  key: const PageStorageKey<String>('settings-scroll'),
                   padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
                   itemCount: sections.length,
                   separatorBuilder: (context, index) => kOpenHandGap18,
@@ -2207,15 +2205,39 @@ class _SettingsViewState extends State<SettingsView> {
           _AnimationRestoreDefaultsSection(
             settingsController: settingsController,
           ),
+        ],
+      ),
+      _SettingsSection.dialogAnimation => _SettingsGroupCard(
+        children: [
           _DialogAnimationSettingsSection(
             settingsController: settingsController,
           ),
+        ],
+      ),
+      _SettingsSection.menuAnimation => _SettingsGroupCard(
+        children: [
           _MenuAnimationSettingsSection(settingsController: settingsController),
+        ],
+      ),
+      _SettingsSection.pageAnimation => _SettingsGroupCard(
+        children: [
           _PageAnimationSettingsSection(settingsController: settingsController),
+        ],
+      ),
+      _SettingsSection.panelAnimation => _SettingsGroupCard(
+        children: [
           _PanelAnimationSettingsSection(
             settingsController: settingsController,
           ),
+        ],
+      ),
+      _SettingsSection.chipAnimation => _SettingsGroupCard(
+        children: [
           _ChipAnimationSettingsSection(settingsController: settingsController),
+        ],
+      ),
+      _SettingsSection.listItemAnimation => _SettingsGroupCard(
+        children: [
           _ListItemAnimationSettingsSection(
             settingsController: settingsController,
           ),
@@ -2231,7 +2253,18 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.ai => _SettingsGroupCard(
         title: l10n.settingsCategoryAi,
         description: l10n.settingsAiSubtitle,
-        children: [_buildAiModelsSection(context, settingsController)],
+        children: const [_AiUsageSettingsSection()],
+      ),
+      _SettingsSection.aiSession ||
+      _SettingsSection.aiProviders ||
+      _SettingsSection.aiCompression ||
+      _SettingsSection.aiContent ||
+      _SettingsSection.aiCost ||
+      _SettingsSection.aiCommands ||
+      _SettingsSection.aiTelemetry => _buildAiModelsSection(
+        context,
+        settingsController,
+        section,
       ),
       _SettingsSection.activeToolCalls => const Column(
         children: [
@@ -2365,13 +2398,16 @@ class _SettingsViewState extends State<SettingsView> {
   Widget _buildAiModelsSection(
     BuildContext context,
     SettingsController settingsController,
+    _SettingsSection section,
   ) {
     final l10n = AppLocalizations.of(context)!;
     final aiModels = settingsController.aiModels;
-    _syncAnimatedAiModels(aiModels);
+    if (section == _SettingsSection.aiProviders) {
+      _syncAnimatedAiModels(aiModels);
+    }
     final allowCommandRules = settingsController.aiAllowCommandRules;
     final denyCommandRules = settingsController.aiDenyCommandRules;
-    final compressionControl = Column(
+    late final compressionControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2406,7 +2442,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final toolResultCompressionControl = Column(
+    late final toolResultCompressionControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2444,7 +2480,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final toolResultCompressionEnabledControl = Align(
+    late final toolResultCompressionEnabledControl = Align(
       alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>(
@@ -2456,7 +2492,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final microCompressionEnabledControl = Align(
+    late final microCompressionEnabledControl = Align(
       alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsMicroCompressionEnabledSwitch'),
@@ -2466,7 +2502,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final messageContentFormatControl = ConstrainedBox(
+    late final messageContentFormatControl = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 320),
       child: AnimatedDropdownButtonFormField<AiMessageContentFormat>(
         key: const ValueKey<String>('settingsAiMessageContentFormatDropdown'),
@@ -2498,7 +2534,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final htmlRenderFallbackControl = SizedBox(
+    late final htmlRenderFallbackControl = SizedBox(
       width: double.infinity,
       child: AnimatedDropdownButtonFormField<AiHtmlRenderFallback>(
         key: const ValueKey<String>('settingsAiHtmlRenderFallbackDropdown'),
@@ -2519,7 +2555,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final htmlContentRichnessControl = SizedBox(
+    late final htmlContentRichnessControl = SizedBox(
       width: double.infinity,
       child: AnimatedDropdownButtonFormField<AiHtmlContentRichness>(
         key: const ValueKey<String>('settingsAiHtmlContentRichnessDropdown'),
@@ -2547,7 +2583,7 @@ class _SettingsViewState extends State<SettingsView> {
     final ttsSettings = settingsController.aiTtsSettings;
     final translationSettings = settingsController.aiTranslationSettings;
     final offlineSpeechSettings = settingsController.offlineSpeechSettings;
-    final ttsEnabledControl = Align(
+    late final ttsEnabledControl = Align(
       alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsAiTtsEnabledSwitch'),
@@ -2557,7 +2593,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final translationEnabledControl = Align(
+    late final translationEnabledControl = Align(
       alignment: AlignmentDirectional.centerEnd,
       child: _SettingsSwitch(
         key: const ValueKey<String>('settingsAiTranslationEnabledSwitch'),
@@ -2567,7 +2603,7 @@ class _SettingsViewState extends State<SettingsView> {
         },
       ),
     );
-    final toolResultCompressionHeadTailWindowControl = Column(
+    late final toolResultCompressionHeadTailWindowControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2605,7 +2641,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final toolResultCompressionMaxPathHitsControl = Column(
+    late final toolResultCompressionMaxPathHitsControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2643,7 +2679,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final writeToolSummaryMaxCharsControl = Column(
+    late final writeToolSummaryMaxCharsControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2678,7 +2714,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final toolCallLimitControl = Column(
+    late final toolCallLimitControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2711,7 +2747,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final sequentialToolRoundLimitControl = Column(
+    late final sequentialToolRoundLimitControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2748,7 +2784,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final maxRecentErrorsControl = Column(
+    late final maxRecentErrorsControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2778,7 +2814,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final maxPlanHistoryEntriesControl = Column(
+    late final maxPlanHistoryEntriesControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2812,7 +2848,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final maxTruncationContinuationsControl = Column(
+    late final maxTruncationContinuationsControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2850,7 +2886,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final estimatedCharactersPerTokenControl = Column(
+    late final estimatedCharactersPerTokenControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2888,7 +2924,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    final imageSizeLimitControl = Column(
+    late final imageSizeLimitControl = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         TextField(
@@ -2922,1429 +2958,1416 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _AiUsageSettingsSection(),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: AppLocalizations.of(context)!.settingsSessionSettings,
-          description: AppLocalizations.of(
-            context,
-          )!.settingsConfigureDefaultBehaviourForNewSessions,
-          child: Column(
-            // 强制左对齐：默认 CrossAxisAlignment.center 会
-            // 把"节流参数"独立的 title / body Text 居中渲染，与上下方
-            // _ResponsiveSettingRow（内部 Row+Column start 对齐）视觉断裂。
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsSendTimeoutS,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsMaximumWaitTimeToEstablishThe,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _connectTimeoutController,
-                      focusNode: _connectTimeoutFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: AppLocalizations.of(
-                          context,
-                        )!.settingsSendTimeoutS,
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiConnectTimeoutSeconds}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveConnectTimeout(context, value),
-                    ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveConnectTimeout(
-                          context,
-                          _connectTimeoutController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsResponseTimeoutS,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsMaximumWaitForACompleteResponse,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _responseTimeoutController,
-                      focusNode: _responseTimeoutFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: AppLocalizations.of(
-                          context,
-                        )!.settingsResponseTimeoutS,
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiResponseTimeoutSeconds}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveResponseTimeout(context, value),
-                    ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveResponseTimeout(
-                          context,
-                          _responseTimeoutController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsMaximumIdleWaitBetweenStreamChunks,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _streamIdleTimeoutController,
-                      focusNode: _streamIdleTimeoutFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: AppLocalizations.of(
-                          context,
-                        )!.settingsStreamIdleTimeoutS,
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveStreamIdleTimeout(context, value),
-                    ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveStreamIdleTimeout(
-                          context,
-                          _streamIdleTimeoutController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              Text(
-                AppLocalizations.of(context)!.aiThrottleSettingsLabel,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              kOpenHandGap6,
-              Text(
-                AppLocalizations.of(context)!.aiThrottleSettingsBody,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              kOpenHandGap18,
-              // 先决定是否启用/自适应，再调整具体速率。
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '启用流式输出节流',
-                  zhHant: '啟用串流輸出節流',
-                  en: 'Enable Stream Throttle',
-                  fr: 'Activer la limitation du flux',
-                  de: 'Stream-Drosselung aktivieren',
-                  ja: 'ストリーム出力のスロットリングを有効化',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。',
-                  zhHant: '一鍵開關字元 / 卡片節流。關閉後所有節流參數失效，AI 輸出會按真實速率全速渲染。',
-                  en: 'Master switch for char/card throttling. When off, AI output renders at full speed.',
-                  fr: 'Interrupteur global pour la limitation des caractères et cartes. Désactivé, la sortie IA s’affiche à pleine vitesse.',
-                  de: 'Hauptschalter für Zeichen-/Kartendrosselung. Ausgeschaltet rendert die KI-Ausgabe mit voller Geschwindigkeit.',
-                  ja: '文字とカードのスロットリングの一括スイッチです。オフにすると AI 出力は実際の速度で全速描画されます。',
-                ),
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: _SettingsSwitch(
-                    value: settingsController.aiStreamThrottleEnabled,
-                    onChanged: (v) =>
-                        settingsController.updateAiStreamThrottleEnabled(v),
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '节流自动模式',
-                  zhHant: '節流自動模式',
-                  en: 'Auto-Adaptive Throttle',
-                  fr: 'Limitation adaptative',
-                  de: 'Adaptive Drosselung',
-                  ja: '自動適応スロットリング',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。',
-                  zhHant:
-                      '依平台 / 裝置效能自動選速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字元/秒、行動 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字元/秒；卡片統一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 時自動再降速 50%。開啟後會忽略下方手動設定。',
-                  en: 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
-                  fr: 'Choisit les débits selon la plateforme : desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} car./s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} car./s ; cartes ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Si le FPS récent est <55, le débit est divisé par 2. Les valeurs manuelles sont ignorées.',
-                  de: 'Wählt Raten je nach Plattform: Desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} Zeichen/s, mobil ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} Zeichen/s; Karten ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Bei FPS <55 in der letzten Sekunde wird halbiert. Manuelle Werte werden ignoriert.',
-                  ja: 'プラットフォームに応じて速度を自動選択します。デスクトップ ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 文字/秒、モバイル ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 文字/秒、カードは ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。直近 1 秒の FPS が 55 未満ならさらに 50% 低下します。オンの間は下の手動設定を無視します。',
-                ),
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: _SettingsSwitch(
-                        value: settingsController.aiStreamThrottleAutoMode,
-                        onChanged: settingsController.aiStreamThrottleEnabled
-                            ? (v) => settingsController
-                                  .updateAiStreamThrottleAutoMode(v)
-                            : null,
-                      ),
-                    ),
-                    if (settingsController.aiStreamThrottleAutoMode) ...[
-                      kOpenHandGap8,
-                      const _AutoModeFpsIndicator(),
-                    ],
-                  ],
-                ),
-              ),
-              kOpenHandGap18,
-              // 流式输出节流：每秒最多向卡片追加渲染的字符数
-              _ResponsiveSettingRow(
-                title: _settingsViewMaxRenderCharsSecLabel(context),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。',
-                  zhHant:
-                      'AI 端高速輸出字元時，UI 端會按此速率均勻放出，避免卡片增量渲染卡頓、ANR 與列表抖動。0 表示關閉節流。預設 10。',
-                  en: 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
-                  fr: 'Quand l’IA émet vite, l’UI ajoute les caractères à ce débit pour éviter les saccades, ANR et rebonds de liste. 0 désactive la limitation. Défaut 10.',
-                  de: 'Wenn die KI schnell Zeichen streamt, fügt die UI sie mit dieser Rate an, um Ruckeln, ANR und Listenspringen zu vermeiden. 0 deaktiviert die Drosselung. Standard 10.',
-                  ja: 'AI が高速に文字を出力する場合、UI はこの速度で均等に追加し、カードの差分描画のカクつきやリスト揺れを避けます。0 は無効化、既定は 10 です。',
-                ),
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _streamMaxCharsPerSecondController,
-                      focusNode: _streamMaxCharsPerSecondFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: _settingsViewMaxRenderCharsSecLabel(context),
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveStreamMaxCharsPerSecond(context, value),
-                    ),
-                    if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
-                      kOpenHandGap8,
-                      _ThrottleDisabledBadge(
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '节流已关闭：AI 端字符将按真实速率全速渲染。',
-                          zhHant: '節流已關閉：AI 端字元會按真實速率全速渲染。',
-                          en: 'Throttle disabled: chars will be rendered at full speed.',
-                          fr: 'Limitation désactivée : les caractères seront rendus à pleine vitesse.',
-                          de: 'Drosselung deaktiviert: Zeichen werden mit voller Geschwindigkeit gerendert.',
-                          ja: 'スロットリング無効: 文字は実際の速度で全速描画されます。',
-                        ),
-                      ),
-                    ],
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveStreamMaxCharsPerSecond(
-                          context,
-                          _streamMaxCharsPerSecondController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              // 卡片限速：每秒最多新追加多少张消息卡片
-              _ResponsiveSettingRow(
-                title: _settingsViewMaxRenderCardsSecLabel(context),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。',
-                  zhHant:
-                      'AI 短時間內連續追加多張工具/助手卡片時，會按此速率均勻放出，消除會話視窗上下彈跳與抖動。0 表示關閉節流。預設 1。',
-                  en: 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
-                  fr: 'Quand l’IA ajoute plusieurs cartes outil/assistant d’un coup, l’UI les affiche à ce débit pour supprimer les rebonds. 0 désactive la limitation. Défaut 1.',
-                  de: 'Wenn die KI viele Tool-/Assistentenkarten auf einmal erzeugt, gibt die UI sie mit dieser Rate aus, um Springen zu vermeiden. 0 deaktiviert die Drosselung. Standard 1.',
-                  ja: 'AI が短時間に複数のツール/アシスタントカードを追加する場合、この速度で均等に表示し、会話画面の上下揺れを抑えます。0 は無効化、既定は 1 です。',
-                ),
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _streamMaxMessageCardsPerSecondController,
-                      focusNode: _streamMaxMessageCardsPerSecondFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: _settingsViewMaxRenderCardsSecLabel(context),
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveStreamMaxMessageCardsPerSecond(context, value),
-                    ),
-                    if (settingsController.aiStreamMaxMessageCardsPerSecond <=
-                        0) ...[
-                      kOpenHandGap8,
-                      _ThrottleDisabledBadge(
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '节流已关闭：AI 端新增卡片将按真实速率全速追加。',
-                          zhHant: '節流已關閉：AI 端新增卡片會按真實速率全速追加。',
-                          en: 'Throttle disabled: new cards will be appended at full speed.',
-                          fr: 'Limitation désactivée : les nouvelles cartes seront ajoutées à pleine vitesse.',
-                          de: 'Drosselung deaktiviert: neue Karten werden mit voller Geschwindigkeit angefügt.',
-                          ja: 'スロットリング無効: 新しいカードは実際の速度で全速追加されます。',
-                        ),
-                      ),
-                    ],
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveStreamMaxMessageCardsPerSecond(
-                          context,
-                          _streamMaxMessageCardsPerSecondController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              // 节流持续时长入口。
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: _settingsViewThrottleDurationSLabel(context),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。',
-                  zhHant:
-                      '在該時長內按字元 / 卡片速率均勻放出；時長耗盡後剩餘串流回應會直接按 AI 實際接收節奏追加。0 = 持續節流（預設）。',
-                  en: 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
-                  fr: 'Limite les caractères/cartes pendant cette durée ; ensuite le reste suit le rythme réel d’arrivée de l’IA. 0 = limitation continue (défaut).',
-                  de: 'Drosselt Zeichen/Karten für diese Dauer; danach folgt der Rest der tatsächlichen KI-Ankunftsrate. 0 = kontinuierliche Drosselung (Standard).',
-                  ja: 'この時間中は文字/カードの速度を均等化します。終了後の残りは AI の実際の受信ペースで追加されます。0 = 継続スロットリング（既定）。',
-                ),
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      controller: _streamThrottleDurationController,
-                      focusNode: _streamThrottleDurationFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: _settingsViewThrottleDurationSLabel(context),
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds}',
-                      ),
-                      onSubmitted: (value) =>
-                          _saveStreamThrottleDurationSeconds(context, value),
-                    ),
-                    if (settingsController.aiStreamThrottleDurationSeconds <=
-                        0) ...[
-                      kOpenHandGap8,
-                      _ThrottleDisabledBadge(
-                        message: openHandLocalizedText(
-                          context,
-                          zh: '当前为持续节流：整个流式响应都按节流速率均匀放出。',
-                          zhHant: '目前為持續節流：整個串流回應都會按節流速率均勻放出。',
-                          en: 'Continuous throttle: the entire stream is paced.',
-                          fr: 'Limitation continue : tout le flux est cadencé.',
-                          de: 'Kontinuierliche Drosselung: der gesamte Stream wird getaktet.',
-                          ja: '継続スロットリング: ストリーム全体を一定速度で表示します。',
-                        ),
-                      ),
-                    ],
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        onPressed: () => _saveStreamThrottleDurationSeconds(
-                          context,
-                          _streamThrottleDurationController.text,
-                        ),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSaveTimeout,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              // 节流配置 export / import 入口。
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '导入 / 导出节流配置',
-                  zhHant: '匯入 / 匯出節流設定',
-                  en: 'Import / Export Throttle Config',
-                  fr: 'Importer / exporter la config de limitation',
-                  de: 'Drosselungskonfiguration importieren / exportieren',
-                  ja: 'スロットリング設定のインポート / エクスポート',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '将全局开关、自动模式、持续时间及字符/卡片速率导出为 JSON，便于备份和跨设备同步；云端连接凭据不会写入文档。',
-                  zhHant:
-                      '將全域開關、自動模式、持續時間及字元/卡片速率匯出為 JSON，方便備份與跨裝置同步；雲端連線憑證不會寫入文件。',
-                  en: 'Export the global switch, auto mode, duration, and character/card rates as JSON for backup or cross-device sync. Cloud credentials are excluded.',
-                  fr: 'Exporte l’interrupteur global, le mode auto, la durée et les débits en JSON pour la sauvegarde ou la synchronisation. Les identifiants cloud sont exclus.',
-                  de: 'Exportiert globalen Schalter, Automatikmodus, Dauer und Raten als JSON für Sicherung oder Gerätesynchronisierung. Cloud-Zugangsdaten werden ausgeschlossen.',
-                  ja: '全体スイッチ、自動モード、継続時間、文字/カード速度を JSON に書き出します。クラウド認証情報は含まれません。',
-                ),
-                control: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: () => _exportAiStreamThrottleConfig(context),
-                      icon: const Icon(Icons.upload_rounded, size: 18),
-                      label: Text(openHandExportJsonLabel(context)),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => _importAiStreamThrottleConfig(context),
-                      icon: const Icon(Icons.download_rounded, size: 18),
-                      label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '从 JSON 导入',
-                          zhHant: '從 JSON 匯入',
-                          en: 'Import JSON',
-                          fr: 'Importer JSON',
-                          de: 'JSON importieren',
-                          ja: 'JSON をインポート',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '节流配置云端同步',
-                  zhHant: '節流設定雲端同步',
-                  en: 'Cloud Sync',
-                  fr: 'Synchronisation cloud',
-                  de: 'Cloud-Synchronisierung',
-                  ja: 'クラウド同期',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '支持通过自定义 HTTP、iCloud 或 GitHub Gist 推送 / 拉取节流配置。',
-                  zhHant: '支援透過自訂 HTTP、iCloud 或 GitHub Gist 推送 / 拉取節流設定。',
-                  en: 'Push or pull throttle settings through custom HTTP, iCloud, or GitHub Gist.',
-                  fr: 'Synchronisez la limitation via HTTP personnalisé, iCloud ou GitHub Gist.',
-                  de: 'Drosselungseinstellungen über eigenes HTTP, iCloud oder GitHub Gist synchronisieren.',
-                  ja: 'カスタム HTTP、iCloud、GitHub Gist でスロットリング設定を同期できます。',
-                ),
-                control: const _ThrottleCloudSyncEditor(),
-                controlMaxWidth: 720,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.settingsAutoTitle,
-                subtitle: l10n.settingsWhenEnabledATitleIsAutomatically,
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: _SettingsSwitch(
-                    value: settingsController.aiAutoTitleEnabled,
-                    onChanged: (value) =>
-                        settingsController.updateAiAutoTitleEnabled(value),
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.settingsTitleFetchMode,
-                subtitle: l10n.settingsTitleFetchModeDescription,
-                controlMaxWidth: 360,
-                control: SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<AiAutoTitleFetchMode>(
-                    segments: [
-                      ButtonSegment<AiAutoTitleFetchMode>(
-                        value: AiAutoTitleFetchMode.asynchronous,
-                        icon: const Icon(Icons.bolt_outlined),
-                        label: Text(
-                          l10n.settingsTitleFetchModeAsync,
-                          softWrap: false,
-                        ),
-                      ),
-                      ButtonSegment<AiAutoTitleFetchMode>(
-                        value: AiAutoTitleFetchMode.synchronous,
-                        icon: const Icon(Icons.sync_rounded),
-                        label: Text(
-                          l10n.settingsTitleFetchModeSync,
-                          softWrap: false,
-                        ),
-                      ),
-                    ],
-                    selected: {settingsController.aiAutoTitleFetchMode},
-                    onSelectionChanged: settingsController.aiAutoTitleEnabled
-                        ? (selection) async {
-                            if (selection.isEmpty) return;
-                            final mode = selection.first;
-                            await settingsController.updateAiAutoTitleFetchMode(
-                              mode,
-                            );
-                          }
-                        : null,
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '标题获取最大重试次数',
-                  zhHant: '標題取得最大重試次數',
-                  en: 'Title Retry Max Count',
-                  fr: 'Nombre max. de tentatives de titre',
-                  de: 'Max. Titel-Wiederholungen',
-                  ja: 'タイトル取得の最大再試行回数',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。',
-                  zhHant: '當自動標題生成失敗後，後續每次開啟該會話時嘗試重新取得標題的最大次數。超過此次數後會使用回退策略。',
-                  en: 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
-                  fr: 'Nombre maximal de nouvelles tentatives pour générer le titre d’une session lors des ouvertures suivantes après un échec initial.',
-                  de: 'Maximale Anzahl erneuter Versuche, einen Sitzungstitel bei späterem Öffnen neu zu erzeugen, nachdem die erste automatische Generierung fehlgeschlagen ist.',
-                  ja: '自動タイトル生成が失敗したあと、このセッションを開くたびにタイトル再生成を試す最大回数です。超過後はフォールバックを使います。',
-                ),
-                controlMaxWidth: 200,
-                control: Row(
-                  children: [
-                    Expanded(
-                      child: OpenHandDeferredSlider(
-                        value: settingsController.aiAutoTitleMaxRetryCount
-                            .toDouble(),
-                        min: AppSettingsSnapshot.minAiAutoTitleMaxRetryCount
-                            .toDouble(),
-                        max: AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount
-                            .toDouble(),
-                        divisions:
-                            AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount -
-                            AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
-                        onCommit: (value) => settingsController
-                            .updateAiAutoTitleMaxRetryCount(value.round()),
-                      ),
-                    ),
-                    kOpenHandHGap8,
-                    Text(
-                      '${settingsController.aiAutoTitleMaxRetryCount}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsDefaultSessionMode,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefaultInteractionModeForNewSessions,
-                control: SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment<String>(
-                        value: 'chat',
-                        icon: const Icon(Icons.chat_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsChat,
-                          softWrap: false,
-                        ),
-                      ),
-                      ButtonSegment<String>(
-                        value: 'plan',
-                        icon: const Icon(Icons.account_tree_outlined),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsPlan,
-                          softWrap: false,
-                        ),
-                      ),
-                    ],
-                    selected: {settingsController.aiDefaultSessionMode},
-                    onSelectionChanged: (values) {
-                      if (values.isNotEmpty) {
-                        settingsController.updateAiDefaultSessionMode(
-                          values.first,
-                        );
-                      }
-                    },
-                  ),
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsDefaultFullAccess,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsWhenEnabledNewSessionsStartIn,
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: _SettingsSwitch(
-                    value: settingsController.aiDefaultFullAccessPermission,
-                    onChanged: (value) => settingsController
-                        .updateAiDefaultFullAccessPermission(value),
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsUserProfile,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsMaintainAGlobalUserProfileLanguage,
-                control: const Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: _UserProfileSettingsButton(),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsThreadSessionManagementTitle,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsThreadSessionManagementSubtitle,
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => showThreadSessionManagementDialog(context),
-                    icon: const Icon(Icons.dynamic_feed_outlined),
-                    label: Text(
-                      AppLocalizations.of(
-                        context,
-                      )!.settingsThreadSessionManagementOpen,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: AppLocalizations.of(context)!.settingsModelProviderManagement,
-          description: AppLocalizations.of(
-            context,
-          )!.settingsAddSelectTestAndMaintainModel,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AiModelHealthSettingsPanel(),
-              kOpenHandGap16,
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+    return switch (section) {
+      _SettingsSection.aiSession => _SettingsSubsectionCard(
+        title: AppLocalizations.of(context)!.settingsSessionSettings,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsConfigureDefaultBehaviourForNewSessions,
+        child: Column(
+          // 强制左对齐：默认 CrossAxisAlignment.center 会
+          // 把"节流参数"独立的 title / body Text 居中渲染，与上下方
+          // _ResponsiveSettingRow（内部 Row+Column start 对齐）视觉断裂。
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsSendTimeoutS,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsMaximumWaitTimeToEstablishThe,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  FilledButton.icon(
-                    onPressed: _isSyncingOpenRouterModels
-                        ? null
-                        : () => _showAiModelDialog(context),
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(l10n.aiModelAdd),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: _isSyncingOpenRouterModels
-                        ? null
-                        : _syncOpenRouterModels,
-                    icon: _isSyncingOpenRouterModels
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.cloud_sync_rounded),
-                    label: Text(
-                      openHandLocalizedText(
+                  TextField(
+                    controller: _connectTimeoutController,
+                    focusNode: _connectTimeoutFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(
                         context,
-                        zh: '从 OpenRouter 同步模型参数',
-                        zhHant: '從 OpenRouter 同步模型參數',
-                        en: 'Sync model parameters from OpenRouter',
-                        fr: 'Synchroniser les paramètres depuis OpenRouter',
-                        de: 'Modellparameter von OpenRouter synchronisieren',
-                        ja: 'OpenRouter からモデルパラメータを同期',
+                      )!.settingsSendTimeoutS,
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiConnectTimeoutSeconds}',
+                    ),
+                    onSubmitted: (value) => _saveConnectTimeout(context, value),
+                  ),
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveConnectTimeout(
+                        context,
+                        _connectTimeoutController.text,
+                      ),
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
                       ),
                     ),
                   ),
                 ],
               ),
-              kOpenHandGap16,
-              AnimatedSwitcher(
-                duration: openHandMotionDuration(context, kOpenHandMotion260),
-                reverseDuration: openHandMotionDuration(
-                  context,
-                  kOpenHandMotion220,
-                ),
-                switchInCurve: kOpenHandEntranceCurve,
-                switchOutCurve: kOpenHandSwitchOutCurve,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.98, end: 1.0).animate(
-                        openHandCurveAnimation(
-                          parent: animation,
-                          curve: kOpenHandEntranceCurve,
-                          reverseCurve: kOpenHandSwitchOutCurve,
-                        ),
-                      ),
-                      alignment: Alignment.topCenter,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _animatedAiModels.isEmpty
-                    ? KeyedSubtree(
-                        key: const ValueKey<String>('aiModelsEmpty'),
-                        child: _SettingsStateBox(
-                          icon: Icons.hub_outlined,
-                          title: l10n.aiModelsEmptyTitle,
-                          body: l10n.aiModelsEmptyBody,
-                        ),
-                      )
-                    : ConstrainedBox(
-                        key: const ValueKey<String>('aiModelsList'),
-                        constraints: const BoxConstraints(maxHeight: 520),
-                        child: ReorderableListView.builder(
-                          primary: false,
-                          shrinkWrap: true,
-                          buildDefaultDragHandles: false,
-                          proxyDecorator: (child, index, animation) =>
-                              buildOpenHandReorderProxy(
-                                context,
-                                child,
-                                animation,
-                              ),
-                          itemCount: _animatedAiModels.length,
-                          onReorderItem: _reorderAiModels,
-                          itemBuilder: (context, index) => _buildAiModelRow(
-                            context,
-                            _animatedAiModels[index],
-                          ),
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: l10n.aiCompressionThresholdLabel,
-          description: l10n.aiCompressionThresholdBody,
-          child: Column(
-            children: [
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsCompressionTrigger,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsOnceTheUncompressedHistoryInA,
-                control: compressionControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsToolCallOutputCompressionThreshold,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsWhenAToolCallReturnsMore,
-                control: toolResultCompressionControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiToolResultCompressionEnabledLabel,
-                subtitle: l10n.aiToolResultCompressionEnabledBody,
-                control: toolResultCompressionEnabledControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiMicroCompressionEnabledLabel,
-                subtitle: l10n.aiMicroCompressionEnabledBody,
-                control: microCompressionEnabledControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiToolResultCompressionHeadTailWindowLabel,
-                subtitle: l10n.aiToolResultCompressionHeadTailWindowBody,
-                control: toolResultCompressionHeadTailWindowControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiToolResultCompressionMaxPathHitsLabel,
-                subtitle: l10n.aiToolResultCompressionMaxPathHitsBody,
-                control: toolResultCompressionMaxPathHitsControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiWriteToolSummaryMaxCharsLabel,
-                subtitle: l10n.aiWriteToolSummaryMaxCharsBody,
-                control: writeToolSummaryMaxCharsControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsPerResponseToolCallLimit,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefaultsTo40IfOneAssistant,
-                control: toolCallLimitControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsSequentialToolRoundLimit,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefaultsTo24RoundsIfThe,
-                control: sequentialToolRoundLimitControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiMaxRecentErrorsLabel,
-                subtitle: l10n.aiMaxRecentErrorsBody,
-                control: maxRecentErrorsControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiMaxPlanHistoryEntriesLabel,
-                subtitle: l10n.aiMaxPlanHistoryEntriesBody,
-                control: maxPlanHistoryEntriesControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiMaxTruncationContinuationsLabel,
-                subtitle: l10n.aiMaxTruncationContinuationsBody,
-                control: maxTruncationContinuationsControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: l10n.aiEstimatedCharactersPerTokenLabel,
-                subtitle: l10n.aiEstimatedCharactersPerTokenBody,
-                control: estimatedCharactersPerTokenControl,
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsImageSizeLimit,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefaultsTo1mbImageAttachmentsLarger,
-                control: imageSizeLimitControl,
-                controlMaxWidth: 360,
-              ),
-            ],
-          ),
-        ),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: l10n.aiMessageContentSectionLabel,
-          description: l10n.aiMessageContentFormatBody,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ResponsiveSettingRow(
-                title: l10n.aiMessageContentFormatLabel,
-                control: messageContentFormatControl,
-              ),
-              _AnimatedSettingReveal(
-                visible:
-                    settingsController.aiMessageContentFormat ==
-                    AiMessageContentFormat.html,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 18),
-                      child: _ResponsiveSettingRow(
-                        title: l10n.aiHtmlContentRichnessLabel,
-                        subtitle: l10n.aiHtmlContentRichnessBody,
-                        control: htmlContentRichnessControl,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 18),
-                      child: _ResponsiveSettingRow(
-                        title: l10n.aiHtmlRenderFallbackLabel,
-                        subtitle: l10n.aiHtmlRenderFallbackBody,
-                        control: htmlRenderFallbackControl,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '开启文本转语音',
-                  en: 'Enable Text To Speech',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '开启后，聚焦消息卡片时会显示“朗读”胶囊。默认优先使用系统 TTS，服务不可用时按优先级回退。',
-                  en: 'When enabled, focused message cards show a Read pill. System TTS is the default fallback.',
-                ),
-                control: ttsEnabledControl,
-              ),
-              _AnimatedSettingReveal(
-                visible: ttsSettings.enabled,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: _AiTtsSettingsPanel(
-                    settings: ttsSettings,
-                    onChanged: settingsController.updateAiTtsSettings,
-                    playbackService: _ttsSettingsPlaybackService,
-                    availableModels: settingsController.aiModels,
-                    recentModelSelections:
-                        settingsController.recentModelSelections,
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '开启文本翻译',
-                  en: 'Enable Text Translation',
-                ),
-                subtitle: openHandLocalizedText(
-                  context,
-                  zh: '开启后，聚焦可翻译的消息卡片时会显示“翻译/查看原始”胶囊。仅翻译用户文本、AI 思考文本和非 HTML 正式响应文本。',
-                  en: 'When enabled, focused translatable messages show a Translate / Original pill for user text, reasoning text, and non-HTML assistant text.',
-                ),
-                control: translationEnabledControl,
-              ),
-              _AnimatedSettingReveal(
-                visible: translationSettings.enabled,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: _AiTranslationSettingsPanel(
-                    settings: translationSettings,
-                    onChanged: settingsController.updateAiTranslationSettings,
-                    availableModels: settingsController.aiModels,
-                    recentModelSelections:
-                        settingsController.recentModelSelections,
-                  ),
-                ),
-              ),
-              kOpenHandGap18,
-              _OfflineSpeechModelPanel(
-                kind: OfflineSpeechKind.recognition,
-                settings: offlineSpeechSettings.recognition,
-                textPolishingSettings: offlineSpeechSettings.textPolishing,
-                silenceTimeoutSeconds:
-                    offlineSpeechSettings.silenceTimeoutSeconds,
-                availableModels: settingsController.aiModels,
-                recentModelSelections: settingsController.recentModelSelections,
-                onTextPolishingChanged: (next) =>
-                    settingsController.updateOfflineSpeechSettings(
-                      settingsController.offlineSpeechSettings
-                          .updateTextPolishing(next),
-                    ),
-                onSilenceTimeoutChanged: (seconds) =>
-                    settingsController.updateOfflineSpeechSettings(
-                      settingsController.offlineSpeechSettings
-                          .setSilenceTimeoutSeconds(seconds),
-                    ),
-                onChanged: (next) =>
-                    settingsController.updateOfflineSpeechSettings(
-                      settingsController.offlineSpeechSettings.update(
-                        OfflineSpeechKind.recognition,
-                        next,
-                      ),
-                    ),
-              ),
-              kOpenHandGap18,
-              _OfflineSpeechModelPanel(
-                kind: OfflineSpeechKind.synthesis,
-                settings: offlineSpeechSettings.synthesis,
-                onChanged: (next) =>
-                    settingsController.updateOfflineSpeechSettings(
-                      settingsController.offlineSpeechSettings.update(
-                        OfflineSpeechKind.synthesis,
-                        next,
-                      ),
-                    ),
-              ),
-            ],
-          ),
-        ),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: AppLocalizations.of(context)!.settingsCostControl,
-          description: AppLocalizations.of(
-            context,
-          )!.settingsReduceTokenCostsByFreezingThe,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsEnableInputCache,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDisabledByDefaultWhenEnabledEvery,
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: _SettingsSwitch(
-                    key: const ValueKey<String>(
-                      'settingsAiInputCacheEnabledSwitch',
-                    ),
-                    value: settingsController.aiInputCacheEnabled,
-                    onChanged: (value) async {
-                      await settingsController.updateAiInputCacheEnabled(value);
-                    },
-                  ),
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsCacheBreakpointUpdateMode,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsChooseTheSlidingUnitForThe,
-                control: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: AnimatedDropdownButton<String>(
-                    key: const ValueKey<String>(
-                      'settingsAiInputCacheUpdateModeDropdown',
-                    ),
-                    value: settingsController.aiInputCacheUpdateMode,
-                    onChanged: (value) async {
-                      if (value == null) return;
-                      await settingsController.updateAiInputCacheUpdateMode(
-                        value,
-                      );
-                    },
-                    items: <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(
-                        value: AppSettingsSnapshot
-                            .aiInputCacheUpdateModeAllMessages,
-                        child: Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.settingsByMessageCountUserAssistant,
-                        ),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: AppSettingsSnapshot
-                            .aiInputCacheUpdateModeUserMessages,
-                        child: Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.settingsByUserMessageCountOnly,
-                        ),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: AppSettingsSnapshot.aiInputCacheUpdateModeTokens,
-                        child: Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.settingsByAccumulatedTokens,
-                        ),
-                      ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsResponseTimeoutS,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsMaximumWaitForACompleteResponse,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _responseTimeoutController,
+                    focusNode: _responseTimeoutFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
                     ],
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.settingsResponseTimeoutS,
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiResponseTimeoutSeconds}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveResponseTimeout(context, value),
                   ),
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsCacheBreakpointUpdateInterval,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefault10MeaningDependsOnThe,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      key: const ValueKey<String>(
-                        'settingsAiInputCacheUpdateIntervalField',
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveResponseTimeout(
+                        context,
+                        _responseTimeoutController.text,
                       ),
-                      controller: _aiInputCacheUpdateIntervalController,
-                      focusNode: _aiInputCacheUpdateIntervalFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiInputCacheUpdateInterval}',
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
                       ),
-                      onSubmitted: (value) =>
-                          _saveAiInputCacheUpdateInterval(context, value),
                     ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        key: const ValueKey<String>(
-                          'settingsAiInputCacheUpdateIntervalSaveButton',
-                        ),
-                        onPressed: () => _saveAiInputCacheUpdateInterval(
-                          context,
-                          _aiInputCacheUpdateIntervalController.text,
-                        ),
-                        icon: const Icon(Icons.save_rounded),
-                        label: Text(AppLocalizations.of(context)!.settingsSave),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsMaximumIdleWaitBetweenStreamChunks,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _streamIdleTimeoutController,
+                    focusNode: _streamIdleTimeoutFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.settingsStreamIdleTimeoutS,
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveStreamIdleTimeout(context, value),
+                  ),
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveStreamIdleTimeout(
+                        context,
+                        _streamIdleTimeoutController.text,
+                      ),
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            Text(
+              AppLocalizations.of(context)!.aiThrottleSettingsLabel,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            kOpenHandGap6,
+            Text(
+              AppLocalizations.of(context)!.aiThrottleSettingsBody,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            kOpenHandGap18,
+            // 先决定是否启用/自适应，再调整具体速率。
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '启用流式输出节流',
+                zhHant: '啟用串流輸出節流',
+                en: 'Enable Stream Throttle',
+                fr: 'Activer la limitation du flux',
+                de: 'Stream-Drosselung aktivieren',
+                ja: 'ストリーム出力のスロットリングを有効化',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。',
+                zhHant: '一鍵開關字元 / 卡片節流。關閉後所有節流參數失效，AI 輸出會按真實速率全速渲染。',
+                en: 'Master switch for char/card throttling. When off, AI output renders at full speed.',
+                fr: 'Interrupteur global pour la limitation des caractères et cartes. Désactivé, la sortie IA s’affiche à pleine vitesse.',
+                de: 'Hauptschalter für Zeichen-/Kartendrosselung. Ausgeschaltet rendert die KI-Ausgabe mit voller Geschwindigkeit.',
+                ja: '文字とカードのスロットリングの一括スイッチです。オフにすると AI 出力は実際の速度で全速描画されます。',
+              ),
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _SettingsSwitch(
+                  value: settingsController.aiStreamThrottleEnabled,
+                  onChanged: (v) =>
+                      settingsController.updateAiStreamThrottleEnabled(v),
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '节流自动模式',
+                zhHant: '節流自動模式',
+                en: 'Auto-Adaptive Throttle',
+                fr: 'Limitation adaptative',
+                de: 'Adaptive Drosselung',
+                ja: '自動適応スロットリング',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。',
+                zhHant:
+                    '依平台 / 裝置效能自動選速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字元/秒、行動 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字元/秒；卡片統一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 時自動再降速 50%。開啟後會忽略下方手動設定。',
+                en: 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
+                fr: 'Choisit les débits selon la plateforme : desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} car./s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} car./s ; cartes ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Si le FPS récent est <55, le débit est divisé par 2. Les valeurs manuelles sont ignorées.',
+                de: 'Wählt Raten je nach Plattform: Desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} Zeichen/s, mobil ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} Zeichen/s; Karten ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Bei FPS <55 in der letzten Sekunde wird halbiert. Manuelle Werte werden ignoriert.',
+                ja: 'プラットフォームに応じて速度を自動選択します。デスクトップ ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 文字/秒、モバイル ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 文字/秒、カードは ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。直近 1 秒の FPS が 55 未満ならさらに 50% 低下します。オンの間は下の手動設定を無視します。',
+              ),
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: _SettingsSwitch(
+                      value: settingsController.aiStreamThrottleAutoMode,
+                      onChanged: settingsController.aiStreamThrottleEnabled
+                          ? (v) => settingsController
+                                .updateAiStreamThrottleAutoMode(v)
+                          : null,
+                    ),
+                  ),
+                  if (settingsController.aiStreamThrottleAutoMode) ...[
+                    kOpenHandGap8,
+                    const _AutoModeFpsIndicator(),
+                  ],
+                ],
+              ),
+            ),
+            kOpenHandGap18,
+            // 流式输出节流：每秒最多向卡片追加渲染的字符数
+            _ResponsiveSettingRow(
+              title: _settingsViewMaxRenderCharsSecLabel(context),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。',
+                zhHant:
+                    'AI 端高速輸出字元時，UI 端會按此速率均勻放出，避免卡片增量渲染卡頓、ANR 與列表抖動。0 表示關閉節流。預設 10。',
+                en: 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
+                fr: 'Quand l’IA émet vite, l’UI ajoute les caractères à ce débit pour éviter les saccades, ANR et rebonds de liste. 0 désactive la limitation. Défaut 10.',
+                de: 'Wenn die KI schnell Zeichen streamt, fügt die UI sie mit dieser Rate an, um Ruckeln, ANR und Listenspringen zu vermeiden. 0 deaktiviert die Drosselung. Standard 10.',
+                ja: 'AI が高速に文字を出力する場合、UI はこの速度で均等に追加し、カードの差分描画のカクつきやリスト揺れを避けます。0 は無効化、既定は 10 です。',
+              ),
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _streamMaxCharsPerSecondController,
+                    focusNode: _streamMaxCharsPerSecondFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: _settingsViewMaxRenderCharsSecLabel(context),
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveStreamMaxCharsPerSecond(context, value),
+                  ),
+                  if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
+                    kOpenHandGap8,
+                    _ThrottleDisabledBadge(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '节流已关闭：AI 端字符将按真实速率全速渲染。',
+                        zhHant: '節流已關閉：AI 端字元會按真實速率全速渲染。',
+                        en: 'Throttle disabled: chars will be rendered at full speed.',
+                        fr: 'Limitation désactivée : les caractères seront rendus à pleine vitesse.',
+                        de: 'Drosselung deaktiviert: Zeichen werden mit voller Geschwindigkeit gerendert.',
+                        ja: 'スロットリング無効: 文字は実際の速度で全速描画されます。',
                       ),
                     ),
                   ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsCacheBreakpointCount,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsDefault4Range14Anthropic,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      key: const ValueKey<String>(
-                        'settingsAiInputCacheBreakpointCountField',
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveStreamMaxCharsPerSecond(
+                        context,
+                        _streamMaxCharsPerSecondController.text,
                       ),
-                      controller: _aiInputCacheBreakpointCountController,
-                      focusNode: _aiInputCacheBreakpointCountFocusNode,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(
-                        hintText:
-                            '${AppSettingsSnapshot.defaultAiInputCacheBreakpointCount}',
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
                       ),
-                      onSubmitted: (value) =>
-                          _saveAiInputCacheBreakpointCount(context, value),
                     ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        key: const ValueKey<String>(
-                          'settingsAiInputCacheBreakpointCountSaveButton',
-                        ),
-                        onPressed: () => _saveAiInputCacheBreakpointCount(
-                          context,
-                          _aiInputCacheBreakpointCountController.text,
-                        ),
-                        icon: const Icon(Icons.save_rounded),
-                        label: Text(AppLocalizations.of(context)!.settingsSave),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            // 卡片限速：每秒最多新追加多少张消息卡片
+            _ResponsiveSettingRow(
+              title: _settingsViewMaxRenderCardsSecLabel(context),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。',
+                zhHant:
+                    'AI 短時間內連續追加多張工具/助手卡片時，會按此速率均勻放出，消除會話視窗上下彈跳與抖動。0 表示關閉節流。預設 1。',
+                en: 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
+                fr: 'Quand l’IA ajoute plusieurs cartes outil/assistant d’un coup, l’UI les affiche à ce débit pour supprimer les rebonds. 0 désactive la limitation. Défaut 1.',
+                de: 'Wenn die KI viele Tool-/Assistentenkarten auf einmal erzeugt, gibt die UI sie mit dieser Rate aus, um Springen zu vermeiden. 0 deaktiviert die Drosselung. Standard 1.',
+                ja: 'AI が短時間に複数のツール/アシスタントカードを追加する場合、この速度で均等に表示し、会話画面の上下揺れを抑えます。0 は無効化、既定は 1 です。',
+              ),
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _streamMaxMessageCardsPerSecondController,
+                    focusNode: _streamMaxMessageCardsPerSecondFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: _settingsViewMaxRenderCardsSecLabel(context),
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveStreamMaxMessageCardsPerSecond(context, value),
+                  ),
+                  if (settingsController.aiStreamMaxMessageCardsPerSecond <=
+                      0) ...[
+                    kOpenHandGap8,
+                    _ThrottleDisabledBadge(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '节流已关闭：AI 端新增卡片将按真实速率全速追加。',
+                        zhHant: '節流已關閉：AI 端新增卡片會按真實速率全速追加。',
+                        en: 'Throttle disabled: new cards will be appended at full speed.',
+                        fr: 'Limitation désactivée : les nouvelles cartes seront ajoutées à pleine vitesse.',
+                        de: 'Drosselung deaktiviert: neue Karten werden mit voller Geschwindigkeit angefügt.',
+                        ja: 'スロットリング無効: 新しいカードは実際の速度で全速追加されます。',
                       ),
                     ),
                   ],
-                ),
-                controlMaxWidth: 360,
-              ),
-              kOpenHandGap18,
-              _buildAiInputCacheBreakpointPositionsRow(context),
-              kOpenHandGap18,
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsAiBudgetUsdPerSession,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsAiBudgetUsdPerSessionBody,
-                control: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    TextField(
-                      key: const ValueKey<String>(
-                        'settingsAiBudgetUsdPerSessionField',
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveStreamMaxMessageCardsPerSecond(
+                        context,
+                        _streamMaxMessageCardsPerSecondController.text,
                       ),
-                      controller: _aiBudgetUsdPerSessionController,
-                      focusNode: _aiBudgetUsdPerSessionFocusNode,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
                       ),
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
-                      ],
-                      decoration: const InputDecoration(hintText: '0'),
-                      onSubmitted: (value) =>
-                          _saveAiBudgetUsdPerSession(context, value),
                     ),
-                    kOpenHandGap12,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FilledButton.icon(
-                        key: const ValueKey<String>(
-                          'settingsAiBudgetUsdPerSessionSaveButton',
-                        ),
-                        onPressed: () => _saveAiBudgetUsdPerSession(
-                          context,
-                          _aiBudgetUsdPerSessionController.text,
-                        ),
-                        icon: const Icon(Icons.save_rounded),
-                        label: Text(AppLocalizations.of(context)!.settingsSave),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            // 节流持续时长入口。
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: _settingsViewThrottleDurationSLabel(context),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。',
+                zhHant:
+                    '在該時長內按字元 / 卡片速率均勻放出；時長耗盡後剩餘串流回應會直接按 AI 實際接收節奏追加。0 = 持續節流（預設）。',
+                en: 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
+                fr: 'Limite les caractères/cartes pendant cette durée ; ensuite le reste suit le rythme réel d’arrivée de l’IA. 0 = limitation continue (défaut).',
+                de: 'Drosselt Zeichen/Karten für diese Dauer; danach folgt der Rest der tatsächlichen KI-Ankunftsrate. 0 = kontinuierliche Drosselung (Standard).',
+                ja: 'この時間中は文字/カードの速度を均等化します。終了後の残りは AI の実際の受信ペースで追加されます。0 = 継続スロットリング（既定）。',
+              ),
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _streamThrottleDurationController,
+                    focusNode: _streamThrottleDurationFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: _settingsViewThrottleDurationSLabel(context),
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveStreamThrottleDurationSeconds(context, value),
+                  ),
+                  if (settingsController.aiStreamThrottleDurationSeconds <=
+                      0) ...[
+                    kOpenHandGap8,
+                    _ThrottleDisabledBadge(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '当前为持续节流：整个流式响应都按节流速率均匀放出。',
+                        zhHant: '目前為持續節流：整個串流回應都會按節流速率均勻放出。',
+                        en: 'Continuous throttle: the entire stream is paced.',
+                        fr: 'Limitation continue : tout le flux est cadencé.',
+                        de: 'Kontinuierliche Drosselung: der gesamte Stream wird getaktet.',
+                        ja: '継続スロットリング: ストリーム全体を一定速度で表示します。',
                       ),
                     ),
                   ],
-                ),
-                controlMaxWidth: 360,
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      onPressed: () => _saveStreamThrottleDurationSeconds(
+                        context,
+                        _streamThrottleDurationController.text,
+                      ),
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsSaveTimeout,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        kOpenHandGap16,
-        _SettingsSubsectionCard(
-          title: AppLocalizations.of(context)!.settingsCommandSafety,
-          description: AppLocalizations.of(
-            context,
-          )!.settingsControlWriteCommandConfirmationForBash,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ResponsiveSettingRow(
-                title: AppLocalizations.of(
-                  context,
-                )!.settingsWriteCommandConfirmation,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.settingsEnabledByDefaultWhenTheAi,
-                control: _SettingsSwitch(
-                  value: settingsController.aiWriteCommandConfirmationEnabled,
-                  onChanged: (value) async {
-                    final saved = await settingsController
-                        .updateAiWriteCommandConfirmationEnabled(value);
-                    if (!context.mounted || saved) {
-                      return;
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            // 节流配置 export / import 入口。
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '导入 / 导出节流配置',
+                zhHant: '匯入 / 匯出節流設定',
+                en: 'Import / Export Throttle Config',
+                fr: 'Importer / exporter la config de limitation',
+                de: 'Drosselungskonfiguration importieren / exportieren',
+                ja: 'スロットリング設定のインポート / エクスポート',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '将全局开关、自动模式、持续时间及字符/卡片速率导出为 JSON，便于备份和跨设备同步；云端连接凭据不会写入文档。',
+                zhHant:
+                    '將全域開關、自動模式、持續時間及字元/卡片速率匯出為 JSON，方便備份與跨裝置同步；雲端連線憑證不會寫入文件。',
+                en: 'Export the global switch, auto mode, duration, and character/card rates as JSON for backup or cross-device sync. Cloud credentials are excluded.',
+                fr: 'Exporte l’interrupteur global, le mode auto, la durée et les débits en JSON pour la sauvegarde ou la synchronisation. Les identifiants cloud sont exclus.',
+                de: 'Exportiert globalen Schalter, Automatikmodus, Dauer und Raten als JSON für Sicherung oder Gerätesynchronisierung. Cloud-Zugangsdaten werden ausgeschlossen.',
+                ja: '全体スイッチ、自動モード、継続時間、文字/カード速度を JSON に書き出します。クラウド認証情報は含まれません。',
+              ),
+              control: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: () => _exportAiStreamThrottleConfig(context),
+                    icon: const Icon(Icons.upload_rounded, size: 18),
+                    label: Text(openHandExportJsonLabel(context)),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _importAiStreamThrottleConfig(context),
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '从 JSON 导入',
+                        zhHant: '從 JSON 匯入',
+                        en: 'Import JSON',
+                        fr: 'Importer JSON',
+                        de: 'JSON importieren',
+                        ja: 'JSON をインポート',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '节流配置云端同步',
+                zhHant: '節流設定雲端同步',
+                en: 'Cloud Sync',
+                fr: 'Synchronisation cloud',
+                de: 'Cloud-Synchronisierung',
+                ja: 'クラウド同期',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '支持通过自定义 HTTP、iCloud 或 GitHub Gist 推送 / 拉取节流配置。',
+                zhHant: '支援透過自訂 HTTP、iCloud 或 GitHub Gist 推送 / 拉取節流設定。',
+                en: 'Push or pull throttle settings through custom HTTP, iCloud, or GitHub Gist.',
+                fr: 'Synchronisez la limitation via HTTP personnalisé, iCloud ou GitHub Gist.',
+                de: 'Drosselungseinstellungen über eigenes HTTP, iCloud oder GitHub Gist synchronisieren.',
+                ja: 'カスタム HTTP、iCloud、GitHub Gist でスロットリング設定を同期できます。',
+              ),
+              control: const _ThrottleCloudSyncEditor(),
+              controlMaxWidth: 720,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.settingsAutoTitle,
+              subtitle: l10n.settingsWhenEnabledATitleIsAutomatically,
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _SettingsSwitch(
+                  value: settingsController.aiAutoTitleEnabled,
+                  onChanged: (value) =>
+                      settingsController.updateAiAutoTitleEnabled(value),
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.settingsTitleFetchMode,
+              subtitle: l10n.settingsTitleFetchModeDescription,
+              controlMaxWidth: 360,
+              control: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<AiAutoTitleFetchMode>(
+                  segments: [
+                    ButtonSegment<AiAutoTitleFetchMode>(
+                      value: AiAutoTitleFetchMode.asynchronous,
+                      icon: const Icon(Icons.bolt_outlined),
+                      label: Text(
+                        l10n.settingsTitleFetchModeAsync,
+                        softWrap: false,
+                      ),
+                    ),
+                    ButtonSegment<AiAutoTitleFetchMode>(
+                      value: AiAutoTitleFetchMode.synchronous,
+                      icon: const Icon(Icons.sync_rounded),
+                      label: Text(
+                        l10n.settingsTitleFetchModeSync,
+                        softWrap: false,
+                      ),
+                    ),
+                  ],
+                  selected: {settingsController.aiAutoTitleFetchMode},
+                  onSelectionChanged: settingsController.aiAutoTitleEnabled
+                      ? (selection) async {
+                          if (selection.isEmpty) return;
+                          final mode = selection.first;
+                          await settingsController.updateAiAutoTitleFetchMode(
+                            mode,
+                          );
+                        }
+                      : null,
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '标题获取最大重试次数',
+                zhHant: '標題取得最大重試次數',
+                en: 'Title Retry Max Count',
+                fr: 'Nombre max. de tentatives de titre',
+                de: 'Max. Titel-Wiederholungen',
+                ja: 'タイトル取得の最大再試行回数',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。',
+                zhHant: '當自動標題生成失敗後，後續每次開啟該會話時嘗試重新取得標題的最大次數。超過此次數後會使用回退策略。',
+                en: 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
+                fr: 'Nombre maximal de nouvelles tentatives pour générer le titre d’une session lors des ouvertures suivantes après un échec initial.',
+                de: 'Maximale Anzahl erneuter Versuche, einen Sitzungstitel bei späterem Öffnen neu zu erzeugen, nachdem die erste automatische Generierung fehlgeschlagen ist.',
+                ja: '自動タイトル生成が失敗したあと、このセッションを開くたびにタイトル再生成を試す最大回数です。超過後はフォールバックを使います。',
+              ),
+              controlMaxWidth: 200,
+              control: Row(
+                children: [
+                  Expanded(
+                    child: OpenHandDeferredSlider(
+                      value: settingsController.aiAutoTitleMaxRetryCount
+                          .toDouble(),
+                      min: AppSettingsSnapshot.minAiAutoTitleMaxRetryCount
+                          .toDouble(),
+                      max: AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount
+                          .toDouble(),
+                      divisions:
+                          AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount -
+                          AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
+                      onCommit: (value) => settingsController
+                          .updateAiAutoTitleMaxRetryCount(value.round()),
+                    ),
+                  ),
+                  kOpenHandHGap8,
+                  Text(
+                    '${settingsController.aiAutoTitleMaxRetryCount}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsDefaultSessionMode,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefaultInteractionModeForNewSessions,
+              control: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment<String>(
+                      value: 'chat',
+                      icon: const Icon(Icons.chat_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsChat,
+                        softWrap: false,
+                      ),
+                    ),
+                    ButtonSegment<String>(
+                      value: 'plan',
+                      icon: const Icon(Icons.account_tree_outlined),
+                      label: Text(
+                        AppLocalizations.of(context)!.settingsPlan,
+                        softWrap: false,
+                      ),
+                    ),
+                  ],
+                  selected: {settingsController.aiDefaultSessionMode},
+                  onSelectionChanged: (values) {
+                    if (values.isNotEmpty) {
+                      settingsController.updateAiDefaultSessionMode(
+                        values.first,
+                      );
                     }
-                    _showPersistenceFailureSnackBar(context);
                   },
                 ),
               ),
-              _SandboxSettingsSection(
-                settingsController: settingsController,
-                onPersistenceFailure: () =>
-                    _showPersistenceFailureSnackBar(context),
-              ),
-              kOpenHandGap18,
-              Text(
-                AppLocalizations.of(context)!.settingsAllowCommandList,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              kOpenHandGap8,
-              Text(
-                AppLocalizations.of(
-                  context,
-                )!.settingsMatchingWriteLikeBashCommandsSkip,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsDefaultFullAccess,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsWhenEnabledNewSessionsStartIn,
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _SettingsSwitch(
+                  value: settingsController.aiDefaultFullAccessPermission,
+                  onChanged: (value) => settingsController
+                      .updateAiDefaultFullAccessPermission(value),
                 ),
               ),
-              kOpenHandGap14,
-              FilledButton.icon(
-                onPressed: () => _showAllowCommandRuleDialog(context),
-                icon: const Icon(Icons.verified_outlined),
-                label: Text(AppLocalizations.of(context)!.settingsAddAllowRule),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsUserProfile,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsMaintainAGlobalUserProfileLanguage,
+              control: const Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _UserProfileSettingsButton(),
               ),
-              kOpenHandGap16,
-              if (allowCommandRules.isEmpty)
-                _SettingsStateBox(
-                  icon: Icons.verified_user_outlined,
-                  title: AppLocalizations.of(
-                    context,
-                  )!.settingsNoAllowRulesConfigured,
-                  body: AppLocalizations.of(
-                    context,
-                  )!.settingsAddARuleToLetMatching,
-                )
-              else
-                SizedBox(
-                  height: math.min(360.0, allowCommandRules.length * 94.0),
-                  child: ListView.separated(
-                    primary: false,
-                    padding: EdgeInsets.zero,
-                    itemCount: allowCommandRules.length,
-                    separatorBuilder: (context, index) => kOpenHandGap12,
-                    itemBuilder: (context, index) {
-                      final rule = allowCommandRules[index];
-                      return AppearOnce(
-                        key: ValueKey<String>('allow-rule-${rule.id}'),
-                        child: _CommandRuleTile.allow(
-                          rule: rule,
-                          onEdit: () => _showAllowCommandRuleDialog(
-                            context,
-                            initialRule: rule,
-                          ),
-                          onDelete: () =>
-                              _deleteAllowCommandRule(context, rule),
-                        ),
-                      );
-                    },
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsThreadSessionManagementTitle,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsThreadSessionManagementSubtitle,
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => showThreadSessionManagementDialog(context),
+                  icon: const Icon(Icons.dynamic_feed_outlined),
+                  label: Text(
+                    AppLocalizations.of(
+                      context,
+                    )!.settingsThreadSessionManagementOpen,
                   ),
                 ),
-              kOpenHandGap18,
-              Text(
-                AppLocalizations.of(context)!.settingsDenyCommandList,
-                style: Theme.of(context).textTheme.titleMedium,
               ),
-              kOpenHandGap8,
-              Text(
-                AppLocalizations.of(
-                  context,
-                )!.settingsMatchingBashCommandsAreBlockedBefore,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              kOpenHandGap14,
-              FilledButton.icon(
-                onPressed: () => _showDenyCommandRuleDialog(context),
-                icon: const Icon(Icons.block_rounded),
-                label: Text(AppLocalizations.of(context)!.settingsAddRule),
-              ),
-              kOpenHandGap16,
-              if (denyCommandRules.isEmpty)
-                _SettingsStateBox(
-                  icon: Icons.rule_folder_outlined,
-                  title: AppLocalizations.of(
-                    context,
-                  )!.settingsNoDenyRulesConfigured,
-                  body: AppLocalizations.of(
-                    context,
-                  )!.settingsAddARuleToBlockMatching,
-                )
-              else
-                SizedBox(
-                  height: math.min(360.0, denyCommandRules.length * 94.0),
-                  child: ListView.separated(
-                    primary: false,
-                    padding: EdgeInsets.zero,
-                    itemCount: denyCommandRules.length,
-                    separatorBuilder: (context, index) => kOpenHandGap12,
-                    itemBuilder: (context, index) {
-                      final rule = denyCommandRules[index];
-                      return AppearOnce(
-                        key: ValueKey<String>('deny-rule-${rule.id}'),
-                        child: _CommandRuleTile.deny(
-                          rule: rule,
-                          onEdit: () => _showDenyCommandRuleDialog(
-                            context,
-                            initialRule: rule,
-                          ),
-                          onDelete: () => _deleteDenyCommandRule(context, rule),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
-        kOpenHandGap16,
-        _buildTelemetrySubsection(context, settingsController),
-      ],
-    );
+      ),
+      _SettingsSection.aiProviders => _SettingsSubsectionCard(
+        title: AppLocalizations.of(context)!.settingsModelProviderManagement,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsAddSelectTestAndMaintainModel,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AiModelHealthSettingsPanel(),
+            kOpenHandGap16,
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(
+                  onPressed: _isSyncingOpenRouterModels
+                      ? null
+                      : () => _showAiModelDialog(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(l10n.aiModelAdd),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _isSyncingOpenRouterModels
+                      ? null
+                      : _syncOpenRouterModels,
+                  icon: _isSyncingOpenRouterModels
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_sync_rounded),
+                  label: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '从 OpenRouter 同步模型参数',
+                      zhHant: '從 OpenRouter 同步模型參數',
+                      en: 'Sync model parameters from OpenRouter',
+                      fr: 'Synchroniser les paramètres depuis OpenRouter',
+                      de: 'Modellparameter von OpenRouter synchronisieren',
+                      ja: 'OpenRouter からモデルパラメータを同期',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap16,
+            AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
+              reverseDuration: openHandMotionDuration(
+                context,
+                kOpenHandMotion220,
+              ),
+              switchInCurve: kOpenHandEntranceCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.98, end: 1.0).animate(
+                      openHandCurveAnimation(
+                        parent: animation,
+                        curve: kOpenHandEntranceCurve,
+                        reverseCurve: kOpenHandSwitchOutCurve,
+                      ),
+                    ),
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                );
+              },
+              child: _animatedAiModels.isEmpty
+                  ? KeyedSubtree(
+                      key: const ValueKey<String>('aiModelsEmpty'),
+                      child: _SettingsStateBox(
+                        icon: Icons.hub_outlined,
+                        title: l10n.aiModelsEmptyTitle,
+                        body: l10n.aiModelsEmptyBody,
+                      ),
+                    )
+                  : ConstrainedBox(
+                      key: const ValueKey<String>('aiModelsList'),
+                      constraints: const BoxConstraints(maxHeight: 520),
+                      child: ReorderableListView.builder(
+                        primary: false,
+                        shrinkWrap: true,
+                        buildDefaultDragHandles: false,
+                        proxyDecorator: (child, index, animation) =>
+                            buildOpenHandReorderProxy(
+                              context,
+                              child,
+                              animation,
+                            ),
+                        itemCount: _animatedAiModels.length,
+                        onReorderItem: _reorderAiModels,
+                        itemBuilder: (context, index) =>
+                            _buildAiModelRow(context, _animatedAiModels[index]),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      _SettingsSection.aiCompression => _SettingsSubsectionCard(
+        title: l10n.aiCompressionThresholdLabel,
+        description: l10n.aiCompressionThresholdBody,
+        child: Column(
+          children: [
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsCompressionTrigger,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsOnceTheUncompressedHistoryInA,
+              control: compressionControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsToolCallOutputCompressionThreshold,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsWhenAToolCallReturnsMore,
+              control: toolResultCompressionControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiToolResultCompressionEnabledLabel,
+              subtitle: l10n.aiToolResultCompressionEnabledBody,
+              control: toolResultCompressionEnabledControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiMicroCompressionEnabledLabel,
+              subtitle: l10n.aiMicroCompressionEnabledBody,
+              control: microCompressionEnabledControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiToolResultCompressionHeadTailWindowLabel,
+              subtitle: l10n.aiToolResultCompressionHeadTailWindowBody,
+              control: toolResultCompressionHeadTailWindowControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiToolResultCompressionMaxPathHitsLabel,
+              subtitle: l10n.aiToolResultCompressionMaxPathHitsBody,
+              control: toolResultCompressionMaxPathHitsControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiWriteToolSummaryMaxCharsLabel,
+              subtitle: l10n.aiWriteToolSummaryMaxCharsBody,
+              control: writeToolSummaryMaxCharsControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsPerResponseToolCallLimit,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefaultsTo40IfOneAssistant,
+              control: toolCallLimitControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsSequentialToolRoundLimit,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefaultsTo24RoundsIfThe,
+              control: sequentialToolRoundLimitControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiMaxRecentErrorsLabel,
+              subtitle: l10n.aiMaxRecentErrorsBody,
+              control: maxRecentErrorsControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiMaxPlanHistoryEntriesLabel,
+              subtitle: l10n.aiMaxPlanHistoryEntriesBody,
+              control: maxPlanHistoryEntriesControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiMaxTruncationContinuationsLabel,
+              subtitle: l10n.aiMaxTruncationContinuationsBody,
+              control: maxTruncationContinuationsControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: l10n.aiEstimatedCharactersPerTokenLabel,
+              subtitle: l10n.aiEstimatedCharactersPerTokenBody,
+              control: estimatedCharactersPerTokenControl,
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsImageSizeLimit,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefaultsTo1mbImageAttachmentsLarger,
+              control: imageSizeLimitControl,
+              controlMaxWidth: 360,
+            ),
+          ],
+        ),
+      ),
+      _SettingsSection.aiContent => _SettingsSubsectionCard(
+        title: l10n.aiMessageContentSectionLabel,
+        description: l10n.aiMessageContentFormatBody,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ResponsiveSettingRow(
+              title: l10n.aiMessageContentFormatLabel,
+              control: messageContentFormatControl,
+            ),
+            _AnimatedSettingReveal(
+              visible:
+                  settingsController.aiMessageContentFormat ==
+                  AiMessageContentFormat.html,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 18),
+                    child: _ResponsiveSettingRow(
+                      title: l10n.aiHtmlContentRichnessLabel,
+                      subtitle: l10n.aiHtmlContentRichnessBody,
+                      control: htmlContentRichnessControl,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 18),
+                    child: _ResponsiveSettingRow(
+                      title: l10n.aiHtmlRenderFallbackLabel,
+                      subtitle: l10n.aiHtmlRenderFallbackBody,
+                      control: htmlRenderFallbackControl,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '开启文本转语音',
+                en: 'Enable Text To Speech',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '开启后，聚焦消息卡片时会显示“朗读”胶囊。默认优先使用系统 TTS，服务不可用时按优先级回退。',
+                en: 'When enabled, focused message cards show a Read pill. System TTS is the default fallback.',
+              ),
+              control: ttsEnabledControl,
+            ),
+            _AnimatedSettingReveal(
+              visible: ttsSettings.enabled,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: _AiTtsSettingsPanel(
+                  settings: ttsSettings,
+                  onChanged: settingsController.updateAiTtsSettings,
+                  playbackService: _ttsSettingsPlaybackService,
+                  availableModels: settingsController.aiModels,
+                  recentModelSelections:
+                      settingsController.recentModelSelections,
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: openHandLocalizedText(
+                context,
+                zh: '开启文本翻译',
+                en: 'Enable Text Translation',
+              ),
+              subtitle: openHandLocalizedText(
+                context,
+                zh: '开启后，聚焦可翻译的消息卡片时会显示“翻译/查看原始”胶囊。仅翻译用户文本、AI 思考文本和非 HTML 正式响应文本。',
+                en: 'When enabled, focused translatable messages show a Translate / Original pill for user text, reasoning text, and non-HTML assistant text.',
+              ),
+              control: translationEnabledControl,
+            ),
+            _AnimatedSettingReveal(
+              visible: translationSettings.enabled,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: _AiTranslationSettingsPanel(
+                  settings: translationSettings,
+                  onChanged: settingsController.updateAiTranslationSettings,
+                  availableModels: settingsController.aiModels,
+                  recentModelSelections:
+                      settingsController.recentModelSelections,
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            _OfflineSpeechModelPanel(
+              kind: OfflineSpeechKind.recognition,
+              settings: offlineSpeechSettings.recognition,
+              textPolishingSettings: offlineSpeechSettings.textPolishing,
+              silenceTimeoutSeconds:
+                  offlineSpeechSettings.silenceTimeoutSeconds,
+              availableModels: settingsController.aiModels,
+              recentModelSelections: settingsController.recentModelSelections,
+              onTextPolishingChanged: (next) =>
+                  settingsController.updateOfflineSpeechSettings(
+                    settingsController.offlineSpeechSettings
+                        .updateTextPolishing(next),
+                  ),
+              onSilenceTimeoutChanged: (seconds) =>
+                  settingsController.updateOfflineSpeechSettings(
+                    settingsController.offlineSpeechSettings
+                        .setSilenceTimeoutSeconds(seconds),
+                  ),
+              onChanged: (next) =>
+                  settingsController.updateOfflineSpeechSettings(
+                    settingsController.offlineSpeechSettings.update(
+                      OfflineSpeechKind.recognition,
+                      next,
+                    ),
+                  ),
+            ),
+            kOpenHandGap18,
+            _OfflineSpeechModelPanel(
+              kind: OfflineSpeechKind.synthesis,
+              settings: offlineSpeechSettings.synthesis,
+              onChanged: (next) =>
+                  settingsController.updateOfflineSpeechSettings(
+                    settingsController.offlineSpeechSettings.update(
+                      OfflineSpeechKind.synthesis,
+                      next,
+                    ),
+                  ),
+            ),
+          ],
+        ),
+      ),
+      _SettingsSection.aiCost => _SettingsSubsectionCard(
+        title: AppLocalizations.of(context)!.settingsCostControl,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsReduceTokenCostsByFreezingThe,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsEnableInputCache,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDisabledByDefaultWhenEnabledEvery,
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _SettingsSwitch(
+                  key: const ValueKey<String>(
+                    'settingsAiInputCacheEnabledSwitch',
+                  ),
+                  value: settingsController.aiInputCacheEnabled,
+                  onChanged: (value) async {
+                    await settingsController.updateAiInputCacheEnabled(value);
+                  },
+                ),
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsCacheBreakpointUpdateMode,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsChooseTheSlidingUnitForThe,
+              control: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: AnimatedDropdownButton<String>(
+                  key: const ValueKey<String>(
+                    'settingsAiInputCacheUpdateModeDropdown',
+                  ),
+                  value: settingsController.aiInputCacheUpdateMode,
+                  onChanged: (value) async {
+                    if (value == null) return;
+                    await settingsController.updateAiInputCacheUpdateMode(
+                      value,
+                    );
+                  },
+                  items: <DropdownMenuItem<String>>[
+                    DropdownMenuItem<String>(
+                      value:
+                          AppSettingsSnapshot.aiInputCacheUpdateModeAllMessages,
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.settingsByMessageCountUserAssistant,
+                      ),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: AppSettingsSnapshot
+                          .aiInputCacheUpdateModeUserMessages,
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.settingsByUserMessageCountOnly,
+                      ),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: AppSettingsSnapshot.aiInputCacheUpdateModeTokens,
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.settingsByAccumulatedTokens,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsCacheBreakpointUpdateInterval,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefault10MeaningDependsOnThe,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    key: const ValueKey<String>(
+                      'settingsAiInputCacheUpdateIntervalField',
+                    ),
+                    controller: _aiInputCacheUpdateIntervalController,
+                    focusNode: _aiInputCacheUpdateIntervalFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: const InputDecoration(
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiInputCacheUpdateInterval}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveAiInputCacheUpdateInterval(context, value),
+                  ),
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      key: const ValueKey<String>(
+                        'settingsAiInputCacheUpdateIntervalSaveButton',
+                      ),
+                      onPressed: () => _saveAiInputCacheUpdateInterval(
+                        context,
+                        _aiInputCacheUpdateIntervalController.text,
+                      ),
+                      icon: const Icon(Icons.save_rounded),
+                      label: Text(AppLocalizations.of(context)!.settingsSave),
+                    ),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(context)!.settingsCacheBreakpointCount,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsDefault4Range14Anthropic,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    key: const ValueKey<String>(
+                      'settingsAiInputCacheBreakpointCountField',
+                    ),
+                    controller: _aiInputCacheBreakpointCountController,
+                    focusNode: _aiInputCacheBreakpointCountFocusNode,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: const InputDecoration(
+                      hintText:
+                          '${AppSettingsSnapshot.defaultAiInputCacheBreakpointCount}',
+                    ),
+                    onSubmitted: (value) =>
+                        _saveAiInputCacheBreakpointCount(context, value),
+                  ),
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      key: const ValueKey<String>(
+                        'settingsAiInputCacheBreakpointCountSaveButton',
+                      ),
+                      onPressed: () => _saveAiInputCacheBreakpointCount(
+                        context,
+                        _aiInputCacheBreakpointCountController.text,
+                      ),
+                      icon: const Icon(Icons.save_rounded),
+                      label: Text(AppLocalizations.of(context)!.settingsSave),
+                    ),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+            kOpenHandGap18,
+            _buildAiInputCacheBreakpointPositionsRow(context),
+            kOpenHandGap18,
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsAiBudgetUsdPerSession,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsAiBudgetUsdPerSessionBody,
+              control: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    key: const ValueKey<String>(
+                      'settingsAiBudgetUsdPerSessionField',
+                    ),
+                    controller: _aiBudgetUsdPerSessionController,
+                    focusNode: _aiBudgetUsdPerSessionFocusNode,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
+                    ],
+                    decoration: const InputDecoration(hintText: '0'),
+                    onSubmitted: (value) =>
+                        _saveAiBudgetUsdPerSession(context, value),
+                  ),
+                  kOpenHandGap12,
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.icon(
+                      key: const ValueKey<String>(
+                        'settingsAiBudgetUsdPerSessionSaveButton',
+                      ),
+                      onPressed: () => _saveAiBudgetUsdPerSession(
+                        context,
+                        _aiBudgetUsdPerSessionController.text,
+                      ),
+                      icon: const Icon(Icons.save_rounded),
+                      label: Text(AppLocalizations.of(context)!.settingsSave),
+                    ),
+                  ),
+                ],
+              ),
+              controlMaxWidth: 360,
+            ),
+          ],
+        ),
+      ),
+      _SettingsSection.aiCommands => _SettingsSubsectionCard(
+        title: AppLocalizations.of(context)!.settingsCommandSafety,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsControlWriteCommandConfirmationForBash,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ResponsiveSettingRow(
+              title: AppLocalizations.of(
+                context,
+              )!.settingsWriteCommandConfirmation,
+              subtitle: AppLocalizations.of(
+                context,
+              )!.settingsEnabledByDefaultWhenTheAi,
+              control: _SettingsSwitch(
+                value: settingsController.aiWriteCommandConfirmationEnabled,
+                onChanged: (value) async {
+                  final saved = await settingsController
+                      .updateAiWriteCommandConfirmationEnabled(value);
+                  if (!context.mounted || saved) {
+                    return;
+                  }
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+            _SandboxSettingsSection(
+              settingsController: settingsController,
+              onPersistenceFailure: () =>
+                  _showPersistenceFailureSnackBar(context),
+            ),
+            kOpenHandGap18,
+            Text(
+              AppLocalizations.of(context)!.settingsAllowCommandList,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            kOpenHandGap8,
+            Text(
+              AppLocalizations.of(
+                context,
+              )!.settingsMatchingWriteLikeBashCommandsSkip,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            kOpenHandGap14,
+            FilledButton.icon(
+              onPressed: () => _showAllowCommandRuleDialog(context),
+              icon: const Icon(Icons.verified_outlined),
+              label: Text(AppLocalizations.of(context)!.settingsAddAllowRule),
+            ),
+            kOpenHandGap16,
+            if (allowCommandRules.isEmpty)
+              _SettingsStateBox(
+                icon: Icons.verified_user_outlined,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsNoAllowRulesConfigured,
+                body: AppLocalizations.of(
+                  context,
+                )!.settingsAddARuleToLetMatching,
+              )
+            else
+              SizedBox(
+                height: math.min(360.0, allowCommandRules.length * 94.0),
+                child: ListView.separated(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  itemCount: allowCommandRules.length,
+                  separatorBuilder: (context, index) => kOpenHandGap12,
+                  itemBuilder: (context, index) {
+                    final rule = allowCommandRules[index];
+                    return AppearOnce(
+                      key: ValueKey<String>('allow-rule-${rule.id}'),
+                      child: _CommandRuleTile.allow(
+                        rule: rule,
+                        onEdit: () => _showAllowCommandRuleDialog(
+                          context,
+                          initialRule: rule,
+                        ),
+                        onDelete: () => _deleteAllowCommandRule(context, rule),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            kOpenHandGap18,
+            Text(
+              AppLocalizations.of(context)!.settingsDenyCommandList,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            kOpenHandGap8,
+            Text(
+              AppLocalizations.of(
+                context,
+              )!.settingsMatchingBashCommandsAreBlockedBefore,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            kOpenHandGap14,
+            FilledButton.icon(
+              onPressed: () => _showDenyCommandRuleDialog(context),
+              icon: const Icon(Icons.block_rounded),
+              label: Text(AppLocalizations.of(context)!.settingsAddRule),
+            ),
+            kOpenHandGap16,
+            if (denyCommandRules.isEmpty)
+              _SettingsStateBox(
+                icon: Icons.rule_folder_outlined,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsNoDenyRulesConfigured,
+                body: AppLocalizations.of(
+                  context,
+                )!.settingsAddARuleToBlockMatching,
+              )
+            else
+              SizedBox(
+                height: math.min(360.0, denyCommandRules.length * 94.0),
+                child: ListView.separated(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  itemCount: denyCommandRules.length,
+                  separatorBuilder: (context, index) => kOpenHandGap12,
+                  itemBuilder: (context, index) {
+                    final rule = denyCommandRules[index];
+                    return AppearOnce(
+                      key: ValueKey<String>('deny-rule-${rule.id}'),
+                      child: _CommandRuleTile.deny(
+                        rule: rule,
+                        onEdit: () => _showDenyCommandRuleDialog(
+                          context,
+                          initialRule: rule,
+                        ),
+                        onDelete: () => _deleteDenyCommandRule(context, rule),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+      _SettingsSection.aiTelemetry => _buildTelemetrySubsection(
+        context,
+        settingsController,
+      ),
+      _ => throw StateError('无效的 AI 设置分组'),
+    };
   }
 
   Widget _buildTelemetrySubsection(

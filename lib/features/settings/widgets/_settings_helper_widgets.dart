@@ -228,13 +228,13 @@ class _AiModelSearchToggleButton extends StatelessWidget {
 
 class _SettingsGroupCard extends StatelessWidget {
   const _SettingsGroupCard({
-    required this.title,
-    required this.description,
+    this.title,
+    this.description,
     required this.children,
   });
 
-  final String title;
-  final String description;
+  final String? title;
+  final String? description;
   final List<Widget> children;
 
   @override
@@ -249,15 +249,17 @@ class _SettingsGroupCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: theme.textTheme.headlineSmall),
-              kOpenHandGap8,
-              Text(
-                description,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (title != null)
+                Text(title!, style: theme.textTheme.headlineSmall),
+              if (title != null && description != null) kOpenHandGap8,
+              if (description != null)
+                Text(
+                  description!,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              kOpenHandGap18,
+              if (title != null || description != null) kOpenHandGap18,
               ..._intersperse(children, kOpenHandGap18),
             ],
           ),
