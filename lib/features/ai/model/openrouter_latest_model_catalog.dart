@@ -12,7 +12,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "AionLabs: Aion-3.0",
     "created": 1783443095,
-    "description": "Aion-3.0 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each contribute...",
+    "description":
+        "Aion-3.0 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each contribute...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -57,7 +58,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "AionLabs: Aion-3.0-Mini",
     "created": 1783443096,
-    "description": "Aion-3.0 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the DeepSeek family of models. It uses a collaborative generation process in which multiple specialized models each...",
+    "description":
+        "Aion-3.0 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the DeepSeek family of models. It uses a collaborative generation process in which multiple specialized models each...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -102,7 +104,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "AionLabs: Aion 3.5",
     "created": 1790170961,
-    "description": "Aion 3.5 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each...",
+    "description":
+        "Aion 3.5 is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It uses a collaborative generation process in which multiple specialized models each...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -152,7 +155,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "AionLabs: Aion 3.5 Mini",
     "created": 1790170962,
-    "description": "Aion 3.5 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It is the smaller, lower-cost sibling of Aion 3.5 and uses...",
+    "description":
+        "Aion 3.5 Mini is a multi-model roleplaying and storytelling system from AionLabs, built on the GLM family of models. It is the smaller, lower-cost sibling of Aion 3.5 and uses...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -202,7 +206,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Fable 5",
     "created": 1781007515,
-    "description": "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
+    "description":
+        "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -399,7 +404,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Fable 5.1",
     "created": 1788285838,
-    "description": "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
+    "description":
+        "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -547,7 +553,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Fable 5.1 (batch)",
     "created": 1788285838,
-    "description": "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
+    "description":
+        "Claude Fable 5.1 improves on Claude Fable 5 across the board, with the biggest gains in agentic coding, long-running agentic workflows, and knowledge work: long code refactors, front-end and visual...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -694,7 +701,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Fable 5 (batch)",
     "created": 1781007515,
-    "description": "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
+    "description":
+        "Claude Fable 5 is a Mythos-class model from Anthropic, built for autonomous knowledge work and coding. It supports text, image, and file inputs with text output, with reasoning support and...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -890,7 +898,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Haiku 4.5 (batch)",
     "created": 1760547638,
-    "description": "Claude Haiku 4.5 is Anthropic’s fastest and most efficient model, delivering near-frontier intelligence at a fraction of the cost and latency of larger Claude models. Matching Claude Sonnet 4’s performance...",
+    "description":
+        "Claude Haiku 4.5 is Anthropic’s fastest and most efficient model, delivering near-frontier intelligence at a fraction of the cost and latency of larger Claude models. Matching Claude Sonnet 4’s performance...",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1013,7 +1022,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Opus 4.1 (batch)",
     "created": 1754411591,
-    "description": "Claude Opus 4.1 is an updated version of Anthropic’s flagship model, offering improved performance in coding, reasoning, and agentic tasks. It achieves 74.5% on SWE-bench Verified and shows notable gains...",
+    "description":
+        "Claude Opus 4.1 is an updated version of Anthropic’s flagship model, offering improved performance in coding, reasoning, and agentic tasks. It achieves 74.5% on SWE-bench Verified and shows notable gains...",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1129,7 +1139,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Opus 4.5 (batch)",
     "created": 1764010580,
-    "description": "Claude Opus 4.5 is Anthropic’s frontier reasoning model optimized for complex software engineering, agentic workflows, and long-horizon computer use. It offers strong multimodal capabilities, competitive performance across real-world coding and...",
+    "description":
+        "Claude Opus 4.5 is Anthropic’s frontier reasoning model optimized for complex software engineering, agentic workflows, and long-horizon computer use. It offers strong multimodal capabilities, competitive performance across real-world coding and...",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1267,7 +1278,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Opus 4.6 (batch)",
     "created": 1770219050,
-    "description": "Opus 4.6 is Anthropic’s strongest model for coding and long-running professional tasks. It is built for agents that operate across entire workflows rather than single prompts, making it especially effective...",
+    "description":
+        "Opus 4.6 is Anthropic’s strongest model for coding and long-running professional tasks. It is built for agents that operate across entire workflows rather than single prompts, making it especially effective...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1420,7 +1432,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 4.7 (batch)",
     "created": 1776351100,
-    "description": "Opus 4.7 is the next generation of Anthropic's Opus family, built for long-running, asynchronous agents. Building on the coding and agentic strengths of Opus 4.6, it delivers stronger performance on...",
+    "description":
+        "Opus 4.7 is the next generation of Anthropic's Opus family, built for long-running, asynchronous agents. Building on the coding and agentic strengths of Opus 4.6, it delivers stronger performance on...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1483,7 +1496,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 4.8 (batch)",
     "created": 1779905091,
-    "description": "Claude Opus 4.8 is Anthropic's most capable generally available model in the Opus family. It supports text, image, and file inputs with text output, with reasoning support and a 1M-token...",
+    "description":
+        "Claude Opus 4.8 is Anthropic's most capable generally available model in the Opus family. It supports text, image, and file inputs with text output, with reasoning support and a 1M-token...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1694,7 +1708,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 5",
     "created": 1784912544,
-    "description": "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
+    "description":
+        "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1861,7 +1876,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "anthropic/claude-opus-5-fast": AiModelProfile(
     displayName: "Claude Opus 5 (Fast)",
-    description: "Fast-mode variant of [Opus 5](/anthropic/claude-opus-5) - identical capabilities with higher output speed at 2x pricing relative to regular Opus 5.\n\nLearn more in Anthropic's docs: https://platform.claude.com/docs/en/build-with-claude/fast-mode",
+    description:
+        "Fast-mode variant of [Opus 5](/anthropic/claude-opus-5) - identical capabilities with higher output speed at 2x pricing relative to regular Opus 5.\n\nLearn more in Anthropic's docs: https://platform.claude.com/docs/en/build-with-claude/fast-mode",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -1912,7 +1928,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 5.5",
     "created": 1790094732,
-    "description": "Claude Opus 5.5 is Anthropic's flagship model for demanding reasoning, coding, and long-horizon agentic work, succeeding Claude Opus 5. It is particularly strong at multi-step changes in large codebases, code...",
+    "description":
+        "Claude Opus 5.5 is Anthropic's flagship model for demanding reasoning, coding, and long-horizon agentic work, succeeding Claude Opus 5. It is particularly strong at multi-step changes in large codebases, code...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -1991,7 +2008,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 5.5 (batch)",
     "created": 1790094732,
-    "description": "Claude Opus 5.5 is Anthropic's flagship model for demanding reasoning, coding, and long-horizon agentic work, succeeding Claude Opus 5. It is particularly strong at multi-step changes in large codebases, code...",
+    "description":
+        "Claude Opus 5.5 is Anthropic's flagship model for demanding reasoning, coding, and long-horizon agentic work, succeeding Claude Opus 5. It is particularly strong at multi-step changes in large codebases, code...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2068,7 +2086,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Opus 5 (batch)",
     "created": 1784912544,
-    "description": "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
+    "description":
+        "Claude Opus 5 is Anthropic’s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2237,7 +2256,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Sonnet 4.5 (batch)",
     "created": 1759161676,
-    "description": "Claude Sonnet 4.5 is Anthropic’s most advanced Sonnet model to date, optimized for real-world agents and coding workflows. It delivers state-of-the-art performance on coding benchmarks such as SWE-bench Verified, with...",
+    "description":
+        "Claude Sonnet 4.5 is Anthropic’s most advanced Sonnet model to date, optimized for real-world agents and coding workflows. It delivers state-of-the-art performance on coding benchmarks such as SWE-bench Verified, with...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2392,7 +2412,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Anthropic: Claude Sonnet 4.6 (batch)",
     "created": 1771342990,
-    "description": "Sonnet 4.6 is Anthropic's most capable Sonnet-class model yet, with frontier performance across coding, agents, and professional work. It excels at iterative development, complex codebase navigation, end-to-end project management with...",
+    "description":
+        "Sonnet 4.6 is Anthropic's most capable Sonnet-class model yet, with frontier performance across coding, agents, and professional work. It excels at iterative development, complex codebase navigation, end-to-end project management with...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2556,7 +2577,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Sonnet 5",
     "created": 1782843083,
-    "description": "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
+    "description":
+        "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2733,7 +2755,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Sonnet 5 (batch)",
     "created": 1782843083,
-    "description": "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
+    "description":
+        "Sonnet 5 is Anthropic's most capable Sonnet-class model, with frontier performance across coding, agents, and professional work. It supports adaptive thinking with selectable reasoning effort levels (low, medium, high, max,...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -2909,7 +2932,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "ByteDance Seed: Seed 2.1 Turbo",
     "created": 1786552176,
-    "description": "Seed 2.1 Turbo is a multimodal model from ByteDance Seed for coding and long-horizon agent workflows. It is suited for end-to-end software delivery, multi-step task execution, and understanding visual and...",
+    "description":
+        "Seed 2.1 Turbo is a multimodal model from ByteDance Seed for coding and long-horizon agent workflows. It is suited for end-to-end software delivery, multi-step task execution, and understanding visual and...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -2957,7 +2981,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "ByteDance Seed: Seed-2.0-Code",
     "created": 1786550701,
-    "description": "Seed 2.0 Code is a model from ByteDance Seed optimized for agentic coding. It is suited for frontend development, multilingual programming tasks, and coding-agent workflows in tools such as Claude...",
+    "description":
+        "Seed 2.0 Code is a model from ByteDance Seed optimized for agentic coding. It is suited for frontend development, multilingual programming tasks, and coding-agent workflows in tools such as Claude...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -3019,7 +3044,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
             "cognitivecomputations/Dolphin-Mistral-24B-Venice-Edition",
         "name": "Venice: Uncensored",
         "created": 1752094966,
-        "description": "Venice Uncensored Dolphin Mistral 24B Venice Edition is a fine-tuned variant of Mistral-Small-24B-Instruct-2501, developed by dphn.ai in collaboration with Venice.ai. This model is designed as an “uncensored” instruct-tuned LLM, preserving...",
+        "description":
+            "Venice Uncensored Dolphin Mistral 24B Venice Edition is a fine-tuned variant of Mistral-Small-24B-Instruct-2501, developed by dphn.ai in collaboration with Venice.ai. This model is designed as an “uncensored” instruct-tuned LLM, preserving...",
         "context_length": 128000,
         "architecture": <String, Object?>{
           "modality": "text->text",
@@ -3062,7 +3088,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Cohere: Command A+",
     "created": 1790102896,
-    "description": "Command A+ is Cohere's flagship model for enterprise agentic workflows. It accepts text and image inputs with a 192K context window, supports native tool calling with strict tool schemas, structured...",
+    "description":
+        "Command A+ is Cohere's flagship model for enterprise agentic workflows. It accepts text and image inputs with a 192K context window, supports native tool calling with strict tool schemas, structured...",
     "context_length": 192000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3112,7 +3139,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "CohereLabs/North-Mini-Code-1.0",
     "name": "Cohere: North Mini Code (free)",
     "created": 1781723748,
-    "description": "North Mini Code is Cohere's first agentic coding model and the debut of its North family. A sparse mixture-of-experts model with 30B total parameters and 3B active, it is optimized...",
+    "description":
+        "North Mini Code is Cohere's first agentic coding model and the debut of its North family. A sparse mixture-of-experts model with 30B total parameters and 3B active, it is optimized...",
     "context_length": 256000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -3172,7 +3200,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
     "name": "DeepSeek: DeepSeek V4 Flash 0731",
     "created": 1785478908,
-    "description": "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
+    "description":
+        "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
     "context_length": 1310720,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -3297,7 +3326,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "deepseek/deepseek-v4-flash-0731:batch": AiModelProfile(
     displayName: "DeepSeek V4 Flash 0731 (batch)",
-    description: "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
+    description:
+        "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows....",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 943718,
@@ -3349,7 +3379,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
     "name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
     "created": 1787311563,
-    "description": "DeepSeek V4 Flash Vision Exp is an experimental vision-enabled version of [DeepSeek V4 Flash 0731](https://openrouter.ai/deepseek/deepseek-v4-flash-0731) from DeepSeek, adding image understanding while matching the base model on text capabilities including agents,...",
+    "description":
+        "DeepSeek V4 Flash Vision Exp is an experimental vision-enabled version of [DeepSeek V4 Flash 0731](https://openrouter.ai/deepseek/deepseek-v4-flash-0731) from DeepSeek, adding image understanding while matching the base model on text capabilities including agents,...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3396,7 +3427,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "knowledge_cutoff": null,
     "expiration_date": null,
     "links": <String, Object?>{
-      "details": "/api/v1/models/deepseek/deepseek-v4-flash-vision-exp-20260821/endpoints",
+      "details":
+          "/api/v1/models/deepseek/deepseek-v4-flash-vision-exp-20260821/endpoints",
     },
     "reasoning": <String, Object?>{
       "mandatory": false,
@@ -3411,7 +3443,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "deepseek-ai/DeepSeek-V4-Pro-0813",
     "name": "DeepSeek: DeepSeek V4 Pro 0813",
     "created": 1786549364,
-    "description": "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
+    "description":
+        "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -3476,7 +3509,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "deepseek/deepseek-v4-pro-0813:batch": AiModelProfile(
     displayName: "DeepSeek V4 Pro 0813 (batch)",
-    description: "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
+    description:
+        "DeepSeek V4 Pro 0813 is a large-scale mixture-of-experts model from DeepSeek. This is the GA release of DeepSeek V4 Pro.",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1048576,
     maxOutputLength: 943718,
@@ -3528,7 +3562,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "deepseek-ai/DeepSeek-V4.1-Flash",
     "name": "DeepSeek: DeepSeek V4.1 Flash",
     "created": 1789021285,
-    "description": "DeepSeek V4.1 Flash is a sparse mixture-of-experts model from DeepSeek, and the first built on the company's Causal Encoder-Decoder (CED) architecture. It activates 8B parameters on input and 16B on...",
+    "description":
+        "DeepSeek V4.1 Flash is a sparse mixture-of-experts model from DeepSeek, and the first built on the company's Causal Encoder-Decoder (CED) architecture. It activates 8B parameters on input and 16B on...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3599,7 +3634,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "deepseek-ai/DeepSeek-V4.1-Flash",
     "name": "DeepSeek: DeepSeek V4.1 Flash (batch)",
     "created": 1789021285,
-    "description": "DeepSeek V4.1 Flash is a sparse mixture-of-experts model from DeepSeek, and the first built on the company's Causal Encoder-Decoder (CED) architecture. It activates 8B parameters on input and 16B on...",
+    "description":
+        "DeepSeek V4.1 Flash is a sparse mixture-of-experts model from DeepSeek, and the first built on the company's Causal Encoder-Decoder (CED) architecture. It activates 8B parameters on input and 16B on...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3668,7 +3704,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Dots Studio: Dots3-Note Preview (free)",
     "created": 1786680361,
-    "description": "Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...",
+    "description":
+        "Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...",
     "context_length": 512000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3711,7 +3748,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Fireworks: Ember-1",
     "created": 1790208461,
-    "description": "Ember-1 is a specialized reasoning model from Fireworks Research, built on [Kimi K3](https://openrouter.ai/moonshotai/kimi-k3). It is designed to make every token go further: it produces shorter reasoning traces, using roughly 40%...",
+    "description":
+        "Ember-1 is a specialized reasoning model from Fireworks Research, built on [Kimi K3](https://openrouter.ai/moonshotai/kimi-k3). It is designed to make every token go further: it produces shorter reasoning traces, using roughly 40%...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -3771,7 +3809,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Google: Gemini 2.5 Flash Lite (batch)",
     "created": 1753200276,
-    "description": "Gemini 2.5 Flash-Lite is a lightweight reasoning model in the Gemini 2.5 family, optimized for ultra-low latency and cost efficiency. It offers improved throughput, faster token generation, and better performance...",
+    "description":
+        "Gemini 2.5 Flash-Lite is a lightweight reasoning model in the Gemini 2.5 family, optimized for ultra-low latency and cost efficiency. It offers improved throughput, faster token generation, and better performance...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -3828,7 +3867,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Google: Gemini 2.5 Flash (batch)",
     "created": 1750172488,
-    "description": "Gemini 2.5 Flash is Google's state-of-the-art workhorse model, specifically designed for advanced reasoning, coding, mathematics, and scientific tasks. It includes built-in \"thinking\" capabilities, enabling it to provide responses with greater...",
+    "description":
+        "Gemini 2.5 Flash is Google's state-of-the-art workhorse model, specifically designed for advanced reasoning, coding, mathematics, and scientific tasks. It includes built-in \"thinking\" capabilities, enabling it to provide responses with greater...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -3941,7 +3981,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Google: Gemini 2.5 Pro (batch)",
     "created": 1750169544,
-    "description": "Gemini 2.5 Pro is Google’s state-of-the-art AI model designed for advanced reasoning, coding, mathematics, and scientific tasks. It employs “thinking” capabilities, enabling it to reason through responses with enhanced accuracy...",
+    "description":
+        "Gemini 2.5 Pro is Google’s state-of-the-art AI model designed for advanced reasoning, coding, mathematics, and scientific tasks. It employs “thinking” capabilities, enabling it to reason through responses with enhanced accuracy...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4059,7 +4100,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Google: Gemini 3 Flash Preview (batch)",
     "created": 1765987078,
-    "description": "Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance. It delivers near Pro level reasoning and tool...",
+    "description":
+        "Gemini 3 Flash Preview is a high speed, high value thinking model designed for agentic workflows, multi turn chat, and coding assistance. It delivers near Pro level reasoning and tool...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4211,7 +4253,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Nano Banana Pro (Gemini 3 Pro Image)",
     "created": 1781754054,
-    "description": "Nano Banana Pro is Google’s most advanced image-generation and editing model, built on Gemini 3 Pro. It extends the original Nano Banana with significantly improved multimodal reasoning, real-world grounding, and...",
+    "description":
+        "Nano Banana Pro is Google’s most advanced image-generation and editing model, built on Gemini 3 Pro. It extends the original Nano Banana with significantly improved multimodal reasoning, real-world grounding, and...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text+image->text+image",
@@ -4266,7 +4309,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image)",
     "created": 1781754065,
-    "description": "Gemini 3.1 Flash Image, a.k.a. \"Nano Banana 2,\" is Google’s latest state of the art image generation and editing model, delivering Pro-level visual quality at Flash speed. It combines advanced...",
+    "description":
+        "Gemini 3.1 Flash Image, a.k.a. \"Nano Banana 2,\" is Google’s latest state of the art image generation and editing model, delivering Pro-level visual quality at Flash speed. It combines advanced...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text+image->text+image",
@@ -4319,7 +4363,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
     "created": 1782837225,
-    "description": "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) is Google's fastest, most cost-efficient Gemini image model, built for high-velocity developer pipelines and rapid-fire visual exploration. It delivers text-to-image generation...",
+    "description":
+        "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) is Google's fastest, most cost-efficient Gemini image model, built for high-velocity developer pipelines and rapid-fire visual exploration. It delivers text-to-image generation...",
     "context_length": 65536,
     "architecture": <String, Object?>{
       "modality": "text+image->text+image",
@@ -4355,7 +4400,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "knowledge_cutoff": "2025-01-01",
     "expiration_date": null,
     "links": <String, Object?>{
-      "details": "/api/v1/models/google/gemini-3.1-flash-lite-image-20260630/endpoints",
+      "details":
+          "/api/v1/models/google/gemini-3.1-flash-lite-image-20260630/endpoints",
     },
     "reasoning": <String, Object?>{
       "mandatory": false,
@@ -4370,7 +4416,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.1 Flash Lite (batch)",
     "created": 1778168828,
-    "description": "Gemini 3.1 Flash Lite is Google’s GA high-efficiency multimodal model optimized for low-latency, high-volume workloads. It supports text, image, video, audio, and PDF inputs, and is designed for lightweight agentic...",
+    "description":
+        "Gemini 3.1 Flash Lite is Google’s GA high-efficiency multimodal model optimized for low-latency, high-volume workloads. It supports text, image, video, audio, and PDF inputs, and is designed for lightweight agentic...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4437,7 +4484,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Google: Gemini 3.1 Pro Preview (batch)",
     "created": 1771509627,
-    "description": "Gemini 3.1 Pro Preview is Google’s frontier reasoning model, delivering enhanced software engineering performance, improved agentic reliability, and more efficient token usage across complex workflows. Building on the multimodal foundation...",
+    "description":
+        "Gemini 3.1 Pro Preview is Google’s frontier reasoning model, delivering enhanced software engineering performance, improved agentic reliability, and more efficient token usage across complex workflows. Building on the multimodal foundation...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4665,7 +4713,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.5 Flash Lite",
     "created": 1784646726,
-    "description": "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
+    "description":
+        "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4741,7 +4790,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.5 Flash Lite (batch)",
     "created": 1784646726,
-    "description": "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
+    "description":
+        "Gemini 3.5 Flash Lite is a high-efficiency model from Google with upgraded agentic capabilities. It is suited for subagents that execute focused tasks within complex, multi-agent workflows.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -4814,7 +4864,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.5 Flash (batch)",
     "created": 1779193800,
-    "description": "Gemini 3.5 Flash is Google's high-efficiency multimodal model, bringing near-Pro level coding and reasoning at Flash-tier cost and speed. It is highly optimized for coding proficiency and parallel agentic execution...",
+    "description":
+        "Gemini 3.5 Flash is Google's high-efficiency multimodal model, bringing near-Pro level coding and reasoning at Flash-tier cost and speed. It is highly optimized for coding proficiency and parallel agentic execution...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5036,7 +5087,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.6 Flash",
     "created": 1784646733,
-    "description": "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
+    "description":
+        "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5210,7 +5262,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.6 Flash (batch)",
     "created": 1784646733,
-    "description": "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
+    "description":
+        "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5382,7 +5435,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.7 Flash",
     "created": 1786640581,
-    "description": "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
+    "description":
+        "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5542,7 +5596,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.7 Flash (batch)",
     "created": 1786640581,
-    "description": "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
+    "description":
+        "Gemini 3.7 Flash is a multimodal model from Google for fast agentic workflows, coding, and complex multi-step reasoning. It is designed for tasks that require responsive performance and reliable multi-step...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5700,7 +5755,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.8 Flash",
     "created": 1788362056,
-    "description": "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
+    "description":
+        "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5846,7 +5902,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Google: Gemini 3.8 Flash (batch)",
     "created": 1788362056,
-    "description": "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
+    "description":
+        "Gemini 3.8 Flash is Google's most intelligent Flash model with significant gains from 3.7 Flash across software engineering, agentic tasks, and multi-step reasoning.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -5986,7 +6043,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "google/gemma-4-31b-it:batch": const AiModelProfile(
     displayName: "Gemma 4 31B (batch)",
-    description: "Gemma 4 31B Instruct is Google DeepMind's 30.7B dense multimodal model supporting text and image input with text output. Features a 256K token context window, configurable thinking/reasoning mode, native function...",
+    description:
+        "Gemma 4 31B Instruct is Google DeepMind's 30.7B dense multimodal model supporting text and image input with text output. Features a 256K token context window, configurable thinking/reasoning mode, native function...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -6044,7 +6102,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "ibm-granite/granite-4.2-8b",
     "name": "IBM: Granite 4.2 8B",
     "created": 1788206780,
-    "description": "Granite 4.2 8B is a dense reasoning model from IBM. It is suited for mathematics, code generation, multilingual dialogue, and agentic workflows that need multi-step reasoning. It supports full, low-effort,...",
+    "description":
+        "Granite 4.2 8B is a dense reasoning model from IBM. It is suited for mathematics, code generation, multilingual dialogue, and agentic workflows that need multi-step reasoning. It supports full, low-effort,...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6114,7 +6173,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Inception: Mercury 2.5",
     "created": 1788892137,
-    "description": "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
+    "description":
+        "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
     "context_length": 260000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6170,7 +6230,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "inception/mercury-2.5-preview": AiModelProfile(
     displayName: "Mercury 2.5 Preview",
-    description: "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
+    description:
+        "Mercury 2.5 is the fastest reasoning LLM, and the latest diffusion LLM (dLLM) from Inception. Instead of generating tokens sequentially, Mercury 2.5 produces and refines multiple tokens in parallel, achieving...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 260000,
     maxOutputLength: 65536,
@@ -6215,7 +6276,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "inclusionAI/Ling-3.0-flash",
     "name": "inclusionAI: Ling 3.0 Flash",
     "created": 1784818580,
-    "description": "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
+    "description":
+        "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6278,7 +6340,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "inclusionAI: Ling 3.0 Flash Fin",
     "created": 1787846290,
-    "description": "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
+    "description":
+        "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6340,7 +6403,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "inclusionAI: Ling 3.0 Flash Fin (free)",
     "created": 1787846290,
-    "description": "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
+    "description":
+        "Ling 3.0 Flash Fin is a finance-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for real-world investment...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6397,7 +6461,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "inclusionAI: Ling 3.0 Flash Sante (free)",
     "created": 1788545946,
-    "description": "Ling 3.0 Flash Sante is a health and medicine-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for...",
+    "description":
+        "Ling 3.0 Flash Sante is a health and medicine-focused mixture-of-experts model from InclusionAI, built on Ling 3.0 Flash with 5.1B active parameters out of 124B total. It is designed for...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6446,7 +6511,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "inclusionAI/Ling-3.0-flash-VL",
     "name": "inclusionAI: Ling 3.0 Flash VL",
     "created": 1789056114,
-    "description": "Ling 3.0 Flash VL builds on Ling 3.0 Flash (124B total / 5.5B active MoE from InclusionAI), further strengthening its language capabilities while adding native visual perception and advanced visual...",
+    "description":
+        "Ling 3.0 Flash VL builds on Ling 3.0 Flash (124B total / 5.5B active MoE from InclusionAI), further strengthening its language capabilities while adding native visual perception and advanced visual...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -6507,7 +6573,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "inclusionai/ling-3.0-flash:free": const AiModelProfile(
     displayName: "Ling-3.0-flash (free)",
-    description: "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
+    description:
+        "*Ling-3.0-flash* is a *124B-parameter Mixture-of-Experts (MoE) model*, with approximately *5.1B parameters activated per token*. The model is designed with *token efficiency and production-scale agentic inference* as key priorities, enabling developers...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 262144,
     maxOutputLength: 32768,
@@ -6558,7 +6625,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "inference-net/schematron-v2-llama-3.2-3b",
     "name": "Inference.net: Schematron V2 Small",
     "created": 1789176933,
-    "description": "Schematron V2 Small is a 3B-parameter HTML-to-JSON extraction model from Inference.net. It prioritizes extraction quality for complex schemas and long pages. Extraction instructions must be supplied through a JSON schema...",
+    "description":
+        "Schematron V2 Small is a 3B-parameter HTML-to-JSON extraction model from Inference.net. It prioritizes extraction quality for complex schemas and long pages. Extraction instructions must be supplied through a JSON schema...",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6607,7 +6675,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "inference-net/schematron-v2-granite-4.0-h-micro",
     "name": "Inference.net: Schematron V2 Turbo",
     "created": 1789176949,
-    "description": "Schematron V2 Turbo is a 3B-parameter HTML-to-JSON extraction model from Inference.net. It prioritizes throughput for high-volume extraction workloads. Extraction instructions must be supplied through a JSON schema in response_format rather...",
+    "description":
+        "Schematron V2 Turbo is a 3B-parameter HTML-to-JSON extraction model from Inference.net. It prioritizes throughput for high-volume extraction workloads. Extraction instructions must be supplied through a JSON schema in response_format rather...",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6652,7 +6721,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "kwaipilot/kat-coder-air-v2.5": const AiModelProfile(
     displayName: "KAT-Coder-Air V2.5",
-    description: "KAT-Coder-Air V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
+    description:
+        "KAT-Coder-Air V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 256000,
     maxOutputLength: 80000,
@@ -6699,7 +6769,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Kwaipilot: KAT-Coder-Pro V2.5",
     "created": 1783714589,
-    "description": "KAT-Coder-Pro V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
+    "description":
+        "KAT-Coder-Pro V2.5 is a flagship-level Agentic Coding model that can directly hand over an entire issue or an entire business workflow to it, allowing it to autonomously locate and make...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6758,7 +6829,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "LiquidAI/LFM2.5-2.6B",
     "name": "LiquidAI: LFM2.5-2.6B (free)",
     "created": 1786470519,
-    "description": "LFM2.5-2.6B is a compact reasoning model from Liquid AI. It is suited for agent workflows, data extraction, RAG, and long-context processing. Liquid advises against using it for agentic coding or...",
+    "description":
+        "LFM2.5-2.6B is a compact reasoning model from Liquid AI. It is suited for agent workflows, data extraction, RAG, and long-context processing. Liquid advises against using it for agentic coding or...",
     "context_length": 65536,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6814,7 +6886,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "meituan-longcat/LongCat-2.0",
     "name": "Meituan: LongCat 2.0",
     "created": 1784554658,
-    "description": "LongCat 2.0 is a sparse mixture-of-experts language model from Meituan, with 48B active parameters out of 1.6T total. It is suited for coding, repository-level changes, long-horizon problem solving, and agentic...",
+    "description":
+        "LongCat 2.0 is a sparse mixture-of-experts language model from Meituan, with 48B active parameters out of 1.6T total. It is suited for coding, repository-level changes, long-horizon problem solving, and agentic...",
     "context_length": 1048756,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -6878,7 +6951,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "meta-models/Muse-Glimmer-30B",
     "name": "Meta: Muse Glimmer 30B",
     "created": 1786302394,
-    "description": "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
+    "description":
+        "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -6939,7 +7013,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "meta/muse-glimmer-30b:batch": AiModelProfile(
     displayName: "Muse Glimmer 30B (batch)",
-    description: "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
+    description:
+        "Muse Glimmer 30B is a dense, open-weight multimodal model from Meta Superintelligence Labs, distilled from Muse Spark and optimized for autonomous agents on consumer hardware. It is suited for long-horizon...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7001,7 +7076,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Meta: Muse Spark 1.1",
     "created": 1784215741,
-    "description": "Muse Spark 1.1 is a multimodal reasoning model from Meta, built for agentic tasks. It accepts text, images, video, audio, and PDF documents and returns text, with a 1M-token context...",
+    "description":
+        "Muse Spark 1.1 is a multimodal reasoning model from Meta, built for agentic tasks. It accepts text, images, video, audio, and PDF documents and returns text, with a 1M-token context...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -7176,7 +7252,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Meta: Muse Spark 1.2",
     "created": 1785959287,
-    "description": "Muse Spark 1.2 is a reasoning model from Meta, designed for complex agentic tasks. It accepts text, images, video, audio, and PDF documents, returns text, and offers a 1M-token context...",
+    "description":
+        "Muse Spark 1.2 is a reasoning model from Meta, designed for complex agentic tasks. It accepts text, images, video, audio, and PDF documents, returns text, and offers a 1M-token context...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -7344,7 +7421,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Meta: Muse Spark 1.2 Contributor",
     "created": 1787336476,
-    "description": "Muse Spark 1.2 contributor tier is a reasoning model from Meta designed for developers who want to start building at an even lower cost. It’s meaningfully cheaper than Muse Spark...",
+    "description":
+        "Muse Spark 1.2 contributor tier is a reasoning model from Meta designed for developers who want to start building at an even lower cost. It’s meaningfully cheaper than Muse Spark...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -7399,7 +7477,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Meta: Muse Spark 1.3",
     "created": 1788378359,
-    "description": "Muse Spark 1.3 is a multimodal reasoning model from Meta for long-running agentic, multi-agent, and coding workflows. It is designed to keep track of information across extended tasks, work through...",
+    "description":
+        "Muse Spark 1.3 is a multimodal reasoning model from Meta for long-running agentic, multi-agent, and coding workflows. It is designed to keep track of information across extended tasks, work through...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -7541,7 +7620,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Meta: Muse Spark 1.3 Contributor",
     "created": 1788381519,
-    "description": "Muse Spark 1.3 Contributor is the cost-efficient contributor tier of Meta’s multimodal reasoning model for experimentation, learning, and early-stage agentic, multi-agent, and coding workflows. It is designed to track information...",
+    "description":
+        "Muse Spark 1.3 Contributor is the cost-efficient contributor tier of Meta’s multimodal reasoning model for experimentation, learning, and early-stage agentic, multi-agent, and coding workflows. It is designed to track information...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -7592,7 +7672,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "minimax/minimax-m2.7:free": const AiModelProfile(
     displayName: "MiniMax M2.7 (free)",
-    description: "MiniMax-M2.7 is a next-generation large language model designed for autonomous, real-world productivity and continuous improvement. Built to actively participate in its own evolution, M2.7 integrates advanced agentic capabilities through multi-agent...",
+    description:
+        "MiniMax-M2.7 is a next-generation large language model designed for autonomous, real-world productivity and continuous improvement. Built to actively participate in its own evolution, M2.7 integrates advanced agentic capabilities through multi-agent...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 196608,
     maxOutputLength: 176947,
@@ -7638,7 +7719,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "MiniMaxAI/Minimax-M3",
     "name": "MiniMax: MiniMax M3",
     "created": 1780245374,
-    "description": "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    "description":
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -7811,7 +7893,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "minimax/minimax-m3:batch": const AiModelProfile(
     displayName: "MiniMax M3 (batch)",
-    description: "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    description:
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7866,7 +7949,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   ),
   "minimax/minimax-m3:free": const AiModelProfile(
     displayName: "MiniMax M3 (free)",
-    description: "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
+    description:
+        "MiniMax-M3 is a multimodal foundation model from MiniMax. It supports text, image, and video inputs with text output, a 1M-token context window, and is suited for long-horizon agentic work, coding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -7917,7 +8001,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Mistral: Codestral 2508 (batch)",
     "created": 1754079630,
-    "description": "Mistral's cutting-edge language model for coding released end of July 2025. Codestral specializes in low-latency, high-frequency tasks such as fill-in-the-middle (FIM), code correction and test generation.\n\n[Blog Post](https://mistral.ai/news/codestral-25-08)",
+    "description":
+        "Mistral's cutting-edge language model for coding released end of July 2025. Codestral specializes in low-latency, high-frequency tasks such as fill-in-the-middle (FIM), code correction and test generation.\n\n[Blog Post](https://mistral.ai/news/codestral-25-08)",
     "context_length": 256000,
     "architecture": <String, Object?>{
       "modality": "text+file->text",
@@ -8011,7 +8096,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "mistralai/Ministral-3-8B-Instruct-2512",
     "name": "Mistral: Ministral 3 8B 2512 (batch)",
     "created": 1764681654,
-    "description": "A balanced model in the Ministral 3 family, Ministral 3 8B is a powerful, efficient tiny language model with vision capabilities.",
+    "description":
+        "A balanced model in the Ministral 3 family, Ministral 3 8B is a powerful, efficient tiny language model with vision capabilities.",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -8099,7 +8185,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Mistral: Mistral Large 3 2512 (batch)",
     "created": 1764624472,
-    "description": "Mistral Large 3 2512 is Mistral’s most capable model to date, featuring a sparse mixture-of-experts architecture with 41B active parameters (675B total), and released under the Apache 2.0 license.",
+    "description":
+        "Mistral Large 3 2512 is Mistral’s most capable model to date, featuring a sparse mixture-of-experts architecture with 41B active parameters (675B total), and released under the Apache 2.0 license.",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -8215,7 +8302,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Mistral: Mistral Medium 3.5 (batch)",
     "created": 1777570439,
-    "description": "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
+    "description":
+        "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -8285,7 +8373,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Mistral: Mistral Medium 3.1 (batch)",
     "created": 1755095639,
-    "description": "Mistral Medium 3.1 is an updated version of Mistral Medium 3, which is a high-performance enterprise-grade language model designed to deliver frontier-level capabilities at significantly reduced operational cost. It balances...",
+    "description":
+        "Mistral Medium 3.1 is an updated version of Mistral Medium 3, which is a high-performance enterprise-grade language model designed to deliver frontier-level capabilities at significantly reduced operational cost. It balances...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -8397,7 +8486,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "mistralai/Mistral-Small-4-119B-2603",
     "name": "Mistral: Mistral Small 4 (batch)",
     "created": 1773695685,
-    "description": "Mistral Small 4 is the next major release in the Mistral Small family, unifying the capabilities of several flagship Mistral models into a single system. It combines strong reasoning from...",
+    "description":
+        "Mistral Small 4 is the next major release in the Mistral Small family, unifying the capabilities of several flagship Mistral models into a single system. It combines strong reasoning from...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -8468,7 +8558,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "moonshotai/Kimi-K2.7-Code",
     "name": "MoonshotAI: Kimi K2.7 Code",
     "created": 1781266361,
-    "description": "MoonshotAI: Kimi K2.7 Code is a coding-focused model in Moonshot AI's Kimi K2 family, built to complete end-to-end programming tasks reliably over long contexts. It uses a native multimodal mixture-of-experts...",
+    "description":
+        "MoonshotAI: Kimi K2.7 Code is a coding-focused model in Moonshot AI's Kimi K2 family, built to complete end-to-end programming tasks reliably over long contexts. It uses a native multimodal mixture-of-experts...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -8653,7 +8744,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "moonshotai/Kimi-K3",
     "name": "MoonshotAI: Kimi K3",
     "created": 1784215858,
-    "description": "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
+    "description":
+        "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -8836,7 +8928,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "moonshotai/Kimi-K3",
     "name": "MoonshotAI: Kimi K3 (batch)",
     "created": 1784215858,
-    "description": "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
+    "description":
+        "Kimi K3 is a 2.8T parameter open-weight multimodal reasoning model from Moonshot AI. It is suited for complex coding, knowledge work, and long-horizon agentic workflows, and is particularly strong at...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -9013,7 +9106,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "nex-agi/nex-n2-mini": const AiModelProfile(
     displayName: "Nex-N2-Mini",
-    description: "Nex-N2-Mini is an open-source agentic mixture-of-experts model from Nex AGI, the smaller sibling in the Nex-N2 series. It accepts text and image input and is built for coding, tool use,...",
+    description:
+        "Nex-N2-Mini is an open-source agentic mixture-of-experts model from Nex AGI, the smaller sibling in the Nex-N2 series. It accepts text and image input and is built for coding, tool use,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -9064,7 +9158,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   ),
   "nex-agi/nex-n2-pro": const AiModelProfile(
     displayName: "Nex-N2-Pro",
-    description: "Nex-N2-Pro is an agentic mixture-of-experts model from Nex AGI, with 17B active parameters out of 397B total. Built on the Qwen3.5 architecture, it accepts text and image input and produces...",
+    description:
+        "Nex-N2-Pro is an agentic mixture-of-experts model from Nex AGI, with 17B active parameters out of 397B total. Built on the Qwen3.5 architecture, it accepts text and image input and produces...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -9118,7 +9213,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
     "name": "NVIDIA: Nemotron 3 Ultra",
     "created": 1780551208,
-    "description": "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
+    "description":
+        "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -9252,7 +9348,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
     "name": "NVIDIA: Nemotron 3 Ultra (free)",
     "created": 1780551208,
-    "description": "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
+    "description":
+        "NVIDIA Nemotron 3 Ultra is an open frontier-reasoning and orchestration model from NVIDIA, with 55B active parameters out of 550B total (MoE). Built on a hybrid Transformer-Mamba mixture-of-experts architecture, it...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -9373,7 +9470,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/Nemotron-3.5-Content-Safety",
     "name": "NVIDIA: Nemotron 3.5 Content Safety",
     "created": 1780581864,
-    "description": "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
+    "description":
+        "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -9419,7 +9517,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "knowledge_cutoff": null,
     "expiration_date": null,
     "links": <String, Object?>{
-      "details": "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
+      "details":
+          "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
     },
     "reasoning": <String, Object?>{"mandatory": false, "default_enabled": true},
   },
@@ -9429,7 +9528,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/Nemotron-3.5-Content-Safety",
     "name": "NVIDIA: Nemotron 3.5 Content Safety (free)",
     "created": 1780581864,
-    "description": "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
+    "description":
+        "NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model from NVIDIA, fine-tuned from Google Gemma-3-4B. It moderates both inputs to and responses from LLMs and VLMs, accepting...",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -9465,7 +9565,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "knowledge_cutoff": null,
     "expiration_date": null,
     "links": <String, Object?>{
-      "details": "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
+      "details":
+          "/api/v1/models/nvidia/nemotron-3.5-content-safety-20260604/endpoints",
     },
     "reasoning": <String, Object?>{"mandatory": false, "default_enabled": true},
   },
@@ -9475,7 +9576,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
     "name": "NVIDIA: Nemotron 3.5 Lightning",
     "created": 1786452751,
-    "description": "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
+    "description":
+        "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -9540,7 +9642,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
     "name": "NVIDIA: Nemotron 3.5 Lightning (free)",
     "created": 1786452751,
-    "description": "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
+    "description":
+        "NVIDIA Nemotron 3.5 Lightning is an open mixture-of-experts model from NVIDIA, with 3B active parameters out of 30B total. It is suited for high-throughput agentic workloads and specialized tasks that...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -9590,7 +9693,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-3.5 Turbo (batch)",
     "created": 1685232000,
-    "description": "GPT-3.5 Turbo is OpenAI's fastest model. It can understand and generate natural language or code, and is optimized for chat and traditional completion tasks.\n\nTraining data up to Sep 2021.",
+    "description":
+        "GPT-3.5 Turbo is OpenAI's fastest model. It can understand and generate natural language or code, and is optimized for chat and traditional completion tasks.\n\nTraining data up to Sep 2021.",
     "context_length": 16385,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -9648,7 +9752,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-4 Turbo (batch)",
     "created": 1712620800,
-    "description": "The latest GPT-4 Turbo model with vision capabilities. Vision requests can now use JSON mode and function calling.\n\nTraining data: up to December 2023.",
+    "description":
+        "The latest GPT-4 Turbo model with vision capabilities. Vision requests can now use JSON mode and function calling.\n\nTraining data: up to December 2023.",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -9706,7 +9811,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-4.1 Mini (batch)",
     "created": 1744651381,
-    "description": "GPT-4.1 Mini is a mid-sized model delivering performance competitive with GPT-4o at substantially lower latency and cost. It retains a 1 million token context window and scores 45.1% on hard...",
+    "description":
+        "GPT-4.1 Mini is a mid-sized model delivering performance competitive with GPT-4o at substantially lower latency and cost. It retains a 1 million token context window and scores 45.1% on hard...",
     "context_length": 1047576,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -9802,7 +9908,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-4.1 Nano (batch)",
     "created": 1744651369,
-    "description": "For tasks that demand low latency, GPT‑4.1 nano is the fastest and cheapest model in the GPT-4.1 series. It delivers exceptional performance at a small size with its 1 million...",
+    "description":
+        "For tasks that demand low latency, GPT‑4.1 nano is the fastest and cheapest model in the GPT-4.1 series. It delivers exceptional performance at a small size with its 1 million...",
     "context_length": 1047576,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -9898,7 +10005,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-4.1 (batch)",
     "created": 1744651385,
-    "description": "GPT-4.1 is a flagship large language model optimized for advanced instruction following, real-world software engineering, and long-context reasoning. It supports a 1 million token context window and outperforms GPT-4o and...",
+    "description":
+        "GPT-4.1 is a flagship large language model optimized for advanced instruction following, real-world software engineering, and long-context reasoning. It supports a 1 million token context window and outperforms GPT-4o and...",
     "context_length": 1047576,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -9989,7 +10097,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-4o-mini (batch)",
     "created": 1721260800,
-    "description": "GPT-4o mini is OpenAI's newest model after [GPT-4 Omni](/models/openai/gpt-4o), supporting both text and image inputs with text outputs. As their most advanced small model, it is many multiples more affordable...",
+    "description":
+        "GPT-4o mini is OpenAI's newest model after [GPT-4 Omni](/models/openai/gpt-4o), supporting both text and image inputs with text outputs. As their most advanced small model, it is many multiples more affordable...",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10050,7 +10159,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-4o (batch)",
     "created": 1715558400,
-    "description": "GPT-4o (\"o\" for \"omni\") is OpenAI's latest AI model, supporting both text and image inputs with text outputs. It maintains the intelligence level of [GPT-4 Turbo](/models/openai/gpt-4-turbo) while being twice as...",
+    "description":
+        "GPT-4o (\"o\" for \"omni\") is OpenAI's latest AI model, supporting both text and image inputs with text outputs. It maintains the intelligence level of [GPT-4 Turbo](/models/openai/gpt-4-turbo) while being twice as...",
     "context_length": 128000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10149,7 +10259,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5 Mini (batch)",
     "created": 1754587407,
-    "description": "GPT-5 Mini is a compact version of GPT-5, designed to handle lighter-weight reasoning tasks. It provides the same instruction-following and safety-tuning benefits as GPT-5, but with reduced latency and cost....",
+    "description":
+        "GPT-5 Mini is a compact version of GPT-5, designed to handle lighter-weight reasoning tasks. It provides the same instruction-following and safety-tuning benefits as GPT-5, but with reduced latency and cost....",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10272,7 +10383,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5 Nano (batch)",
     "created": 1754587402,
-    "description": "GPT-5-Nano is the smallest and fastest variant in the GPT-5 system, optimized for developer tools, rapid interactions, and ultra-low latency environments. While limited in reasoning depth compared to its larger...",
+    "description":
+        "GPT-5-Nano is the smallest and fastest variant in the GPT-5 system, optimized for developer tools, rapid interactions, and ultra-low latency environments. While limited in reasoning depth compared to its larger...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10376,7 +10488,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5 Pro (batch)",
     "created": 1759776663,
-    "description": "GPT-5 Pro is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and...",
+    "description":
+        "GPT-5 Pro is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10430,7 +10543,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.1 (batch)",
     "created": 1763060305,
-    "description": "GPT-5.1 is the latest frontier-grade model in the GPT-5 series, offering stronger general-purpose reasoning, improved instruction adherence, and a more natural conversational style compared to GPT-5. It uses adaptive reasoning...",
+    "description":
+        "GPT-5.1 is the latest frontier-grade model in the GPT-5 series, offering stronger general-purpose reasoning, improved instruction adherence, and a more natural conversational style compared to GPT-5. It uses adaptive reasoning...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10554,7 +10668,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.2 Pro (batch)",
     "created": 1765389780,
-    "description": "GPT-5.2 Pro is OpenAI’s most advanced model, offering major improvements in agentic coding and long context performance over GPT-5 Pro. It is optimized for complex tasks that require step-by-step reasoning,...",
+    "description":
+        "GPT-5.2 Pro is OpenAI’s most advanced model, offering major improvements in agentic coding and long context performance over GPT-5 Pro. It is optimized for complex tasks that require step-by-step reasoning,...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10608,7 +10723,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.2 (batch)",
     "created": 1765389775,
-    "description": "GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1. It uses adaptive reasoning to allocate computation dynamically, responding quickly...",
+    "description":
+        "GPT-5.2 is the latest frontier-grade model in the GPT-5 series, offering stronger agentic and long context perfomance compared to GPT-5.1. It uses adaptive reasoning to allocate computation dynamically, responding quickly...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10761,7 +10877,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.4 Mini (batch)",
     "created": 1773748178,
-    "description": "GPT-5.4 mini brings the core capabilities of GPT-5.4 to a faster, more efficient model optimized for high-throughput workloads. It supports text and image inputs with strong performance across reasoning, coding,...",
+    "description":
+        "GPT-5.4 mini brings the core capabilities of GPT-5.4 to a faster, more efficient model optimized for high-throughput workloads. It supports text and image inputs with strong performance across reasoning, coding,...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10828,7 +10945,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.4 Nano (batch)",
     "created": 1773748187,
-    "description": "GPT-5.4 nano is the most lightweight and cost-efficient variant of the GPT-5.4 family, optimized for speed-critical and high-volume tasks. It supports text and image inputs and is designed for low-latency...",
+    "description":
+        "GPT-5.4 nano is the most lightweight and cost-efficient variant of the GPT-5.4 family, optimized for speed-critical and high-volume tasks. It supports text and image inputs and is designed for low-latency...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10895,7 +11013,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.4 Pro (batch)",
     "created": 1772734366,
-    "description": "GPT-5.4 Pro is OpenAI's most advanced model, building on GPT-5.4's unified architecture with enhanced reasoning capabilities for complex, high-stakes tasks. It features a 1M+ token context window (922K input, 128K...",
+    "description":
+        "GPT-5.4 Pro is OpenAI's most advanced model, building on GPT-5.4's unified architecture with enhanced reasoning capabilities for complex, high-stakes tasks. It features a 1M+ token context window (922K input, 128K...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -10959,7 +11078,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.4 (batch)",
     "created": 1772734352,
-    "description": "GPT-5.4 is OpenAI’s latest frontier model, unifying the Codex and GPT lines into a single system. It features a 1M+ token context window (922K input, 128K output) with support for...",
+    "description":
+        "GPT-5.4 is OpenAI’s latest frontier model, unifying the Codex and GPT lines into a single system. It features a 1M+ token context window (922K input, 128K output) with support for...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11126,7 +11246,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.5 Pro (batch)",
     "created": 1777051896,
-    "description": "GPT-5.5 Pro is OpenAI’s high-capability model optimized for deep reasoning and accuracy on complex, high-stakes workloads. It features a 1M+ token context window (922K input, 128K output) with support for...",
+    "description":
+        "GPT-5.5 Pro is OpenAI’s high-capability model optimized for deep reasoning and accuracy on complex, high-stakes workloads. It features a 1M+ token context window (922K input, 128K output) with support for...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11190,7 +11311,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5.5 (batch)",
     "created": 1777051893,
-    "description": "GPT-5.5 is OpenAI’s frontier model designed for complex professional workloads, building on GPT-5.4 with stronger reasoning, higher reliability, and improved token efficiency on hard tasks. It features a 1M+ token...",
+    "description":
+        "GPT-5.5 is OpenAI’s frontier model designed for complex professional workloads, building on GPT-5.4 with stronger reasoning, higher reliability, and improved token efficiency on hard tasks. It features a 1M+ token...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11413,7 +11535,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Luna",
     "created": 1783590864,
-    "description": "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
+    "description":
+        "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11491,7 +11614,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Luna Pro",
     "created": 1783590867,
-    "description": "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11561,7 +11685,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Luna Pro (batch)",
     "created": 1783590867,
-    "description": "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Luna Pro is the same underlying model as [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11628,7 +11753,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Luna (batch)",
     "created": 1783590864,
-    "description": "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
+    "description":
+        "GPT-5.6 Luna is a fast, cost-efficient model in OpenAI's GPT-5.6 series. It is suited for high-volume, latency-sensitive tasks such as chat, classification, and lightweight agentic workflows, providing capable reasoning for...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11703,7 +11829,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Sol",
     "created": 1783590850,
-    "description": "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
+    "description":
+        "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11781,7 +11908,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Sol Pro",
     "created": 1783590854,
-    "description": "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11851,7 +11979,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Sol Pro (batch)",
     "created": 1783590854,
-    "description": "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Sol Pro is the same underlying model as [GPT-5.6 Sol](https://openrouter.ai/openai/gpt-5.6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11920,7 +12049,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Sol (batch)",
     "created": 1783590850,
-    "description": "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
+    "description":
+        "GPT-5.6 Sol is the flagship model in OpenAI's GPT-5.6 series. It is suited for complex reasoning, coding, and agentic workflows, and is particularly strong at command-line and multi-step coding tasks...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -11997,7 +12127,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Terra",
     "created": 1783590857,
-    "description": "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
+    "description":
+        "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12075,7 +12206,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Terra Pro",
     "created": 1783590861,
-    "description": "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12145,7 +12277,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Terra Pro (batch)",
     "created": 1783590861,
-    "description": "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-5.6 Terra Pro is the same underlying model as [GPT-5.6 Terra](https://openrouter.ai/openai/gpt-5.6-terra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12212,7 +12345,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-5.6 Terra (batch)",
     "created": 1783590857,
-    "description": "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
+    "description":
+        "GPT-5.6 Terra is a balanced model in OpenAI's GPT-5.6 series, positioned between the flagship Sol tier and the cost-efficient Luna tier. It is suited for everyday coding, reasoning, and agentic...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12287,7 +12421,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: GPT-5 (batch)",
     "created": 1754587413,
-    "description": "GPT-5 is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and accuracy...",
+    "description":
+        "GPT-5 is OpenAI’s most advanced model, offering major improvements in reasoning, code quality, and user experience. It is optimized for complex tasks that require step-by-step reasoning, instruction following, and accuracy...",
     "context_length": 400000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12410,7 +12545,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Astra",
     "created": 1788552838,
-    "description": "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
+    "description":
+        "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12481,7 +12617,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Astra Pro",
     "created": 1788552835,
-    "description": "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12544,7 +12681,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Astra Pro (batch)",
     "created": 1788552835,
-    "description": "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Astra Pro is the same underlying model as [GPT-6 Astra](https://openrouter.ai/openai/gpt-6-astra), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12606,7 +12744,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Astra (batch)",
     "created": 1788552838,
-    "description": "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
+    "description":
+        "GPT-6 Astra is OpenAI's flagship model for demanding end-to-end work. It is suited for advanced analysis, software engineering, deep research, scientific work, and document creation, with particular strengths in long-horizon...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12676,7 +12815,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Luna",
     "created": 1790100786,
-    "description": "GPT-6 Luna is the fast, cost-efficient model in OpenAI's GPT-6 series, positioned below GPT-6 Sol. It is suited for high-volume and latency-sensitive workloads such as chat, classification, and lightweight agentic...",
+    "description":
+        "GPT-6 Luna is the fast, cost-efficient model in OpenAI's GPT-6 series, positioned below GPT-6 Sol. It is suited for high-volume and latency-sensitive workloads such as chat, classification, and lightweight agentic...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12754,7 +12894,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Luna Pro",
     "created": 1790100791,
-    "description": "GPT-6 Luna Pro is the same underlying model as [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Luna Pro is the same underlying model as [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12824,7 +12965,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Luna Pro (batch)",
     "created": 1790100791,
-    "description": "GPT-6 Luna Pro is the same underlying model as [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Luna Pro is the same underlying model as [GPT-6 Luna](https://openrouter.ai/openai/gpt-6-luna), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12893,7 +13035,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Luna (batch)",
     "created": 1790100786,
-    "description": "GPT-6 Luna is the fast, cost-efficient model in OpenAI's GPT-6 series, positioned below GPT-6 Sol. It is suited for high-volume and latency-sensitive workloads such as chat, classification, and lightweight agentic...",
+    "description":
+        "GPT-6 Luna is the fast, cost-efficient model in OpenAI's GPT-6 series, positioned below GPT-6 Sol. It is suited for high-volume and latency-sensitive workloads such as chat, classification, and lightweight agentic...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -12970,7 +13113,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Sol",
     "created": 1790100775,
-    "description": "GPT-6 Sol is the cost-efficient high-end model in OpenAI's GPT-6 series, positioned below the flagship GPT-6 Astra and above the fast GPT-6 Luna tier. It is suited for demanding professional...",
+    "description":
+        "GPT-6 Sol is the cost-efficient high-end model in OpenAI's GPT-6 series, positioned below the flagship GPT-6 Astra and above the fast GPT-6 Luna tier. It is suited for demanding professional...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13048,7 +13192,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Sol Pro",
     "created": 1790100781,
-    "description": "GPT-6 Sol Pro is the same underlying model as [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Sol Pro is the same underlying model as [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13118,7 +13263,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Sol Pro (batch)",
     "created": 1790100781,
-    "description": "GPT-6 Sol Pro is the same underlying model as [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
+    "description":
+        "GPT-6 Sol Pro is the same underlying model as [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol), served with `reasoning.mode` set to `pro` for higher-quality responses on complex tasks.\n\nLearn more in OpenAI's docs: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13187,7 +13333,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT-6 Sol (batch)",
     "created": 1790100775,
-    "description": "GPT-6 Sol is the cost-efficient high-end model in OpenAI's GPT-6 series, positioned below the flagship GPT-6 Astra and above the fast GPT-6 Luna tier. It is suited for demanding professional...",
+    "description":
+        "GPT-6 Sol is the cost-efficient high-end model in OpenAI's GPT-6 series, positioned below the flagship GPT-6 Astra and above the fast GPT-6 Luna tier. It is suited for demanding professional...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13264,7 +13411,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "openai/gpt-oss-120b",
     "name": "OpenAI: gpt-oss-120b (batch)",
     "created": 1754414231,
-    "description": "gpt-oss-120b is an open-weight, 117B-parameter Mixture-of-Experts (MoE) language model from OpenAI designed for high-reasoning, agentic, and general-purpose production use cases. It activates 5.1B parameters per forward pass and is optimized...",
+    "description":
+        "gpt-oss-120b is an open-weight, 117B-parameter Mixture-of-Experts (MoE) language model from OpenAI designed for high-reasoning, agentic, and general-purpose production use cases. It activates 5.1B parameters per forward pass and is optimized...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13377,7 +13525,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "openai/gpt-oss-20b",
     "name": "OpenAI: gpt-oss-20b (batch)",
     "created": 1754414229,
-    "description": "gpt-oss-20b is an open-weight 21B parameter model released by OpenAI under the Apache 2.0 license. It uses a Mixture-of-Experts (MoE) architecture with 3.6B active parameters per forward pass, optimized for...",
+    "description":
+        "gpt-oss-20b is an open-weight 21B parameter model released by OpenAI under the Apache 2.0 license. It uses a Mixture-of-Experts (MoE) architecture with 3.6B active parameters per forward pass, optimized for...",
     "context_length": 131072,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13462,7 +13611,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: o3 Mini (batch)",
     "created": 1738351721,
-    "description": "OpenAI o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and coding. This model supports the `reasoning_effort` parameter, which can be set to...",
+    "description":
+        "OpenAI o3-mini is a cost-efficient language model optimized for STEM reasoning tasks, particularly excelling in science, mathematics, and coding. This model supports the `reasoning_effort` parameter, which can be set to...",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+file->text",
@@ -13515,7 +13665,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: o3 (batch)",
     "created": 1744823457,
-    "description": "o3 is a well-rounded and powerful model across domains. It sets a new standard for math, science, coding, and visual reasoning tasks. It also excels at technical writing and instruction-following....",
+    "description":
+        "o3 is a well-rounded and powerful model across domains. It sets a new standard for math, science, coding, and visual reasoning tasks. It also excels at technical writing and instruction-following....",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13600,7 +13751,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "OpenAI: o4 Mini (batch)",
     "created": 1744820942,
-    "description": "OpenAI o4-mini is a compact reasoning model in the o-series, optimized for fast, cost-efficient performance while retaining strong multimodal and agentic capabilities. It supports tool use and demonstrates competitive reasoning...",
+    "description":
+        "OpenAI o4-mini is a compact reasoning model in the o-series, optimized for fast, cost-efficient performance while retaining strong multimodal and agentic capabilities. It supports tool use and demonstrates competitive reasoning...",
     "context_length": 200000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -13692,7 +13844,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Auto Router (Beta)",
     "created": 1784311165,
-    "description": "The experimental version of our Auto Router where we test new improvements. Use it to get the latest and greatest version of our general purpose auto router, but expect beta...",
+    "description":
+        "The experimental version of our Auto Router where we test new improvements. Use it to get the latest and greatest version of our general purpose auto router, but expect beta...",
     "context_length": 2000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text+image",
@@ -13747,7 +13900,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenRouter: Fusion",
     "created": 1781371647,
-    "description": "Fusion turns your prompt into a small multi-model deliberation. A panel of expert models (see below) analyzes your prompt in parallel with web search and web fetch enabled, then a...",
+    "description":
+        "Fusion turns your prompt into a small multi-model deliberation. A panel of expert models (see below) analyzes your prompt in parallel with web search and web fetch enabled, then a...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13785,7 +13939,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Perceptron: Perceptron Mk1.5",
     "created": 1790352661,
-    "description": "Perceptron Mk1.5 is Perceptron's embodied reasoning model for physical agents. It accepts text, image, video, and audio input, and answers with text plus optional structured annotations: points, boxes, polygons, tracks,...",
+    "description":
+        "Perceptron Mk1.5 is Perceptron's embodied reasoning model for physical agents. It accepts text, image, video, and audio input, and answers with text plus optional structured annotations: points, boxes, polygons, tracks,...",
     "context_length": 36864,
     "architecture": <String, Object?>{
       "modality": "text+image+audio+video->text",
@@ -13838,7 +13993,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "poolside/Laguna-S-2.1",
     "name": "Poolside: Laguna S 2.1",
     "created": 1784652683,
-    "description": "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
+    "description":
+        "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13881,7 +14037,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "poolside/Laguna-S-2.1",
     "name": "Poolside: Laguna S 2.1 (free)",
     "created": 1784652683,
-    "description": "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
+    "description":
+        "Laguna S 2.1 is the latest coding agent model from [Poolside](<https://poolside.ai/>). Laguna S 2.1 is a 118B total parameter model with 8B active parameters, scoring 70.2% on Terminal-Bench 2.1 and...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13920,7 +14077,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "poolside/Laguna-XS-2.1",
     "name": "Poolside: Laguna XS 2.1",
     "created": 1783002429,
-    "description": "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
+    "description":
+        "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -13963,7 +14121,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "poolside/Laguna-XS-2.1",
     "name": "Poolside: Laguna XS 2.1 (free)",
     "created": 1783002429,
-    "description": "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
+    "description":
+        "Laguna XS 2.1 is the latest coding agent model in the 33B-A3B category from [Poolside](https://poolside.ai/) and a step forward from their Laguna XS.2 model (released in April 2026). It combines...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -14002,7 +14161,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "prism-ml/Ternary-Bonsai-2-27B-gguf",
     "name": "PrismML: Ternary Bonsai 2 27B",
     "created": 1789754046,
-    "description": "Bonsai 2 27B is a 27B-parameter reasoning model from PrismML derived from Qwen3.8-27B. It supports coding, mathematics, tool calling, and image understanding with a 262K-token context window. Ternary compression shrinks...",
+    "description":
+        "Bonsai 2 27B is a 27B-parameter reasoning model from PrismML derived from Qwen3.8-27B. It supports coding, mathematics, tool calling, and image understanding with a 262K-token context window. Ternary compression shrinks...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -14062,7 +14222,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "qwen/qwen3.5-9b:batch": const AiModelProfile(
     displayName: "Qwen3.5-9B (batch)",
-    description: "Qwen3.5-9B is a multimodal foundation model from the Qwen3.5 family, designed to deliver strong reasoning, coding, and visual understanding in an efficient 9B-parameter architecture. It uses a unified vision-language design...",
+    description:
+        "Qwen3.5-9B is a multimodal foundation model from the Qwen3.5 family, designed to deliver strong reasoning, coding, and visual understanding in an efficient 9B-parameter architecture. It uses a unified vision-language design...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -14120,7 +14281,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Qwen: Qwen3.7 Flash",
     "created": 1785190561,
-    "description": "Qwen3.7 Flash is a vision-language reasoning model from Alibaba. It is suited for multimodal agents, visual coding, search, and computer interaction, with strengths in object recognition, spatial understanding, and real-world...",
+    "description":
+        "Qwen3.7 Flash is a vision-language reasoning model from Alibaba. It is suited for multimodal agents, visual coding, search, and computer interaction, with strengths in object recognition, spatial understanding, and real-world...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14197,7 +14359,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Qwen: Qwen3.7 Plus",
     "created": 1780491783,
-    "description": "Qwen3.7-Plus is a cost-effective model in Alibaba's Qwen3.7 series. It supports text and image input with text output, building on the series' text capabilities with a comprehensive upgrade to its...",
+    "description":
+        "Qwen3.7-Plus is a cost-effective model in Alibaba's Qwen3.7 series. It supports text and image input with text output, building on the series' text capabilities with a comprehensive upgrade to its...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -14325,7 +14488,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "Qwen/Qwen3.8-2.4T-A95B",
     "name": "Qwen: Qwen3.8 2.4T A95B",
     "created": 1786551702,
-    "description": "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
+    "description":
+        "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -14395,7 +14559,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "qwen/qwen3.8-2.4t-a95b:batch": AiModelProfile(
     displayName: "Qwen3.8 2.4T A95B (batch)",
-    description: "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
+    description:
+        "Qwen3.8 2.4T A95B is an open-weight sparse mixture-of-experts model from Qwen and the open-weight variant of [Qwen3.8 Max](/qwen/qwen3.8-max), with 95 billion active parameters out of 2.4 trillion total. It is...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 1010000,
     maxOutputLength: 909000,
@@ -14454,7 +14619,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "Qwen/Qwen3.8-27B",
     "name": "Qwen: Qwen3.8 27B",
     "created": 1786722910,
-    "description": "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
+    "description":
+        "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14529,7 +14695,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "Qwen/Qwen3.8-27B",
     "name": "Qwen: Qwen3.8 27B (free)",
     "created": 1786722910,
-    "description": "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
+    "description":
+        "Qwen3.8 27B is an open-weight dense vision-language model from Qwen. It is suited for coding, professional workflows, research, multimodal interaction, and long-running agent tasks, with flexible thinking that can be...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14592,7 +14759,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "Qwen/Qwen3.8-Flash-Next",
     "name": "Qwen: Qwen3.8 Flash",
     "created": 1787773060,
-    "description": "Qwen3.8 Flash is a multimodal reasoning model from Alibaba. It is suited for coding assistance, agentic workflows, visual understanding, document and codebase analysis, desktop interaction, chart analysis, and long-video analysis.",
+    "description":
+        "Qwen3.8 Flash is a multimodal reasoning model from Alibaba. It is suited for coding assistance, agentic workflows, visual understanding, document and codebase analysis, desktop interaction, chart analysis, and long-video analysis.",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14646,7 +14814,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "qwen/qwen3.8-max": AiModelProfile(
     displayName: "Qwen3.8 Max",
-    description: "Qwen3.8 Max is the flagship model in Alibaba's Qwen3.8 series, the general-availability successor to the Qwen3.8 Max Preview. It is a multimodal reasoning model intended for complex reasoning, visual understanding,...",
+    description:
+        "Qwen3.8 Max is the flagship model in Alibaba's Qwen3.8 series, the general-availability successor to the Qwen3.8 Max Preview. It is a multimodal reasoning model intended for complex reasoning, visual understanding,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -14704,7 +14873,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Qwen: Qwen3.8 Max (0902)",
     "created": 1788469704,
-    "description": "Qwen3.8 Max 0902 is an updated snapshot of Qwen3.8 Max from Alibaba's Qwen team. It is a 2.4-trillion-parameter mixture-of-experts model that accepts text, image, and video input and returns text,...",
+    "description":
+        "Qwen3.8 Max 0902 is an updated snapshot of Qwen3.8 Max from Alibaba's Qwen team. It is a 2.4-trillion-parameter mixture-of-experts model that accepts text, image, and video input and returns text,...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14772,7 +14942,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Qwen: Qwen3.8 Max Prime",
     "created": 1790191228,
-    "description": "Qwen3.8 Max Prime is a higher-throughput variant of Qwen3.8 Max from Alibaba's Qwen team, served as a separate SKU at a higher price point. It accepts text, image, and video...",
+    "description":
+        "Qwen3.8 Max Prime is a higher-throughput variant of Qwen3.8 Max from Alibaba's Qwen team, served as a separate SKU at a higher price point. It accepts text, image, and video...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -14831,7 +15002,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Qwen: Qwen3.8 Omni Flash",
     "created": 1789959954,
-    "description": "Qwen3.8 Omni Flash is an omni-modal reasoning model from Alibaba, the first Qwen model built around agentic capabilities with native audio-video understanding. It is suited for audio-video analysis and summarization,...",
+    "description":
+        "Qwen3.8 Omni Flash is an omni-modal reasoning model from Alibaba, the first Qwen model built around agentic capabilities with native audio-video understanding. It is suited for audio-video analysis and summarization,...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+audio+video->text",
@@ -14888,7 +15060,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Sakana: Fugu Max",
     "created": 1789104771,
-    "description": "Fugu Max is the cost-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
+    "description":
+        "Fugu Max is the cost-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -14945,7 +15118,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Sakana: Fugu Ultra",
     "created": 1782276303,
-    "description": "Fugu Ultra is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
+    "description":
+        "Fugu Ultra is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to route...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -15010,7 +15184,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Sakana: Fugu Ultra v2",
     "created": 1789105383,
-    "description": "Fugu Ultra v2 is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to...",
+    "description":
+        "Fugu Ultra v2 is the higher-performance model in Sakana AI's Fugu family. Rather than a single monolithic model, Fugu is a learned multi-agent orchestration system: a language model trained to...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -15075,7 +15250,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Sakana: Sakana Namazu",
     "created": 1786410129,
-    "description": "Sakana Namazu is a Japanese-specialized reasoning model from Sakana AI, based on Kimi K2.6 with additional training for Japanese language and business contexts. It is suited for Japanese instruction following,...",
+    "description":
+        "Sakana Namazu is a Japanese-specialized reasoning model from Sakana AI, based on Kimi K2.6 with additional training for Japanese language and business contexts. It is suited for Japanese instruction following,...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -15125,7 +15301,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Space Bunny Alpha",
     "created": 1790174884,
-    "description": "Space Bunny Alpha is an anonymous large model with blazing-fast inference, strong coding capabilities and native multimodal input support. It delivers adjustable reasoning effort, and a 1M-token context window. Space...",
+    "description":
+        "Space Bunny Alpha is an anonymous large model with blazing-fast inference, strong coding capabilities and native multimodal input support. It delivers adjustable reasoning effort, and a 1M-token context window. Space...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -15171,7 +15348,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "tencent/Hy-MT2-1.8B",
     "name": "Tencent: Hy-MT2-1.8B",
     "created": 1787231581,
-    "description": "Hy-MT2-1.8B is a compact 1.8B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided...",
+    "description":
+        "Hy-MT2-1.8B is a compact 1.8B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided...",
     "context_length": 8192,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -15210,7 +15388,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "tencent/Hy-MT2-30B-A3B",
     "name": "Tencent: Hy-MT2-30B-A3B",
     "created": 1787231561,
-    "description": "Hy-MT2-30B-A3B is Tencent's flagship translation model in the Hy-MT2 family. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and...",
+    "description":
+        "Hy-MT2-30B-A3B is Tencent's flagship translation model in the Hy-MT2 family. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and...",
     "context_length": 8192,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -15251,7 +15430,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "tencent/Hy-MT2-7B",
     "name": "Tencent: Hy-MT2-7B",
     "created": 1787148797,
-    "description": "Hy-MT2-7B is a 7B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided translation.",
+    "description":
+        "Hy-MT2-7B is a 7B-parameter translation model from Tencent. It supports 33 language pairs and five Chinese dialect and minority-language pairs, with workflows for structured, delimiter-based, contextual, glossary-based, and style-guided translation.",
     "context_length": 8192,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -15292,7 +15472,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "tencent/Hy3",
     "name": "Tencent: Hy3",
     "created": 1783344048,
-    "description": "Hy3 is a 295B-parameter Mixture-of-Experts model from Tencent (21B active, 192 experts with top-8 routing) built for reasoning, agentic workflows, and real-world production use. It supports a configurable reasoning effort:...",
+    "description":
+        "Hy3 is a 295B-parameter Mixture-of-Experts model from Tencent (21B active, 192 experts with top-8 routing) built for reasoning, agentic workflows, and real-world production use. It supports a configurable reasoning effort:...",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -15422,7 +15603,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "tencent/Hy4-preview",
     "name": "Tencent: Hy4 preview",
     "created": 1787897375,
-    "description": "Tencent: Hy4 preview is a mixture-of-experts model from Tencent, with 49B active parameters out of 770B total. It is designed for coding agents, complex tool-use workflows, and productivity tasks that...",
+    "description":
+        "Tencent: Hy4 preview is a mixture-of-experts model from Tencent, with 49B active parameters out of 770B total. It is designed for coding agents, complex tool-use workflows, and productivity tasks that...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -15481,7 +15663,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "thinkingmachines/Inkling",
     "name": "Thinking Machines: Inkling",
     "created": 1784325956,
-    "description": "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    "description":
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     "context_length": 524288,
     "architecture": <String, Object?>{
       "modality": "text+image+audio->text",
@@ -15611,7 +15794,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "thinkingmachines/Inkling-Small",
     "name": "Thinking Machines: Inkling Small",
     "created": 1785443117,
-    "description": "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    "description":
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     "context_length": 524288,
     "architecture": <String, Object?>{
       "modality": "text+image+audio->text",
@@ -15681,7 +15865,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "thinkingmachines/inkling-small:batch": AiModelProfile(
     displayName: "Inkling Small (batch)",
-    description: "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    description:
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -15748,7 +15933,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "thinkingmachines/Inkling-Small",
     "name": "Thinking Machines: Inkling Small (free)",
     "created": 1785443117,
-    "description": "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+    "description":
+        "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+audio->text",
@@ -15809,7 +15995,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "thinkingmachines/inkling:batch": AiModelProfile(
     displayName: "Inkling (batch)",
-    description: "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    description:
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     isMultimodal: true,
     supportsAttachments: true,
     supportedModalities: <AiModelModality>{
@@ -15873,7 +16060,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "thinkingmachines/Inkling",
     "name": "Thinking Machines: Inkling (free)",
     "created": 1784325956,
-    "description": "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
+    "description":
+        "Inkling is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 41B active parameters out of 975B total. It is designed for general-purpose reasoning, coding, agentic and tool-use systems,...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+audio->text",
@@ -15994,7 +16182,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "TypeSafe: Jev Router",
     "created": 1790363560,
-    "description": "Jev Router picks the best model and reasoning effort for each request, balancing quality, speed, and cost. It runs on [Jev](https://openrouter.ai/~typesafe/jev-latest), TypeSafe's first System One model, and adapts as your...",
+    "description":
+        "Jev Router picks the best model and reasoning effort for each request, balancing quality, speed, and cost. It runs on [Jev](https://openrouter.ai/~typesafe/jev-latest), TypeSafe's first System One model, and adapts as your...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file+audio+video->text",
@@ -16025,7 +16214,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Pareto",
     "created": 1789686178,
-    "description": "Pareto is a multimodal composite model built for research, coding, and agentic workflows, while delivering frontier-level performance across a broad range of general-purpose tasks.",
+    "description":
+        "Pareto is a multimodal composite model built for research, coding, and agentic workflows, while delivering frontier-level performance across a broad range of general-purpose tasks.",
     "context_length": 262144,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -16066,7 +16256,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Upstage: Solar Mini 4",
     "created": 1790160358,
-    "description": "Solar Mini 4 is Upstage's compact, cost-efficient language model, a 35B-parameter mixture-of-experts with 3B active parameters and a 524K context window. It is built for agentic use cases where response...",
+    "description":
+        "Solar Mini 4 is Upstage's compact, cost-efficient language model, a 35B-parameter mixture-of-experts with 3B active parameters and a 524K context window. It is built for agentic use cases where response...",
     "context_length": 524288,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -16129,7 +16320,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Upstage: Solar Pro 4",
     "created": 1786371636,
-    "description": "Solar Pro 4 is Upstage's cost-efficient large language model, featuring a 524K context window. It is built for long-horizon tasks and agentic workflows, with strong capabilities in office productivity, document-intensive...",
+    "description":
+        "Solar Pro 4 is Upstage's cost-efficient large language model, featuring a 524K context window. It is built for long-horizon tasks and agentic workflows, with strong capabilities in office productivity, document-intensive...",
     "context_length": 524288,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -16250,7 +16442,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "SpaceXAI: Grok 4.3 (batch)",
     "created": 1777591821,
-    "description": "Grok 4.3 is a reasoning model from SpaceXAI. It accepts text and image inputs with text output, and is suited for agentic workflows, instruction-following tasks, and applications requiring high factual...",
+    "description":
+        "Grok 4.3 is a reasoning model from SpaceXAI. It accepts text and image inputs with text output, and is suited for agentic workflows, instruction-following tasks, and applications requiring high factual...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -16477,7 +16670,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "SpaceXAI: Grok 4.5",
     "created": 1783523154,
-    "description": "Grok 4.5 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM.",
+    "description":
+        "Grok 4.5 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM.",
     "context_length": 500000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -16662,7 +16856,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "SpaceXAI: Grok 4.6",
     "created": 1786548957,
-    "description": "Grok 4.6 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM. It is succeeded by [Grok 4.7](/x-ai/grok-4.7).",
+    "description":
+        "Grok 4.6 is a model from SpaceXAI with frontier performance on coding, knowledge work, and STEM. It is succeeded by [Grok 4.7](/x-ai/grok-4.7).",
     "context_length": 500000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -16849,7 +17044,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "SpaceXAI: Grok 4.7",
     "created": 1790007541,
-    "description": "Grok 4.7 is SpaceXAI's flagship model for coding, agentic tasks, and knowledge work, succeeding Grok 4.6. It is particularly strong at long-running software engineering tasks, verifying its own work, and...",
+    "description":
+        "Grok 4.7 is SpaceXAI's flagship model for coding, agentic tasks, and knowledge work, succeeding Grok 4.6. It is particularly strong at long-running software engineering tasks, verifying its own work, and...",
     "context_length": 500000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -16921,7 +17117,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "XiaomiMiMo/MiMo-V2.6-Flash-RL",
     "name": "Xiaomi: MiMo-V2.6-Flash",
     "created": 1790021264,
-    "description": "MiMo-V2.6-Flash is an open-source foundation model developed by Xiaomi. Built on a Mixture-of-Experts architecture with 309B total parameters and 15B activated per token, it employs a hybrid attention mechanism for...",
+    "description":
+        "MiMo-V2.6-Flash is an open-source foundation model developed by Xiaomi. Built on a Mixture-of-Experts architecture with 309B total parameters and 15B activated per token, it employs a hybrid attention mechanism for...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+audio+video->text",
@@ -16979,7 +17176,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "XiaomiMiMo/MiMo-V2.6-Pro-RL",
     "name": "Xiaomi: MiMo-V2.6-Pro",
     "created": 1790021259,
-    "description": "MiMo-V2.6-Pro is the flagship foundation model developed by Xiaomi. Built at a scale of over 1T parameters, it is designed to push the ceiling of capability for the most demanding...",
+    "description":
+        "MiMo-V2.6-Pro is the flagship foundation model developed by Xiaomi. Built at a scale of over 1T parameters, it is designed to push the ceiling of capability for the most demanding...",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+audio+video->text",
@@ -17095,7 +17293,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Xiaomi: MiMo-V2.6-Pro-UltraSpeed",
     "created": 1790021267,
-    "description": "MiMo-V2.6-Pro-UltraSpeed is the fast speed edition of Xiaomi's flagship foundation model, MiMo-V2.6-Pro. Built from the same 1T MiMo-V2.6-Pro checkpoint, it matches the original model in quality while delivering roughly 10x...",
+    "description":
+        "MiMo-V2.6-Pro-UltraSpeed is the fast speed edition of Xiaomi's flagship foundation model, MiMo-V2.6-Pro. Built from the same 1T MiMo-V2.6-Pro checkpoint, it matches the original model in quality while delivering roughly 10x...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+audio+video->text",
@@ -17149,7 +17348,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "zai-org/GLM-5.2",
     "name": "Z.ai: GLM 5.2",
     "created": 1781631930,
-    "description": "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
+    "description":
+        "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -17336,7 +17536,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
   },
   "z-ai/glm-5.2:free": AiModelProfile(
     displayName: "GLM 5.2 (free)",
-    description: "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
+    description:
+        "GLM 5.2 is a large-scale reasoning model from Z.ai. It supports text input and output with a 1M-token context window, and is suited for long-horizon agent workflows, project-level software engineering,...",
     supportedModalities: <AiModelModality>{AiModelModality.text},
     maxContextLength: 256000,
     maxOutputLength: 230400,
@@ -17395,7 +17596,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "zai-org/GLM-5.3",
     "name": "Z.ai: GLM 5.3",
     "created": 1787086655,
-    "description": "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
+    "description":
+        "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
     "context_length": 1310720,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -17544,7 +17746,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "zai-org/GLM-5.3-Flash",
     "name": "Z.ai: GLM 5.3 Flash",
     "created": 1787752741,
-    "description": "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
+    "description":
+        "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
     "context_length": 1310720,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -17672,7 +17875,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "zai-org/GLM-5.3-Flash",
     "name": "Z.ai: GLM 5.3 Flash (batch)",
     "created": 1787752741,
-    "description": "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
+    "description":
+        "GLM-5.3-Flash is a native multimodal model from Z.ai. It is suited for efficient coding and long-horizon agent tasks. Its hybrid sparse and linear attention architecture maintains accurate long-context behavior while...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -17797,7 +18001,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "",
     "name": "Z.ai: GLM 5.3 FlashX",
     "created": 1789744020,
-    "description": "GLM-5.3-FlashX is the high-speed variant of Z.ai's GLM-5.3-Flash, a native multimodal model delivering inference speeds of up to 200 tokens/s. Built on the same hybrid sparse and linear attention architecture...",
+    "description":
+        "GLM-5.3-FlashX is the high-speed variant of Z.ai's GLM-5.3-Flash, a native multimodal model delivering inference speeds of up to 200 tokens/s. Built on the same hybrid sparse and linear attention architecture...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",
@@ -17849,7 +18054,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Z.ai: GLM 5.3 Prime",
     "created": 1790199651,
-    "description": "GLM-5.3-Prime is the high-speed variant of Z.ai's GLM-5.3, inheriting its full capabilities while delivering 1.5–2× the output throughput through inference acceleration. It supports text input and output with a 1M-token...",
+    "description":
+        "GLM-5.3-Prime is the high-speed variant of Z.ai's GLM-5.3, inheriting its full capabilities while delivering 1.5–2× the output throughput through inference acceleration. It supports text input and output with a 1M-token...",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -17907,7 +18113,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": "zai-org/GLM-5.3",
     "name": "Z.ai: GLM 5.3 (batch)",
     "created": 1787086655,
-    "description": "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
+    "description":
+        "GLM-5.3 is a large-scale reasoning model from Z.ai, built for complex software engineering and long-horizon agent tasks. It supports text input and output with a 1M-token context window, and improves...",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -18057,7 +18264,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Anthropic: Claude Fable Latest",
     "created": 1781029944,
-    "description": "This model always redirects to the latest model in the Claude Fable family.",
+    "description":
+        "This model always redirects to the latest model in the Claude Fable family.",
     "context_length": 1000000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -18116,7 +18324,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "DeepSeek: DeepSeek Flash Latest",
     "created": 1789399150,
-    "description": "This model always redirects to the latest model in the DeepSeek Flash family.",
+    "description":
+        "This model always redirects to the latest model in the DeepSeek Flash family.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text+image->text",
@@ -18182,7 +18391,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "DeepSeek: DeepSeek Pro Latest",
     "created": 1789399174,
-    "description": "This model always redirects to the latest model in the DeepSeek Pro family.",
+    "description":
+        "This model always redirects to the latest model in the DeepSeek Pro family.",
     "context_length": 1048576,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -18247,7 +18457,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "DeepSeek: DeepSeek V4 Flash Latest",
     "created": 1785606009,
-    "description": "This model always redirects to the latest model in the DeepSeek V4 Flash family.",
+    "description":
+        "This model always redirects to the latest model in the DeepSeek V4 Flash family.",
     "context_length": 1310720,
     "architecture": <String, Object?>{
       "modality": "text->text",
@@ -18315,7 +18526,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT Astra Latest",
     "created": 1789130932,
-    "description": "This model always redirects to the latest model in the GPT Astra family.",
+    "description":
+        "This model always redirects to the latest model in the GPT Astra family.",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -18382,7 +18594,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT Luna Latest",
     "created": 1789130922,
-    "description": "This model always redirects to the latest model in the GPT Luna family.",
+    "description":
+        "This model always redirects to the latest model in the GPT Luna family.",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -18456,7 +18669,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT Sol Latest",
     "created": 1789130928,
-    "description": "This model always redirects to the latest model in the GPT Sol family.",
+    "description":
+        "This model always redirects to the latest model in the GPT Sol family.",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -18530,7 +18744,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "OpenAI: GPT Terra Latest",
     "created": 1789130925,
-    "description": "This model always redirects to the latest model in the GPT Terra family.",
+    "description":
+        "This model always redirects to the latest model in the GPT Terra family.",
     "context_length": 1050000,
     "architecture": <String, Object?>{
       "modality": "text+image+file->text",
@@ -18673,7 +18888,8 @@ openRouterLatestModelProfiles = OpenRouterModelProfiles(<String, Object>{
     "hugging_face_id": null,
     "name": "Z.ai: GLM Flash Latest",
     "created": 1787817633,
-    "description": "This model always redirects to the latest model in the GLM Flash family.",
+    "description":
+        "This model always redirects to the latest model in the GLM Flash family.",
     "context_length": 1310720,
     "architecture": <String, Object?>{
       "modality": "text+image+video->text",

@@ -426,6 +426,77 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('公共过渡反向保持位置、透明度和内容状态，完整退场采用退出样式', (tester) async {
+    final controller = _TrackedController();
+    const settings = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.slideUp,
+      exitStyle: DialogAnimationStyle.rotateScale,
+      curve: DialogAnimationCurve.easeOutCubic,
+    );
+    Widget content() => MaterialApp(home: Center(child: buildAnimationStyleTransition(
+      animation: controller,
+      settings: settings,
+      child: const SizedBox(width: 100, height: 80, child: _HoverProbe()),
+    )));
+    controller.forward(from: 0.35);
+    await tester.pumpWidget(content());
+    final state = tester.state(find.byType(_HoverProbe));
+    final before = tester.renderObject<RenderBox>(find.byType(_HoverProbe)).getTransformTo(null);
+    final fade = find.ancestor(of: find.byType(_HoverProbe), matching: find.byType(FadeTransition)).first;
+    final opacity = tester.widget<FadeTransition>(fade).opacity;
+    final value = opacity.value;
+    controller.reverse();
+    await tester.pumpWidget(content());
+    expect(tester.state(find.byType(_HoverProbe)), same(state));
+    expect(tester.renderObject<RenderBox>(find.byType(_HoverProbe)).getTransformTo(null).storage,
+      orderedEquals(before.storage));
+    expect(tester.widget<FadeTransition>(fade).opacity.value, closeTo(value, 0.000001));
+    controller.forward();
+    await tester.pumpWidget(content());
+    expect(tester.state(find.byType(_HoverProbe)), same(state));
+    await tester.pumpAndSettle();
+    controller.reverse();
+    await tester.pumpWidget(content());
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.state(find.byType(_HoverProbe)), same(state));
+    final transform = tester.renderObject<RenderBox>(find.byType(_HoverProbe)).getTransformTo(null);
+    expect(transform.entry(0, 1).abs(), greaterThan(0), reason: '完整入场后使用旋转退出样式');
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(controller.listeners, isEmpty);
+    controller.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('公共滑动过渡随布局更新尺寸且绘制与点击位置一致', (tester) async {
+    final controller = _TrackedController()..value = 0.5;
+    var taps = 0;
+    const target = ValueKey('滑动内容');
+    Widget content(double width, OpenHandSlideTransitionMode mode) => MaterialApp(home: Center(
+      child: buildAnimationStyleTransition(
+        animation: controller,
+        settings: const DialogAnimationSettings(entranceStyle: DialogAnimationStyle.slideRight),
+        curveOverride: Curves.linear,
+        profile: OpenHandAnimationTransitionProfile(slideMode: mode, slideRightOffset: const Offset(0.5, 0)),
+        child: GestureDetector(key: target, behavior: HitTestBehavior.opaque,
+          onTap: () => taps++, child: SizedBox(width: width, height: 80)),
+      ),
+    ));
+    final center = tester.view.physicalSize.center(Offset.zero) / tester.view.devicePixelRatio;
+    for (final mode in OpenHandSlideTransitionMode.values) {
+      for (final width in [100.0, 200.0]) {
+        await tester.pumpWidget(content(width, mode));
+        final expected = center + Offset(mode == OpenHandSlideTransitionMode.fractional ? width * 0.25 : 0.25, 0);
+        expect(tester.getCenter(find.byKey(target)), expected);
+        await tester.tapAt(expected);
+      }
+    }
+    expect(taps, 4);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(controller.listeners, isEmpty);
+    controller.dispose();
+  });
+
   testWidgets('全部弹窗样式支持快速关闭并在退场后释放遮罩', (tester) async {
     late BuildContext context;
     await tester.pumpWidget(MaterialApp(home: Builder(builder: (value) {

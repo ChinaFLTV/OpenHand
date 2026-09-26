@@ -98,6 +98,7 @@ Future<void> main(List<String> arguments) async {
           preservedEntries: entry.$3,
           variableName: entry.$2,
         ),
+        root: root,
       );
     }
     if (arguments.contains('--check')) {
@@ -192,10 +193,11 @@ void _renderModel(StringBuffer buffer, Map<String, Object?> model) {
   );
 }
 
-Future<String> _formatDart(String source) async {
-  final tempDirectory = await Directory.systemTemp.createTemp(
-    'openhand_model_catalog_',
-  );
+Future<String> _formatDart(String source, {required Directory root}) async {
+  // 在项目内格式化，沿用 pubspec 的语言版本与格式规则。
+  final tempDirectory = await Directory(
+    '${root.path}/.dart_tool',
+  ).createTemp('openhand_model_catalog_');
   final tempFile = File('${tempDirectory.path}/catalog.dart');
   try {
     await tempFile.writeAsString(source);

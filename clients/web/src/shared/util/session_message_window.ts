@@ -4,6 +4,7 @@ import {
   type SessionMessage,
 } from '../../api/sessions';
 import {
+  jsonValuesEqual,
   recordOrNullFromUnknown,
   stringifyJsonSafely,
 } from './value';
@@ -194,23 +195,11 @@ export function messageFollowSignature(message: SessionMessage): string {
   return signature;
 }
 
-/** 比较真实 JSON 值，避免等长内容中间变化被采样指纹吞掉。 */
-function renderValuesEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const left = a as Record<string, unknown>;
-  const right = b as Record<string, unknown>;
-  const keys = Object.keys(left);
-  if (keys.length !== Object.keys(right).length) return false;
-  return keys.every((key) => Object.hasOwn(right, key) && renderValuesEqual(left[key], right[key]));
-}
-
 function metadataEquivalentForRender(rawA: unknown, rawB: unknown): boolean {
   if (rawA === rawB) return true;
   const a = recordOrNullFromUnknown(rawA);
   const b = recordOrNullFromUnknown(rawB);
-  return MESSAGE_RENDER_METADATA_KEYS.every((key) => renderValuesEqual(a?.[key], b?.[key]));
+  return MESSAGE_RENDER_METADATA_KEYS.every((key) => jsonValuesEqual(a?.[key], b?.[key]));
 }
 
 /** 分层短路比较消息，流式正文变化时不计算昂贵的元数据指纹。 */
@@ -237,6 +226,19 @@ export function messagesEquivalentForRender(
   if (contentA !== contentB) return false;
   if (usageRenderFingerprint(a) !== usageRenderFingerprint(b)) return false;
   return metadataEquivalentForRender(a.metadata, b.metadata);
+}
+
+/** 从流式尾部开始比较，未变消息仍使用完整内容与渲染元数据。 */
+export function messageWindowsEquivalentForRender(
+  previous: SessionMessage[],
+  next: SessionMessage[],
+): boolean {
+  if (previous === next) return true;
+  if (previous.length !== next.length) return false;
+  for (let index = next.length - 1; index >= 0; index -= 1) {
+    if (!messagesEquivalentForRender(previous[index]!, next[index]!)) return false;
+  }
+  return true;
 }
 
 function isStreamingTailMessage(message: SessionMessage): boolean {

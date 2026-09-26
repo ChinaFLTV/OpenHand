@@ -539,15 +539,11 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     if (_animationsDisabled) {
       return _isVisible ? widget.child : const SizedBox.shrink();
     }
-    return AnimatedBuilder(
+    return buildAnimationStyleTransition(
       animation: _controller,
+      settings: _settings,
+      profile: _transitionProfile(),
       child: widget.child,
-      builder: (context, child) => buildAnimationStyleTransition(
-        animation: _controller,
-        settings: _settings,
-        profile: _transitionProfile(),
-        child: child!,
-      ),
     );
   }
 }

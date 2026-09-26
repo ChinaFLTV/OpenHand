@@ -815,16 +815,10 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     if (!openHandMotionDisabled(settings) &&
         openHandTickerMotionEnabled(context) &&
         animation.value >= 0) {
-      child = AnimatedBuilder(
+      child = buildAnimationStyleTransition(
         animation: animation,
+        settings: settings,
         child: child,
-        builder: (context, builtChild) {
-          return buildAnimationStyleTransition(
-            animation: animation,
-            settings: settings,
-            child: builtChild!,
-          );
-        },
       );
     }
 

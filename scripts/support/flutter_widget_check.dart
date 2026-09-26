@@ -1,5 +1,24 @@
 import 'dart:io';
 
+/// 将真实实现嵌入临时检查库，统一解析依赖，避免为私有状态新增生产接口。
+Future<String> readFlutterCheckSource(
+  File file, {
+  required Directory root,
+}) async {
+  final libUri = Directory('${root.path}/lib/').uri.toString();
+  return (await file.readAsString()).replaceAllMapped(
+    RegExp("(import|export) '([^']+)'"),
+    (match) {
+      final uri = file.uri.resolve(match[2]!);
+      final resolved = uri.toString();
+      final target = resolved.startsWith(libUri)
+          ? 'package:openhand/${resolved.substring(libUri.length)}'
+          : resolved;
+      return "${match[1]} '$target'";
+    },
+  );
+}
+
 /// 在临时目录执行真实 Flutter 组件检查，退出后清理生成文件。
 Future<void> runFlutterWidgetCheck({
   required Directory root,

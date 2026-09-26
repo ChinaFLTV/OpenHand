@@ -155,3 +155,15 @@ export function stringListFromUnknown(value: unknown): string[] {
     .map((item) => stringFromUnknown(item))
     .filter(Boolean);
 }
+
+/** 比较经有界解析的 JSON 数据，不生成完整序列化副本。 */
+export function jsonValuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((key) => Object.hasOwn(right, key) && jsonValuesEqual(left[key], right[key]));
+}

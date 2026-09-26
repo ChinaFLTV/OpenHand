@@ -46,24 +46,17 @@ Future<void> deleteEmptyAncestorDirectories({
       return;
     }
     final current = Directory(currentPath);
-    FileSystemEntityType type;
     try {
-      type = await FileSystemEntity.type(
+      final type = await FileSystemEntity.type(
         current.path,
         followLinks: false,
       ).timeout(defaultBoundedDirectoryIdleTimeout);
-    } catch (error, stack) {
-      if (onError == null) rethrow;
-      await onError(current, error, stack);
-      return;
-    }
-    if (type == FileSystemEntityType.notFound) {
-      if (!continuePastMissing) return;
-      continue;
-    }
-    if (type != FileSystemEntityType.directory) return;
-    if (!await isDirectoryEmpty(current)) return;
-    try {
+      if (type == FileSystemEntityType.notFound) {
+        if (!continuePastMissing) return;
+        continue;
+      }
+      if (type != FileSystemEntityType.directory) return;
+      if (!await isDirectoryEmpty(current)) return;
       await current.delete().timeout(defaultBoundedDirectoryIdleTimeout);
     } catch (error, stack) {
       if (onError == null) rethrow;

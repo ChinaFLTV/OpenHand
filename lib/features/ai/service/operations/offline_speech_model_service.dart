@@ -1288,12 +1288,16 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Map<String, Object?> configuration, {
     Future<void>? cancelSignal,
   }) {
+    final cancellation = OpenHandCancelSignalScope([
+      cancelSignal,
+      _shutdownSignal.future,
+    ]);
     late final Future<void> operation;
-    operation = _start(
-      model,
-      configuration,
-      cancelSignal: cancelSignal,
-    ).whenComplete(() => _activeStarts.remove(operation));
+    operation = _start(model, configuration, cancelSignal: cancellation.signal)
+        .whenComplete(() {
+          cancellation.dispose();
+          _activeStarts.remove(operation);
+        });
     _activeStarts.add(operation);
     return operation;
   }
@@ -1304,11 +1308,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Future<void>? cancelSignal,
   }) async {
     _throwIfShuttingDown();
-    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
-      cancelSignal,
-      _shutdownSignal.future,
-    ]);
-    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+    if (await isCancelSignalCompleted(cancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     if (model.isOnline) {
@@ -1317,7 +1317,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       return;
     }
     await _inspectHardware();
-    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+    if (await isCancelSignalCompleted(cancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     final availability = availabilityFor(model, configuration);
@@ -1335,7 +1335,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
     for (final candidate in runningSameKind) {
       await stop(candidate);
     }
-    if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+    if (await isCancelSignalCompleted(cancelSignal)) {
       throw const OfflineSpeechTestCancelled();
     }
     _setState(
@@ -1351,7 +1351,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         throw StateError('隔离运行环境已损坏，请点击更新按钮自动修复。');
       }
       final runner = await _writeRuntimeHost();
-      if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+      if (await isCancelSignalCompleted(cancelSignal)) {
         throw const OfflineSpeechTestCancelled();
       }
       process = await _runtimeAdapters[model.runtime]!.start(
@@ -1364,7 +1364,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         environment: _runtimeEnvironment(model.runtime, runtimeRoot),
       );
       runtimeSession = _OfflineSpeechRuntimeSession(process);
-      if (await isCancelSignalCompleted(effectiveCancelSignal)) {
+      if (await isCancelSignalCompleted(cancelSignal)) {
         throw const OfflineSpeechTestCancelled();
       }
       final startedSession = runtimeSession;
@@ -1401,7 +1401,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
       );
       final ready = await awaitWithCancelSignal<bool>(
         startedSession.ready.future.then((_) => true),
-        cancelSignal: effectiveCancelSignal,
+        cancelSignal: cancelSignal,
       ).timeout(_runtimeStartTimeout);
       if (ready != true) throw const OfflineSpeechTestCancelled();
       if (model.synthesisTransport ==
@@ -1482,15 +1482,23 @@ class OfflineSpeechModelService extends ChangeNotifier {
     Future<void>? cancelSignal,
     bool startIfNeeded = true,
   }) {
+    final cancellation = OpenHandCancelSignalScope([
+      cancelSignal,
+      _shutdownSignal.future,
+    ]);
     late final Future<OfflineSpeechTestResult> operation;
-    operation = _test(
-      model,
-      configuration,
-      audioPath: audioPath,
-      sampleText: sampleText,
-      cancelSignal: cancelSignal,
-      startIfNeeded: startIfNeeded,
-    ).whenComplete(() => _activeTests.remove(operation));
+    operation =
+        _test(
+          model,
+          configuration,
+          audioPath: audioPath,
+          sampleText: sampleText,
+          cancelSignal: cancellation.signal,
+          startIfNeeded: startIfNeeded,
+        ).whenComplete(() {
+          cancellation.dispose();
+          _activeTests.remove(operation);
+        });
     _activeTests.add(operation);
     return operation;
   }
@@ -1546,42 +1554,50 @@ class OfflineSpeechModelService extends ChangeNotifier {
         !supportsRealtimeSynthesis(model, configuration)) {
       throw StateError('当前朗读模型不支持实时语音通道。');
     }
-    if (model.isOnline) {
-      final availability = availabilityFor(model, configuration);
-      if (!availability.available) throw StateError(availability.reason);
-      final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
-        cancelSignal,
-        _shutdownSignal.future,
-      ]);
-      if (model.onlineService == OnlineSpeechService.bailianTaskTts ||
-          model.onlineService == OnlineSpeechService.bailianRealtimeTts) {
-        final stream = await _startBailianSynthesisStream(
-          model,
-          configuration,
-          cancelSignal: effectiveCancelSignal,
+    final cancellation = OpenHandCancelSignalScope([
+      cancelSignal,
+      _shutdownSignal.future,
+    ]);
+    try {
+      final OfflineSpeechAudioStream stream;
+      if (model.isOnline) {
+        final availability = availabilityFor(model, configuration);
+        if (!availability.available) throw StateError(availability.reason);
+        stream =
+            model.onlineService == OnlineSpeechService.bailianTaskTts ||
+                model.onlineService == OnlineSpeechService.bailianRealtimeTts
+            ? await _startBailianSynthesisStream(
+                model,
+                configuration,
+                cancelSignal: cancellation.signal,
+              )
+            : await _startQueuedOnlineSynthesisStream(
+                model,
+                configuration,
+                cancelSignal: cancellation.signal,
+              );
+      } else {
+        final session = _processes[model.id];
+        if (session == null) throw StateError('模型运行时尚未就绪。');
+        final endpoint = session.realtimeEndpoint;
+        if (endpoint == null) throw StateError('模型实时语音通道尚未就绪。');
+        stream = await _openRealtimeSpeechStream(
+          endpoint,
+          cancelSignal: cancellation.signal,
         );
-        _trackAudioStream(stream, model.id);
-        return stream;
       }
-      return _startQueuedOnlineSynthesisStream(
-        model,
-        configuration,
-        cancelSignal: effectiveCancelSignal,
+      _trackAudioStream(stream, model.id);
+      unawaited(
+        stream.done.then<void>(
+          (_) => cancellation.dispose(),
+          onError: (Object _, StackTrace _) => cancellation.dispose(),
+        ),
       );
+      return stream;
+    } catch (_) {
+      cancellation.dispose();
+      rethrow;
     }
-    final session = _processes[model.id];
-    if (session == null) throw StateError('模型运行时尚未就绪。');
-    final endpoint = session.realtimeEndpoint;
-    if (endpoint == null) throw StateError('模型实时语音通道尚未就绪。');
-    final stream = await _openRealtimeSpeechStream(
-      endpoint,
-      cancelSignal: combineCancelSignals(<Future<void>?>[
-        cancelSignal,
-        _shutdownSignal.future,
-      ]),
-    );
-    _trackAudioStream(stream, model.id);
-    return stream;
   }
 
   void _trackAudioStream(OfflineSpeechAudioStream stream, String modelId) {
@@ -1783,10 +1799,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
     required bool startIfNeeded,
   }) async {
     _throwIfShuttingDown();
-    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
-      cancelSignal,
-      _shutdownSignal.future,
-    ]);
     if (model.isOnline) {
       final availability = availabilityFor(model, configuration);
       if (!availability.available) throw StateError(availability.reason);
@@ -1795,13 +1807,13 @@ class OfflineSpeechModelService extends ChangeNotifier {
         configuration,
         audioPath: audioPath,
         sampleText: sampleText,
-        cancelSignal: effectiveCancelSignal,
+        cancelSignal: cancelSignal,
       );
     }
     final wasRunning = _processes.containsKey(model.id);
     if (!wasRunning) {
       if (!startIfNeeded) throw StateError('模型尚未运行。');
-      await start(model, configuration, cancelSignal: effectiveCancelSignal);
+      await start(model, configuration, cancelSignal: cancelSignal);
     }
     Directory? outputDirectory;
     try {
@@ -1820,7 +1832,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
         final response = await session.request(
           <String, Object?>{'operation': 'recognize', 'audio_path': source},
           timeout: _inferenceTimeout,
-          cancelSignal: effectiveCancelSignal,
+          cancelSignal: cancelSignal,
         );
         return OfflineSpeechTestResult.recognition(
           '${response['transcript'] ?? ''}'.trim(),
@@ -1837,7 +1849,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
           model,
           sampleText,
           configuration: configuration,
-          cancelSignal: effectiveCancelSignal,
+          cancelSignal: cancelSignal,
         );
         try {
           final bytes = await readBoundedByteStream(
@@ -1865,7 +1877,7 @@ class OfflineSpeechModelService extends ChangeNotifier {
           'output_path': outputPath,
         },
         timeout: _inferenceTimeout,
-        cancelSignal: effectiveCancelSignal,
+        cancelSignal: cancelSignal,
         onDiscardedResponse: () =>
             unawaited(deleteTemporaryDirectoryBounded(outputDirectory)),
       );
@@ -2398,7 +2410,6 @@ class OfflineSpeechModelService extends ChangeNotifier {
       finish: finish,
       close: close,
     );
-    _trackAudioStream(stream, model.id);
     removeCancelListener = addCancelSignalListener(
       cancelSignal,
       () => unawaited(close()),

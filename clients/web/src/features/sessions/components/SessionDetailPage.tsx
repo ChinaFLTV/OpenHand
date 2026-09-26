@@ -1,3 +1,4 @@
+import { sessionSnapshotsEquivalent } from '../../../shared/util/session_snapshot';
 import { DecisionComposerForm } from '../../../components/DecisionComposerForm';
 import { initialDecisionDraft, isStructuredDecisionMessage } from '../../../shared/util/decision';
 import { useVoiceConversation } from '../../../hooks/useVoiceConversation';
@@ -131,7 +132,7 @@ import {
 import {
   mergeServerWindowResult,
   messageFollowSignature,
-  messagesEquivalentForRender,
+  messageWindowsEquivalentForRender,
   updateMessageWindowMembership,
   type MergeServerWindowOptions,
   type MessageWindowMembershipTracker,
@@ -1714,42 +1715,6 @@ export function VirtualMessageList({
       </ul>
     </div>
   );
-}
-
-function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessage[], prevOffset: number, nextOffset: number): boolean {
-  if (prev === next) return prevOffset === nextOffset;
-  if (prevOffset !== nextOffset || prev.length !== next.length) return false;
-  if (next.length === 0) return true;
-  const tailIndex = next.length - 1;
-  if (!messagesEquivalentForRender(prev[tailIndex]!, next[tailIndex]!)) {
-    return false;
-  }
-  for (let index = 0; index < tailIndex; index += 1) {
-    const a = prev[index];
-    const b = next[index];
-    if (!a || !b) return false;
-    if (
-      !messagesEquivalentForRender(a, b)
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function snapshotMessagesFingerprint(messages: SessionMessage[]): string {
-  const count = messages.length;
-  if (count === 0) return '0';
-  const first = messages[0]!;
-  const tail = messages[count - 1]!;
-  const previousTail = count > 1 ? messages[count - 2]! : null;
-  return [
-    count,
-    first.id,
-    first.content?.length ?? 0,
-    previousTail ? messageFollowSignature(previousTail) : '',
-    messageFollowSignature(tail),
-  ].join('|');
 }
 
 function mergeSessionSummary(previous: SessionDetailResponse['session'], incoming: SessionDetailResponse['session']): SessionDetailResponse['session'] {
@@ -4043,7 +4008,8 @@ export function SessionDetailPage() {
     }
     if (
       !options.skipEqualityCheck &&
-      messagesWindowLooksIdentical(messagesRef.current, items, windowOffsetRef.current, offset)
+      windowOffsetRef.current === offset &&
+      messageWindowsEquivalentForRender(messagesRef.current, items)
     ) {
       return;
     }
@@ -4589,8 +4555,8 @@ export function SessionDetailPage() {
     const eventSessionId = sessionId;
     sseFailRef.current = 0;
     setSseLive(false);
-    // 使用轻量指纹跳过未变化的完整窗口快照，避免重复合并。
-    let lastSnapshotFingerprint = '';
+    // 复用精确比较，避免采样指纹吞掉审批、历史消息和运行状态更新。
+    let lastSnapshot: SessionEventSnapshot | null = null;
     const close = subscribeSessionEvents(eventSessionId, {
       onOpen: () => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
@@ -4599,14 +4565,8 @@ export function SessionDetailPage() {
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
         sseFailRef.current = 0;
-        // Token 统计纳入指纹，确保统计变化能刷新弹窗。
-        const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
-        const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
-        const promptMeta = recordFromUnknown(snap.session.last_prompt_metadata);
-        const contextSig = `${promptMeta['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMeta['context_budget_effective_window_tokens'] ?? 0}:${promptMeta['context_budget_usage_percent'] ?? 0}`;
-        const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}|ctx=${contextSig}`;
-        if (fingerprint === lastSnapshotFingerprint) return;
-        lastSnapshotFingerprint = fingerprint;
+        if (sessionSnapshotsEquivalent(lastSnapshot, snap)) return;
+        lastSnapshot = snap;
         // 增量合并复用未变化的消息前缀，仅更新流式尾消息。
         const snapOffset = snap.message_window?.offset ?? Math.max(0, (snap.session.message_count ?? snap.messages.length) - snap.messages.length);
         const snapTotal = snap.message_window?.total ?? snap.session.message_count ?? snap.messages.length;

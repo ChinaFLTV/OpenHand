@@ -6,18 +6,7 @@ import 'support/flutter_widget_check.dart';
 Future<void> main() async {
   final root = File.fromUri(Platform.script).parent.parent;
   final page = File('${root.path}/lib/features/mcp/widgets/mcp_view.dart');
-  final libUri = Directory('${root.path}/lib/').uri;
-  final source = (await page.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)'"),
-    (match) {
-      if (match[1]!.contains(':')) return match[0]!;
-      final relative = page.uri
-          .resolve(match[1]!)
-          .path
-          .substring(libUri.path.length);
-      return "import 'package:openhand/$relative'";
-    },
-  );
+  final source = await readFlutterCheckSource(page, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'mcp_preview',

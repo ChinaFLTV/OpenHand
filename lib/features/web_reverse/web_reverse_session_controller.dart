@@ -1302,10 +1302,13 @@ class WebReverseSessionController extends ChangeNotifier {
     final active = _traceTask;
     if (active != null) {
       if (earlyStop != null) {
+        final removeStopListener = addCancelSignalListener(earlyStop, () {
+          if (identical(_traceTask, active)) _requestTraceStop();
+        });
         unawaited(
-          earlyStop.then<void>(
-            (_) => _requestTraceStop(),
-            onError: (Object _, StackTrace _) => _requestTraceStop(),
+          active.then<void>(
+            (_) => removeStopListener(),
+            onError: (Object _, StackTrace _) => removeStopListener(),
           ),
         );
       }
@@ -1320,6 +1323,7 @@ class WebReverseSessionController extends ChangeNotifier {
           earlyStop: earlyStop,
           lifecycleStop: stopSignal.future,
         ).whenComplete(() {
+          if (!stopSignal.isCompleted) stopSignal.complete();
           if (identical(_traceTask, task)) {
             _traceTask = null;
             _traceStopSignal = null;
@@ -1395,10 +1399,7 @@ class WebReverseSessionController extends ChangeNotifier {
         lifecycleStop,
         earlyStop,
       ])!;
-      await Future.any(<Future<void>>[
-        Future<void>.delayed(effectiveDuration),
-        stopSignal,
-      ]);
+      await delayUntilCancelled(effectiveDuration, cancelSignal: stopSignal);
       if (!identical(_browserCdp, cdp) || cdp.isClosed) return null;
       await cdp.send('Tracing.end');
       await completer.future.timeout(

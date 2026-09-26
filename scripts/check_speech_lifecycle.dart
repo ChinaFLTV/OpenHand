@@ -7,16 +7,7 @@ Future<void> main() async {
   final service = File(
     '${root.path}/lib/features/ai/service/operations/offline_speech_model_service.dart',
   );
-  final source = (await service.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)'"),
-    (match) {
-      final uri = Uri.parse(match[1]!);
-      final resolved = uri.hasScheme
-          ? uri.toString()
-          : service.uri.resolveUri(uri).toString();
-      return "import '${resolved.replaceFirst('${root.uri}lib/', 'package:openhand/')}'";
-    },
-  );
+  final source = await readFlutterCheckSource(service, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'speech_lifecycle',
@@ -31,6 +22,11 @@ class _SpeechService extends OfflineSpeechModelService {
 
   @override
   Future<void> _inspectHardware() async {}
+
+  // 生命周期检查连接本地服务，跳过仅允许 WSS 的生产地址校验。
+  @override
+  OfflineSpeechModelAvailability availabilityFor(OfflineSpeechModelDefinition model, Map<String, Object?> configuration) =>
+      const OfflineSpeechModelAvailability(available: true, reason: '本地回归服务');
 }
 
 class _ObservedCancelFuture implements Future<void> {
@@ -150,9 +146,7 @@ Future<OfflineSpeechAudioStream> _openSpeech(
     'mode': 'server_commit',
     ...configurationOverrides,
   };
-  return mode == _SpeechMode.queued
-      ? service._startQueuedOnlineSynthesisStream(model, configuration, cancelSignal: cancelSignal)
-      : service._startBailianSynthesisStream(model, configuration, cancelSignal: cancelSignal);
+  return service.startSynthesisStream(model, configuration: configuration, cancelSignal: cancelSignal);
 }
 
 void main() {

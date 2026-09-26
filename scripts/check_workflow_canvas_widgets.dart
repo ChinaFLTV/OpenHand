@@ -8,13 +8,7 @@ Future<void> main() async {
     '${root.path}/lib/features/workflows/widgets/workflow_editor_dialog.dart',
   );
   // 在临时测试库中访问运行状态，避免给生产组件增加测试接口。
-  final source = (await editor.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)';"),
-    (match) {
-      final path = match[1]!;
-      return "import '${Uri.parse(path).hasScheme ? path : editor.uri.resolve(path)}';";
-    },
-  );
+  final source = await readFlutterCheckSource(editor, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'workflow_canvas',

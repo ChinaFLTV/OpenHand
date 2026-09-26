@@ -7,16 +7,7 @@ Future<void> main() async {
   final executor = File(
     '${root.path}/lib/features/workflows/service/workflow_node_executor.dart',
   );
-  final source = (await executor.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)'"),
-    (match) {
-      final uri = Uri.parse(match[1]!);
-      final resolved = uri.hasScheme
-          ? uri.toString()
-          : executor.uri.resolveUri(uri).toString();
-      return "import '${resolved.replaceFirst('${root.uri}lib/', 'package:openhand/')}'";
-    },
-  );
+  final source = await readFlutterCheckSource(executor, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'workflow_llm_messages',

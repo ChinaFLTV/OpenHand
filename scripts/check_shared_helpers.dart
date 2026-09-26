@@ -1211,6 +1211,29 @@ Future<int> _checkCancelSignalListeners() async {
     stderr.writeln('取消派发期间解绑的监听仍被执行。');
     return 1;
   }
+  final shared = Completer<void>();
+  final completed = OpenHandCancelSignalScope([shared.future, shared.future]);
+  final active = OpenHandCancelSignalScope([shared.future]);
+  completed.dispose();
+  completed.dispose();
+  shared.completeError(StateError('共享取消信号异常'));
+  if (!await isCancelSignalCompleted(active.signal) ||
+      await isCancelSignalCompleted(completed.signal)) {
+    stderr.writeln('取消作用域未隔离已结束操作与活动操作。');
+    return 1;
+  }
+  final alreadyCancelled = OpenHandCancelSignalScope([shared.future]);
+  if (!await isCancelSignalCompleted(alreadyCancelled.signal)) {
+    stderr.writeln('取消作用域遗漏了已完成的输入信号。');
+    return 1;
+  }
+  final empty = OpenHandCancelSignalScope(const []);
+  empty.dispose();
+  if (await isCancelSignalCompleted(empty.signal) ||
+      combineCancelSignals(const []) != null) {
+    stderr.writeln('空取消作用域不应自行取消。');
+    return 1;
+  }
   return 0;
 }
 

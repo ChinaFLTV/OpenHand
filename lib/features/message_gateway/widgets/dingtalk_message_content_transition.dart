@@ -61,16 +61,15 @@ class DingTalkMessageContentTransition extends StatelessWidget {
                 alignment: alignment,
                 sizeToCurrentChild: true,
               ),
-          transitionBuilder: (child, animation) => AnimatedBuilder(
-            animation: animation,
-            child: child,
-            builder: (context, child) => buildAnimationStyleTransition(
-              animation: animation,
-              settings: settings,
-              profile: OpenHandAnimationTransitionProfile(alignment: alignment),
-              child: child!,
-            ),
-          ),
+          transitionBuilder: (child, animation) =>
+              buildAnimationStyleTransition(
+                animation: animation,
+                settings: settings,
+                profile: OpenHandAnimationTransitionProfile(
+                  alignment: alignment,
+                ),
+                child: child,
+              ),
           child: child,
         ),
       ),

@@ -7,13 +7,7 @@ Future<void> main() async {
   final dialog = File(
     '${root.path}/lib/features/workflows/widgets/workflow_test_dialog.dart',
   );
-  final source = (await dialog.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)';"),
-    (match) {
-      final uri = Uri.parse(match[1]!);
-      return "import '${uri.hasScheme ? uri : dialog.uri.resolveUri(uri)}';";
-    },
-  );
+  final source = await readFlutterCheckSource(dialog, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'workflow_result',

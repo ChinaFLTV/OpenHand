@@ -494,6 +494,8 @@ class AiTaskTool extends AiTool {
               ? '子智能体工具“${toolCall.name}”执行超时。'
               : '子智能体工具“${toolCall.name}”执行失败。';
           return failedResult(failureMessage, rounds: round + 1);
+        } finally {
+          if (!timeoutCancellation.isCompleted) timeoutCancellation.complete();
         }
         final readFilePath = '${toolResult.metadata['read_file_path'] ?? ''}'
             .trim();

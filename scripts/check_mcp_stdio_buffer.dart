@@ -8,18 +8,7 @@ Future<void> main() async {
   final file = File(
     '${root.path}/lib/features/mcp/service/mcp_stdio_process_manager.dart',
   );
-  final libUri = Directory('${root.path}/lib/').uri;
-  final source = (await file.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)'"),
-    (match) {
-      if (match[1]!.contains(':')) return match[0]!;
-      final relative = file.uri
-          .resolve(match[1]!)
-          .path
-          .substring(libUri.path.length);
-      return "import 'package:openhand/$relative'";
-    },
-  );
+  final source = await readFlutterCheckSource(file, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'mcp_stdio_buffer',

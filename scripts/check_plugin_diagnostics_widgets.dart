@@ -7,13 +7,7 @@ Future<void> main() async {
   final view = File(
     '${root.path}/lib/features/plugin_service/widgets/plugin_service_view.dart',
   );
-  final source = (await view.readAsString()).replaceAllMapped(
-    RegExp("import '([^']+)'"),
-    (match) {
-      final uri = Uri.parse(match[1]!);
-      return "import '${uri.hasScheme ? uri : view.uri.resolveUri(uri)}'";
-    },
-  );
+  final source = await readFlutterCheckSource(view, root: root);
   await runFlutterWidgetCheck(
     root: root,
     name: 'plugin_diagnostics',

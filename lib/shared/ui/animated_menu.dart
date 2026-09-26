@@ -642,14 +642,10 @@ Widget _buildMenuTransition(
   Widget child,
 ) {
   if (openHandMotionDisabled(settings)) return child;
-  return AnimatedBuilder(
+  return buildAnimationStyleTransition(
     animation: animation,
+    settings: settings,
     child: child,
-    builder: (context, builtChild) => buildAnimationStyleTransition(
-      animation: animation,
-      settings: settings,
-      child: builtChild!,
-    ),
   );
 }
 

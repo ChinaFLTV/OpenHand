@@ -238,6 +238,30 @@ try {
   assert.equal(messagesEquivalentForRender({ ...originalMessage, metadata: { tool_arguments: { value: ['甲'] } } }, {
     ...originalMessage, metadata: { tool_arguments: { value: ['甲'] } },
   }), true, '内容相同的快照继续复用卡片');
+  const { sessionSnapshotsEquivalent } = await server.ssrLoadModule('/src/shared/util/session_snapshot.ts');
+  const originalSnapshot = {
+    session: { id: '快照会话', updated_at: '固定时间', statistics: { cache_hit_trend_points: [1, 2] } },
+    messages: largeWindow.slice(0, 5),
+    send_phase: 'idle', can_stop: false, last_error: '错误甲', served_at: '首次',
+    message_window: { offset: 0, limit: 5, total: 5 },
+  };
+  assert.equal(sessionSnapshotsEquivalent(null, originalSnapshot), false);
+  assert.equal(sessionSnapshotsEquivalent(originalSnapshot, structuredClone(originalSnapshot)), true);
+  assert.equal(sessionSnapshotsEquivalent(originalSnapshot, { ...originalSnapshot, served_at: '稍后' }), true,
+    '仅发送时间变化时应跳过重复合并');
+  for (const [label, change] of [
+    ['同长度错误', { last_error: '错误乙' }],
+    ['停止按钮', { can_stop: true }],
+    ['审批请求', { pending_write_approval: { id: '审批', command: '待执行命令' } }],
+    ['节流状态', { effective_stream_throttle: { chars_per_second: 0, enabled: false } }],
+    ['消息窗口', { message_window: { ...originalSnapshot.message_window, offset: 1 } }],
+    ['统计趋势', { session: { ...originalSnapshot.session, statistics: { cache_hit_trend_points: [2, 1] } } }],
+    ['历史消息', { messages: originalSnapshot.messages.map((message, index) => index === 2
+      ? { ...message, content: '正文-乙' } : message) }],
+  ]) {
+    assert.equal(sessionSnapshotsEquivalent(originalSnapshot, { ...originalSnapshot, ...change }), false,
+      `${label}变化不能被快照去重忽略`);
+  }
   const largeIndex = new Map(largeWindow.map((message, index) => [message.id, index]));
   const liveWindow = largeWindow.slice(-20);
   liveWindow[liveWindow.length - 1] = {

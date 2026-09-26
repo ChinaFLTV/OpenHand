@@ -449,29 +449,40 @@ Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) async {
   return state.isCompleted;
 }
 
-/// 合并多个取消信号；任一信号正常或异常完成时，合并信号均正常完成。
-///
-/// 空集合返回 `null`，避免调用方重复维护空集合和单信号分支。
-Future<void>? combineCancelSignals(Iterable<Future<void>?> signals) {
-  final normalized = signals.whereType<Future<void>>().toSet().toList(
-    growable: false,
-  );
-  if (normalized.isEmpty) return null;
-  final completer = Completer<void>();
-  final removers = <void Function()>[];
-  void complete() {
-    if (completer.isCompleted) return;
-    completer.complete();
-    for (final remove in removers) {
-      remove();
+/// 合并取消信号，并允许操作正常结束时主动解除对长生命周期信号的监听。
+/// [dispose] 只解绑；任一输入正常或异常完成时，输出均正常完成。
+final class OpenHandCancelSignalScope {
+  OpenHandCancelSignalScope(Iterable<Future<void>?> signals) {
+    for (final signal in signals.whereType<Future<void>>().toSet()) {
+      _removers.add(addCancelSignalListener(signal, _cancel));
     }
-    removers.clear();
   }
 
-  for (final signal in normalized) {
-    removers.add(_cancelSignalState(signal).addListener(complete));
+  final Completer<void> _completer = Completer<void>();
+  final List<void Function()> _removers = [];
+
+  Future<void> get signal => _completer.future;
+
+  void _cancel() {
+    if (_completer.isCompleted) return;
+    _completer.complete();
+    dispose();
   }
-  return completer.future;
+
+  void dispose() {
+    for (final remove in _removers) {
+      remove();
+    }
+    _removers.clear();
+  }
+}
+
+/// 合并取消信号；空集合返回 null。正常结束早于取消时，应使用可释放的作用域。
+Future<void>? combineCancelSignals(Iterable<Future<void>?> signals) {
+  final normalized = signals.whereType<Future<void>>().toSet();
+  return normalized.isEmpty
+      ? null
+      : OpenHandCancelSignalScope(normalized).signal;
 }
 
 Future<bool> delayUntilCancelled(
