@@ -627,6 +627,7 @@ class AiModelProfile {
     this.knowledgeCutoff,
     this.expirationDate,
     this.links,
+    this.sourceMetadata = const <String, Object?>{},
     this.isGlobalDefaultTitleModel = false,
     this.embeddingDimensions,
     this.embeddingMaxInputTokens,
@@ -725,6 +726,7 @@ class AiModelProfile {
         json['supported_parameters'],
       ),
       defaultParameters: _parseObjectMap(json['default_parameters']),
+      sourceMetadata: _parseObjectMap(json['source_metadata']),
       supportedVoices: stringListFromListValue(json['supported_voices']),
       knowledgeCutoff: _readString(json['knowledge_cutoff']),
       expirationDate: _readString(json['expiration_date']),
@@ -918,6 +920,14 @@ class AiModelProfile {
   final String? expirationDate;
   final AiModelLinksMetadata? links;
 
+  /// 来源原始数据，保留阶梯价格、路由限制及尚未映射的字段，不作为请求参数。
+  final Map<String, Object?> sourceMetadata;
+
+  bool get requiresThinking {
+    final reasoning = sourceMetadata['reasoning'];
+    return reasoning is Map && reasoning['mandatory'] == true;
+  }
+
   /// 是否作为应用级标题生成备用模型。
   final bool isGlobalDefaultTitleModel;
 
@@ -1048,6 +1058,7 @@ class AiModelProfile {
       knowledgeCutoff != null ||
       expirationDate != null ||
       links != null ||
+      sourceMetadata.isNotEmpty ||
       isGlobalDefaultTitleModel ||
       embeddingDimensions != null ||
       embeddingMaxInputTokens != null ||
@@ -1138,6 +1149,7 @@ class AiModelProfile {
     bool clearArchitecture = false,
     List<String>? supportedParameters,
     Map<String, Object?>? defaultParameters,
+    Map<String, Object?>? sourceMetadata,
     List<String>? supportedVoices,
     String? knowledgeCutoff,
     bool clearKnowledgeCutoff = false,
@@ -1279,6 +1291,7 @@ class AiModelProfile {
           : architecture ?? this.architecture,
       supportedParameters: supportedParameters ?? this.supportedParameters,
       defaultParameters: defaultParameters ?? this.defaultParameters,
+      sourceMetadata: sourceMetadata ?? this.sourceMetadata,
       supportedVoices: supportedVoices ?? this.supportedVoices,
       knowledgeCutoff: clearKnowledgeCutoff
           ? null
@@ -1448,6 +1461,7 @@ class AiModelProfile {
       if (supportedParameters.isNotEmpty)
         'supported_parameters': supportedParameters,
       if (defaultParameters.isNotEmpty) 'default_parameters': defaultParameters,
+      if (sourceMetadata.isNotEmpty) 'source_metadata': sourceMetadata,
       if (supportedVoices.isNotEmpty) 'supported_voices': supportedVoices,
       if (knowledgeCutoff != null) 'knowledge_cutoff': knowledgeCutoff,
       if (expirationDate != null) 'expiration_date': expirationDate,
@@ -1878,6 +1892,9 @@ class AiModelConfig {
         knowledgeCutoff: override.knowledgeCutoff ?? catalog.knowledgeCutoff,
         expirationDate: override.expirationDate ?? catalog.expirationDate,
         links: override.links ?? catalog.links,
+        sourceMetadata: override.sourceMetadata.isNotEmpty
+            ? override.sourceMetadata
+            : catalog.sourceMetadata,
         isGlobalDefaultTitleModel:
             override.isGlobalDefaultTitleModel ||
             catalog.isGlobalDefaultTitleModel,
@@ -2223,6 +2240,7 @@ class AiModelConfig {
   bool get resolvedThinkingEnabled {
     if (usesDecisionProtocol) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
+    if (profileFor(trimmedModelId).requiresThinking) return true;
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.contains('gpt-6-astra') ||
         _looksLikeAlwaysOnClaudeAdaptiveThinking(trimmedModelId) ||

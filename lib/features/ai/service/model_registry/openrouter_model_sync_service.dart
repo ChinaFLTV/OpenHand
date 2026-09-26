@@ -6,8 +6,8 @@ import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../data/openrouter_model_profile_store.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/openrouter_model_profile_mapper.dart';
 import '../runtime/ai_transport_client.dart';
-import 'openrouter_model_profile_mapper.dart';
 
 final Uri openRouterModelsUri = Uri.parse(
   'https://openrouter.ai/api/v1/models',

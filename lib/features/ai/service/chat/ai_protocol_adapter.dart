@@ -205,6 +205,17 @@ abstract final class AiThinkingRequestPolicy {
     if (model.usesDecisionProtocol) {
       throw UnsupportedError('该模型仅支持结构化决策，请使用专用决策接口，不能通过聊天接口调用。');
     }
+    if (model.protocolType == AiProtocolType.glm &&
+        model.profileFor(model.modelId).requiresThinking) {
+      body[_thinkingField] = <String, Object?>{
+        ...stringKeyedMapFromValue(body[_thinkingField]),
+        'type': 'enabled',
+      };
+      final effort =
+          body[_reasoningEffortField] ?? model.resolvedReasoningEffort;
+      body[_reasoningEffortField] =
+          const {'low', 'high', 'max'}.contains(effort) ? effort : 'max';
+    }
     if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro')) {
       if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&

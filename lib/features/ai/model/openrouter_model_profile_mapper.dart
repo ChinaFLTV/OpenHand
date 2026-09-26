@@ -1,5 +1,37 @@
-import '../../../../shared/util/bounded_json_conversion.dart';
-import '../../model/ai_model_config.dart';
+import 'dart:collection';
+
+import '../../../shared/util/bounded_json_conversion.dart';
+import 'ai_model_config.dart';
+
+/// 只转换实际查询的内置档案，避免首次打开模型弹窗时解析整个目录。
+class OpenRouterModelProfiles extends MapBase<String, AiModelProfile> {
+  OpenRouterModelProfiles(this._entries);
+
+  final Map<String, Object> _entries;
+  final Map<String, AiModelProfile> _cache = {};
+
+  @override
+  AiModelProfile? operator [](Object? key) {
+    if (key is! String) return null;
+    final entry = _entries[key];
+    if (entry == null) return null;
+    if (entry is AiModelProfile) return entry;
+    return _cache[key] ??= mapOpenRouterModel(entry)!;
+  }
+
+  @override
+  Iterable<String> get keys => _entries.keys;
+
+  @override
+  void operator []=(String key, AiModelProfile value) =>
+      throw UnsupportedError('内置模型目录只读。');
+
+  @override
+  void clear() => throw UnsupportedError('内置模型目录只读。');
+
+  @override
+  AiModelProfile? remove(Object? key) => throw UnsupportedError('内置模型目录只读。');
+}
 
 /// 将 OpenRouter 的模型目录条目转换为 OpenHand 的模型档案。
 /// 单条数据异常时返回 null，由同步服务跳过该条并继续处理。
@@ -35,10 +67,6 @@ AiModelProfile? mapOpenRouterModel(Object? raw) {
   final links = _stringKeyedMap(model['links']);
   final supportedParameters = _stringList(model['supported_parameters']);
   final supportedEfforts = _stringList(reasoning['supported_efforts']);
-  final hasReasoning =
-      reasoning.isNotEmpty ||
-      supportedParameters.contains('reasoning') ||
-      supportedParameters.contains('include_reasoning');
   final effortOptions = AiReasoningEffortOption.standardValues(
     supportedEfforts,
   );
@@ -50,25 +78,22 @@ AiModelProfile? mapOpenRouterModel(Object? raw) {
     description: _string(model['description']),
     isMultimodal: modalityValues.isEmpty
         ? null
-        : modalityValues.any((value) => value != 'text'),
+        : supportedModalities.any((value) => value != AiModelModality.text),
     supportedModalities: supportedModalities,
     supportsAttachments: inputModalities.isEmpty
         ? null
         : inputModalities.any((value) => value != 'text'),
     maxContextLength: _positiveInt(model['context_length']),
     maxOutputLength: maxOutputLength,
-    maxThinkingLength: hasReasoning ? maxOutputLength : null,
-    thinkingEnabled:
-        reasoning['mandatory'] == true || reasoning['default_enabled'] == true
+    thinkingEnabled: reasoning['mandatory'] == true
         ? true
+        : reasoning['default_enabled'] is bool
+        ? reasoning['default_enabled'] as bool
         : null,
-    reasoningEffortControlEnabled:
-        supportedEfforts.isNotEmpty || supportedParameters.contains('reasoning')
-        ? true
+    reasoningEffortControlEnabled: supportedEfforts.isNotEmpty,
+    reasoningEffort: supportedEfforts.contains(defaultEffort)
+        ? defaultEffort
         : null,
-    reasoningEffort:
-        defaultEffort ??
-        (effortOptions.isEmpty ? null : effortOptions.first.value),
     reasoningEffortOptions: effortOptions,
     capabilities: capabilities,
     inputUsdPer1M: _price(pricing['prompt']),
@@ -89,6 +114,7 @@ AiModelProfile? mapOpenRouterModel(Object? raw) {
           ),
     supportedParameters: supportedParameters,
     defaultParameters: _jsonMap(model['default_parameters']),
+    sourceMetadata: _jsonMap(model),
     supportedVoices: _stringList(model['supported_voices']),
     knowledgeCutoff: _string(model['knowledge_cutoff']),
     expirationDate: _string(model['expiration_date']),
@@ -153,5 +179,9 @@ int? _integer(Object? value) {
 double? _price(Object? value) {
   final parsed = value is num ? value.toDouble() : double.tryParse('$value');
   if (parsed == null || !parsed.isFinite || parsed < 0) return null;
-  return parsed * 1000000;
+  // 按十进制移动单位，避免乘法把 0.2 显示成 0.19999999999999998。
+  final parts = parsed.toString().split('e');
+  final exponent = (parts.length == 1 ? 0 : int.parse(parts.last)) + 6;
+  final price = double.parse('${parts.first}e$exponent');
+  return price.isFinite ? price : null;
 }

@@ -3250,6 +3250,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool _embeddingRequiresSpecialBody = false;
   bool _embeddingSupportsTruncation = false;
   late bool _isGlobalDefaultTitleModel;
+  bool _metadataLoaded = false;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
   late final Set<String> _reservedModelIds;
@@ -3299,12 +3300,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           '',
     );
     _thinkingEnabled =
-        p.thinkingEnabled ??
-        AiModelConfig.thinkingEnabledByDefault(
-          modelId: widget.modelId,
-          protocolType: widget.protocolType,
-          profile: effective,
-        );
+        effective.requiresThinking ||
+        (p.thinkingEnabled ??
+            AiModelConfig.thinkingEnabledByDefault(
+              modelId: widget.modelId,
+              protocolType: widget.protocolType,
+              profile: effective,
+            ));
     _reasoningEffortControlEnabled =
         _thinkingEnabled &&
         (p.reasoningEffortControlEnabled ??
@@ -3908,6 +3910,19 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return modelId;
   }
 
+  AiModelProfile get _currentSourceProfile {
+    final modelId = AiOneMillionContextPolicy.stripModelIdSuffix(
+      _modelIdController.text.trim().toLowerCase(),
+    );
+    final originalId = AiOneMillionContextPolicy.stripModelIdSuffix(
+      widget.modelId.trim().toLowerCase(),
+    );
+    return modelId == originalId
+        ? widget.effectiveProfile
+        : AiModelCatalog.lookup(modelId, widget.protocolType) ??
+              const AiModelProfile();
+  }
+
   AiModelProfile? _collectProfile() {
     late final Map<String, Object?> defaultParameters;
     try {
@@ -4011,6 +4026,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       return null;
     }
 
+    final sourceProfile = _currentSourceProfile;
     return AiModelProfile(
       displayName: _displayNameController.text.trim().isNotEmpty
           ? _displayNameController.text.trim()
@@ -4032,7 +4048,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       maxThinkingLength: optionalPositiveIntFromText(
         _maxThinkingLengthController.text,
       ),
-      thinkingEnabled: _thinkingEnabled,
+      thinkingEnabled: sourceProfile.requiresThinking || _thinkingEnabled,
       reasoningEffortControlEnabled: reasoningEffortControlEnabled,
       reasoningEffort: reasoningEffortControlEnabled
           ? normalizedReasoningEffort
@@ -4067,6 +4083,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       supportedParameters: _parseCsv(_supportedParametersController.text),
       defaultParameters: defaultParameters,
+      created: sourceProfile.created,
+      architecture: sourceProfile.architecture,
+      links: sourceProfile.links,
+      supportedVoices: sourceProfile.supportedVoices,
+      sourceMetadata: sourceProfile.sourceMetadata,
       isGlobalDefaultTitleModel:
           _isGlobalDefaultTitleModel &&
           widget.protocolType != AiProtocolType.jev,
@@ -4449,7 +4470,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
-    final helperText = _thinkingEnabled
+    final required = _currentSourceProfile.requiresThinking;
+    final helperText = required
+        ? openHandLocalizedText(
+            context,
+            zh: '此模型始终开启思考，可通过推理强度调整计算量。',
+            zhHant: '此模型始終開啟思考，可透過推理強度調整計算量。',
+            en: 'Thinking is required; adjust reasoning effort to control computation.',
+            fr: 'La réflexion est obligatoire ; ajustez son effort.',
+            de: 'Thinking ist erforderlich; passen Sie den Aufwand an.',
+            ja: '思考は常に有効です。推論強度を調整できます。',
+          )
+        : _thinkingEnabled
         ? openHandLocalizedText(
             context,
             zh: '请求时会按该模型所属厂商注入思考/推理开关；不兼容网关会自动降级重试。',
@@ -4507,15 +4539,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ),
         kOpenHandHGap16,
         Switch(
-          value: _thinkingEnabled,
-          onChanged: (value) {
-            setState(() {
-              _thinkingEnabled = value;
-              if (!value) {
-                _reasoningEffortControlEnabled = false;
-              }
-            });
-          },
+          value: required || _thinkingEnabled,
+          onChanged: required
+              ? null
+              : (value) {
+                  setState(() {
+                    _thinkingEnabled = value;
+                    if (!value) {
+                      _reasoningEffortControlEnabled = false;
+                    }
+                  });
+                },
         ),
       ],
     );
@@ -5511,7 +5545,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                   kOpenHandGap16,
 
-                  _buildThinkingEnabledControl(),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _modelIdController,
+                    builder: (context, value, child) =>
+                        _buildThinkingEnabledControl(),
+                  ),
                   kOpenHandGap16,
 
                   _buildReasoningEffortControl(),
@@ -5536,19 +5574,43 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     children: AiModelModality.values
                         .map((m) {
                           final label = switch (m) {
-                            AiModelModality.text => AppLocalizations.of(
+                            AiModelModality.text => l10n.mdlEdText,
+                            AiModelModality.image => openHandLocalizedText(
                               context,
-                            )!.mdlEdText,
-                            AiModelModality.image => AppLocalizations.of(
+                              zh: '图片',
+                              zhHant: '圖片',
+                              en: 'Image',
+                              fr: 'Image',
+                              de: 'Bild',
+                              ja: '画像',
+                            ),
+                            AiModelModality.video => openHandLocalizedText(
                               context,
-                            )!.mdlEdImage,
-                            AiModelModality.video => AppLocalizations.of(
+                              zh: '视频',
+                              zhHant: '影片',
+                              en: 'Video',
+                              fr: 'Vidéo',
+                              de: 'Video',
+                              ja: '動画',
+                            ),
+                            AiModelModality.audio => openHandLocalizedText(
                               context,
-                            )!.mdlEdVideo,
-                            AiModelModality.audio => AppLocalizations.of(
+                              zh: '音频',
+                              zhHant: '音訊',
+                              en: 'Audio',
+                              fr: 'Audio',
+                              de: 'Audio',
+                              ja: '音声',
+                            ),
+                            AiModelModality.file => openHandLocalizedText(
                               context,
-                            )!.mdlEdAudio,
-                            AiModelModality.file => 'File',
+                              zh: '文件',
+                              zhHant: '檔案',
+                              en: 'File',
+                              fr: 'Fichier',
+                              de: 'Datei',
+                              ja: 'ファイル',
+                            ),
                           };
                           return FilterChip(
                             label: Text(label),
@@ -6400,7 +6462,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ],
                 ),
                 kOpenHandGap16,
-                _buildSectionHeader(l10n.mdlEdOpenRouterMetadataOverrides),
+                _buildSectionHeader(
+                  openHandLocalizedText(
+                    context,
+                    zh: '来源信息与参数覆盖',
+                    zhHant: '來源資訊與參數覆寫',
+                    en: 'Source information and parameter overrides',
+                    fr: 'Source et paramètres personnalisés',
+                    de: 'Quellinformationen und Parameterüberschreibungen',
+                    ja: 'ソース情報とパラメータの上書き',
+                  ),
+                ),
                 kOpenHandGap8,
                 TextField(
                   controller: _canonicalSlugController,
@@ -6465,7 +6537,22 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   tilePadding: EdgeInsets.zero,
                   suppressHoverOverlay: true,
                   circularToggle: true,
-                  title: _buildSectionHeader(l10n.mdlEdOpenRouterRawMetadata),
+                  onExpansionChanged: (expanded) {
+                    if (expanded && !_metadataLoaded) {
+                      setState(() => _metadataLoaded = true);
+                    }
+                  },
+                  title: _buildSectionHeader(
+                    openHandLocalizedText(
+                      context,
+                      zh: '来源与原始元数据',
+                      zhHant: '來源與原始中繼資料',
+                      en: 'Source metadata',
+                      fr: 'Métadonnées source',
+                      de: 'Quellmetadaten',
+                      ja: 'ソースメタデータ',
+                    ),
+                  ),
                   subtitle: Text(
                     l10n.mdlEdOpenRouterRawMetadataFields,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -6474,13 +6561,14 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                   children: [
                     kOpenHandGap8,
-                    OpenHandJsonTreeView(
-                      text: _buildReadonlyOpenRouterMetadata(
-                        widget.modelId,
-                        widget.effectiveProfile,
+                    if (_metadataLoaded)
+                      OpenHandJsonTreeView(
+                        text: _buildReadonlyOpenRouterMetadata(
+                          _modelIdController.text.trim(),
+                          _currentSourceProfile,
+                        ),
+                        bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
                       ),
-                      bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
-                    ),
                   ],
                 ),
               ],
@@ -6550,6 +6638,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final modelId = _modelIdController.text.trim();
     final catalog = AiModelCatalog.lookup(modelId, widget.protocolType);
+    final source = catalog?.links?.details;
+    final sourceUri = source == null
+        ? null
+        : Uri.tryParse(
+            source.startsWith('/') ? 'https://openrouter.ai$source' : source,
+          );
     final decisionOnly = widget.protocolType == AiProtocolType.jev;
     return OpenHandDialogSectionCard(
       icon: decisionOnly
@@ -6578,6 +6672,35 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               height: 1.5,
             ),
           ),
+          if (sourceUri != null &&
+              (sourceUri.scheme == 'https' || sourceUri.scheme == 'http')) ...[
+            kOpenHandGap8,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ActionChip(
+                  avatar: Icon(
+                    Icons.source_outlined,
+                    size: 16,
+                    color: colorScheme.tertiary,
+                  ),
+                  backgroundColor: colorScheme.tertiaryContainer.withValues(
+                    alpha: 0.35,
+                  ),
+                  label: Text(sourceUri.host),
+                  onPressed: () => openExternalUriWithSystemApp(sourceUri),
+                ),
+                if (catalog?.sourceMetadata['verified_at']
+                    case final String checkedAt)
+                  Chip(
+                    avatar: const Icon(Icons.fact_check_outlined, size: 16),
+                    label: Text(checkedAt),
+                  ),
+              ],
+            ),
+          ],
           if (decisionOnly) ...[
             kOpenHandGap12,
             Wrap(
@@ -6703,6 +6826,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       'knowledge_cutoff': profile.knowledgeCutoff,
       'expiration_date': profile.expirationDate,
       'links': profile.links?.toJson(),
+      if (profile.sourceMetadata.isNotEmpty)
+        'source_metadata': profile.sourceMetadata,
     };
     return prettyPrintJson(map);
   }

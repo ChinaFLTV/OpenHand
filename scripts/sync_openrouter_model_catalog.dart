@@ -11,11 +11,13 @@ const _responseTotalTimeout = Duration(minutes: 2);
 Future<void> main(List<String> arguments) async {
   if (arguments.contains('--help') || arguments.contains('-h')) {
     stdout.writeln(
-      '用法：dart run scripts/sync_openrouter_model_catalog.dart [--check]',
+      '用法：dart run scripts/sync_openrouter_model_catalog.dart [--check] [--input=本地快照.json]',
     );
     return;
   }
-  final unknownArguments = arguments.where((value) => value != '--check');
+  final unknownArguments = arguments.where(
+    (value) => value != '--check' && !value.startsWith('--input='),
+  );
   if (unknownArguments.isNotEmpty) {
     stderr.writeln('不支持的参数：${unknownArguments.join(' ')}');
     exitCode = 64;
@@ -28,50 +30,96 @@ Future<void> main(List<String> arguments) async {
   final outputFile = File(
     '${root.path}/lib/features/ai/model/openrouter_latest_model_catalog.dart',
   );
-  final baselineIds =
-      RegExp(r'^  "([^"]+)": const AiModelProfile\(', multiLine: true)
-          .allMatches(await baselineFile.readAsString())
-          .map((match) => match.group(1)!)
-          .toSet();
+  final baselineEntries = await _readGeneratedEntries(baselineFile);
+  final latestEntries = await _readGeneratedEntries(outputFile);
 
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
   try {
-    final request = await client.getUrl(Uri.parse(_modelsUrl));
-    request.headers.set(HttpHeaders.userAgentHeader, 'OpenHand model catalog');
-    final response = await request.close().timeout(const Duration(seconds: 30));
-    if (response.statusCode != HttpStatus.ok) {
-      stderr.writeln('模型目录请求失败：HTTP ${response.statusCode}');
-      exitCode = 1;
-      return;
+    final inputs = arguments
+        .where((value) => value.startsWith('--input='))
+        .toList();
+    if (inputs.length > 1) {
+      throw const FormatException('只能指定一个本地快照。');
     }
-    final body = await _readResponseBody(response);
-    final payload = jsonDecode(body) as Map<String, Object?>;
+    final String body;
+    if (inputs.isNotEmpty) {
+      final file = File(inputs.single.substring('--input='.length));
+      if (await file.length() > _responseMaxBytes) {
+        throw const FormatException('本地快照超过 32 MiB 上限。');
+      }
+      body = await file.readAsString();
+    } else {
+      final request = await client.getUrl(Uri.parse(_modelsUrl));
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        'OpenHand model catalog',
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 30),
+      );
+      if (response.statusCode != HttpStatus.ok) {
+        stderr.writeln('模型目录请求失败：HTTP ${response.statusCode}');
+        exitCode = 1;
+        return;
+      }
+      body = await _readResponseBody(response);
+    }
+    final payload = jsonDecode(body);
+    if (payload is! Map || payload['data'] is! List) {
+      throw const FormatException('模型目录缺少 data 数组。');
+    }
     final models =
         (payload['data'] as List<Object?>)
             .whereType<Map<Object?, Object?>>()
             .map((value) => value.map((key, value) => MapEntry('$key', value)))
-            .where((model) => !baselineIds.contains(model['id']))
             .toList()
           ..sort((a, b) => '${a['id']}'.compareTo('${b['id']}'));
-    final preservedEntries = await _readGeneratedEntries(outputFile);
-    final generated = await _formatDart(
-      _renderCatalog(models, preservedEntries: preservedEntries),
-    );
-
+    if (models.length != (payload['data'] as List).length ||
+        models.isEmpty ||
+        models.any((model) => _string(model['id']) == null)) {
+      throw const FormatException('模型目录为空或缺少模型标识。');
+    }
+    final ids = models.map((model) => model['id']).toSet();
+    if (ids.length != models.length) {
+      throw const FormatException('模型目录包含重复标识。');
+    }
+    final generated = <File, String>{};
+    for (final entry in <(File, String, Map<String, String>, bool)>[
+      (baselineFile, 'openRouterExactModelProfiles', baselineEntries, true),
+      (outputFile, 'openRouterLatestModelProfiles', latestEntries, false),
+    ]) {
+      generated[entry.$1] = await _formatDart(
+        _renderCatalog(
+          models
+              .where(
+                (model) => baselineEntries.containsKey(model['id']) == entry.$4,
+              )
+              .toList(),
+          preservedEntries: entry.$3,
+          variableName: entry.$2,
+        ),
+      );
+    }
     if (arguments.contains('--check')) {
-      if (!await outputFile.exists() ||
-          await outputFile.readAsString() != generated) {
-        stderr.writeln('OpenRouter 增量模型目录不是最新版本。');
-        exitCode = 1;
-      } else {
-        stdout.writeln('OpenRouter 增量模型目录已是最新版本。');
+      for (final entry in generated.entries) {
+        if (!await entry.key.exists() ||
+            await entry.key.readAsString() != entry.value) {
+          stderr.writeln('OpenRouter 模型目录不是最新版本：${entry.key.path}');
+          exitCode = 1;
+        }
       }
+      if (exitCode == 0) stdout.writeln('OpenRouter 模型目录已是最新版本。');
       return;
     }
-    await outputFile.writeAsString(generated);
-    stdout.writeln('已同步 ${models.length} 个 OpenRouter 增量模型。');
+    for (final entry in generated.entries) {
+      await entry.key.writeAsString(entry.value);
+    }
+    stdout.writeln('已更新 ${models.length} 个在线模型，并保留历史型号。');
   } on TimeoutException {
     stderr.writeln('模型目录请求超时。');
+    exitCode = 1;
+  } on IOException catch (error) {
+    stderr.writeln('模型目录读取失败：$error');
     exitCode = 1;
   } on FormatException catch (error) {
     stderr.writeln('模型目录数据格式错误：$error');
@@ -102,19 +150,17 @@ Future<String> _collectResponseBody(HttpClientResponse response) async {
 String _renderCatalog(
   List<Map<String, Object?>> models, {
   required Map<String, String> preservedEntries,
+  required String variableName,
 }) {
   final buffer = StringBuffer()
-    ..writeln('// ignore_for_file: prefer_const_constructors')
-    ..writeln()
     ..writeln("import 'ai_model_config.dart';")
+    ..writeln("import 'openrouter_model_profile_mapper.dart';")
     ..writeln()
-    ..writeln('/// 由 `scripts/sync_openrouter_model_catalog.dart` 增量生成。')
+    ..writeln('/// 由 `scripts/sync_openrouter_model_catalog.dart` 生成。')
     ..writeln('///')
-    ..writeln('/// 仅补充全量基线目录中缺失的当前在线模型，不删除历史型号。')
-    ..writeln(
-      'final Map<String, AiModelProfile> openRouterLatestModelProfiles =',
-    )
-    ..writeln('    <String, AiModelProfile>{');
+    ..writeln('/// 更新在线型号，保留历史型号；原始字段通过统一映射器转换，价格仅适用于 OpenRouter。')
+    ..writeln('final Map<String, AiModelProfile> $variableName =')
+    ..writeln('    OpenRouterModelProfiles(<String, Object>{');
   final entries = <String, String>{...preservedEntries};
   for (final model in models) {
     final entry = StringBuffer();
@@ -125,14 +171,14 @@ String _renderCatalog(
   for (final id in ids) {
     buffer.write(entries[id]);
   }
-  return (buffer..writeln('};')).toString();
+  return (buffer..writeln('});')).toString();
 }
 
 Future<Map<String, String>> _readGeneratedEntries(File outputFile) async {
   if (!await outputFile.exists()) return <String, String>{};
   final source = await outputFile.readAsString();
   final matches = RegExp(
-    r'^  "([^"]+)": AiModelProfile\([\s\S]*?(?=^  "[^"]+": AiModelProfile\(|^};)',
+    r'^  "([^"]+)":\s[\s\S]*?(?=^  "[^"]+":\s|^}\)?;)',
     multiLine: true,
   ).allMatches(source);
   return <String, String>{
@@ -141,130 +187,9 @@ Future<Map<String, String>> _readGeneratedEntries(File outputFile) async {
 }
 
 void _renderModel(StringBuffer buffer, Map<String, Object?> model) {
-  final id = _string(model['id'])!;
-  final architecture = _map(model['architecture']);
-  final inputModalities = _strings(architecture['input_modalities']);
-  final outputModalities = _strings(architecture['output_modalities']);
-  final modalities = <String>{...inputModalities, ...outputModalities}.toList()
-    ..sort();
-  final capabilities = outputModalities
-      .where((value) => value != 'text' && value != 'file')
-      .map((value) => '${value}Generation')
-      .toList();
-  final supportedParameters = _strings(model['supported_parameters']);
-  final reasoning = _map(model['reasoning']);
-  final supportedEfforts = id == 'x-ai/grok-4.5'
-      ? <String>['high', 'medium', 'low', 'xhigh']
-      : _strings(reasoning['supported_efforts']);
-  final topProvider = _map(model['top_provider']);
-  final pricing = _map(model['pricing']);
-  final links = _map(model['links']);
-  final defaultParameters = _map(model['default_parameters']);
-  final hasReasoning =
-      reasoning.isNotEmpty ||
-      supportedParameters.contains('reasoning') ||
-      supportedParameters.contains('include_reasoning');
-  final isMultimodal = modalities.any((value) => value != 'text');
-  final supportsAttachments = inputModalities.any((value) => value != 'text');
-
-  buffer
-    ..writeln('  ${_dartString(id)}: AiModelProfile(')
-    ..writeln('    displayName: ${_dartString(_displayName(model))},');
-  _writeString(buffer, 'description', _string(model['description']));
-  if (isMultimodal) buffer.writeln('    isMultimodal: true,');
-  if (supportsAttachments) buffer.writeln('    supportsAttachments: true,');
-  if (modalities.isNotEmpty) {
-    buffer.writeln('    supportedModalities: <AiModelModality>{');
-    for (final modality in modalities) {
-      buffer.writeln('      AiModelModality.$modality,');
-    }
-    buffer.writeln('    },');
-  }
-  _writeInt(buffer, 'maxContextLength', model['context_length']);
-  _writeInt(buffer, 'maxOutputLength', topProvider['max_completion_tokens']);
-  if (hasReasoning && topProvider['max_completion_tokens'] is num) {
-    _writeInt(
-      buffer,
-      'maxThinkingLength',
-      topProvider['max_completion_tokens'],
-    );
-  }
-  if (reasoning['mandatory'] == true || reasoning['default_enabled'] == true) {
-    buffer.writeln('    thinkingEnabled: true,');
-  }
-  if (supportedEfforts.isNotEmpty) {
-    buffer
-      ..writeln('    reasoningEffortControlEnabled: true,')
-      ..writeln(
-        '    reasoningEffort: ${_dartString(_string(reasoning['default_effort']) ?? supportedEfforts.first)},',
-      )
-      ..writeln(
-        '    reasoningEffortOptions: AiReasoningEffortOption.standardValues(',
-      )
-      ..writeln('      const <String>${_dartValue(supportedEfforts)},')
-      ..writeln('    ),');
-  }
-  if (capabilities.isNotEmpty) {
-    buffer.writeln('    capabilities: <AiModelCapability>{');
-    for (final capability in capabilities) {
-      buffer.writeln('      AiModelCapability.$capability,');
-    }
-    buffer.writeln('    },');
-  }
-  _writePrice(buffer, 'inputUsdPer1M', pricing['prompt']);
-  _writePrice(buffer, 'outputUsdPer1M', pricing['completion']);
-  _writePrice(buffer, 'cacheReadUsdPer1M', pricing['input_cache_read']);
-  _writePrice(buffer, 'cacheWriteUsdPer1M', pricing['input_cache_write']);
-  _writeString(buffer, 'canonicalSlug', _string(model['canonical_slug']));
-  _writeString(buffer, 'huggingFaceId', _string(model['hugging_face_id']));
-  _writeInt(buffer, 'created', model['created']);
-  if (architecture.isNotEmpty) {
-    buffer.writeln('    architecture: AiModelArchitectureMetadata(');
-    _writeString(
-      buffer,
-      'modality',
-      _string(architecture['modality']),
-      indent: 6,
-    );
-    _writeStringList(buffer, 'inputModalities', inputModalities, indent: 6);
-    _writeStringList(buffer, 'outputModalities', outputModalities, indent: 6);
-    _writeString(
-      buffer,
-      'tokenizer',
-      _string(architecture['tokenizer']),
-      indent: 6,
-    );
-    _writeString(
-      buffer,
-      'instructType',
-      _string(architecture['instruct_type']),
-      indent: 6,
-    );
-    buffer.writeln('    ),');
-  }
-  _writeStringList(buffer, 'supportedParameters', supportedParameters);
-  if (defaultParameters.isNotEmpty) {
-    buffer.writeln('    defaultParameters: ${_dartValue(defaultParameters)},');
-  }
-  _writeStringList(
-    buffer,
-    'supportedVoices',
-    _strings(model['supported_voices']),
+  buffer.writeln(
+    '  ${_dartString(_string(model['id'])!)}: const ${_dartValue(model)},',
   );
-  _writeString(buffer, 'knowledgeCutoff', _string(model['knowledge_cutoff']));
-  _writeString(buffer, 'expirationDate', _string(model['expiration_date']));
-  if (links.isNotEmpty) {
-    buffer.writeln('    links: AiModelLinksMetadata(');
-    _writeString(buffer, 'details', _string(links['details']), indent: 6);
-    buffer.writeln('    ),');
-  }
-  buffer.writeln('  ),');
-}
-
-String _displayName(Map<String, Object?> model) {
-  final name = _string(model['name']) ?? _string(model['id'])!;
-  final separator = name.indexOf(': ');
-  return separator < 0 ? name : name.substring(separator + 2);
 }
 
 Future<String> _formatDart(String source) async {
@@ -287,41 +212,11 @@ Future<String> _formatDart(String source) async {
   }
 }
 
-void _writeString(
-  StringBuffer buffer,
-  String name,
-  String? value, {
-  int indent = 4,
-}) {
-  if (value == null || value.isEmpty) return;
-  buffer.writeln('${' ' * indent}$name: ${_dartString(value)},');
-}
-
-void _writeInt(StringBuffer buffer, String name, Object? value) {
-  if (value is num && value > 0) buffer.writeln('    $name: ${value.toInt()},');
-}
-
-void _writePrice(StringBuffer buffer, String name, Object? value) {
-  final parsed = value is num ? value.toDouble() : double.tryParse('$value');
-  if (parsed == null || parsed < 0) return;
-  buffer.writeln('    $name: ${_number(parsed * 1000000)},');
-}
-
-void _writeStringList(
-  StringBuffer buffer,
-  String name,
-  List<String> values, {
-  int indent = 4,
-}) {
-  if (values.isEmpty) return;
-  buffer.writeln('${' ' * indent}$name: <String>${_dartValue(values)},');
-}
-
 String _dartValue(Object? value) {
   if (value == null) return 'null';
   if (value is String) return _dartString(value);
   if (value is bool) return '$value';
-  if (value is num) return _number(value.toDouble());
+  if (value is num) return value.toString();
   if (value is List) return '[${value.map(_dartValue).join(', ')}]';
   if (value is Map) {
     final entries = value.entries
@@ -337,15 +232,5 @@ String _dartValue(Object? value) {
 
 String _dartString(String value) => jsonEncode(value).replaceAll(r'$', r'\$');
 
-String _number(double value) => value == value.truncateToDouble()
-    ? value.toInt().toString()
-    : value.toStringAsFixed(10).replaceFirst(RegExp(r'0+$'), '');
-
-String? _string(Object? value) => value is String ? value : null;
-
-List<String> _strings(Object? value) =>
-    value is List ? value.whereType<String>().toList() : <String>[];
-
-Map<String, Object?> _map(Object? value) => value is Map
-    ? value.map((key, value) => MapEntry('$key', value))
-    : <String, Object?>{};
+String? _string(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value : null;

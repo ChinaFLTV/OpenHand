@@ -51,6 +51,7 @@ Future<void> _openEditor(
   DialogAnimationSettings motion = OpenHandMotionDefaults.dialog,
   ValueChanged<_ModelProfileEditorResult?>? onResult,
   AiProtocolType protocol = AiProtocolType.jev,
+  String id = 'typesafe-ai/jev',
   AiModelConfig? provider,
   Locale locale = const Locale('zh'),
 }) async {
@@ -60,7 +61,6 @@ Future<void> _openEditor(
   addTearDown(tester.view.resetPhysicalSize);
   final settings = await SettingsController.create(store: _EditorSettings(motion));
   addTearDown(settings.dispose);
-  const id = 'typesafe-ai/jev';
   final health = AiModelHealthController();
   addTearDown(health.dispose);
   final captureFont = Platform.environment['OPENHAND_LAYOUT_FONT'];
@@ -112,7 +112,7 @@ Future<void> _openEditor(
             context: context,
             builder: (_) => _ModelProfileEditorDialog(
               modelId: id,
-              existingModelIds: const [id, 'existing-model'],
+              existingModelIds: [id, 'existing-model'],
               initialProfile: const AiModelProfile(),
               effectiveProfile: AiModelCatalog.lookup(id, protocol)!,
               protocolType: protocol,
@@ -151,6 +151,33 @@ Future<void> _captureEditor(WidgetTester tester, Finder dialog, String name) asy
 }
 
 void main() {
+  testWidgets('保存模型保留完整来源元数据、结构和创建日期', (tester) async {
+    const id = 'deepseek/deepseek-v4.1-flash';
+    _ModelProfileEditorResult? saved;
+    final original = AiModelCatalog.lookup(id, AiProtocolType.openai)!;
+    await _openEditor(tester, id: id, protocol: AiProtocolType.openai, onResult: (value) => saved = value);
+    await _captureEditor(tester, _editor, 'deepseek-current');
+    expect(find.byType(OpenHandJsonTreeView), findsNothing);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(saved?.profile.sourceMetadata, original.sourceMetadata);
+    expect(saved?.profile.created, original.created);
+    expect(saved?.profile.architecture?.toJson(), original.architecture?.toJson());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('更换模型标识不会保存原模型来源和架构', (tester) async {
+    _ModelProfileEditorResult? saved;
+    await _openEditor(tester, id: 'deepseek/deepseek-v4.1-flash', protocol: AiProtocolType.openai, onResult: (value) => saved = value);
+    await tester.enterText(_idField, 'custom-model');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(saved?.profile.sourceMetadata, hasLength(0));
+    expect(saved?.profile.architecture, isNull);
+    expect(saved?.profile.created, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final tts in [false, true]) {
     testWidgets('${tts ? 'TTS' : '翻译'} 优先级拖放只保存一次并清理悬停状态', (tester) async {
       final translation = AiTranslationSettings.defaults();
@@ -207,7 +234,8 @@ void main() {
       final state = tester.state<_ModelProfileEditorDialogState>(_editor);
       state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.mdlEdOpenRouterRawMetadata));
+      expect(find.byType(OpenHandJsonTreeView), findsNothing);
+      await tester.tap(find.byType(OpenHandExpansionTile).last);
       await tester.pumpAndSettle();
       state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
       await tester.pumpAndSettle();
