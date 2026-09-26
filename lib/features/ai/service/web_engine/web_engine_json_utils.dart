@@ -52,7 +52,7 @@ Map<String, Object?> jsonSafeMap(Map<Object?, Object?> value) {
   return convertToJsonSafeMap(value, config: _webEngineJsonConversionConfig);
 }
 
-/// 把任意 Map 解码成嵌套 Map / List 安全版本。
+/// 按键名或下标读取嵌套值；路径不存在或结果类型不符时返回 null。
 T? readJsonPath<T>(Object? root, List<Object> path) {
   Object? cur = root;
   for (final seg in path) {

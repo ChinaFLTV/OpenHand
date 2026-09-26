@@ -207,7 +207,7 @@ bool _nativeAudioPreviewSourcesReferToSameMedia(
       a.mimeType != b.mimeType) {
     return false;
   }
-  return _sameNativeAudioBytes(a.bytes, b.bytes);
+  return listEquals<int>(a.bytes, b.bytes);
 }
 
 enum _NativeAudioPlaybackState { stopped, paused, playing, completed }
@@ -2171,10 +2171,6 @@ bool looksLikeGeneratedNativeAudioName(String value) {
   final normalized = value.trim().toLowerCase();
   return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
       RegExp('^audio[_-]').hasMatch(normalized);
-}
-
-bool _sameNativeAudioBytes(Uint8List? a, Uint8List? b) {
-  return listEquals<int>(a, b);
 }
 
 String _formatNativeAudioTime(Duration value) {

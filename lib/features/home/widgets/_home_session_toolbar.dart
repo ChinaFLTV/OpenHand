@@ -2024,10 +2024,6 @@ int _metadataInt(Object? rawValue) {
   );
 }
 
-List<Map<String, Object?>> _metadataObjectList(Object? rawValue) {
-  return stringKeyedMapListFromValue(rawValue);
-}
-
 List<String> _metadataStringList(Object? rawValue) {
   return rawValue is List ? stringListFromValue(rawValue) : const <String>[];
 }

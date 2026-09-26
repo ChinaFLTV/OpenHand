@@ -962,16 +962,10 @@ class _OpenHandSnackBarMotion extends StatelessWidget {
         .findAncestorWidgetOfExactType<SnackBar>()
         ?.animation;
     if (animation == null) return child;
-    return AnimatedBuilder(
+    return buildAnimationStyleTransition(
       animation: animation,
+      settings: settings,
       child: child,
-      builder: (context, builtChild) {
-        return buildAnimationStyleTransition(
-          animation: animation,
-          settings: settings,
-          child: builtChild!,
-        );
-      },
     );
   }
 }

@@ -4,9 +4,10 @@ import 'dart:io';
 Future<String> readFlutterCheckSource(
   File file, {
   required Directory root,
+  bool inlineParts = false,
 }) async {
   final libUri = Directory('${root.path}/lib/').uri.toString();
-  return (await file.readAsString()).replaceAllMapped(
+  final source = (await file.readAsString()).replaceAllMapped(
     RegExp("(import|export) '([^']+)'"),
     (match) {
       final uri = file.uri.resolve(match[2]!);
@@ -17,6 +18,20 @@ Future<String> readFlutterCheckSource(
       return "${match[1]} '$target'";
     },
   );
+  if (!inlineParts) return source;
+
+  final combined = StringBuffer();
+  var offset = 0;
+  for (final match in RegExp("part '([^']+)';").allMatches(source)) {
+    combined.write(source.substring(offset, match.start));
+    final part = await File.fromUri(file.uri.resolve(match[1]!)).readAsString();
+    combined.write(
+      part.replaceFirst(RegExp('^part of [^;]+;', multiLine: true), ''),
+    );
+    offset = match.end;
+  }
+  combined.write(source.substring(offset));
+  return combined.toString();
 }
 
 /// 在临时目录执行真实 Flutter 组件检查，退出后清理生成文件。

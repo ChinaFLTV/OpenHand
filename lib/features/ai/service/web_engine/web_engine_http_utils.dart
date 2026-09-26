@@ -15,11 +15,7 @@ import 'web_engine_json_utils.dart';
 const int defaultWebEngineResponseMaxBytes = 8 * kBytesPerMiB;
 const int _webEngineErrorPreviewCharacters = 2000;
 
-/// 抓取 HTML 页面时对外声明的浏览器 UA。
-///
-/// WebSearch 的 HTML 引擎与 WebFetch 的直连引擎必须一致：同一站点从两侧看到
-/// 的应是同一个客户端，UA 漂移会让其中一侧莫名触发风控。此前两个文件各抄了
-/// 一份字面量，改版本号必然漏改。
+/// WebSearch 与 WebFetch 共用浏览器标识，保持站点访问行为一致。
 const String kWebEngineSafariUserAgent =
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) '
     'AppleWebKit/605.1.15 (KHTML, like Gecko) '
@@ -104,10 +100,7 @@ const String kGrokLiveSearchModel = 'grok-4-latest';
 const String kGrokChatCompletionsEndpoint =
     'https://api.x.ai/v1/chat/completions';
 
-/// Grok Live Search（`search_parameters.mode = on`）调用。
-///
-/// WebSearch 与 WebFetch 各有一个 Grok 引擎，端点、模型与 `search_parameters`
-/// 完全相同，只有系统提示词、用户消息与结果条数不同。
+/// WebSearch 与 WebFetch 共用的 Grok Live Search 请求。
 extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
   Future<Map<String, Object?>> requestGrokLiveSearch({
     required String? apiKey,
@@ -117,7 +110,6 @@ extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
     Future<void>? cancelSignal,
   }) async {
     final key = apiKey?.trim() ?? '';
-    // 引擎的 isReady 已挡住空 Key，这里再兜一次，避免发出必然 401 的请求。
     if (key.isEmpty) {
       throw WebEngineHttpException('Grok API key is missing');
     }
@@ -149,11 +141,7 @@ extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
 /// Gemini grounding 调用使用的模型名。
 const String kGeminiGroundingModel = 'gemini-2.0-flash';
 
-/// Gemini grounding（内置 `googleSearch` 工具）调用。
-///
-/// WebSearch 与 WebFetch 各有一个 Gemini 引擎，端点、模型与 `contents` /
-/// `tools` 载荷完全相同，只有提示词与取结果的 JSON 路径不同；此前连模型名
-/// 都在两处各写了一遍，升级模型必然漏改一处。
+/// WebSearch 与 WebFetch 共用的 Gemini 搜索增强请求。
 extension GeminiGroundedContentRequest on BoundedWebEngineHttpClient {
   Future<Map<String, Object?>> requestGeminiGroundedContent({
     required String? apiKey,
@@ -161,8 +149,6 @@ extension GeminiGroundedContentRequest on BoundedWebEngineHttpClient {
     Future<void>? cancelSignal,
   }) async {
     final key = apiKey?.trim() ?? '';
-    // 引擎的 isReady 已挡住空 Key，这里再兜一次：直接插值会拼出
-    // `key=null` 并把一次必然失败的请求发出去。
     if (key.isEmpty) {
       throw WebEngineHttpException('Gemini API key is missing');
     }

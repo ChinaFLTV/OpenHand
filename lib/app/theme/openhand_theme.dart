@@ -117,12 +117,7 @@ abstract final class OpenHandTheme {
       chipTheme: baseTheme.chipTheme.copyWith(
         backgroundColor: colorScheme.surfaceContainerHigh,
         selectedColor: colorScheme.primaryContainer,
-        // 选中态统一对齐全局 highlight（= colorScheme.primary，
-        // 即 sidebar 高亮 / 主操作按钮 / 输入框聚焦边框的同色系）。早期
-        // 用 secondaryContainer，在 expressive 调度下会偏到互补色（橄
-        // 榄主色 → 粉/淡紫 secondary），与应用其它"被选中/激活"控件
-        // 的橄榄绿不一致。这里改成 primaryContainer + onPrimaryContainer，
-        // 边框升一级到 primary，整体收回到主色调性。
+        // 选中态使用主色，与侧边栏、主按钮和输入框焦点保持一致。
         labelStyle: TextStyle(
           color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,

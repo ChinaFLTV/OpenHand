@@ -2588,7 +2588,7 @@ class _MachineTerminalFileEditorDialogState
   late final String _language;
   bool _dirty = false;
   int _contentBytes = 0;
-  double _fontSize = _editorFontSizeDefault;
+  double _fontSize = kOpenHandEditorFontSizeDefault;
   double _zoomVisualScale = 1;
   Timer? _zoomCommitTimer;
 
@@ -2827,8 +2827,8 @@ class _MachineTerminalFileEditorDialogState
 
   void _changeZoom(double delta) {
     final next = (_fontSize + delta).clamp(
-      _editorFontSizeMin,
-      _editorFontSizeMax,
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
     );
     if (next == _fontSize) return;
     _zoomCommitTimer?.cancel();
@@ -2839,18 +2839,20 @@ class _MachineTerminalFileEditorDialogState
   }
 
   void _resetZoom() {
-    if (_fontSize == _editorFontSizeDefault && _zoomVisualScale == 1) return;
+    if (_fontSize == kOpenHandEditorFontSizeDefault && _zoomVisualScale == 1) {
+      return;
+    }
     _zoomCommitTimer?.cancel();
     setState(() {
-      _fontSize = _editorFontSizeDefault;
+      _fontSize = kOpenHandEditorFontSizeDefault;
       _zoomVisualScale = 1;
     });
   }
 
   void _zoomByScale(double scaleDelta) {
     final next = (_fontSize * _zoomVisualScale * scaleDelta).clamp(
-      _editorFontSizeMin,
-      _editorFontSizeMax,
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
     );
     setState(() => _zoomVisualScale = next / _fontSize);
     _zoomCommitTimer?.cancel();
@@ -2862,8 +2864,8 @@ class _MachineTerminalFileEditorDialogState
     if ((_zoomVisualScale - 1).abs() < 0.001) return;
     setState(() {
       _fontSize = (_fontSize * _zoomVisualScale).clamp(
-        _editorFontSizeMin,
-        _editorFontSizeMax,
+        kOpenHandEditorFontSizeMin,
+        kOpenHandEditorFontSizeMax,
       );
       _zoomVisualScale = 1;
     });

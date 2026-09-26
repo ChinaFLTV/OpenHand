@@ -108,13 +108,7 @@ class WebReverseSessionConfig {
     );
   }
 
-  /// 拼出会话首条 prompt 的内容块，模型据此进入工作流。
-  ///
-  /// 直接用结构化 markdown bullet 列表，删除外层
-  /// `<request_template>` XML 包裹：bullet 本身已经表达「这是一份请求模板」
-  /// 的语义；XML tag 只对模型增加噪声，对用户可读性更是负担（用户在
-  /// transcript 中能看到的「请求模板：…」就够了）。模板字段含义保持不变，
-  /// 顺序保持不变，下游 prompt 解析逻辑只需读 bullet 即可。
+  /// 将会话配置转为首条提示词中的结构化请求列表。
   String toRequestTemplate() {
     final triggerActionText = nullIfBlank(triggerActions);
     final proxyText = nullIfBlank(proxy);

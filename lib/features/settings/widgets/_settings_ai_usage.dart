@@ -487,7 +487,10 @@ class _AiUsageHero extends StatelessWidget {
               ),
               kOpenHandGap14,
               Text(
-                _usageCompactNumber(summary.totalTokens, decimals: 2),
+                openHandTableMetricCompactNumber(
+                  summary.totalTokens,
+                  decimals: 2,
+                ),
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w900,
                   letterSpacing: -1.3,
@@ -498,8 +501,8 @@ class _AiUsageHero extends StatelessWidget {
               Text(
                 openHandLocalizedText(
                   context,
-                  zh: '${_usageInteger(summary.totalTokens)} 个 Token',
-                  en: '${_usageInteger(summary.totalTokens)} tokens',
+                  zh: '${openHandTableMetricInteger(summary.totalTokens)} 个 Token',
+                  en: '${openHandTableMetricInteger(summary.totalTokens)} tokens',
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -514,7 +517,7 @@ class _AiUsageHero extends StatelessWidget {
             children: [
               _AiUsageHeroPill(
                 label: _settingsAiUsagRequestsLabel(context),
-                value: _usageInteger(summary.requestCount),
+                value: openHandTableMetricInteger(summary.requestCount),
                 icon: Icons.monitor_heart_outlined,
                 color: colorScheme.primary,
               ),
@@ -527,8 +530,8 @@ class _AiUsageHero extends StatelessWidget {
                 value: summary.pricedRequestCount == 0
                     ? '—'
                     : summary.hasCompletePricing
-                    ? _usageMoney(summary.totalCostUsd)
-                    : '≥${_usageMoney(summary.totalCostUsd)}',
+                    ? openHandTableMetricMoney(summary.totalCostUsd)
+                    : '≥${openHandTableMetricMoney(summary.totalCostUsd)}',
                 icon: Icons.payments_outlined,
                 color: colorScheme.tertiary,
               ),
@@ -545,7 +548,7 @@ class _AiUsageHero extends StatelessWidget {
                     zh: '未成功',
                     en: 'Unsuccessful',
                   ),
-                  value: _usageInteger(summary.failureCount),
+                  value: openHandTableMetricInteger(summary.failureCount),
                   icon: Icons.error_outline_rounded,
                   color: OpenHandStatusColors.error,
                 ),
@@ -639,7 +642,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
     final metrics = <_AiUsageMetricData>[
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '输入 Token', en: 'Input'),
-        value: _usageCompactNumber(summary.promptTokens),
+        value: openHandTableMetricCompactNumber(summary.promptTokens),
         detail: openHandLocalizedText(
           context,
           zh: '发送给模型的上下文',
@@ -650,7 +653,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
       ),
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '输出 Token', en: 'Output'),
-        value: _usageCompactNumber(summary.completionTokens),
+        value: openHandTableMetricCompactNumber(summary.completionTokens),
         detail: openHandLocalizedText(
           context,
           zh: '模型生成内容',
@@ -661,7 +664,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
       ),
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '缓存读取', en: 'Cache Read'),
-        value: _usageCompactNumber(summary.cacheReadTokens),
+        value: openHandTableMetricCompactNumber(summary.cacheReadTokens),
         detail: openHandLocalizedText(
           context,
           zh: '命中率 ${_usagePercent(summary.cacheHitRate)}',
@@ -673,7 +676,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
       ),
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '缓存创建', en: 'Cache Write'),
-        value: _usageCompactNumber(summary.cacheCreationTokens),
+        value: openHandTableMetricCompactNumber(summary.cacheCreationTokens),
         detail: openHandLocalizedText(
           context,
           zh: '可供后续请求复用',
@@ -684,7 +687,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
       ),
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '推理 Token', en: 'Reasoning'),
-        value: _usageCompactNumber(summary.reasoningTokens),
+        value: openHandTableMetricCompactNumber(summary.reasoningTokens),
         detail: openHandLocalizedText(
           context,
           zh: '包含在模型输出中',
@@ -695,7 +698,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
       ),
       _AiUsageMetricData(
         label: openHandLocalizedText(context, zh: '平均响应', en: 'Avg. Response'),
-        value: _usageDuration(summary.averageDurationMs),
+        value: openHandTableMetricDuration(summary.averageDurationMs),
         detail: summary.firstTokenSampleCount == 0
             ? openHandLocalizedText(
                 context,
@@ -704,8 +707,8 @@ class _AiUsageMetricGrid extends StatelessWidget {
               )
             : openHandLocalizedText(
                 context,
-                zh: '首字 ${_usageDuration(summary.averageFirstTokenMs)}',
-                en: 'First token ${_usageDuration(summary.averageFirstTokenMs)}',
+                zh: '首字 ${openHandTableMetricDuration(summary.averageFirstTokenMs)}',
+                en: 'First token ${openHandTableMetricDuration(summary.averageFirstTokenMs)}',
               ),
         icon: Icons.speed_rounded,
         color: colorScheme.primary,
@@ -723,11 +726,11 @@ class _AiUsageMetricGrid extends StatelessWidget {
             zh: '多模态输入',
             en: 'Multimodal Input',
           ),
-          value: _usageCompactNumber(multimodalTokens),
+          value: openHandTableMetricCompactNumber(multimodalTokens),
           detail:
-              'Audio ${_usageCompactNumber(summary.audioInputTokens)} · '
-              'Image ${_usageCompactNumber(summary.imageInputTokens)} · '
-              'Video ${_usageCompactNumber(summary.videoInputTokens)}',
+              'Audio ${openHandTableMetricCompactNumber(summary.audioInputTokens)} · '
+              'Image ${openHandTableMetricCompactNumber(summary.imageInputTokens)} · '
+              'Video ${openHandTableMetricCompactNumber(summary.videoInputTokens)}',
           icon: Icons.perm_media_outlined,
           color: colorScheme.secondary,
         ),
@@ -741,7 +744,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
             zh: '未成功请求',
             en: 'Unsuccessful Requests',
           ),
-          value: _usageInteger(summary.failureCount),
+          value: openHandTableMetricInteger(summary.failureCount),
           detail: openHandLocalizedText(
             context,
             zh: '失败 ${summary.failedCount} · 超时 ${summary.timeoutCount} · 异常 ${summary.errorCount} · 取消 ${summary.cancelledCount}',
@@ -1155,8 +1158,8 @@ class _AiUsageOverviewPanel extends StatelessWidget {
         value: summary.pricedRequestCount == 0
             ? '—'
             : summary.hasCompletePricing
-            ? _usageMoney(summary.totalCostUsd)
-            : '≥${_usageMoney(summary.totalCostUsd)}',
+            ? openHandTableMetricMoney(summary.totalCostUsd)
+            : '≥${openHandTableMetricMoney(summary.totalCostUsd)}',
         detail: openHandLocalizedText(
           context,
           zh: '${summary.pricedRequestCount}/${summary.requestCount} 次请求具备价格',
@@ -1187,7 +1190,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
       ),
       _AiUsageOverviewMetricData(
         label: openHandRequestsLabel(context),
-        value: _usageCompactNumber(summary.requestCount),
+        value: openHandTableMetricCompactNumber(summary.requestCount),
         detail: openHandLocalizedText(
           context,
           zh: '${summary.successCount} 次成功 · ${summary.failureCount} 次未成功',
@@ -1200,11 +1203,14 @@ class _AiUsageOverviewPanel extends StatelessWidget {
       ),
       _AiUsageOverviewMetricData(
         label: 'Tokens',
-        value: _usageCompactNumber(summary.totalTokens, decimals: 2),
+        value: openHandTableMetricCompactNumber(
+          summary.totalTokens,
+          decimals: 2,
+        ),
         detail: openHandLocalizedText(
           context,
-          zh: '含推理 ${_usageCompactNumber(summary.reasoningTokens)} Token',
-          en: 'Includes ${_usageCompactNumber(summary.reasoningTokens)} reasoning tokens',
+          zh: '含推理 ${openHandTableMetricCompactNumber(summary.reasoningTokens)} Token',
+          en: 'Includes ${openHandTableMetricCompactNumber(summary.reasoningTokens)} reasoning tokens',
         ),
         values: [
           for (final bucket in snapshot.trend) bucket.totalTokens.toDouble(),
@@ -1240,10 +1246,11 @@ class _AiUsageOverviewPanel extends StatelessWidget {
       ),
       leadingValue: (item) => openHandLocalizedText(
         context,
-        zh: '${_usageCompactNumber(item.requestCount)} 次',
-        en: '${_usageCompactNumber(item.requestCount)} requests',
+        zh: '${openHandTableMetricCompactNumber(item.requestCount)} 次',
+        en: '${openHandTableMetricCompactNumber(item.requestCount)} requests',
       ),
-      trailingValue: (item) => '${_usageCompactNumber(item.totalTokens)} Token',
+      trailingValue: (item) =>
+          '${openHandTableMetricCompactNumber(item.totalTokens)} Token',
       progressValue: (item) => item.totalTokens / modelMaxTokens,
     );
     final providerDistribution = _AiUsageDistributionCard(
@@ -1265,7 +1272,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
         en: '${item.pricedRequestCount} priced',
       ),
       trailingValue: (item) =>
-          '${_usageMoney(item.totalCostUsd)} · '
+          '${openHandTableMetricMoney(item.totalCostUsd)} · '
           '${_usagePercent(summary.totalCostUsd <= 0 ? 0 : item.totalCostUsd / summary.totalCostUsd)}',
       progressValue: (item) =>
           providerMaxCost <= 0 ? 0 : item.totalCostUsd / providerMaxCost,
@@ -2071,17 +2078,19 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                         ),
                         kOpenHandGap5,
                         if (widget.mode == _AiUsageTrendMode.usage) ...[
-                          Text('Token  ${_usageInteger(bucket.totalTokens)}'),
                           Text(
-                            '${_settingsAiUsagInputLabel(context)}  ${_usageInteger(bucket.promptTokens)}  ·  '
-                            '${openHandOutputLabel(context)}  ${_usageInteger(bucket.completionTokens)}',
+                            'Token  ${openHandTableMetricInteger(bucket.totalTokens)}',
+                          ),
+                          Text(
+                            '${_settingsAiUsagInputLabel(context)}  ${openHandTableMetricInteger(bucket.promptTokens)}  ·  '
+                            '${openHandOutputLabel(context)}  ${openHandTableMetricInteger(bucket.completionTokens)}',
                           ),
                           Text(
                             '${_settingsAiUsagCostLabel(context)}  ${bucket.pricedRequestCount == 0
                                 ? '—'
                                 : bucket.pricedRequestCount < bucket.requestCount
-                                ? '≥${_usageMoney(bucket.totalCostUsd)}'
-                                : _usageMoney(bucket.totalCostUsd)}',
+                                ? '≥${openHandTableMetricMoney(bucket.totalCostUsd)}'
+                                : openHandTableMetricMoney(bucket.totalCostUsd)}',
                           ),
                         ] else ...[
                           Text(
@@ -2401,8 +2410,8 @@ class _AiUsageHeatmap extends StatelessWidget {
             Text(
               openHandLocalizedText(
                 context,
-                zh: '过去一年 ${_usageCompactNumber(annualTokens)} Token',
-                en: '${_usageCompactNumber(annualTokens)} tokens in the last year',
+                zh: '过去一年 ${openHandTableMetricCompactNumber(annualTokens)} Token',
+                en: '${openHandTableMetricCompactNumber(annualTokens)} tokens in the last year',
               ),
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -2628,13 +2637,13 @@ class _AiUsageHeatmapCell extends StatelessWidget {
     return Tooltip(
       message:
           '${formatYearMonthDay(date)}\n'
-          '${_usageInteger(tokens)} Token · ${bucket?.requestCount ?? 0} '
+          '${openHandTableMetricInteger(tokens)} Token · ${bucket?.requestCount ?? 0} '
           '${openHandLocalizedText(context, zh: '次请求', en: 'requests')}\n'
           '${_settingsAiUsagCostLabel(context)} ${bucket == null || bucket!.pricedRequestCount == 0
               ? '—'
               : bucket!.pricedRequestCount < bucket!.requestCount
-              ? '≥${_usageMoney(bucket!.totalCostUsd)}'
-              : _usageMoney(bucket!.totalCostUsd)}',
+              ? '≥${openHandTableMetricMoney(bucket!.totalCostUsd)}'
+              : openHandTableMetricMoney(bucket!.totalCostUsd)}',
       child: cell,
     );
   }
@@ -3255,7 +3264,7 @@ class _AiUsageRequestTable extends StatelessWidget {
               '${openHandTableMetricInteger(record.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
               record.totalCostUsd == null
                   ? kOpenHandTableMetricEmpty
-                  : _usageMoney(record.totalCostUsd!),
+                  : openHandTableMetricMoney(record.totalCostUsd!),
               openHandTableMetricDuration(record.durationMs),
               _usageRequestStatusLabel(context, record.status),
             ],
@@ -3312,7 +3321,10 @@ class _AiUsageRequestTable extends StatelessWidget {
               ),
               OpenHandTableStatusBadge(
                 label: _usageRequestStatusLabel(context, record.status),
-                color: _usageRequestStatusColor(colorScheme, record.status),
+                color: openHandTableMetricRequestStatusColor(
+                  colorScheme,
+                  record.status,
+                ),
                 tooltip:
                     '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record.status)}'
                     '${record.errorType == null ? '' : '\n${openHandErrorLabel(context)}: ${record.errorType}'}'
@@ -3348,7 +3360,10 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final size = MediaQuery.sizeOf(context);
-    final statusColor = _usageRequestStatusColor(colorScheme, record.status);
+    final statusColor = openHandTableMetricRequestStatusColor(
+      colorScheme,
+      record.status,
+    );
     final unsuccessful = record.status != AiUsageRequestStatus.success;
     final endedAt = record.startedAt.add(
       Duration(milliseconds: record.durationMs),
@@ -3446,7 +3461,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
             zh: '超时阈值',
             en: 'Timeout Limit',
           ),
-          value: _usageDuration(value.toDouble()),
+          value: openHandTableMetricDuration(value.toDouble()),
         ),
       if (record.timeoutPhase case final value?)
         (
@@ -3566,13 +3581,17 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                               zh: '请求耗时',
                               en: 'Duration',
                             ),
-                            value: _usageDuration(record.durationMs.toDouble()),
+                            value: openHandTableMetricDuration(
+                              record.durationMs.toDouble(),
+                            ),
                           ),
                           _AiUsageDetailMetric(
                             width: width,
                             icon: Icons.data_usage_rounded,
                             label: 'Token',
-                            value: _usageInteger(record.usage.totalTokens ?? 0),
+                            value: openHandTableMetricInteger(
+                              record.usage.totalTokens ?? 0,
+                            ),
                           ),
                         ],
                       );
@@ -4535,9 +4554,6 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
   };
 }
 
-Color _usageRequestStatusColor(ColorScheme colors, String status) =>
-    openHandTableMetricRequestStatusColor(colors, status);
-
 IconData _usageRequestStatusIcon(String status) {
   return switch (status) {
     AiUsageRequestStatus.success => Icons.check_circle_outline_rounded,
@@ -4581,17 +4597,7 @@ Color _usageHeatColor(ColorScheme colors, double intensity) {
   return Color.lerp(colors.primaryContainer, colors.primary, 0.2 + safe * 0.8)!;
 }
 
-String _usageCompactNumber(int value, {int decimals = 1}) =>
-    openHandTableMetricCompactNumber(value, decimals: decimals);
-
-String _usageInteger(int value) => openHandTableMetricInteger(value);
-
-String _usageMoney(double value) => openHandTableMetricMoney(value);
-
 String _usagePercent(double value) => '${(value * 100).toStringAsFixed(1)}%';
-
-String _usageDuration(double milliseconds) =>
-    openHandTableMetricDuration(milliseconds);
 
 String _usageBucketLabel(String key) {
   if (key.length >= 13 && key[10] == 'T') {

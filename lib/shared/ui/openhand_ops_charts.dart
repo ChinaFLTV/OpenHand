@@ -354,19 +354,15 @@ Widget _buildChartTooltipOverlay({
           child: MouseRegion(
             onEnter: (_) => onEnter(),
             onExit: (_) => onExit(),
-            child: AnimatedBuilder(
+            child: buildAnimationStyleTransition(
               animation: transition,
-              child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
-              builder: (context, child) => buildAnimationStyleTransition(
-                animation: transition,
-                settings: settings,
-                profile: OpenHandAnimationTransitionProfile(
-                  alignment: metrics.placedAbove
-                      ? Alignment.bottomCenter
-                      : Alignment.topCenter,
-                ),
-                child: child!,
+              settings: settings,
+              profile: OpenHandAnimationTransitionProfile(
+                alignment: metrics.placedAbove
+                    ? Alignment.bottomCenter
+                    : Alignment.topCenter,
               ),
+              child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
             ),
           ),
         );

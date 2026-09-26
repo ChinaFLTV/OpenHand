@@ -2,26 +2,8 @@ import 'dart:ui' show FramePhase, FrameTiming;
 
 import 'package:flutter/scheduler.dart';
 
-/// 进程级帧健康监视器（单例）。
-///
-/// 节流自动模式需要"设备卡顿时自动降速"的能力；UI 端也可用它来感知
-/// 卡顿并主动降级。设计目标：
-///   * 不依赖第三方包；
-///   * 被动采样真实产生的帧（[SchedulerBinding.addTimingsCallback]），
-///     不强制引擎持续出帧——此前的常驻 Ticker 会让应用永远无法进入
-///     idle，静止界面也以满帧率空转整条渲染管线；
-///   * 被动采样下「帧产出率 ≠ 设备能力」：节流流式约 12.5 帧/秒也完全
-///     健康。降速决策因此只看帧耗时——统计活跃窗口内超预算帧占比
-///     （jank ratio），而不是把稀疏渲染误判为卡顿；
-///   * 窗口结果带有效期：空闲期不产帧，陈旧值过期归零，避免用旧状态
-///     误导决策与展示。
-///
-/// 使用方法：
-/// ```
-/// OpenHandFpsMonitor.instance.start();
-/// final fps = OpenHandFpsMonitor.instance.recentFps;          // 0 = 空闲/无数据
-/// final busy = OpenHandFpsMonitor.instance.isStrugglingRecently;
-/// ```
+/// 被动采样实际渲染帧，不主动请求出帧。
+/// 按帧耗时判断卡顿，避免将低频渲染误判为设备性能不足；空闲时统计过期归零。
 class OpenHandFpsMonitor {
   OpenHandFpsMonitor._();
 

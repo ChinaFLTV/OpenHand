@@ -29,7 +29,7 @@ class WebEngineCooldownConfig {
     this.quotaSeconds = AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds,
   });
 
-  /// 由弹性设置直接映射；WebSearch / WebFetch 工具此前各抄了一遍这七个字段。
+  /// 将弹性设置映射为 WebSearch 与 WebFetch 共用的冷却配置。
   WebEngineCooldownConfig.fromResilience(
     AiWebEngineResilienceSettings resilience,
   ) : tier1Failures = resilience.cooldownTier1Failures,

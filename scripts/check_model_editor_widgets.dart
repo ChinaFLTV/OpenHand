@@ -8,20 +8,11 @@ Future<void> main() async {
   final page = File(
     '${root.path}/lib/features/settings/widgets/settings_view.dart',
   );
-  final libUri = Directory('${root.path}/lib/').uri;
-  var source = await page.readAsString();
-  source = source.replaceAllMapped(RegExp("(import|export) '([^']+)'"), (
-    match,
-  ) {
-    if (match[2]!.contains(':')) return match[0]!;
-    final uri = page.uri.resolve(match[2]!);
-    return "${match[1]} 'package:openhand/${uri.path.substring(libUri.path.length)}'";
-  });
-  source = source.replaceAllMapped(RegExp("part '([^']+)';"), (match) {
-    return File.fromUri(page.uri.resolve(match[1]!))
-        .readAsStringSync()
-        .replaceFirst(RegExp('^part of [^;]+;', multiLine: true), '');
-  });
+  final source = await readFlutterCheckSource(
+    page,
+    root: root,
+    inlineParts: true,
+  );
   await runFlutterWidgetCheck(
     root: root,
     name: 'model_editor',

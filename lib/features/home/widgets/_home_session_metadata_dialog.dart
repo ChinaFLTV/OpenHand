@@ -72,7 +72,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     final allowCommandRuleCount = _metadataInt(
       lastPromptMetadata['allow_command_rule_count'],
     );
-    final allowCommandRules = _metadataObjectList(
+    final allowCommandRules = stringKeyedMapListFromValue(
       lastPromptMetadata['allow_command_rules'],
     );
     final todoWriteRecommended =
@@ -86,7 +86,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     final recentErrors = session.recentErrors
         .where((error) => error.stage != 'title_generation')
         .toList(growable: false);
-    final machineTerminalMetadata = _metadataObjectMap(
+    final machineTerminalMetadata = stringKeyedMapFromValue(
       session.metadata[kMachineTerminalMetadataKey],
     );
     final extendedMetadataEntries = _visibleSessionMetadataEntries(session);
@@ -984,7 +984,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     Map<String, Object?> metadata,
   ) {
     final checkpoint = session.latestCompressionPoint;
-    final rehydration = _metadataObjectMap(
+    final rehydration = stringKeyedMapFromValue(
       metadata['post_compact_rehydration'],
     );
     if (checkpoint == null && rehydration.isEmpty) {
@@ -1065,7 +1065,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     BuildContext context,
     Map<String, Object?> metadata,
   ) {
-    final rehydration = _metadataObjectMap(
+    final rehydration = stringKeyedMapFromValue(
       metadata['post_compact_rehydration'],
     );
     if (rehydration.isEmpty) {
@@ -1191,12 +1191,12 @@ Widget _buildMachineTerminalMetadataSection(
   BuildContext context,
   Map<String, Object?> metadata,
 ) {
-  final defaults = _metadataObjectMap(metadata['terminal_defaults']);
-  final capabilities = _metadataObjectMap(metadata['capabilities']);
-  final ui = _metadataObjectMap(metadata['ui']);
-  final runtime = _metadataObjectMap(metadata['runtime']);
-  final activeTerminal = _metadataObjectMap(runtime['active_terminal']);
-  final terminals = _metadataObjectList(runtime['terminals']);
+  final defaults = stringKeyedMapFromValue(metadata['terminal_defaults']);
+  final capabilities = stringKeyedMapFromValue(metadata['capabilities']);
+  final ui = stringKeyedMapFromValue(metadata['ui']);
+  final runtime = stringKeyedMapFromValue(metadata['runtime']);
+  final activeTerminal = stringKeyedMapFromValue(runtime['active_terminal']);
+  final terminals = stringKeyedMapListFromValue(runtime['terminals']);
   final toolNames = _metadataStringList(metadata['tool_names']);
   final status = optionalStringFromValue(runtime['status']);
   final activeTerminalId =
@@ -1375,10 +1375,6 @@ Widget _buildMachineTerminalMetadataSection(
       ],
     ],
   );
-}
-
-Map<String, Object?> _metadataObjectMap(Object? rawValue) {
-  return stringKeyedMapFromValue(rawValue);
 }
 
 String _metadataDisplayValue(Object? value) {

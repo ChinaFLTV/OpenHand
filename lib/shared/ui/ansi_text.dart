@@ -114,8 +114,6 @@ int _findOscEnd(String input, int start) {
   return -1;
 }
 
-int? _parseAnsiInt(String value) => optionalIntFromText(value);
-
 class _AnsiState {
   bool bold = false;
   bool dim = false;
@@ -165,7 +163,7 @@ class _AnsiState {
     }
     final parts = params.split(';');
     for (var i = 0; i < parts.length; i++) {
-      final n = _parseAnsiInt(parts[i]);
+      final n = optionalIntFromText(parts[i]);
       if (n == null) continue;
       switch (n) {
         case 0:
@@ -216,11 +214,11 @@ class _AnsiState {
   /// 返回 38/48 标记之后额外消耗的段数；格式无效时返回 0。
   int _parseExtendedColor(List<String> parts, int start, {required bool isFg}) {
     if (start >= parts.length) return 0;
-    final mode = _parseAnsiInt(parts[start]);
+    final mode = optionalIntFromText(parts[start]);
     if (mode == 5) {
       // 256 色
       if (start + 1 >= parts.length) return 0;
-      final idx = _parseAnsiInt(parts[start + 1]);
+      final idx = optionalIntFromText(parts[start + 1]);
       if (idx == null) return 0;
       final color = _ansi256Color(idx);
       if (isFg) {
@@ -233,9 +231,9 @@ class _AnsiState {
     if (mode == 2) {
       // 真彩色
       if (start + 3 >= parts.length) return 0;
-      final r = _parseAnsiInt(parts[start + 1]);
-      final g = _parseAnsiInt(parts[start + 2]);
-      final b = _parseAnsiInt(parts[start + 3]);
+      final r = optionalIntFromText(parts[start + 1]);
+      final g = optionalIntFromText(parts[start + 2]);
+      final b = optionalIntFromText(parts[start + 3]);
       if (r == null || g == null || b == null) return 0;
       final color = Color.fromARGB(255, r & 0xff, g & 0xff, b & 0xff);
       if (isFg) {

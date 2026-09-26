@@ -413,19 +413,15 @@ class _TokenDialPopupOverlay extends StatelessWidget {
             child: MouseRegion(
               onEnter: (_) => onEnter(),
               onExit: (_) => onExit(),
-              child: AnimatedBuilder(
+              child: buildAnimationStyleTransition(
                 animation: animation,
-                child: builder(context, metrics),
-                builder: (context, child) => buildAnimationStyleTransition(
-                  animation: animation,
-                  settings: settings,
-                  profile: OpenHandAnimationTransitionProfile(
-                    alignment: metrics.placedAbove
-                        ? Alignment.bottomRight
-                        : Alignment.topRight,
-                  ),
-                  child: child!,
+                settings: settings,
+                profile: OpenHandAnimationTransitionProfile(
+                  alignment: metrics.placedAbove
+                      ? Alignment.bottomRight
+                      : Alignment.topRight,
                 ),
+                child: builder(context, metrics),
               ),
             ),
           );
@@ -845,16 +841,12 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             child: AnimatedSwitcher(
               duration: sectionMotionSettings.entranceDuration,
               reverseDuration: sectionMotionSettings.exitDuration,
-              transitionBuilder: (child, animation) => AnimatedBuilder(
-                animation: animation,
-                child: child,
-                builder: (context, animatedChild) =>
-                    buildAnimationStyleTransition(
-                      animation: animation,
-                      settings: sectionMotionSettings,
-                      child: animatedChild!,
-                    ),
-              ),
+              transitionBuilder: (child, animation) =>
+                  buildAnimationStyleTransition(
+                    animation: animation,
+                    settings: sectionMotionSettings,
+                    child: child,
+                  ),
               layoutBuilder: (currentChild, previousChildren) =>
                   buildCollisionSafeAnimatedSwitcherLayout(
                     currentChild,

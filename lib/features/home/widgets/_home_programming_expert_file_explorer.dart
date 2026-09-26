@@ -2,22 +2,8 @@ part of '../openhand_home_page.dart';
 
 const Color _kFileExplorerWarningColor = Color(0xFFB7791F);
 const Color _kFileExplorerSuccessColor = Color(0xFF2E7D32);
-const Color _kFileExplorerDarkSurfaceText = kOpenHandEditorDarkSurfaceText;
-const Color _kFileExplorerLightSurfaceText = kOpenHandEditorLightSurfaceText;
-
-// 文件浏览器面板。
 
 enum _UnsavedCloseAction { save, discard, cancel }
-
-BoxDecoration _editorToolbarSurface(
-  ColorScheme colorScheme, {
-  OpenHandEditorToolbarEdge edge = OpenHandEditorToolbarEdge.bottom,
-}) => openHandEditorToolbarSurface(colorScheme, edge: edge);
-
-InputDecoration _editorToolbarInputDecoration(
-  ColorScheme colorScheme, {
-  String? hintText,
-}) => openHandEditorToolbarInputDecoration(colorScheme, hintText: hintText);
 
 const double _kFileTreeIndentBase = 16;
 const double _kFileTreeIndentPerLevel = 16;
@@ -1630,14 +1616,6 @@ String _resolveEditorLanguage({
   return 'plaintext';
 }
 
-String _inferWorkspaceRoot(String filePath) {
-  return standardWorkspaceRootResolver.cachedOrFallback(filePath);
-}
-
-Future<String> _inferWorkspaceRootAsync(String filePath) {
-  return standardWorkspaceRootResolver.resolve(filePath);
-}
-
 enum _EditorTabMenuAction {
   close,
   closeOthers,
@@ -1749,7 +1727,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   int _nextFileLoadGeneration = 0;
 
   /// 缩放时动态调整的字号。
-  double _fontSize = _editorFontSizeDefault;
+  double _fontSize = kOpenHandEditorFontSizeDefault;
 
   /// 连续缩放期间的临时视觉比例。
   double _zoomVisualScale = 1.0;
@@ -1940,8 +1918,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _commitZoomScale();
     setState(() {
       _fontSize = (_fontSize + 0.5).clamp(
-        _editorFontSizeMin,
-        _editorFontSizeMax,
+        kOpenHandEditorFontSizeMin,
+        kOpenHandEditorFontSizeMax,
       );
     });
   }
@@ -1950,15 +1928,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _commitZoomScale();
     setState(() {
       _fontSize = (_fontSize - 0.5).clamp(
-        _editorFontSizeMin,
-        _editorFontSizeMax,
+        kOpenHandEditorFontSizeMin,
+        kOpenHandEditorFontSizeMax,
       );
     });
   }
 
   void _zoomReset() {
     _commitZoomScale();
-    setState(() => _fontSize = _editorFontSizeDefault);
+    setState(() => _fontSize = kOpenHandEditorFontSizeDefault);
   }
 
   /// 连续缩放先使用视觉变换，避免每帧重新布局和高亮。
@@ -1966,8 +1944,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final effectiveNewSize = _fontSize * _zoomVisualScale * scaleDelta;
     // 限制临时缩放后的有效字号。
     final clampedSize = effectiveNewSize.clamp(
-      _editorFontSizeMin,
-      _editorFontSizeMax,
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
     );
     setState(() {
       _zoomVisualScale = clampedSize / _fontSize;
@@ -1982,8 +1960,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _zoomCommitTimer?.cancel();
     if ((_zoomVisualScale - 1.0).abs() < 0.001) return;
     final committed = (_fontSize * _zoomVisualScale).clamp(
-      _editorFontSizeMin,
-      _editorFontSizeMax,
+      kOpenHandEditorFontSizeMin,
+      kOpenHandEditorFontSizeMax,
     );
     setState(() {
       _fontSize = committed;
@@ -2120,7 +2098,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (scrollController == null || !scrollController.hasClients) {
       return;
     }
-    final lineExtent = _fontSize * _editorLineHeight;
+    final lineExtent = _fontSize * kOpenHandEditorLineHeight;
     final targetOffset = (math.max(1, line) - 1) * lineExtent;
     final viewportHeight = scrollController.position.viewportDimension;
     final centered = (targetOffset - viewportHeight / 3).clamp(
@@ -5216,7 +5194,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         silentLog('file_explorer', '计算相对活动根目录的显示路径', error, stack);
       }
     }
-    final inferredRoot = _inferWorkspaceRoot(widget.activeFilePath);
+    final inferredRoot = standardWorkspaceRootResolver.cachedOrFallback(
+      widget.activeFilePath,
+    );
     try {
       final relative = p.relative(filePath, from: inferredRoot);
       if (!relative.startsWith('..')) {
@@ -5229,7 +5209,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _refreshInferredWorkspaceRoot(String filePath) async {
-    await _inferWorkspaceRootAsync(filePath);
+    await standardWorkspaceRootResolver.resolve(filePath);
     if (!mounted || widget.activeFilePath != filePath) return;
     setState(() {});
   }
@@ -6224,7 +6204,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       constraints: const BoxConstraints(maxHeight: 320),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: _editorToolbarSurface(
+        decoration: openHandEditorToolbarSurface(
           colorScheme,
           edge: OpenHandEditorToolbarEdge.top,
         ),
@@ -7407,7 +7387,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: _editorToolbarSurface(colorScheme),
+      decoration: openHandEditorToolbarSurface(colorScheme),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7423,7 +7403,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       fontSize: 13,
                       color: colorScheme.onSurface,
                     ),
-                    decoration: _editorToolbarInputDecoration(
+                    decoration: openHandEditorToolbarInputDecoration(
                       colorScheme,
                       hintText: _editorText(
                         zh: '查找',
@@ -7500,7 +7480,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         fontSize: 13,
                         color: colorScheme.onSurface,
                       ),
-                      decoration: _editorToolbarInputDecoration(
+                      decoration: openHandEditorToolbarInputDecoration(
                         colorScheme,
                         hintText: _editorText(
                           zh: '替换',
@@ -7544,7 +7524,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_goToLineVisible) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: _editorToolbarSurface(colorScheme),
+      decoration: openHandEditorToolbarSurface(colorScheme),
       child: Row(
         children: [
           Text(
@@ -7567,7 +7547,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               focusNode: _goToLineFocusNode,
               keyboardType: TextInputType.number,
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
-              decoration: _editorToolbarInputDecoration(colorScheme),
+              decoration: openHandEditorToolbarInputDecoration(colorScheme),
               onSubmitted: _goToLine,
             ),
           ),
@@ -7592,7 +7572,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         : '${_visibleSymbols.length}/${_allSymbols.length}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: _editorToolbarSurface(colorScheme),
+      decoration: openHandEditorToolbarSurface(colorScheme),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7608,7 +7588,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       fontSize: 13,
                       color: colorScheme.onSurface,
                     ),
-                    decoration: _editorToolbarInputDecoration(
+                    decoration: openHandEditorToolbarInputDecoration(
                       colorScheme,
                       hintText: _workspaceSymbolMode
                           ? _editorText(
@@ -7939,7 +7919,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       constraints: const BoxConstraints(maxHeight: 220),
-      decoration: _editorToolbarSurface(
+      decoration: openHandEditorToolbarSurface(
         colorScheme,
         edge: OpenHandEditorToolbarEdge.top,
       ),
@@ -8110,7 +8090,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
               itemBuilder: (context, index) {
                 final diagnostic = diagnostics[index];
-                final severityColor = _diagnosticSeverityColor(
+                final severityColor = _editorDiagnosticColor(
                   colorScheme,
                   diagnostic,
                 );
@@ -8195,7 +8175,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       constraints: const BoxConstraints(maxHeight: 260),
-      decoration: _editorToolbarSurface(
+      decoration: openHandEditorToolbarSurface(
         colorScheme,
         edge: OpenHandEditorToolbarEdge.top,
       ),
@@ -8668,19 +8648,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         : parts.join('  •  ');
   }
 
-  Color _diagnosticSeverityColor(
-    ColorScheme colorScheme,
-    _EditorDiagnostic diagnostic,
-  ) {
-    if (diagnostic.isError) {
-      return colorScheme.error;
-    }
-    if (diagnostic.isWarning) {
-      return _kFileExplorerWarningColor;
-    }
-    return colorScheme.primary;
-  }
-
   Map<int, List<_EditorDiagnostic>> _diagnosticsByLineForFile(String filePath) {
     final grouped = <int, List<_EditorDiagnostic>>{};
     for (final diagnostic
@@ -8688,25 +8655,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       (grouped[diagnostic.line] ??= <_EditorDiagnostic>[]).add(diagnostic);
     }
     return grouped;
-  }
-
-  _EditorDiagnostic? _primaryDiagnosticForLine(
-    List<_EditorDiagnostic> diagnostics,
-  ) {
-    if (diagnostics.isEmpty) {
-      return null;
-    }
-    for (final diagnostic in diagnostics) {
-      if (diagnostic.isError) {
-        return diagnostic;
-      }
-    }
-    for (final diagnostic in diagnostics) {
-      if (diagnostic.isWarning) {
-        return diagnostic;
-      }
-    }
-    return diagnostics.first;
   }
 
   String _diagnosticsStatusLabel(BuildContext context, String filePath) {
@@ -8873,7 +8821,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Widget _buildStatusBar(ColorScheme colorScheme) {
     final settingsController = context.watch<SettingsController>();
     final language = _resolvedLanguageForFile(widget.activeFilePath);
-    final zoomPct = (_fontSize / _editorFontSizeDefault * 100).round();
+    final zoomPct = (_fontSize / kOpenHandEditorFontSizeDefault * 100).round();
     final diagnosticsLabel = _diagnosticsStatusLabel(
       context,
       widget.activeFilePath,
@@ -9342,7 +9290,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final workspaceRoot =
         _lspResolutionForFile(filePath)?.rootPath.isNotEmpty == true
         ? _lspResolutionForFile(filePath)!.rootPath
-        : await _inferWorkspaceRootAsync(filePath);
+        : await standardWorkspaceRootResolver.resolve(filePath);
     if (!mounted) return;
     String relativeFromWorkspace = filePath;
     try {
@@ -11193,7 +11141,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           final hasAnyDiagnostics =
               (_diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[])
                   .isNotEmpty;
-          final gutterWidth = _editorEditableGutterWidth(
+          final gutterWidth = openHandEditorGutterWidth(
             lineCount: lineCount,
             fontSize: _fontSize,
             hasDiagnostics: hasAnyDiagnostics,
@@ -11202,7 +11150,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           final charPainter = TextPainter(
             text: TextSpan(
               text: 'X',
-              style: _editorBaseStyleForSize(_fontSize),
+              style: openHandEditorBaseStyle(_fontSize),
             ),
             textDirection: TextDirection.ltr,
             maxLines: 1,
@@ -11210,7 +11158,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           final charWidth = charPainter.width;
           charPainter.dispose();
 
-          final lineExtent = _fontSize * _editorLineHeight;
+          final lineExtent = _fontSize * kOpenHandEditorLineHeight;
           const textPaddingLeft = 8.0;
           const textPaddingTop = 10.0;
 
@@ -12048,6 +11996,38 @@ class _EditorDiagnostic {
   bool get isWarning => severity == 'WARNING';
 }
 
+Color _editorDiagnosticColor(
+  ColorScheme colorScheme,
+  _EditorDiagnostic diagnostic,
+) {
+  if (diagnostic.isError) {
+    return colorScheme.error;
+  }
+  if (diagnostic.isWarning) {
+    return _kFileExplorerWarningColor;
+  }
+  return colorScheme.primary;
+}
+
+_EditorDiagnostic? _primaryDiagnosticForLine(
+  List<_EditorDiagnostic> diagnostics,
+) {
+  if (diagnostics.isEmpty) {
+    return null;
+  }
+  for (final diagnostic in diagnostics) {
+    if (diagnostic.isError) {
+      return diagnostic;
+    }
+  }
+  for (final diagnostic in diagnostics) {
+    if (diagnostic.isWarning) {
+      return diagnostic;
+    }
+  }
+  return diagnostics.first;
+}
+
 List<_EditorDiagnostic> _mapLspDiagnostics(List<AiLspDiagnostic> diagnostics) {
   return diagnostics
       .map(
@@ -12823,39 +12803,6 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
   );
 }
 
-// 支持语法高亮的可编辑文本组件。
-const double _editorFontSizeDefault = kOpenHandEditorFontSizeDefault;
-const double _editorFontSizeMin = kOpenHandEditorFontSizeMin;
-const double _editorFontSizeMax = kOpenHandEditorFontSizeMax;
-const double _editorLineHeight = kOpenHandEditorLineHeight;
-const double _editorMaxEstimatedContentWidth =
-    kOpenHandEditorMaxEstimatedContentWidth;
-
-TextStyle _editorBaseStyleForSize(double fontSize) =>
-    openHandEditorBaseStyle(fontSize);
-
-double _editorEditableGutterWidth({
-  required int lineCount,
-  required double fontSize,
-  required bool hasDiagnostics,
-}) {
-  return openHandEditorGutterWidth(
-    lineCount: lineCount,
-    fontSize: fontSize,
-    hasDiagnostics: hasDiagnostics,
-  );
-}
-
-double _editorPreviewGutterWidth({
-  required int lineCount,
-  required double fontSize,
-}) {
-  return openHandEditorPreviewGutterWidth(
-    lineCount: lineCount,
-    fontSize: fontSize,
-  );
-}
-
 /// 处理代码编辑器的 Cmd/Ctrl 滚轮与 +/-/0 缩放快捷键。
 class _EditorZoomWrapper extends StatefulWidget {
   const _EditorZoomWrapper({
@@ -13456,7 +13403,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     required this.scrollController,
     required this.focusNode,
     required this.onChanged,
-    this.fontSize = _editorFontSizeDefault,
+    this.fontSize = kOpenHandEditorFontSizeDefault,
     this.readOnly = false,
     this.wordWrap = true,
     this.codeTheme = EditorCodeTheme.materialYou,
@@ -13533,39 +13480,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   double? _wrappedLineHeightsWidth;
   double? _wrappedLineHeightsFontSize;
 
-  double get _lineExtent => widget.fontSize * _editorLineHeight;
-
-  _EditorDiagnostic? _primaryDiagnosticForLine(int lineNumber) {
-    final diagnostics =
-        widget.diagnosticsByLine[lineNumber] ?? const <_EditorDiagnostic>[];
-    if (diagnostics.isEmpty) {
-      return null;
-    }
-    for (final diagnostic in diagnostics) {
-      if (diagnostic.isError) {
-        return diagnostic;
-      }
-    }
-    for (final diagnostic in diagnostics) {
-      if (diagnostic.isWarning) {
-        return diagnostic;
-      }
-    }
-    return diagnostics.first;
-  }
-
-  Color _diagnosticColor(
-    ColorScheme colorScheme,
-    _EditorDiagnostic diagnostic,
-  ) {
-    if (diagnostic.isError) {
-      return colorScheme.error;
-    }
-    if (diagnostic.isWarning) {
-      return _kFileExplorerWarningColor;
-    }
-    return colorScheme.primary;
-  }
+  double get _lineExtent => widget.fontSize * kOpenHandEditorLineHeight;
 
   String _diagnosticsTooltip(List<_EditorDiagnostic> diagnostics) {
     if (diagnostics.isEmpty) {
@@ -13584,10 +13499,10 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   }
 
   TextStyle _resolvedEditorStyle() {
-    return _editorBaseStyleForSize(widget.fontSize).copyWith(
+    return openHandEditorBaseStyle(widget.fontSize).copyWith(
       color: _darkSurface
-          ? _kFileExplorerDarkSurfaceText
-          : _kFileExplorerLightSurfaceText,
+          ? kOpenHandEditorDarkSurfaceText
+          : kOpenHandEditorLightSurfaceText,
     );
   }
 
@@ -14363,7 +14278,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     ColorScheme colorScheme,
     _EditorDiagnostic diagnostic,
   ) {
-    final accent = _diagnosticColor(colorScheme, diagnostic);
+    final accent = _editorDiagnosticColor(colorScheme, diagnostic);
     final severityLabel = diagnostic.isError
         ? openHandErrorLabel(context)
         : diagnostic.isWarning
@@ -14446,7 +14361,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
     final lineCount = widget.controller.lineCount;
     final hasAnyDiagnostics = widget.diagnosticsByLine.isNotEmpty;
-    final lineNumberWidth = _editorEditableGutterWidth(
+    final lineNumberWidth = openHandEditorGutterWidth(
       lineCount: lineCount,
       fontSize: widget.fontSize,
       hasDiagnostics: hasAnyDiagnostics,
@@ -14508,7 +14423,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                         widget.diagnosticsByLine[lineNumber] ??
                         const <_EditorDiagnostic>[];
                     final primaryDiagnostic = _primaryDiagnosticForLine(
-                      lineNumber,
+                      diagnostics,
                     );
                     final hasDiagnostics = primaryDiagnostic != null;
                     final lineIsActive = widget.activeLine == lineNumber;
@@ -14517,7 +14432,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                         widget.onDiagnosticQuickFixRequested != null &&
                         (lineIsActive || _hoveredGutterLine == lineNumber);
                     final accentColor = hasDiagnostics
-                        ? _diagnosticColor(colorScheme, primaryDiagnostic)
+                        ? _editorDiagnosticColor(colorScheme, primaryDiagnostic)
                         : colorScheme.onSurfaceVariant;
                     final tooltip = _diagnosticsTooltip(diagnostics);
 
@@ -14597,7 +14512,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                     style: TextStyle(
                                       fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: widget.fontSize,
-                                      height: _editorLineHeight,
+                                      height: kOpenHandEditorLineHeight,
                                       fontWeight: hasDiagnostics
                                           ? FontWeight.w600
                                           : FontWeight.w400,
@@ -14669,7 +14584,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   final estimatedContentWidth = widget.wordWrap
                       ? viewportWidth
                       : math.min(
-                          _editorMaxEstimatedContentWidth,
+                          kOpenHandEditorMaxEstimatedContentWidth,
                           math.max(
                             viewportWidth,
                             widget.controller.longestLineLength *
@@ -14755,7 +14670,7 @@ class _LargeFileCodeView extends StatefulWidget {
     required this.scrollController,
     required this.language,
     required this.onOpenFullEditor,
-    this.fontSize = _editorFontSizeDefault,
+    this.fontSize = kOpenHandEditorFontSizeDefault,
     this.codeTheme = EditorCodeTheme.materialYou,
   });
 
@@ -14778,14 +14693,14 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   bool _darkSurface = false;
   static const int _plainPreviewLineLength = 2048;
 
-  double get _lineExtent => widget.fontSize * _editorLineHeight;
+  double get _lineExtent => widget.fontSize * kOpenHandEditorLineHeight;
   static const int _lineSpanCacheLimit = 600;
 
   TextStyle _resolvedEditorStyle() {
-    return _editorBaseStyleForSize(widget.fontSize).copyWith(
+    return openHandEditorBaseStyle(widget.fontSize).copyWith(
       color: _darkSurface
-          ? _kFileExplorerDarkSurfaceText
-          : _kFileExplorerLightSurfaceText,
+          ? kOpenHandEditorDarkSurfaceText
+          : kOpenHandEditorLightSurfaceText,
     );
   }
 
@@ -14880,7 +14795,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
     }
     final lines = widget.controller.previewLines;
     final lineCount = lines.length;
-    final lineNumberWidth = _editorPreviewGutterWidth(
+    final lineNumberWidth = openHandEditorPreviewGutterWidth(
       lineCount: lineCount,
       fontSize: widget.fontSize,
     );
@@ -14931,7 +14846,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final estimatedContentWidth = math.min(
-                _editorMaxEstimatedContentWidth,
+                kOpenHandEditorMaxEstimatedContentWidth,
                 math.max(
                   constraints.maxWidth,
                   widget.controller.longestLineLength *
@@ -14977,7 +14892,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                               style: TextStyle(
                                 fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: widget.fontSize,
-                                height: _editorLineHeight,
+                                height: kOpenHandEditorLineHeight,
                                 color: colorScheme.onSurfaceVariant.withValues(
                                   alpha: 0.48,
                                 ),
