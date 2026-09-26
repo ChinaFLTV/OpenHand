@@ -1,5 +1,6 @@
 import {
   DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
+  DEFERRED_MESSAGE_DISPLAY_METADATA_KEY,
   type SessionMessage,
 } from '../../api/sessions';
 import {
@@ -113,6 +114,7 @@ const MESSAGE_RENDER_METADATA_KEYS = [
   'user_skill_selection',
   'selected_skill',
   DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
+  DEFERRED_MESSAGE_DISPLAY_METADATA_KEY,
   'knowledge_base',
   'message_feedback',
   'response_variants',
@@ -192,22 +194,23 @@ export function messageFollowSignature(message: SessionMessage): string {
   return signature;
 }
 
+/** 比较真实 JSON 值，避免等长内容中间变化被采样指纹吞掉。 */
+function renderValuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((key) => Object.hasOwn(right, key) && renderValuesEqual(left[key], right[key]));
+}
+
 function metadataEquivalentForRender(rawA: unknown, rawB: unknown): boolean {
   if (rawA === rawB) return true;
   const a = recordOrNullFromUnknown(rawA);
   const b = recordOrNullFromUnknown(rawB);
-  if (!a || !b) {
-    return metadataRenderFingerprint(rawA) === metadataRenderFingerprint(rawB);
-  }
-  for (const key of MESSAGE_RENDER_METADATA_KEYS) {
-    const valueA = a[key];
-    const valueB = b[key];
-    if (valueA === valueB) continue;
-    if (metadataValueFingerprint(valueA) !== metadataValueFingerprint(valueB)) {
-      return false;
-    }
-  }
-  return true;
+  return MESSAGE_RENDER_METADATA_KEYS.every((key) => renderValuesEqual(a?.[key], b?.[key]));
 }
 
 /** 分层短路比较消息，流式正文变化时不计算昂贵的元数据指纹。 */
@@ -231,12 +234,7 @@ export function messagesEquivalentForRender(
   ) {
     return false;
   }
-  if (
-    contentA.slice(0, 64) !== contentB.slice(0, 64) ||
-    contentA.slice(-32) !== contentB.slice(-32)
-  ) {
-    return false;
-  }
+  if (contentA !== contentB) return false;
   if (usageRenderFingerprint(a) !== usageRenderFingerprint(b)) return false;
   return metadataEquivalentForRender(a.metadata, b.metadata);
 }

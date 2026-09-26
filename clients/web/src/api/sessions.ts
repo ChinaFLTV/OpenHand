@@ -255,6 +255,8 @@ type SessionMessageConversationSide =
 export type SessionMessageFeedback = 'liked' | 'needs_improvement';
 export const DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY =
   '_openhand_deferred_telemetry';
+export const DEFERRED_MESSAGE_DISPLAY_METADATA_KEY =
+  '_openhand_deferred_display';
 export const DEFERRED_MESSAGE_CONTENT_METADATA_KEY =
   '_openhand_content_preview';
 

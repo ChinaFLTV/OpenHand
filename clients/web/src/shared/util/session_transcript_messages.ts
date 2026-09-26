@@ -1,4 +1,4 @@
-import type { SessionMessage } from '../../api/sessions';
+import { messageHasDeferredContent, type SessionMessage } from '../../api/sessions';
 import { recordOrNullFromUnknown, stringFromUnknown } from './value';
 
 const TOOL_MESSAGE_KINDS = new Set([
@@ -134,6 +134,7 @@ export function messageHasRenderableTranscriptOutput(message: SessionMessage): b
 }
 
 function computeMessageHasRenderableTranscriptOutput(message: SessionMessage): boolean {
+  if (messageHasDeferredContent(message)) return true;
   const content = (message.content ?? '').trim();
   if (content.length > 0) return true;
   const metadata = recordOrNullFromUnknown(message.metadata);

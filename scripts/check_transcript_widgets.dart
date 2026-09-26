@@ -667,12 +667,59 @@ void main() {
     expect(window.messageTotalCount, 1000);
     expect(window.messages.last.content.length, 4096);
     expect(window.messages.last.metadata[aiSessionMessageContentPreviewMetadataKey], true);
-    expect(window.messages.last.metadata['tool_execution_stdout'], largeMetadata);
+    expect(window.messages.last.metadata.containsKey('tool_execution_stdout'), false);
+    expect(window.messages.last.metadata[aiSessionMessageDeferredDisplayMetadataKey], true);
     expect(window.messages.last.metadata.containsKey('request_payload'), false);
     final full = (await store.loadMessage(session.id, tail.id))!;
     expect(full.content, longContent);
     expect(full.metadata['request_payload'], {'内部遥测': '按需恢复'});
     expect(full.metadata.containsKey(aiSessionMessageContentPreviewMetadataKey), false);
+    // 预览上的轻量操作不能把数据库里的完整工具输出覆盖掉。
+    await store.updateMessageMetadata(sessionId: session.id, messageId: tail.id,
+      metadata: {...window.messages.last.metadata, 'message_feedback': 'like'});
+    final persisted = (await store.loadMessage(session.id, tail.id))!;
+    expect(persisted.metadata['tool_execution_stdout'], largeMetadata);
+    expect(persisted.metadata['request_payload'], {'内部遥测': '按需恢复'});
+    expect(persisted.metadata['message_feedback'], 'like');
+    expect(persisted.metadata.containsKey(aiSessionMessageDeferredDisplayMetadataKey), false);
+
+    final shortMessage = tail.copyWith(content: '短正文', characterCount: 3);
+    final shortSession = _probeSession('short-metadata', 1).copyWith(messages: [shortMessage.copyWith(id: 'short-message')]);
+    await store.save(shortSession);
+    final shortWindow = (await store.loadSessionTailWindow(shortSession.id, limit: 6))!;
+    expect(shortWindow.messageLoadState, AiSessionMessageLoadState.windowed);
+    expect(shortWindow.messages.single.content, '短正文');
+    expect(shortWindow.messages.single.metadata[aiSessionMessageContentPreviewMetadataKey], true);
+    expect(shortWindow.messages.single.copyWith(content: '').isTranscriptRenderable, true);
+    final previewPage = await store.loadMessages(shortSession.id, contentPreviewChars: 4096);
+    expect(previewPage.messages.single.metadata.containsKey('tool_execution_stdout'), false);
+    expect(previewPage.messages.single.metadata[aiSessionMessageDeferredTelemetryMetadataKey], true);
+
+    final usage = AiToolUsagePromotionStore(filePath: '${directory.path}/usage.json');
+    final controller = await AiSessionController.create(
+      store: store, toolRuntimeService: _HistoryRuntime(), toolUsagePromotionStore: usage,
+    );
+    addTearDown(() async {
+      await controller.shutdown();
+      controller.dispose();
+      await usage.shutdown();
+    });
+    await controller.selectSession(shortSession.id);
+    await controller.ensureSessionMessageWindowHydrated(shortSession.id);
+    final audited = await controller.loadFullSessionMessageMetadata(shortSession.id, 'short-message');
+    expect(audited['tool_execution_stdout'], largeMetadata);
+    expect(audited['request_payload'], {'内部遥测': '按需恢复'});
+    expect(audited.containsKey(aiSessionMessageDeferredDisplayMetadataKey), false);
+    final hydrated = await controller.loadFullSessionMessageContent(shortSession.id, 'short-message');
+    expect(hydrated!.metadata['tool_execution_stdout'], largeMetadata);
+    expect(hydrated.metadata.containsKey(aiSessionMessageContentPreviewMetadataKey), false);
+    final nested = <String, Object?>{'tool_arguments': {'输出': largeMetadata}, 'tool_call_id': '配对标识'};
+    final previewMetadata = aiSessionMessagePreviewMetadata(nested);
+    expect(previewMetadata.containsKey('tool_arguments'), false);
+    expect(previewMetadata['tool_call_id'], '配对标识');
+    expect(previewMetadata[aiSessionMessageContentPreviewMetadataKey], true);
+    final small = <String, Object?>{'tool_arguments': {'路径': '/tmp'}};
+    expect(identical(aiSessionMessagePreviewMetadata(small), small), true);
     // 损坏单行不能让后台队列丢失后续正常消息。
     await database.database.update('messages', {'metadata_json': '{损坏'},
       where: 'id = ?', whereArgs: ['history-998']);

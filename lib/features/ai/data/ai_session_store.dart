@@ -513,10 +513,25 @@ class AiSessionStore {
     'model_label',
     'usage_json',
   ];
-  static final String _kDeferredTelemetryMetadataProjection =
+  static final String _kDeferredTelemetryMetadataExpression =
       'json_remove(metadata_json, '
-      '${aiSessionMessageDeferredTelemetryMetadataKeys.map((key) => "'\$.$key'").join(', ')}) '
-      'AS metadata_json';
+      '${aiSessionMessageDeferredTelemetryMetadataKeys.map((key) => "'\$.$key'").join(', ')})';
+  static final String _kPreviewMetadataPaths =
+      aiSessionMessageDeferredDisplayMetadataKeys
+          .map((key) => "'\$.$key'")
+          .join(', ');
+  static final String _kPreviewMetadataCondition =
+      'CASE WHEN length(metadata_json) >= $aiSessionMessagePreviewMetadataCharacterBudget '
+      'AND json_valid(metadata_json) THEN '
+      'length(json_extract(metadata_json, $_kPreviewMetadataPaths)) >= '
+      '$aiSessionMessagePreviewMetadataCharacterBudget ELSE 0 END';
+  static final String _kPreviewMetadataProjection =
+      'CASE WHEN $_kPreviewMetadataCondition THEN '
+      'json_set(json_remove($_kDeferredTelemetryMetadataExpression, '
+      '$_kPreviewMetadataPaths), '
+      "'\$.$aiSessionMessageDeferredDisplayMetadataKey', json('true'), "
+      "'\$.$aiSessionMessageContentPreviewMetadataKey', json('true')) "
+      'ELSE $_kDeferredTelemetryMetadataExpression END AS metadata_json';
   static final String _kStatisticsMetadataProjection =
       'json_object('
       '${_kStatisticsMetadataKeys.map(_statisticsMetadataColumn).join(', ')}'
@@ -546,7 +561,8 @@ class AiSessionStore {
       'model_id',
       'model_label',
       'usage_json',
-      'CASE WHEN length(content) > $boundedPreviewChars THEN 1 ELSE 0 END '
+      'CASE WHEN length(content) > $boundedPreviewChars OR '
+          '($_kPreviewMetadataCondition) THEN 1 ELSE 0 END '
           'AS $aiSessionMessageContentPreviewMetadataKey',
     ];
   }
@@ -990,6 +1006,7 @@ class AiSessionStore {
       orderBy: 'sort_order DESC',
       limit: effectiveLimit,
       deferTelemetryMetadata: true,
+      previewMetadata: true,
     );
     final messageRows = _trimTailRowsToBudget(
       rawRows,
@@ -1083,16 +1100,19 @@ class AiSessionStore {
     int? offset,
     bool deferTelemetryMetadata = false,
     bool statisticsMetadataOnly = false,
+    bool previewMetadata = false,
   }) async {
     final columns = <String>[
       ...columnsWithoutMetadata,
-      if (deferTelemetryMetadata)
+      if (previewMetadata)
+        _kPreviewMetadataProjection
+      else if (deferTelemetryMetadata)
         statisticsMetadataOnly
             ? _kStatisticsMetadataProjection
-            : _kDeferredTelemetryMetadataProjection
+            : '$_kDeferredTelemetryMetadataExpression AS metadata_json'
       else
         'metadata_json',
-      if (deferTelemetryMetadata)
+      if (deferTelemetryMetadata || previewMetadata)
         '1 AS $aiSessionMessageDeferredTelemetryMetadataKey',
     ];
     try {
@@ -1106,7 +1126,7 @@ class AiSessionStore {
         offset: offset,
       );
     } on DatabaseException catch (error, stack) {
-      if (!deferTelemetryMetadata) rethrow;
+      if (!deferTelemetryMetadata && !previewMetadata) rethrow;
       silentLog(
         'ai_session_store',
         statisticsMetadataOnly ? '统计元数据投影失败，回退空元数据' : '轻量消息元数据查询失败，回退完整元数据',
@@ -1305,6 +1325,7 @@ class AiSessionStore {
       limit: limit,
       offset: offset,
       deferTelemetryMetadata: deferTelemetryMetadata,
+      previewMetadata: contentPreviewChars != null && contentPreviewChars > 0,
     );
 
     final leadingKnowledgeBaseMetadata =
@@ -1596,9 +1617,13 @@ class AiSessionStore {
     final deferredIds = <String>[
       for (final index in indices)
         if (session
-                .messages[index]
-                .metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
-            true)
+                    .messages[index]
+                    .metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
+                true ||
+            session
+                    .messages[index]
+                    .metadata[aiSessionMessageDeferredDisplayMetadataKey] ==
+                true)
           session.messages[index].id,
     ];
     return _queryMessageMetadataByIds(txn, session.id, deferredIds);
@@ -1734,7 +1759,8 @@ class AiSessionStore {
     );
     return _sessionWriteQueue.enqueue(() async {
       Map<String, Object?>? stored;
-      if (metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true) {
+      if (metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true ||
+          metadata[aiSessionMessageDeferredDisplayMetadataKey] == true) {
         // 传入的是遥测裁剪副本（如在尾窗里点赞/点踩）：先读回库内完整遥测再合并，
         // 否则整列覆盖会把 request_payload / response_raw 等大字段一并清空。
         final rows = await _db.query(
@@ -2475,8 +2501,7 @@ class AiSessionStore {
   /// response_raw / composed_prompt_* / prompt_metadata。
   ///
   /// 以内存 metadata 为准（保留调用方对普通字段的增删意图，如点赞/点踩），
-  /// 但当它带遥测裁剪标记时，从 [stored] 把被裁掉的遥测键补回；两个仅供加载期
-  /// 使用的标记键（遥测裁剪、正文预览）一律不落库。
+  /// 带延迟加载标记时，从 [stored] 补回遥测和展示大字段；加载标记不落库。
   static Map<String, Object?> _metadataForPersistence(
     Map<String, Object?> inMemory, {
     Map<String, Object?>? stored,
@@ -2486,11 +2511,20 @@ class AiSessionStore {
     final result = <String, Object?>{
       for (final entry in inMemory.entries)
         if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey &&
-            entry.key != aiSessionMessageContentPreviewMetadataKey)
+            entry.key != aiSessionMessageContentPreviewMetadataKey &&
+            entry.key != aiSessionMessageDeferredDisplayMetadataKey)
           entry.key: entry.value,
     };
     if (deferred && stored != null) {
       for (final key in aiSessionMessageDeferredTelemetryMetadataKeys) {
+        if (!result.containsKey(key) && stored.containsKey(key)) {
+          result[key] = stored[key];
+        }
+      }
+    }
+    if (inMemory[aiSessionMessageDeferredDisplayMetadataKey] == true &&
+        stored != null) {
+      for (final key in aiSessionMessageDeferredDisplayMetadataKeys) {
         if (!result.containsKey(key) && stored.containsKey(key)) {
           result[key] = stored[key];
         }

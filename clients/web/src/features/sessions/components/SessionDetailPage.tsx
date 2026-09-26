@@ -13,6 +13,7 @@ import {
   clearSessionThrottle,
   compactSession,
   DEFERRED_MESSAGE_CONTENT_METADATA_KEY,
+  DEFERRED_MESSAGE_DISPLAY_METADATA_KEY,
   DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY,
   deleteMessage,
   deleteMessageCascade,
@@ -3182,8 +3183,9 @@ export function SessionDetailPage() {
     preview: SessionMessage,
     full: SessionMessage,
   ): SessionMessage {
-    const metadata = { ...(preview.metadata ?? {}) };
+    const metadata = { ...(full.metadata ?? {}), ...(preview.metadata ?? {}) };
     delete metadata[DEFERRED_MESSAGE_CONTENT_METADATA_KEY];
+    delete metadata[DEFERRED_MESSAGE_DISPLAY_METADATA_KEY];
     return {
       ...preview,
       content: full.content,
@@ -4075,6 +4077,7 @@ export function SessionDetailPage() {
         ...(message.metadata ?? {}),
       };
       delete metadata[DEFERRED_MESSAGE_CONTENT_METADATA_KEY];
+      delete metadata[DEFERRED_MESSAGE_DISPLAY_METADATA_KEY];
       return {
         ...message,
         content: full.content,

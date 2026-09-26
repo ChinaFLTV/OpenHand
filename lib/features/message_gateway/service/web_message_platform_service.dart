@@ -8491,6 +8491,9 @@ class WebMessagePlatformService {
           message.metadata[aiSessionMessageMetadataStreamingKey],
         ) ||
         _boolishWebValue(message.metadata['tool_arguments_streaming']);
+    if (!activelyStreaming && previewLimit > 0) {
+      metadata = aiSessionMessagePreviewMetadata(metadata);
+    }
     if (!activelyStreaming &&
         previewLimit > 0 &&
         content.length > previewLimit) {

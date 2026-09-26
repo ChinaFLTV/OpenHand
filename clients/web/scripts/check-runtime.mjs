@@ -214,6 +214,7 @@ try {
   const {
     mergeServerWindowResult,
     updateMessageWindowMembership,
+    messagesEquivalentForRender,
   } = await server.ssrLoadModule('/src/shared/util/session_message_window.ts');
   const largeWindow = Array.from({ length: 5000 }, (_, index) => ({
     id: `消息-${index}`,
@@ -223,6 +224,20 @@ try {
     metadata: {},
     created_at: new Date(2026, 0, 1, 0, 0, index).toISOString(),
   }));
+  const unchangedEdges = '前'.repeat(100) + '甲' + '后'.repeat(100);
+  const originalMessage = { ...largeWindow[0], content: unchangedEdges };
+  assert.equal(messagesEquivalentForRender(originalMessage, {
+    ...originalMessage, content: unchangedEdges.replace('甲', '乙'),
+  }), false, '等长正文中部更新不能被采样指纹忽略');
+  assert.equal(messagesEquivalentForRender(originalMessage, {
+    ...originalMessage, metadata: { tool_arguments: { value: '甲' } },
+  }), false);
+  assert.equal(messagesEquivalentForRender({ ...originalMessage, metadata: { tool_arguments: { value: '甲' } } }, {
+    ...originalMessage, metadata: { tool_arguments: { value: '乙' } },
+  }), false, '等长嵌套元数据更新必须刷新卡片');
+  assert.equal(messagesEquivalentForRender({ ...originalMessage, metadata: { tool_arguments: { value: ['甲'] } } }, {
+    ...originalMessage, metadata: { tool_arguments: { value: ['甲'] } },
+  }), true, '内容相同的快照继续复用卡片');
   const largeIndex = new Map(largeWindow.map((message, index) => [message.id, index]));
   const liveWindow = largeWindow.slice(-20);
   liveWindow[liveWindow.length - 1] = {
@@ -522,6 +537,28 @@ try {
 
   // 从真实页面提取分页入口，仅替换界面状态与请求出口。
   const historyPageSource = await readFile(new URL('../src/features/sessions/components/SessionDetailPage.tsx', import.meta.url), 'utf8');
+  const { messageHasRenderableTranscriptOutput } = await server.ssrLoadModule('/src/shared/util/session_transcript_messages.ts');
+  assert.equal(messageHasRenderableTranscriptOutput({
+    ...originalMessage, content: '', kind: 'tool', metadata: { _openhand_content_preview: true },
+  }), true, '正文为空的大工具结果仍保留完整内容加载入口');
+  const hydrationStart = historyPageSource.indexOf('  function messageWithHydratedContent(');
+  const hydrationEnd = historyPageSource.indexOf('  const loadFullMessageContent =', hydrationStart);
+  const { code: hydrationCode } = await transformWithOxc(
+    historyPageSource.slice(hydrationStart, hydrationEnd), 'message-hydration.ts',
+  );
+  const hydrateContent = new Function('DEFERRED_MESSAGE_CONTENT_METADATA_KEY', 'DEFERRED_MESSAGE_DISPLAY_METADATA_KEY',
+    hydrationCode + '\nreturn messageWithHydratedContent;')('_openhand_content_preview', '_openhand_deferred_display');
+  const hydratedContent = hydrateContent({
+    ...originalMessage, metadata: { _openhand_content_preview: true, _openhand_deferred_display: true, message_feedback: 'like' },
+  }, {
+    ...originalMessage, content: '完整正文', metadata: { tool_arguments: { 输出: '完整参数' }, tool_execution_stdout: '完整输出' },
+  });
+  assert.equal(hydratedContent.content, '完整正文');
+  assert.equal(hydratedContent.metadata.tool_execution_stdout, '完整输出', '补齐正文时必须恢复工具输出');
+  assert.deepEqual(hydratedContent.metadata.tool_arguments, { 输出: '完整参数' });
+  assert.equal(hydratedContent.metadata.message_feedback, 'like', '补齐消息保留当前反馈');
+  assert.equal(hydratedContent.metadata._openhand_content_preview, undefined);
+  assert.equal(hydratedContent.metadata._openhand_deferred_display, undefined);
   const scrollStart = historyPageSource.indexOf("    const upwardScrollKeys = new Set(");
   const scrollEnd = historyPageSource.indexOf('    recalc();', scrollStart);
   const intentStart = historyPageSource.indexOf('  const markUserScrollIntent = useCallback(() => {');

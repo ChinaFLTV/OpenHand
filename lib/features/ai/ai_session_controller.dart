@@ -2149,7 +2149,9 @@ class AiSessionController extends ChangeNotifier {
     if (liveSession == null) return const <String, Object?>{};
     final liveMessage = _messageById(liveSession, normalizedMessageId);
     if (liveMessage == null) return const <String, Object?>{};
-    if (!aiSessionMessageHasDeferredTelemetryMetadata(liveMessage.metadata)) {
+    if (!aiSessionMessageHasDeferredTelemetryMetadata(liveMessage.metadata) &&
+        liveMessage.metadata[aiSessionMessageDeferredDisplayMetadataKey] !=
+            true) {
       return Map<String, Object?>.unmodifiable(liveMessage.metadata);
     }
     try {
@@ -2169,9 +2171,16 @@ class AiSessionController extends ChangeNotifier {
       }
       return Map<String, Object?>.unmodifiable(<String, Object?>{
         for (final entry in liveMessage.metadata.entries)
-          if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey)
+          if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey &&
+              entry.key != aiSessionMessageDeferredDisplayMetadataKey)
             entry.key: entry.value,
-        for (final key in aiSessionMessageDeferredTelemetryMetadataKeys)
+        for (final key in <String>[
+          ...aiSessionMessageDeferredTelemetryMetadataKeys,
+          if (liveMessage
+                  .metadata[aiSessionMessageDeferredDisplayMetadataKey] ==
+              true)
+            ...aiSessionMessageDeferredDisplayMetadataKeys,
+        ])
           if (fullMetadata.containsKey(key)) key: fullMetadata[key],
       });
     } catch (error, stack) {

@@ -105,6 +105,53 @@ const String aiSessionMessageDeferredTelemetryMetadataKey =
     '_openhand_deferred_telemetry';
 const String aiSessionMessageContentPreviewMetadataKey =
     '_openhand_content_preview';
+const String aiSessionMessageDeferredDisplayMetadataKey =
+    '_openhand_deferred_display';
+const int aiSessionMessagePreviewMetadataCharacterBudget = 16 * 1024;
+// 窗口预览只延迟可按单条消息恢复的大字段，保留类型、配对和状态信息。
+const List<String> aiSessionMessageDeferredDisplayMetadataKeys = <String>[
+  'tool_arguments',
+  'tool_execution_stdout',
+  'tool_execution_stderr',
+  'tool_execution_result',
+  'result_text',
+  'response_variants',
+];
+
+/// 有界遍历，不为判断大小再次序列化整份工具输出或回复版本。
+Map<String, Object?> aiSessionMessagePreviewMetadata(
+  Map<String, Object?> metadata,
+) {
+  var remaining = aiSessionMessagePreviewMetadataCharacterBudget;
+  final pending = <Iterator<Object?>>[
+    aiSessionMessageDeferredDisplayMetadataKeys
+        .map((key) => metadata[key])
+        .iterator,
+  ];
+  while (pending.isNotEmpty && remaining > 0) {
+    final iterator = pending.last;
+    if (!iterator.moveNext()) {
+      pending.removeLast();
+      continue;
+    }
+    final value = iterator.current;
+    remaining -= value is String ? value.length + 2 : 1;
+    if (value is Map) {
+      pending.add(value.values.iterator);
+    } else if (value is List) {
+      pending.add(value.iterator);
+    }
+  }
+  if (remaining > 0) return metadata;
+  return <String, Object?>{
+    for (final entry in metadata.entries)
+      if (!aiSessionMessageDeferredDisplayMetadataKeys.contains(entry.key))
+        entry.key: entry.value,
+    aiSessionMessageDeferredDisplayMetadataKey: true,
+    aiSessionMessageContentPreviewMetadataKey: true,
+  };
+}
+
 const List<String> aiSessionMessageDeferredTelemetryMetadataKeys = <String>[
   'request_payload',
   'response_raw',
@@ -668,7 +715,8 @@ class AiSessionMessage {
     if (!isVisible) {
       return false;
     }
-    if (content.trim().isNotEmpty) {
+    if (metadata[aiSessionMessageContentPreviewMetadataKey] == true ||
+        content.trim().isNotEmpty) {
       return true;
     }
     if (_metadataHasRenderableValue(
