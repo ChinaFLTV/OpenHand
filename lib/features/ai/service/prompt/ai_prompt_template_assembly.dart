@@ -23,37 +23,30 @@ class AiPromptTemplateAssetFiles {
       'compression_summary_instructions.md';
 }
 
-enum AiPromptToolCatalogProfile {
-  generic,
-  machineExpert,
-  webReverse,
-  androidReverse,
-}
-
 enum AiPromptCompressionPayloadStyle { standard, minimal }
 
 class AiPromptTemplatePolicy {
   const AiPromptTemplatePolicy({
     required this.templateId,
     required this.promptAssetDirectory,
-    required this.toolCatalogProfile,
     required this.extensionSections,
     required this.compressionIdentity,
     this.sharedSections = _baselinePromptSharedSections,
     this.promptAssetFileOverrides = const <String, String>{},
     this.compressionPayloadStyle = AiPromptCompressionPayloadStyle.standard,
     this.includesWebReverseRuntime = false,
+    this.includesAndroidReverseRuntime = false,
   });
 
   final String templateId;
   final String promptAssetDirectory;
-  final AiPromptToolCatalogProfile toolCatalogProfile;
   final List<AiPromptSharedSectionSpec> sharedSections;
   final List<AiPromptSharedSectionSpec> extensionSections;
   final String compressionIdentity;
   final Map<String, String> promptAssetFileOverrides;
   final AiPromptCompressionPayloadStyle compressionPayloadStyle;
   final bool includesWebReverseRuntime;
+  final bool includesAndroidReverseRuntime;
 
   String promptAssetPathFor(String fileName) {
     return promptAssetFileOverrides[fileName] ??
@@ -62,15 +55,6 @@ class AiPromptTemplatePolicy {
 
   bool get usesMinimalCompressionPayload =>
       compressionPayloadStyle == AiPromptCompressionPayloadStyle.minimal;
-
-  bool get usesMachineToolCatalog =>
-      toolCatalogProfile == AiPromptToolCatalogProfile.machineExpert;
-
-  bool get usesWebReverseToolCatalog =>
-      toolCatalogProfile == AiPromptToolCatalogProfile.webReverse;
-
-  bool get usesAndroidReverseToolCatalog =>
-      toolCatalogProfile == AiPromptToolCatalogProfile.androidReverse;
 }
 
 /// 运行时和预览共用同一资源清单与装配顺序，不接收用户消息。
@@ -322,7 +306,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: defaultTemplateId,
         promptAssetDirectory: defaultPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand. Produce a relay-safe conversation checkpoint.',
@@ -352,7 +335,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: machineExpertTemplateId,
         promptAssetDirectory: machineExpertPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.machineExpert,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Machine Expert. Produce a relay-safe terminal interaction checkpoint.',
@@ -385,7 +367,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: harnessEngineeringTemplateId,
         promptAssetDirectory: harnessEngineeringPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Harness Engineering. Produce a relay-safe orchestration checkpoint.',
@@ -418,7 +399,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: programmingExpertTemplateId,
         promptAssetDirectory: programmingExpertPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: _programmingExpertExtensionSections,
         compressionIdentity:
             'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
@@ -452,7 +432,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: hermesTalkerTemplateId,
         promptAssetDirectory: hermesTalkerPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
@@ -485,7 +464,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: webReverseExpertTemplateId,
         promptAssetDirectory: webReverseExpertPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.webReverse,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, injected hook scripts, and saved artifacts under web_reverse_runtime.local_artifacts.',
@@ -519,7 +497,6 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: siriHelperTemplateId,
         promptAssetDirectory: siriHelperPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Siri Helper. Produce a relay-safe assistant checkpoint with grounded facts and user-visible context preserved.',
@@ -558,7 +535,7 @@ class AiPromptTemplatePolicies {
       policy: AiPromptTemplatePolicy(
         templateId: androidReverseExpertTemplateId,
         promptAssetDirectory: androidReverseExpertPromptAssetDirectory,
-        toolCatalogProfile: AiPromptToolCatalogProfile.androidReverse,
+        includesAndroidReverseRuntime: true,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Android Reverse Expert. Produce a relay-safe Android-reverse checkpoint with target package, identified API/method, Frida hook scripts, and saved artifacts under android_reverse_runtime.local_artifacts.',

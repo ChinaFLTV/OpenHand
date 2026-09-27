@@ -1735,8 +1735,11 @@ bool? _profileInlineImageSupport(AiModelConfig model) {
 List<AiToolDefinition> stableToolDefinitionsForAiRequest(
   List<AiToolDefinition> tools,
 ) {
-  // 保留工具目录的能力优先级，让专用工具排在通用命令工具之前。
-  return tools.map(stableToolDefinitionForAiRequest).toList(growable: false);
+  // 工具集合的发现顺序不属于协议语义，统一排序以稳定各协议的缓存前缀。
+  return tools.map(stableToolDefinitionForAiRequest).toList(growable: false)
+    ..sort(
+      (left, right) => compareToolNamesForAiRequest(left.name, right.name),
+    );
 }
 
 int compareToolNamesForAiRequest(String left, String right) {

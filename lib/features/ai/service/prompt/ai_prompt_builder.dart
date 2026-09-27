@@ -120,7 +120,7 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static const String _promptAssemblyLayout =
-      'stable_prefix.runtime_prefix.history.round_anchor_tail.v2';
+      'stable_prefix.runtime_prefix.history.round_anchor_tail.v3';
   static const String _promptCacheAffinityKeyScope =
       'session_template_model.v1';
   static const int _runtimeTailSnapshotMaxTurns = 8;
@@ -612,25 +612,22 @@ class AiPromptBuilder {
 
     final memoryResourceIds = <String>{};
     final workspaceInstructions = _renderWorkspaceInstructions(runtimeContext);
+    final availableWorkflows = _renderAvailableWorkflows(runtimeContext);
     final stablePrefixTurns = <AiChatTurn>[
       _systemSectionTurn(
         AiPromptSectionHeaders.systemInstructions,
-        '${templateBundle.systemInstructions}$workspaceInstructions',
+        templateBundle.systemInstructions,
       ),
       _systemSectionTurn(
         AiPromptSectionHeaders.developerInstructions,
         templateBundle.developerInstructions,
       ),
-      // Prefix-extension cache 架构将 Session State 拆成静态/动态两部分：
-      // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
-      // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，绑定
-      //   到触发本次请求的 user/tool round anchor 之后。
-      //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
-      // 静态块固定在 history 之前；动态块首次生成后随 round anchor 持久化，
-      // 后续历史在同一位置逐字重放，避免新 assistant/tool 内容插入时改写旧前缀。
-      // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
-      // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
-      // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
+      // 固定模板在前，项目指令独立成块；项目文件变化不改写模板正文。
+      if (workspaceInstructions.isNotEmpty)
+        _systemSectionTurn(
+          AiPromptSectionHeaders.workspaceInstructions,
+          workspaceInstructions,
+        ),
       _systemSectionTurn(
         AiPromptSectionHeaders.userMemory,
         'Long-term user facts and preferences.\n\n'
@@ -650,8 +647,8 @@ class AiPromptBuilder {
           'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
           '$userInstructionsBody',
         ),
-      if (_renderAvailableWorkflows(runtimeContext).isNotEmpty)
-        _systemSectionTurn('可用工作流', _renderAvailableWorkflows(runtimeContext)),
+      if (availableWorkflows.isNotEmpty)
+        _systemSectionTurn('可用工作流', availableWorkflows),
       _systemSectionTurn(
         AiPromptSectionHeaders.conversationContext,
         _renderCompressionSummary(session, latestCompressionPoint),
@@ -700,8 +697,6 @@ class AiPromptBuilder {
         AiPromptSectionHeaders.toolCatalog,
         _renderRuntimeToolCatalog(
           promptCatalogTools,
-          compact: true,
-          templatePolicy: templatePolicy,
           awaitingPlanApproval: session.awaitingPlanApproval,
           useDsmlToolCalls: useDsmlToolCalls,
           resolvedToolsByName: resolvedToolsByName,
@@ -752,7 +747,7 @@ class AiPromptBuilder {
         ? const <AiChatTurn>[]
         : runtimeTailSnapshotTurns;
     // 所有模板统一按稳定前缀、运行时目录、历史、当前轮锚点和运行时尾部组装，
-    // 缓存亲和键取自真实请求前缀，逐轮状态始终从锚点原位重放。
+    // 缓存亲和键绑定会话和模型，逐轮状态始终从锚点原位重放。
     final promptAssembly = _PromptAssemblyPlan(
       stablePrefixTurns: stablePrefixTurns,
       runtimePrefixTurns: runtimePrefixTurns,
@@ -782,7 +777,6 @@ class AiPromptBuilder {
           : availableTools,
       resolvedToolsByName: resolvedToolsByName,
       model: model,
-      workspaceInstructionCharacters: workspaceInstructions.length,
     );
     final estimatedContextTokens = math.max(
       1,
@@ -1068,7 +1062,6 @@ class AiPromptBuilder {
     required List<AiToolDefinition> nativeTools,
     required Map<String, AiResolvedTool> resolvedToolsByName,
     required AiModelConfig model,
-    required int workspaceInstructionCharacters,
   }) {
     final counts = <AiContextUsageCategory, int>{
       for (final category in AiContextUsageCategory.values) category: 0,
@@ -1080,18 +1073,6 @@ class AiPromptBuilder {
     }
 
     for (final turn in stablePrefixTurns) {
-      if (turn.content.startsWith(AiPromptSectionHeaders.systemInstructions)) {
-        final instructionCharacters = math.min(
-          workspaceInstructionCharacters,
-          turn.promptCharacterCount,
-        );
-        add(AiContextUsageCategory.instructions, instructionCharacters);
-        add(
-          AiContextUsageCategory.systemPrompt,
-          turn.promptCharacterCount - instructionCharacters,
-        );
-        continue;
-      }
       add(_contextUsageCategoryForTurn(turn), turn.promptCharacterCount);
     }
     for (final turn in runtimePrefixTurns) {
@@ -1134,6 +1115,10 @@ class AiPromptBuilder {
 
   AiContextUsageCategory _contextUsageCategoryForTurn(AiChatTurn turn) {
     final content = turn.content;
+    if (content.startsWith(AiPromptSectionHeaders.systemInstructions) ||
+        content.startsWith(AiPromptSectionHeaders.developerInstructions)) {
+      return AiContextUsageCategory.systemPrompt;
+    }
     if (content.contains(AiPromptSectionHeaders.userMemory)) {
       return AiContextUsageCategory.memory;
     }
@@ -1417,10 +1402,6 @@ class AiPromptBuilder {
       return '';
     }
     final buffer = StringBuffer()
-      ..writeln()
-      ..writeln()
-      ..writeln(AiPromptSectionHeaders.workspaceInstructions)
-      ..writeln()
       ..writeln(
         'The following workspace instruction files are active. Later entries are generally more specific than earlier ones.',
       );
@@ -1578,14 +1559,14 @@ class AiPromptBuilder {
         .map((server) => server.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
-    mcpServerNames.sort(_comparePromptCatalogNames);
+    mcpServerNames.sort(compareToolNamesForAiRequest);
     final promptMcpServerInstructions = _mcpServerInstructionsForPrompt(
       mcpServerInstructionsByName,
     );
     final mcpServerInstructionNames = promptMcpServerInstructions.keys.toList(
       growable: false,
     );
-    mcpServerInstructionNames.sort(_comparePromptCatalogNames);
+    mcpServerInstructionNames.sort(compareToolNamesForAiRequest);
     final sidecarMarkdownPath = _sessionCompactMemoryMarkdownPath(
       session,
       latestCompressionPoint,
@@ -2021,8 +2002,6 @@ class AiPromptBuilder {
 
   String _renderRuntimeToolCatalog(
     List<AiToolDefinition> availableTools, {
-    bool compact = false,
-    required AiPromptTemplatePolicy templatePolicy,
     bool awaitingPlanApproval = false,
     bool useDsmlToolCalls = false,
     Map<String, AiResolvedTool> resolvedToolsByName =
@@ -2062,129 +2041,37 @@ class AiPromptBuilder {
       }
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
-    final isMachineExpert = templatePolicy.usesMachineToolCatalog;
-    final isWebReverse = templatePolicy.usesWebReverseToolCatalog;
-    final isAndroidReverse = templatePolicy.usesAndroidReverseToolCatalog;
-    final schemaBackedCompact = compact && !useDsmlToolCalls;
-    final buffer = StringBuffer();
-    if (compact) {
-      buffer.writeln(
+    final buffer = StringBuffer()
+      ..writeln(
         'Authoritative tool list for this turn. Absent tools are unavailable.',
       );
-    } else {
-      buffer
-        ..writeln(
-          'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
-        )
-        ..writeln();
-      if (isMachineExpert) {
-        buffer.writeln(
-          'Capability invocation priority for the Machine Expert template: '
-          'Builtin terminal-interaction workflow is the absolute top priority and MUST drive the main loop '
-          '(target-terminal binding, command dispatch, output parsing, blocking recovery, write-command confirmation). '
-          'External skill__* / mcp__* tools — even those that look like "machine-expert" / "terminal-automation" — '
-          'may only be consulted as auxiliary knowledge sources (command syntax, error interpretation, domain specifics) '
-          'and MUST NOT replace or reorder this template\'s built-in workflow, its phase output templates, or its safety gates. '
-          'All `write text` / `do script` / `keystroke` / `tmux send-keys` dispatch MUST go through the built-in Bash tool '
-          'so it passes the local deny-list and write-command confirmation pipeline.',
-        );
-      } else if (isWebReverse) {
-        buffer.writeln(
-          'Capability invocation priority for the Web Reverse Expert template: '
-          'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. Treat chrome-devtools-mcp and current-page `js-reverse_*` wrappers as CDP MCP routes. '
-          'Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
-          'When `browser_alive` is false or no current endpoint/port exists, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
-          'Read / Grep / Glob / LS handle local artifacts and static code search before Bash; Bash is for reproduction scripts and shell-only toolchains. '
-          'Bash/WebFetch/WebSearch target-origin capture is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
-          'skill__* tools are auxiliary knowledge only. Do not use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP browser automation for target-origin capture; if CDP cannot expose the needed state, explain the gap and use local artifacts or ask the user to restore CDP. '
-          'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
-        );
-      } else if (isAndroidReverse) {
-        buffer.writeln(
-          'Capability invocation priority for the Android Reverse Expert template: '
-          'ADB MCP (or adb Bash) is the first-line device channel for shell, file transfer, logcat, and forward/reverse port mapping. '
-          'Frida MCP (or frida CLI Bash) is the first-line dynamic instrumentation channel; spawn before attach where possible. '
-          'Static analysis (jadx / apktool / radare2 / IDA Pro MCP) precedes dynamic hooking — decompile before hooking unknown code. '
-          'Hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`; never hand-craft hook code. '
-          'Read / Grep / Glob / LS handle local artifacts and static searches before Bash; Bash is for ADB/Frida/static-analysis toolchains and reproduction scripts. '
-          'Stop and report after 2 consecutive Frida/ADB failures on the same target; never silently downgrade.',
-        );
-      } else {
-        buffer.writeln(
-          'Choose tools by task fit, not by trial order. '
-          'For local file read/search/list/edit, use Read/Grep/Glob/LS/Edit family before Bash. '
-          'Use a skill only when the user explicitly selected it or the request clearly needs that skill\'s specialized workflow. '
-          'When no listed capability is required, stay on the base instructions and ask only for missing requirements that block the response. '
-          'Prefer MCP when it is the clearest live data/action surface; use builtin tools for local files, shell, search, and routine implementation.',
-        );
-      }
-    }
-    if (skillTools.isNotEmpty) {
+    for (final group in [
+      (title: 'Skills', tools: skillTools),
+      (title: 'MCP', tools: mcpTools),
+      (title: 'Builtin', tools: builtinTools),
+    ]) {
+      if (group.tools.isEmpty) continue;
       buffer
         ..writeln()
-        ..writeln(
-          compact
-              ? (isMachineExpert ? '## Skills (auxiliary only)' : '## Skills')
-              : (isMachineExpert
-                    ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
-                    : isWebReverse
-                    ? '## Skill Tools (auxiliary knowledge only — CDP remains source of truth)'
-                    : isAndroidReverse
-                    ? '## Skill Tools (auxiliary knowledge only — ADB/Frida remain source of truth)'
-                    : '## Skill Tools (load only on clear match)'),
+        ..writeln('## ${group.title}');
+      if (!useDsmlToolCalls) {
+        // 原生工具定义已携带说明和参数，目录只列名称，避免重复消耗输入。
+        buffer.writeln(group.tools.map((tool) => tool.name).join(', '));
+        continue;
+      }
+      for (final tool in group.tools) {
+        final description = clipTextByCodeUnits(
+          normalizeDescriptionText(tool.description),
+          120,
         );
-      for (final tool in skillTools) {
-        _renderToolEntry(
-          buffer,
-          tool,
-          compact: compact,
-          schemaBackedCompact: schemaBackedCompact,
-        );
+        buffer.writeln('- ${tool.name}: $description');
+        final arguments = _requiredToolArgumentNames(tool.parameters);
+        if (arguments.isNotEmpty) {
+          buffer.writeln('  Args: ${arguments.join(', ')}.');
+        }
       }
     }
-    if (mcpTools.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln(
-          compact
-              ? '## MCP'
-              : isWebReverse
-              ? '## MCP Tools (CDP-first for Web Reverse)'
-              : isAndroidReverse
-              ? '## MCP Tools (ADB/Frida-first for Android Reverse)'
-              : '## MCP Tools (medium priority)',
-        );
-      for (final tool in mcpTools) {
-        _renderToolEntry(
-          buffer,
-          tool,
-          compact: compact,
-          schemaBackedCompact: schemaBackedCompact,
-        );
-      }
-    }
-    if (builtinTools.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln(
-          compact
-              ? '## Builtin'
-              : isWebReverse
-              ? '## Builtin Tools (artifact/search/reproduce support)'
-              : isAndroidReverse
-              ? '## Builtin Tools (artifact/search/reproduce support)'
-              : '## Builtin Tools (baseline)',
-        );
-      for (final tool in builtinTools) {
-        _renderToolEntry(
-          buffer,
-          tool,
-          compact: compact,
-          schemaBackedCompact: schemaBackedCompact,
-        );
-      }
-    }
-    if (useDsmlToolCalls && visibleToolCount > 0) {
+    if (useDsmlToolCalls) {
       buffer
         ..writeln()
         ..writeln('## Tool Invocation Format (DSML)')
@@ -2229,66 +2116,6 @@ class AiPromptBuilder {
     return buffer.toString().trimRight();
   }
 
-  void _renderToolEntry(
-    StringBuffer buffer,
-    AiToolDefinition tool, {
-    bool compact = false,
-    bool schemaBackedCompact = false,
-  }) {
-    if (schemaBackedCompact) {
-      final description = _truncateToolDescription(
-        tool.description,
-        maxCharacters: 80,
-      );
-      buffer
-        ..writeln()
-        ..writeln('- ${tool.name}: $description');
-      return;
-    }
-    final description = compact
-        ? _truncateToolDescription(tool.description, maxCharacters: 120)
-        : _truncateToolDescription(tool.description);
-    final requiredArguments = _toolArgumentNames(
-      tool.parameters,
-      requiredOnly: true,
-    );
-    buffer
-      ..writeln()
-      ..write('- ${tool.name}: $description');
-    if (requiredArguments.isNotEmpty) {
-      buffer.write(
-        compact
-            ? ' Args: ${requiredArguments.join(', ')}.'
-            : ' Required args: ${requiredArguments.join(', ')}.',
-      );
-    }
-    if (!compact) {
-      final optionalArguments = _toolArgumentNames(
-        tool.parameters,
-        requiredOnly: false,
-      );
-      if (optionalArguments.isNotEmpty) {
-        buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
-      }
-    }
-    buffer.writeln();
-  }
-
-  String _truncateToolDescription(
-    String description, {
-    int maxCharacters = 220,
-  }) {
-    final normalized = normalizeDescriptionText(description);
-    if (normalized.length <= maxCharacters) {
-      return normalized;
-    }
-    return clipTextByCodeUnits(normalized, maxCharacters);
-  }
-
-  String _normalizeToolNameForPromptCatalog(String value) {
-    return normalizeAsciiLookupKey(value);
-  }
-
   int _compareToolDefinitionsForPromptCatalog(
     AiToolDefinition a,
     AiToolDefinition b, {
@@ -2314,7 +2141,7 @@ class AiPromptBuilder {
       );
       if (priorityCompare != 0) return priorityCompare;
     }
-    return _comparePromptCatalogNames(a.name, b.name);
+    return compareToolNamesForAiRequest(a.name, b.name);
   }
 
   int _toolSourcePromptRank(AiResolvedTool? tool) {
@@ -2326,59 +2153,27 @@ class AiPromptBuilder {
     };
   }
 
-  int _comparePromptCatalogNames(String a, String b) {
-    final normalizedCompare = _normalizeToolNameForPromptCatalog(
-      a,
-    ).compareTo(_normalizeToolNameForPromptCatalog(b));
-    if (normalizedCompare != 0) {
-      return normalizedCompare;
-    }
-    return a.compareTo(b);
-  }
-
   List<String> _promptCatalogToolNames(List<AiToolDefinition> tools) {
     final names = tools
         .map((tool) => tool.name.trim())
         .where((name) => name.isNotEmpty)
         .toSet()
         .toList(growable: false);
-    names.sort(_comparePromptCatalogNames);
+    names.sort(compareToolNamesForAiRequest);
     return names;
   }
 
   String _promptCatalogSignature(List<AiToolDefinition> tools) {
-    final entries = tools
-        .where((tool) => tool.name.trim().isNotEmpty)
-        .toList(growable: false);
-    entries.sort(_compareToolDefinitionsForPromptCatalog);
-    return entries
+    return stableToolDefinitionsForAiRequest(tools)
         .map(
-          (tool) => <String>[
-            tool.name.trim(),
-            tool.description.trim(),
-            _promptJsonEncoder.convert(_canonicalPromptJson(tool.parameters)),
-          ].join('\u001f'),
+          (tool) => _promptJsonEncoder.convert(<String, Object?>{
+            'name': tool.name,
+            'description': tool.description,
+            'parameters': tool.parameters,
+            'strict': tool.strict,
+          }),
         )
         .join('\u001e');
-  }
-
-  Object? _canonicalPromptJson(Object? value) {
-    if (value is Map) {
-      final entries = value.entries
-          .map(
-            (entry) => MapEntry<String, Object?>(
-              '${entry.key}',
-              _canonicalPromptJson(entry.value),
-            ),
-          )
-          .toList(growable: false);
-      entries.sort((left, right) => left.key.compareTo(right.key));
-      return Map<String, Object?>.fromEntries(entries);
-    }
-    if (value is Iterable) {
-      return value.map(_canonicalPromptJson).toList(growable: false);
-    }
-    return value;
   }
 
   String _promptFingerprint(String content) {
@@ -2407,23 +2202,16 @@ class AiPromptBuilder {
     );
   }
 
-  List<String> _toolArgumentNames(
-    Map<String, Object?> parameters, {
-    required bool requiredOnly,
-  }) {
+  List<String> _requiredToolArgumentNames(Map<String, Object?> parameters) {
     final properties = stringKeyedMapFromValue(parameters['properties']);
     if (properties.isEmpty) return const <String>[];
     final requiredNames = stringListFromValue(parameters['required']).toSet();
     final names = properties.keys
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
-        .where(
-          (item) => requiredOnly
-              ? requiredNames.contains(item)
-              : !requiredNames.contains(item),
-        )
+        .where(requiredNames.contains)
         .toList(growable: false);
-    names.sort(_comparePromptCatalogNames);
+    names.sort(compareToolNamesForAiRequest);
     return names;
   }
 
@@ -2888,7 +2676,7 @@ class AiPromptBuilder {
     required List<String> availableToolNames,
     required Map<String, AiResolvedTool> resolvedToolsByName,
   }) {
-    if (!templatePolicy.usesAndroidReverseToolCatalog) return null;
+    if (!templatePolicy.includesAndroidReverseRuntime) return null;
     final config = _boundedPromptMetadataMap(
       session.metadata['android_reverse_config'],
     );
@@ -3125,7 +2913,7 @@ class AiPromptBuilder {
           .where((entry) => entry.key.isNotEmpty)
           .toList(growable: false);
       entries.sort(
-        (left, right) => _comparePromptCatalogNames(left.key, right.key),
+        (left, right) => compareToolNamesForAiRequest(left.key, right.key),
       );
       final result = <String, Object?>{};
       var count = 0;
@@ -4348,7 +4136,7 @@ $tail''';
         .where((entry) => entry.key.isNotEmpty && entry.value.isNotEmpty)
         .toList(growable: false);
     entries.sort((left, right) {
-      final keyCompare = _comparePromptCatalogNames(left.key, right.key);
+      final keyCompare = compareToolNamesForAiRequest(left.key, right.key);
       if (keyCompare != 0) return keyCompare;
       return _comparePromptText(left.value, right.value);
     });
@@ -5464,7 +5252,7 @@ $content
         .where((name) => name.isNotEmpty)
         .toSet()
         .toList(growable: false);
-    resolvedTaskNames.sort(_comparePromptCatalogNames);
+    resolvedTaskNames.sort(compareToolNamesForAiRequest);
     if (resolvedTaskNames.isNotEmpty) {
       return resolvedTaskNames.first;
     }
@@ -5472,7 +5260,7 @@ $content
         .where((name) => name == 'Task')
         .toSet()
         .toList(growable: false);
-    availableTaskNames.sort(_comparePromptCatalogNames);
+    availableTaskNames.sort(compareToolNamesForAiRequest);
     if (availableTaskNames.isNotEmpty) {
       return availableTaskNames.first;
     }
@@ -5553,7 +5341,8 @@ $content
             )
             .toList(growable: false)
           ..sort(
-            (left, right) => _comparePromptCatalogNames(left.name, right.name),
+            (left, right) =>
+                compareToolNamesForAiRequest(left.name, right.name),
           );
     final serverInstructionsByName = _mcpServerInstructionsForPrompt(
       mcpServerInstructionsByName,
