@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
@@ -60,7 +61,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   String? _lastRefreshErrorKey;
   int _tabIndex = 0;
   bool _refreshPending = false;
-  Future<void>? _refreshTask;
+  final _refreshFlight = OpenHandSingleFlight<void>();
   bool _refreshing = false;
   bool _operating = false;
   AppLocalizations get _l10n => AppLocalizations.of(context)!;
@@ -97,7 +98,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     _refreshTimer = startNonOverlappingPeriodicTimer(
       Duration(seconds: seconds),
       (_) async {
-        if (_refreshTask == null && !_operating) {
+        if (!_refreshFlight.isRunning && !_operating) {
           await _refresh(silent: true);
         }
       },
@@ -115,18 +116,13 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         _error = null;
       });
     }
-    final activeTask = _refreshTask;
-    if (activeTask != null) return activeTask;
-    late final Future<void> task;
-    task = _drainRefreshRequests().whenComplete(() {
-      if (!identical(_refreshTask, task)) return;
-      _refreshTask = null;
-      if (mounted && _refreshing) {
-        setState(() => _refreshing = false);
+    return _refreshFlight.run(() async {
+      try {
+        await _drainRefreshRequests();
+      } finally {
+        if (mounted && _refreshing) setState(() => _refreshing = false);
       }
     });
-    _refreshTask = task;
-    return task;
   }
 
   Future<void> _drainRefreshRequests() async {

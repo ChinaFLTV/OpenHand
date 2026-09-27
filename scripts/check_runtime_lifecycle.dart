@@ -34,6 +34,8 @@ import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/mcp/service/mcp_tool_discovery_service.dart';
 import 'package:openhand/features/web_reverse/lsp/web_reverse_lsp_client.dart';
 import 'package:openhand/shared/net/json_rpc_message.dart';
+import 'package:openhand/shared/util/async_concurrency.dart';
+import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/app/model/hook_config.dart';
 import 'package:openhand/features/hooks/hooks_controller.dart';
 import 'package:openhand/features/hooks/service/hooks_executor.dart';
@@ -182,6 +184,72 @@ final class _DrainRuntime implements AiToolRuntimeService {
 }
 
 void main() {
+  test('合并任务先登记再执行，同步重入、失败恢复和新一轮互不干扰', () async {
+    final flight = OpenHandSingleFlight<int>();
+    final pending = Completer<int>();
+    Future<int>? reentrant;
+    var calls = 0;
+    final first = flight.run(() {
+      calls++;
+      reentrant = flight.run(() { calls++; return -1; });
+      return pending.future;
+    });
+    expect(identical(first, reentrant), isTrue);
+    expect(flight.isRunning, isTrue);
+    final failure = expectLater(first, throwsStateError);
+    pending.completeError(StateError('模拟刷新失败'));
+    await failure;
+    expect(flight.isRunning, isFalse);
+    expect(await flight.run(() => 42), 42);
+    expect(calls, 1);
+    await flight.idle;
+  });
+
+  for (final cancelOnTimeout in [false, true]) {
+    testWidgets('周期回调超时后保持非重入，取消策略：$cancelOnTimeout', (tester) async {
+      final pending = Completer<void>();
+      final errors = <Object>[];
+      var calls = 0;
+      final timer = startNonOverlappingPeriodicTimer(
+        const Duration(milliseconds: 10),
+        (_) { calls++; return pending.future; },
+        min: const Duration(milliseconds: 10),
+        callbackTimeout: const Duration(milliseconds: 25),
+        cancelOnCallbackTimeout: cancelOnTimeout,
+        onError: (error, stack) => errors.add(error),
+      );
+      addTearDown(timer.cancel);
+      await tester.pump(const Duration(milliseconds: 10));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(calls, 1);
+      expect(errors.single, isA<TimeoutException>());
+      expect(timer.isActive, !cancelOnTimeout);
+      pending.completeError(StateError('模拟迟到失败'));
+      await tester.pump();
+      expect(errors.whereType<StateError>().length, 1);
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(calls, cancelOnTimeout ? 1 : 2);
+      timer.cancel();
+    });
+  }
+
+  testWidgets('周期回调自身超时异常不会误取消定时器', (tester) async {
+    final errors = <Object>[];
+    final timer = startNonOverlappingPeriodicTimer(
+      const Duration(milliseconds: 10),
+      (_) => throw TimeoutException('业务自身超时'),
+      min: const Duration(milliseconds: 10),
+      onError: (error, stack) => errors.add(error),
+    );
+    addTearDown(timer.cancel);
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(errors.single, isA<TimeoutException>());
+    expect(timer.isActive, isTrue);
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(errors.length, 2);
+    timer.cancel();
+  });
+
   test('中转站并发饱和后返回 429，释放请求后继续正常接收', () async {
     final controller = _ProxyController();
     final server = AiModelProxyHttpServer(controller: controller, modelsProvider: () => []);

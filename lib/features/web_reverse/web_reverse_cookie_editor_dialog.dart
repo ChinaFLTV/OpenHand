@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -60,7 +61,7 @@ class _CookieEditorDialog extends StatefulWidget {
 class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   bool _loading = false;
   bool _refreshPending = false;
-  Future<void>? _refreshTask;
+  final _refreshFlight = OpenHandSingleFlight<void>();
   bool _mutating = false;
   String _filter = '';
   List<_CookieRow> _all = const [];
@@ -75,21 +76,18 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   Future<void> _refresh() {
     if (!mounted) return Future<void>.value();
     _refreshPending = true;
-    final activeTask = _refreshTask;
-    if (activeTask != null) return activeTask;
-    final loc0 = AppLocalizations.of(context);
-    setState(() {
-      _loading = true;
-      _status = loc0?.webReverseCookieEditorFetching ?? 'Fetching cookies...';
+    return _refreshFlight.run(() async {
+      final loc = AppLocalizations.of(context);
+      setState(() {
+        _loading = true;
+        _status = loc?.webReverseCookieEditorFetching ?? '正在获取 Cookie…';
+      });
+      try {
+        await _drainRefreshRequests();
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
     });
-    late final Future<void> task;
-    task = _drainRefreshRequests().whenComplete(() {
-      if (!identical(_refreshTask, task)) return;
-      _refreshTask = null;
-      if (mounted) setState(() => _loading = false);
-    });
-    _refreshTask = task;
-    return task;
   }
 
   Future<void> _drainRefreshRequests() async {
@@ -126,7 +124,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
 
   List<_CookieRow> get _visible {
     if (_filter.trim().isEmpty) return _all;
-    final f = _filter.toLowerCase();
+    final f = _filter.trim().toLowerCase();
     return _all
         .where(
           (c) =>

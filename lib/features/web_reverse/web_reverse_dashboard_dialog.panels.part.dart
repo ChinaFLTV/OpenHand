@@ -2727,7 +2727,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   List<Map<String, Object?>> _swVersions = const [];
   bool _loading = false;
   bool _refreshQueued = false;
-  Future<void>? _refreshTask;
+  final _refreshFlight = OpenHandSingleFlight<void>();
 
   @override
   void initState() {
@@ -2736,15 +2736,9 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   }
 
   Future<void> _refresh() {
+    if (!mounted) return Future<void>.value();
     _refreshQueued = true;
-    final pending = _refreshTask;
-    if (pending != null) return pending;
-    late final Future<void> task;
-    task = _drainRefreshQueue().whenComplete(() {
-      if (identical(_refreshTask, task)) _refreshTask = null;
-    });
-    _refreshTask = task;
-    return task;
+    return _refreshFlight.run(_drainRefreshQueue);
   }
 
   Future<void> _drainRefreshQueue() async {
@@ -2819,7 +2813,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     } else if (tab == _AppTab.serviceWorkers) {
       swVersions = await widget.controller.listServiceWorkers();
     }
-    if (!mounted || tab != _tab) return;
+    if (!mounted || tab != _tab || _refreshQueued) return;
     setState(() {
       _origin = origin;
       if (tab == _AppTab.cookies) _cookies = cookies;

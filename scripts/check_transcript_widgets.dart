@@ -834,6 +834,38 @@ void main() {
     scheduler.clear();
   });
 
+  testWidgets('淘汰回调同步入队仍遵守容量上限', (tester) async {
+    final scheduler = RichContentFrameScheduler(maxPending: 1);
+    final executed = <String>[];
+    var dropped = 0;
+    scheduler.schedule(() => executed.add('旧任务'), onDropped: () {
+      scheduler.schedule(() => executed.add('回调新任务'));
+    });
+    scheduler.schedule(() => executed.add('超限任务'), onDropped: () => dropped++);
+    await tester.pump();
+    await tester.pump();
+    expect(executed, ['回调新任务']);
+    expect(dropped, 1);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    scheduler.clear();
+  });
+
+  testWidgets('淘汰回调失败不遗留空队列或导致逐帧错误', (tester) async {
+    final scheduler = RichContentFrameScheduler(maxPending: 1);
+    scheduler.schedule(() {}, onDropped: () => throw StateError('模拟淘汰失败'));
+    expect(() => scheduler.schedule(() {}), throwsStateError);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    var executed = 0;
+    final cancel = scheduler.schedule(() => executed++);
+    await tester.pump();
+    cancel();
+    cancel();
+    expect(executed, 1, reason: '任务完成后的重复取消不能影响后续调度');
+    scheduler.clear();
+  });
+
   testWidgets('滚动静默期富文本队列不逐帧空转，静默结束后继续执行', (tester) async {
     final activity = TranscriptScrollActivity();
     addTearDown(activity.dispose);

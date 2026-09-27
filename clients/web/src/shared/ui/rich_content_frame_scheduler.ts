@@ -3,11 +3,11 @@ const FRAME_FALLBACK_MS = 16;
 
 /** HTML 和 Markdown 共用帧预算，取消时立即释放闭包及其消息引用。 */
 export class RichContentFrameScheduler {
-  private readonly pending = new Set<{ task: () => void }>();
+  private readonly pending = new Set<{ task: (() => void) | null }>();
   private draining = false;
 
   schedule(task: () => void): () => void {
-    const entry = { task };
+    const entry: { task: (() => void) | null } = { task };
     this.pending.add(entry);
     if (!this.draining) {
       this.draining = true;
@@ -15,6 +15,7 @@ export class RichContentFrameScheduler {
     }
     return () => {
       this.pending.delete(entry);
+      entry.task = null;
     };
   }
 
@@ -38,9 +39,13 @@ export class RichContentFrameScheduler {
 
   private drain(): void {
     const entry = this.pending.values().next().value;
-    if (entry) this.pending.delete(entry);
+    const task = entry?.task;
+    if (entry) {
+      this.pending.delete(entry);
+      entry.task = null;
+    }
     try {
-      entry?.task();
+      task?.();
     } finally {
       if (this.pending.size > 0) this.scheduleFrame();
       else this.draining = false;

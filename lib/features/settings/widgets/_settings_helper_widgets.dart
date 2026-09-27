@@ -6235,14 +6235,14 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
   int? _cacheBytesOnDisk;
   bool _cacheBytesLoading = false;
   bool _cacheRefreshPending = false;
-  Future<void>? _cacheRefreshTask;
+  final _cacheRefreshFlight = OpenHandSingleFlight<void>();
   bool _clearingCache = false;
   List<L> _recentCalls = const [];
   Map<K, S> _engineStats = const {};
   Map<K, List<H>> _engineHistory = const {};
   bool _telemetryLoading = false;
   bool _telemetryRefreshPending = false;
-  Future<void>? _telemetryRefreshTask;
+  final _telemetryRefreshFlight = OpenHandSingleFlight<void>();
   bool _clearingTelemetry = false;
   bool _exportingTelemetry = false;
 
@@ -6320,23 +6320,20 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
   Future<void> _refreshCacheBytesOnDisk() {
     if (!mounted) return Future<void>.value();
     _cacheRefreshPending = true;
-    final activeTask = _cacheRefreshTask;
-    if (activeTask != null) return activeTask;
-    setState(() => _cacheBytesLoading = true);
-    late final Future<void> task;
-    task = _drainCacheRefreshRequests().whenComplete(() {
-      if (!identical(_cacheRefreshTask, task)) return;
-      _cacheRefreshTask = null;
-      if (mounted) setState(() => _cacheBytesLoading = false);
+    return _cacheRefreshFlight.run(() async {
+      setState(() => _cacheBytesLoading = true);
+      try {
+        await _drainCacheRefreshRequests();
+      } finally {
+        if (mounted) setState(() => _cacheBytesLoading = false);
+      }
     });
-    _cacheRefreshTask = task;
-    return task;
   }
 
   Future<void> _drainCacheRefreshRequests() async {
     while (mounted && _cacheRefreshPending) {
       _cacheRefreshPending = false;
-      var bytes = 0;
+      var bytes = _cacheBytesOnDisk;
       try {
         bytes = await _loadCacheBytesOnDisk();
       } catch (e, st) {
@@ -6406,17 +6403,14 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
   Future<void> _refreshTelemetry() {
     if (!mounted) return Future<void>.value();
     _telemetryRefreshPending = true;
-    final activeTask = _telemetryRefreshTask;
-    if (activeTask != null) return activeTask;
-    setState(() => _telemetryLoading = true);
-    late final Future<void> task;
-    task = _drainTelemetryRefreshRequests().whenComplete(() {
-      if (!identical(_telemetryRefreshTask, task)) return;
-      _telemetryRefreshTask = null;
-      if (mounted) setState(() => _telemetryLoading = false);
+    return _telemetryRefreshFlight.run(() async {
+      setState(() => _telemetryLoading = true);
+      try {
+        await _drainTelemetryRefreshRequests();
+      } finally {
+        if (mounted) setState(() => _telemetryLoading = false);
+      }
     });
-    _telemetryRefreshTask = task;
-    return task;
   }
 
   Future<void> _drainTelemetryRefreshRequests() async {

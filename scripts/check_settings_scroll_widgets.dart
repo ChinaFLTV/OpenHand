@@ -31,6 +31,29 @@ Future<void> main() async {
 }
 
 const _checks = '''
+class _TelemetryProbe extends StatefulWidget {
+  const _TelemetryProbe({super.key});
+  @override
+  State<_TelemetryProbe> createState() => _TelemetryProbeState();
+}
+
+class _TelemetryProbeState extends State<_TelemetryProbe>
+    with _ToolTelemetryPanelHost<_TelemetryProbe, int, int, int, int> {
+  final loads = <Completer<int>>[];
+  @override
+  String get _telemetryLogTag => '遥测刷新回归';
+  @override
+  Future<int> _loadCacheBytesOnDisk() {
+    final result = Completer<int>();
+    loads.add(result);
+    return result.future;
+  }
+  @override
+  Widget build(BuildContext context) => Text('缓存：\$_cacheBytesOnDisk');
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _ScrollSettingsStore extends SettingsStore {
   @override
   Future<SettingsLoadResult> load() async => SettingsLoadResult(
@@ -74,6 +97,37 @@ Future<SettingsController> _mount(WidgetTester tester, {Widget child = const Set
 }
 
 void main() {
+  testWidgets('缓存刷新合并排队、跳过旧结果，失败保留上次统计，销毁后停止更新', (tester) async {
+    final key = GlobalKey<_TelemetryProbeState>();
+    await tester.pumpWidget(MaterialApp(home: _TelemetryProbe(key: key)));
+    final state = key.currentState!;
+    final first = state._refreshCacheBytesOnDisk();
+    final queued = state._refreshCacheBytesOnDisk();
+    expect(identical(first, queued), isTrue);
+    expect(state.loads.length, 1);
+    state.loads[0].complete(100);
+    await tester.pump();
+    expect(state.loads.length, 2);
+    expect(state._cacheBytesOnDisk, isNull);
+    state.loads[1].complete(200);
+    await tester.pump();
+    await first;
+    expect(state._cacheBytesOnDisk, 200);
+    expect(state._cacheBytesLoading, isFalse);
+    final failed = state._refreshCacheBytesOnDisk();
+    state.loads.last.completeError(StateError('模拟统计失败'));
+    await tester.pump();
+    await failed;
+    expect(state._cacheBytesOnDisk, 200);
+    expect(state._cacheBytesLoading, isFalse);
+    final disposed = state._refreshCacheBytesOnDisk();
+    await tester.pumpWidget(const SizedBox.shrink());
+    state.loads.last.complete(300);
+    await disposed;
+    expect(state._cacheBytesOnDisk, 200);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('设置首页仅构建视口附近的动画分组，快速往返无异常', (tester) async {
     _requestCount = 0;
     await _mount(tester);

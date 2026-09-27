@@ -23,14 +23,12 @@ class RichContentFrameScheduler {
   }) {
     if (_priorityPending.length + _pending.length >= maxPending) {
       if (_pending.isNotEmpty) {
-        final dropped = _pending.first;
-        _pending.remove(dropped);
-        dropped.onDropped?.call();
+        _drop(_pending.first);
       } else if (priority) {
-        final dropped = _priorityPending.last;
-        _priorityPending.remove(dropped);
-        dropped.onDropped?.call();
-      } else {
+        _drop(_priorityPending.last);
+      }
+      // 淘汰回调可能同步补入任务，不能再次突破容量上限。
+      if (_priorityPending.length + _pending.length >= maxPending) {
         onDropped?.call();
         return () {};
       }
@@ -44,11 +42,13 @@ class RichContentFrameScheduler {
     }
     _active.add(this);
     _scheduleFrame();
-    return () {
-      if (!_priorityPending.remove(entry) && !_pending.remove(entry)) return;
-      if (_priorityPending.isEmpty && _pending.isEmpty) _active.remove(this);
-      entry.onDropped?.call();
-    };
+    return () => _drop(entry);
+  }
+
+  void _drop(_FrameTask entry) {
+    if (!_priorityPending.remove(entry) && !_pending.remove(entry)) return;
+    if (_priorityPending.isEmpty && _pending.isEmpty) _active.remove(this);
+    entry.drop();
   }
 
   void clear() {
@@ -57,7 +57,7 @@ class RichContentFrameScheduler {
     _pending.clear();
     _active.remove(this);
     for (final entry in dropped) {
-      entry.onDropped?.call();
+      entry.drop();
     }
   }
 
@@ -99,11 +99,7 @@ class RichContentFrameScheduler {
             selected._pending.isNotEmpty) {
           _active.add(selected);
         }
-        if (!(entry.isValid?.call() ?? true)) {
-          entry.onDropped?.call();
-          continue;
-        }
-        entry.task();
+        if (!entry.run()) continue;
         return;
       }
     } finally {
@@ -115,9 +111,35 @@ class RichContentFrameScheduler {
 }
 
 class _FrameTask {
-  const _FrameTask(this.task, this.isValid, this.onDropped);
+  _FrameTask(this.task, this.isValid, this.onDropped);
 
-  final VoidCallback task;
-  final bool Function()? isValid;
-  final VoidCallback? onDropped;
+  VoidCallback? task;
+  bool Function()? isValid;
+  VoidCallback? onDropped;
+
+  // 取消句柄可能比任务存活更久，结束前解除对正文与组件的引用。
+  void _release() {
+    task = null;
+    isValid = null;
+    onDropped = null;
+  }
+
+  void drop() {
+    final notify = onDropped;
+    _release();
+    notify?.call();
+  }
+
+  bool run() {
+    final execute = task;
+    final validate = isValid;
+    final notifyDropped = onDropped;
+    _release();
+    if (!(validate?.call() ?? true)) {
+      notifyDropped?.call();
+      return false;
+    }
+    execute?.call();
+    return true;
+  }
 }
