@@ -1,6 +1,8 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import type { SessionMessage } from '../src/api/sessions';
+import { richContentFrameScheduler } from '../src/shared/ui/rich_content_frame_scheduler';
+import { initialVirtualMessageRange } from '../src/shared/util/virtual_message_list_math';
 import { Markdown } from '../src/components/Markdown';
 import { MessageCard, markMessagesAsAppeared } from '../src/components/MessageCard';
 import { VirtualMessageList } from '../src/features/sessions/components/SessionDetailPage';
@@ -39,6 +41,47 @@ async function clickToggle() {
 }
 
 try {
+  for (const count of [0, 1, 2, 3, 6, 1000]) {
+    const range = initialVirtualMessageRange(count);
+    verify(range.end === count && range.end - range.start <= 2, `${count} 条消息首帧最多挂载两条尾部`);
+  }
+  for (const format of ['markdown', 'html'] as const) {
+    const originalSchedule = richContentFrameScheduler.schedule;
+    const pending = new Set<() => void>();
+    const mountHistory = (revision: string, deferInitialRender: boolean) => render(<div>
+      {Array.from({ length: 4 }, (_, index) => <Markdown key={index}
+        source={format === 'html' ? `<strong>历史-${index}-${revision}</strong>` : `**历史-${index}-${revision}**`}
+        format={format} deferInitialRender={deferInitialRender} />)}
+    </div>, root);
+    await act(async () => { mountHistory('原文', false); });
+    await until(() => root.querySelectorAll('strong').length === 4);
+    richContentFrameScheduler.schedule = (task) => {
+      pending.add(task);
+      return () => { pending.delete(task); };
+    };
+    try {
+      await act(async () => { mountHistory('补齐', true); });
+      verify(pending.size === 4 && !root.textContent?.includes('补齐'), '历史正文批量补齐先排队并保留旧树');
+      const first = pending.values().next().value!;
+      pending.delete(first);
+      await act(async () => { first(); });
+      verify(root.querySelectorAll('strong').length === 4
+        && Array.from(root.querySelectorAll('strong')).filter((node) => node.textContent?.includes('补齐')).length === 1,
+      '单个渲染许可只更新一张历史卡片');
+      await act(async () => { mountHistory('最新', true); });
+      verify(pending.size === 4, '连续补齐取消旧任务，不累积失效正文');
+      await act(async () => { mountHistory('展开', false); });
+      verify(pending.size === 0 && Array.from(root.querySelectorAll('strong')).every((node) => node.textContent?.includes('展开')),
+        '主动展开立即呈现正文并取消等待任务');
+      await act(async () => { mountHistory('卸载前', true); });
+      render(null, root);
+      verify(pending.size === 0, '卸载卡片释放全部等待任务');
+    } finally {
+      richContentFrameScheduler.schedule = originalSchedule;
+      render(null, root);
+    }
+  }
+
   const largeCode = 'const value = "长代码正文";\n'.repeat(1200);
   await act(async () => { render(<Markdown source={`\`\`\`js\n${largeCode}\`\`\``} deferInitialRender={false} />, root); });
   await until(() => root.querySelector('code') != null);

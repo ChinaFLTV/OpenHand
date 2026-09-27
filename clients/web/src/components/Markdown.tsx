@@ -1444,6 +1444,24 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
   );
 });
 
+/** 已挂载历史正文补齐时也共用帧预算，等待期间保留原有内容。 */
+function ScheduledMarkdownBody(props: MarkdownProps) {
+  const [renderedSource, setRenderedSource] = useState(props.source);
+  const wasStreaming = useRef(Boolean(props.streaming));
+  const deferUpdate = props.deferInitialRender === true && !props.streaming
+    && !wasStreaming.current && !props.raw && props.format !== 'plain_text';
+  useLayoutEffect(() => {
+    wasStreaming.current = Boolean(props.streaming);
+    if (renderedSource === props.source) return;
+    if (!deferUpdate) {
+      setRenderedSource(props.source);
+      return;
+    }
+    return richContentFrameScheduler.schedule(() => setRenderedSource(props.source));
+  }, [deferUpdate, props.source, renderedSource, props.streaming]);
+  return <MarkdownBody {...props} source={deferUpdate ? renderedSource : props.source} />;
+}
+
 /** 历史正文先进入视口再做格式检测、预处理和插件加载。 */
 export const Markdown = memo(function Markdown(props: MarkdownProps) {
   const source = props.source ?? '';
@@ -1458,7 +1476,7 @@ export const Markdown = memo(function Markdown(props: MarkdownProps) {
   const { hostRef, ready } = useRichContentMount(deferred);
   return (
     <div ref={hostRef} class="oh-rich-content-host">
-      {ready ? <MarkdownBody {...props} /> : <MarkdownPendingPreview source={source} />}
+      {ready ? <ScheduledMarkdownBody {...props} /> : <MarkdownPendingPreview source={source} />}
     </div>
   );
 });

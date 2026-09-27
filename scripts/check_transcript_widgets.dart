@@ -872,38 +872,41 @@ void main() {
     expect(find.text('已渲染正文'), findsOneWidget);
   });
 
-  testWidgets('已挂载历史正文批量补齐时逐帧解析，等待期间保留旧树', (tester) async {
-    var revision = 0;
-    late StateSetter rebuild;
-    String source(int index) => '**历史-$index-$revision** ${'正文 ' * 300}';
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: StatefulBuilder(
-      builder: (_, setState) {
-        rebuild = setState;
-        return SingleChildScrollView(child: Column(children: [
-          for (var index = 0; index < 4; index++)
-            _SafeMarkdownRichBody(_SafeMarkdownBody(
-              data: source(index), styleSheet: MarkdownStyleSheet(),
-              deferInitialParse: false,
-            )),
-        ]));
-      },
-    ))));
-    final states = tester.stateList<_SafeMarkdownBodyState>(
-      find.byType(_SafeMarkdownRichBody)).toList();
-    final oldTrees = states.map((state) => state._children).toList();
-    rebuild(() => revision++);
-    await tester.pump();
-    expect(states.where((state) => state._lastData == state.config.data).length, 1);
-    for (var index = 1; index < states.length; index++) {
-      expect(identical(states[index]._children, oldTrees[index]), true);
-    }
-    for (var completed = 2; completed <= states.length; completed++) {
+  for (final shortContent in [false, true]) {
+    testWidgets('已挂载历史正文批量补齐时逐帧解析，短正文=$shortContent', (tester) async {
+      var revision = 0;
+      late StateSetter rebuild;
+      String source(int index) => '**历史-$index-$revision** ${'正文 ' * (shortContent ? 30 : 300)}';
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: StatefulBuilder(
+        builder: (_, setState) {
+          rebuild = setState;
+          return SingleChildScrollView(child: Column(children: [
+            for (var index = 0; index < 4; index++)
+              _SafeMarkdownRichBody(_SafeMarkdownBody(
+                data: source(index), styleSheet: MarkdownStyleSheet(),
+                deferInitialParse: shortContent,
+              )),
+          ]));
+        },
+      ))));
+      await tester.pumpAndSettle();
+      final states = tester.stateList<_SafeMarkdownBodyState>(
+        find.byType(_SafeMarkdownRichBody)).toList();
+      final oldTrees = states.map((state) => state._children).toList();
+      rebuild(() => revision++);
       await tester.pump();
-      expect(states.where((state) => state._lastData == state.config.data).length, completed);
-    }
-    await tester.pumpWidget(const SizedBox());
-    expect(tester.takeException(), isNull);
-  });
+      expect(states.where((state) => state._lastData == state.config.data).length, 1);
+      for (var index = 1; index < states.length; index++) {
+        expect(identical(states[index]._children, oldTrees[index]), true);
+      }
+      for (var completed = 2; completed <= states.length; completed++) {
+        await tester.pump();
+        expect(states.where((state) => state._lastData == state.config.data).length, completed);
+      }
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('富文本等待解析时不暴露 Markdown 源码', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SafeMarkdownBody(
