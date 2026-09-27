@@ -10097,14 +10097,22 @@ class AiSessionController extends ChangeNotifier {
       metadata.remove(aiVoiceCallIdKey);
     }
     final webReverseRuntime =
-        _metadataMap(promptMetadata['web_reverse_runtime']) ??
-        _metadataMap(session.lastPromptMetadata['web_reverse_runtime']);
+        optionalStringKeyedMapFromValue(
+          promptMetadata['web_reverse_runtime'],
+        ) ??
+        optionalStringKeyedMapFromValue(
+          session.lastPromptMetadata['web_reverse_runtime'],
+        );
     if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
     final androidReverseRuntime =
-        _metadataMap(promptMetadata['android_reverse_runtime']) ??
-        _metadataMap(session.lastPromptMetadata['android_reverse_runtime']);
+        optionalStringKeyedMapFromValue(
+          promptMetadata['android_reverse_runtime'],
+        ) ??
+        optionalStringKeyedMapFromValue(
+          session.lastPromptMetadata['android_reverse_runtime'],
+        );
     if (androidReverseRuntime != null && androidReverseRuntime.isNotEmpty) {
       metadata['android_reverse_runtime'] = androidReverseRuntime;
     }
@@ -13618,7 +13626,7 @@ $tail''';
           !_isDedicatedMediaRoundStarter(roundStarter, model)) {
         continue;
       }
-      final promptMetadata = _metadataMap(
+      final promptMetadata = optionalStringKeyedMapFromValue(
         roundStarter.metadata['prompt_metadata'],
       );
       final charactersPerToken =
@@ -15527,7 +15535,9 @@ $tail''';
     );
     final previousPayload = previousRequest == null
         ? null
-        : _metadataMap(previousRequest.metadata['request_payload']);
+        : optionalStringKeyedMapFromValue(
+            previousRequest.metadata['request_payload'],
+          );
     if (previousPayload == null || maxChars <= 0) {
       return <String, Object?>{
         'request_payload_json_length': currentJson.length,
@@ -15566,19 +15576,12 @@ $tail''';
     for (var index = startIndex - 1; index >= 0; index -= 1) {
       final message = session.messages[index];
       if (!message.isDeleted &&
-          _metadataMap(message.metadata['request_payload']) != null) {
+          optionalStringKeyedMapFromValue(
+                message.metadata['request_payload'],
+              ) !=
+              null) {
         return message;
       }
-    }
-    return null;
-  }
-
-  Map<String, Object?>? _metadataMap(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
-    }
-    if (value is Map) {
-      return stringKeyedMapFromValue(value);
     }
     return null;
   }

@@ -108,11 +108,11 @@ class AiE2bSandboxSettings {
       ).trim(),
       egressProxyPassword: stringFromValue(json['egress_proxy_password']),
       maskRequestHost: stringFromValue(json['mask_request_host']).trim(),
-      networkRules: _objectMap(json['network_rules']),
+      networkRules: stringKeyedMapFromValueOrJsonText(json['network_rules']),
       metadata: _stringMap(json['metadata']),
       environmentVariables: _stringMap(json['environment_variables']),
       mcp: _nullableObjectMap(json['mcp']),
-      iamTokens: _objectMap(json['iam_tokens']),
+      iamTokens: stringKeyedMapFromValueOrJsonText(json['iam_tokens']),
       volumeMounts: _volumeMounts(json['volume_mounts']),
       commandUser: stringFromValue(json['command_user']).trim(),
       commandWorkingDirectory:
@@ -353,11 +353,6 @@ class AiE2bSandboxSettings {
         if (entry.key.trim().isNotEmpty)
           entry.key.trim(): stringFromValue(entry.value),
     };
-  }
-
-  static Map<String, Object?> _objectMap(Object? value) {
-    return optionalStringKeyedMapFromValueOrJsonText(value) ??
-        const <String, Object?>{};
   }
 
   static Map<String, Object?>? _nullableObjectMap(Object? value) {

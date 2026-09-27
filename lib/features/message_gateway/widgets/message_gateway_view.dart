@@ -23794,9 +23794,7 @@ String _formatDingTalkDetailValue(
     );
   }
   if (value is bool) {
-    return value
-        ? dingTalkDetailYesLabel(context)
-        : dingTalkDetailNoLabel(context);
+    return value ? openHandYesLabel(context) : openHandNoLabel(context);
   }
   if (label != null && dingTalkDetailIsFlagLabel(label)) {
     final flag = dingTalkDetailBinaryFlag(value);
@@ -23807,9 +23805,7 @@ String _formatDingTalkDetailValue(
             ? dingTalkDetailOnLabel(context)
             : dingTalkDetailOffLabel(context);
       }
-      return flag
-          ? dingTalkDetailYesLabel(context)
-          : dingTalkDetailNoLabel(context);
+      return flag ? openHandYesLabel(context) : openHandNoLabel(context);
     }
   }
   if (label != null) {
@@ -25932,7 +25928,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   }
 
   Future<void> _selectModel() async {
-    final current = _splitModelKey(_modelKey);
+    final current = _splitDingTalkModelKey(_modelKey);
     final selected = await showModelSearchSelector(
       context: context,
       models: widget.controller.aiModels,
@@ -26060,7 +26056,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   }
 
   String _modelLabel() {
-    final key = _splitModelKey(_modelKey);
+    final key = _splitDingTalkModelKey(_modelKey);
     if (key.$1.isEmpty || key.$2.isEmpty) {
       final active = widget.controller.activeAiModel;
       return active == null
@@ -26074,7 +26070,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   }
 
   AiModelConfig? _resolvedResponseModel() {
-    final key = _splitModelKey(_modelKey);
+    final key = _splitDingTalkModelKey(_modelKey);
     if (key.$1.isEmpty || key.$2.isEmpty) {
       return widget.controller.activeAiModel;
     }
@@ -26084,13 +26080,6 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       }
     }
     return null;
-  }
-
-  (String, String) _splitModelKey(String key) {
-    final index = key.indexOf('::');
-    return index > 0
-        ? (key.substring(0, index), key.substring(index + 2))
-        : ('', '');
   }
 }
 
@@ -26158,7 +26147,7 @@ class _DingTalkMultimodalPickerDialogState
         )
         .toList(growable: false);
     final currentKey = _keyFor(capability);
-    final current = _splitModelKey(currentKey);
+    final current = _splitDingTalkModelKey(currentKey);
     final currentProvider = current.$1;
     if (currentProvider.isNotEmpty &&
         result.every((model) => model.id != currentProvider)) {
@@ -26181,7 +26170,7 @@ class _DingTalkMultimodalPickerDialogState
       );
       return;
     }
-    final current = _splitModelKey(_keyFor(capability));
+    final current = _splitDingTalkModelKey(_keyFor(capability));
     final selected = await showModelSearchSelector(
       context: context,
       models: models,
@@ -26197,7 +26186,7 @@ class _DingTalkMultimodalPickerDialogState
 
   String _modelLabel(AiDingTalkMultimodalCapability capability) {
     final key = _keyFor(capability);
-    final split = _splitModelKey(key);
+    final split = _splitDingTalkModelKey(key);
     if (split.$1.isEmpty || split.$2.isEmpty) return '选择模型';
     for (final model in widget.models) {
       if (model.id == split.$1) return '${model.providerLabel} / ${split.$2}';
@@ -26205,17 +26194,10 @@ class _DingTalkMultimodalPickerDialogState
     return '${split.$1} / ${split.$2}';
   }
 
-  (String, String) _splitModelKey(String key) {
-    final index = key.indexOf('::');
-    return index > 0
-        ? (key.substring(0, index), key.substring(index + 2))
-        : ('', '');
-  }
-
   void _apply() {
     for (final capability in _selected) {
       final key = _keyFor(capability).trim();
-      final split = _splitModelKey(key);
+      final split = _splitDingTalkModelKey(key);
       final config = widget.models
           .where((model) => model.id == split.$1)
           .firstOrNull;
@@ -27448,4 +27430,11 @@ class _DingTalkResourcePickerDialogState
       ),
     );
   }
+}
+
+(String, String) _splitDingTalkModelKey(String key) {
+  final index = key.indexOf('::');
+  return index > 0
+      ? (key.substring(0, index), key.substring(index + 2))
+      : ('', '');
 }

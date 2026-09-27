@@ -231,7 +231,7 @@ class OpenHandHighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final codeElement = _findCodeElement(element);
+    final codeElement = _findMarkdownCodeElement(element);
     final rawCode = (codeElement?.textContent ?? element.textContent)
         .replaceFirst(_trailingNewlineCodeBlockPattern, '');
     final language = _extractCodeLanguage(codeElement);
@@ -262,15 +262,6 @@ class OpenHandHighlightedCodeBlockBuilder extends MarkdownElementBuilder {
         forceDarkSurface: darkSurface,
       ),
     );
-  }
-
-  md.Element? _findCodeElement(md.Element element) {
-    for (final child in element.children ?? const <md.Node>[]) {
-      if (child is md.Element && child.tag == 'code') {
-        return child;
-      }
-    }
-    return null;
   }
 }
 

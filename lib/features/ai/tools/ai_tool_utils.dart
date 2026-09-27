@@ -1417,14 +1417,6 @@ class AiToolUtils {
     return file.stat().timeout(defaultBoundedFileReadIdleTimeout);
   }
 
-  static String decodeTextBytes(List<int> bytes) {
-    try {
-      return utf8.decode(bytes);
-    } on FormatException {
-      return utf8.decode(bytes, allowMalformed: true);
-    }
-  }
-
   static bool looksBinary(List<int> bytes) {
     final preview = bytes.take(2048);
     var suspiciousCount = 0;

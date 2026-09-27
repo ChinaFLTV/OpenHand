@@ -804,7 +804,7 @@ class WebMessagePlatformService {
       ..addEntries(
         snapshot.trafficSeries.map(
           (sample) => MapEntry<DateTime, _WebGatewayMinuteBucket>(
-            _webGatewayMinuteStart(sample.minute),
+            utcMinuteStart(sample.minute),
             _WebGatewayMinuteBucket.fromSample(sample),
           ),
         ),
@@ -1648,7 +1648,7 @@ class WebMessagePlatformService {
   }
 
   _WebGatewayMinuteBucket _currentTrafficBucket() {
-    final minute = _webGatewayMinuteStart(DateTime.now().toUtc());
+    final minute = utcMinuteStart(DateTime.now());
     final bucket = _trafficBuckets.putIfAbsent(
       minute,
       () => _WebGatewayMinuteBucket(minute),
@@ -1663,7 +1663,7 @@ class WebMessagePlatformService {
   }
 
   List<WebGatewayTrafficSample> _trafficSnapshot() {
-    final latest = _webGatewayMinuteStart(DateTime.now().toUtc());
+    final latest = utcMinuteStart(DateTime.now());
     return List<WebGatewayTrafficSample>.unmodifiable(
       List<WebGatewayTrafficSample>.generate(
         webGatewayOpsTrafficWindowMinutes,
@@ -1736,21 +1736,17 @@ class WebMessagePlatformService {
 
   // 当前 UTC 分钟桶的实时累计值，与 12 分钟趋势使用同一数据源。
   double _computeRequestsPerMinute() {
-    return (_trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())]
-                ?.total ??
-            0)
+    return (_trafficBuckets[utcMinuteStart(DateTime.now())]?.total ?? 0)
         .toDouble();
   }
 
   double _computeErrorsPerMinute() {
-    final bucket =
-        _trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())];
+    final bucket = _trafficBuckets[utcMinuteStart(DateTime.now())];
     return ((bucket?.blocked ?? 0) + (bucket?.failed ?? 0)).toDouble();
   }
 
   double _computeBytesPerMinute({required bool inbound}) {
-    final bucket =
-        _trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())];
+    final bucket = _trafficBuckets[utcMinuteStart(DateTime.now())];
     if (bucket == null) return 0;
     return (inbound ? bucket.inboundBytes : bucket.outboundBytes).toDouble();
   }
@@ -9829,13 +9825,12 @@ class _WebGatewayMinuteBucket {
   _WebGatewayMinuteBucket(this.minute);
 
   factory _WebGatewayMinuteBucket.fromSample(WebGatewayTrafficSample sample) {
-    final bucket =
-        _WebGatewayMinuteBucket(_webGatewayMinuteStart(sample.minute))
-          ..success = sample.success
-          ..blocked = sample.blocked
-          ..failed = sample.failed
-          ..inboundBytes = sample.inboundBytes
-          ..outboundBytes = sample.outboundBytes;
+    final bucket = _WebGatewayMinuteBucket(utcMinuteStart(sample.minute))
+      ..success = sample.success
+      ..blocked = sample.blocked
+      ..failed = sample.failed
+      ..inboundBytes = sample.inboundBytes
+      ..outboundBytes = sample.outboundBytes;
     if (sample.avgLatencyMs > 0) bucket.latencies.add(sample.avgLatencyMs);
     if (sample.p95LatencyMs > 0 && sample.p95LatencyMs != sample.avgLatencyMs) {
       bucket.latencies.add(sample.p95LatencyMs);
@@ -9889,11 +9884,6 @@ class _WebGatewayMinuteBucket {
       p95LatencyMs: p95LatencyMs,
     );
   }
-}
-
-DateTime _webGatewayMinuteStart(DateTime value) {
-  final utc = value.toUtc();
-  return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
 }
 
 class _AllowedWebModel {

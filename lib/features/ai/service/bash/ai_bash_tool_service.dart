@@ -1608,36 +1608,16 @@ class AiBashToolService {
             : launchSpec.environment,
       );
     }
-    return _spawnPosixProcess(
-      executable: launchSpec.executable,
-      arguments: launchSpec.arguments,
+    return startTrackedProcessBounded(
+      launchSpec.executable,
+      launchSpec.arguments,
+      timeout: _processStartTimeout,
+      tag: 'ai_bash_tool_service',
+      startInNewProcessGroup: true,
       workingDirectory: launchSpec.workingDirectory,
       environment: launchSpec.environment.isEmpty
           ? null
           : launchSpec.environment,
-    );
-  }
-
-  /// 在 POSIX 平台上若发现 `setsid` 可用，则用其包裹 shell，进而把整个命令树
-  /// 放进**新的进程组**。对该 pid 调用 [_killProcess] 时会顺带 `kill -KILL -pid`，
-  /// 即按进程组发送信号，能彻底回收 shell 派生出的子孙进程（例如长跑的
-  /// `flutter run`、`tail -f`、`ssh` 等），避免出现"按 Stop 后子孙仍在运行"的
-  /// 僵尸场景。当 setsid 不可用（少数老版本 macOS / 自定义环境）时安静回退到
-  /// 直接派生，行为与之前一致。
-  Future<Process> _spawnPosixProcess({
-    required String executable,
-    required List<String> arguments,
-    required String workingDirectory,
-    Map<String, String>? environment,
-  }) async {
-    return startTrackedProcessBounded(
-      executable,
-      arguments,
-      timeout: _processStartTimeout,
-      tag: 'ai_bash_tool_service',
-      startInNewProcessGroup: true,
-      workingDirectory: workingDirectory,
-      environment: environment,
     );
   }
 

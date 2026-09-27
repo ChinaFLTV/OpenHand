@@ -16,6 +16,12 @@ String threeDigit(int value) => value.toString().padLeft(3, '0');
 
 String fourDigit(int value) => value.toString().padLeft(4, '0');
 
+/// 按 UTC 分钟归桶，统一网关与 MCP 流量统计的时间键。
+DateTime utcMinuteStart(DateTime value) {
+  final utc = value.toUtc();
+  return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
+}
+
 String formatHourMinute(DateTime value) {
   return '${twoDigit(value.hour)}:${twoDigit(value.minute)}';
 }

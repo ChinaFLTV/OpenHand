@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_model_config.dart';
 
 /// 只转换实际查询的内置档案，避免首次打开模型弹窗时解析整个目录。
@@ -37,11 +38,11 @@ class OpenRouterModelProfiles extends MapBase<String, AiModelProfile> {
 /// 单条数据异常时返回 null，由同步服务跳过该条并继续处理。
 AiModelProfile? mapOpenRouterModel(Object? raw) {
   if (raw is! Map) return null;
-  final model = _stringKeyedMap(raw);
+  final model = growableStringKeyedMapFromValue(raw);
   final id = _string(model['id']);
   if (id == null) return null;
 
-  final architecture = _stringKeyedMap(model['architecture']);
+  final architecture = growableStringKeyedMapFromValue(model['architecture']);
   final inputModalities = _stringList(architecture['input_modalities']);
   final outputModalities = _stringList(architecture['output_modalities']);
   final modalityValues = <String>{...inputModalities, ...outputModalities};
@@ -61,10 +62,10 @@ AiModelProfile? mapOpenRouterModel(Object? raw) {
     capabilities.add(AiModelCapability.rerank);
   }
 
-  final topProvider = _stringKeyedMap(model['top_provider']);
-  final pricing = _stringKeyedMap(model['pricing']);
-  final reasoning = _stringKeyedMap(model['reasoning']);
-  final links = _stringKeyedMap(model['links']);
+  final topProvider = growableStringKeyedMapFromValue(model['top_provider']);
+  final pricing = growableStringKeyedMapFromValue(model['pricing']);
+  final reasoning = growableStringKeyedMapFromValue(model['reasoning']);
+  final links = growableStringKeyedMapFromValue(model['links']);
   final supportedParameters = _stringList(model['supported_parameters']);
   final supportedEfforts = _stringList(reasoning['supported_efforts']);
   final effortOptions = AiReasoningEffortOption.standardValues(
@@ -139,15 +140,8 @@ String? _displayName(Map<String, Object?> model, String id) {
   return separator < 0 ? name : name.substring(separator + 2);
 }
 
-Map<String, Object?> _stringKeyedMap(Object? value) {
-  if (value is! Map) return <String, Object?>{};
-  return <String, Object?>{
-    for (final entry in value.entries) '${entry.key}': entry.value,
-  };
-}
-
 Map<String, Object?> _jsonMap(Object? value) {
-  final map = _stringKeyedMap(value);
+  final map = growableStringKeyedMapFromValue(value);
   return convertToJsonSafeMap(map);
 }
 

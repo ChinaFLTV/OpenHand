@@ -2843,7 +2843,9 @@ class AiToolRuntimeService {
           }
           continue;
         }
-        final content = AiToolUtils.decodeTextBytes(previewBytes).trimRight();
+        final content = utf8
+            .decode(previewBytes, allowMalformed: true)
+            .trimRight();
         final renderedContent = AiToolUtils.truncateContent(content, 4000);
         buffer
           ..writeln('  content:')

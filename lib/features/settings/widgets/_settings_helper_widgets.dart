@@ -5719,8 +5719,7 @@ class _AiModelTileState extends State<_AiModelTile>
                           icon: OpenHandBusyStatusIcon(
                             busy: widget.isTesting,
                             icon: Icons.network_check_rounded,
-                            // IconButton 的图标默认按 24 绘制，转圈原本只有 18，
-                            // 一忙一闲之间整个按钮会缩一下；统一到 24。
+                            // 保持加载图标与普通图标等大，避免状态切换时缩放。
                             size: 24,
                           ),
                         ),

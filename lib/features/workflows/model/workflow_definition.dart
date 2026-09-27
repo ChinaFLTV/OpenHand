@@ -1481,7 +1481,7 @@ class WorkflowNode {
     if (id.isEmpty || x == null || y == null) {
       throw const FormatException('工作流节点数据不完整。');
     }
-    final settings = _stringMap(json['settings']);
+    final settings = growableStringKeyedMapFromValue(json['settings']);
     final parentNodeId = '${json['parent_node_id'] ?? ''}'.trim();
     _clearInactiveWorkflowNodeSettings(kind, settings);
     return WorkflowNode(
@@ -1561,7 +1561,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowKeyValueEntry>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowKeyValueEntry.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowKeyValueEntry.fromJson)
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
@@ -1598,7 +1599,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowHumanAction>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowHumanAction.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowHumanAction.fromJson)
         .toList(growable: false);
   }
 
@@ -1607,7 +1609,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowConditionCase>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowConditionCase.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowConditionCase.fromJson)
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
@@ -1617,7 +1620,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowLoopVariable>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowLoopVariable.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowLoopVariable.fromJson)
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
@@ -1627,7 +1631,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowConditionClause>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowConditionClause.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowConditionClause.fromJson)
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
@@ -1798,7 +1803,8 @@ class WorkflowNode {
     if (value is! List) return const <WorkflowOutputField>[];
     return value
         .whereType<Map>()
-        .map((item) => WorkflowOutputField.fromJson(_stringMap(item)))
+        .map(growableStringKeyedMapFromValue)
+        .map(WorkflowOutputField.fromJson)
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
@@ -3067,16 +3073,12 @@ class WorkflowDefinition {
   String encodePretty() => prettyPrintJson(toJson());
 }
 
-Map<String, Object?> _stringMap(Object? value) {
-  if (value is! Map) return <String, Object?>{};
-  return <String, Object?>{
-    for (final entry in value.entries) '${entry.key}': entry.value,
-  };
-}
-
 List<Map<String, Object?>> _mapList(Object? value) {
   if (value is! List) return const <Map<String, Object?>>[];
-  return value.whereType<Map>().map(_stringMap).toList(growable: false);
+  return value
+      .whereType<Map>()
+      .map(growableStringKeyedMapFromValue)
+      .toList(growable: false);
 }
 
 String _normalizeWorkflowMetadataText(

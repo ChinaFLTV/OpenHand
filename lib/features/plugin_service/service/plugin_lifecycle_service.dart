@@ -2294,7 +2294,7 @@ printf '安装包=%s\\n命令入口=%s\\n' "\$ASSET" ${posixShellQuote(shimPath)
     onProgress: onProgress,
   );
 
-  Future<PluginOperationResult> installFrida({
+  Future<PluginOperationResult> installOrUpdateFrida({
     void Function(String line)? onProgress,
   }) => _installOrUpdatePythonPackage(
     packageName: 'frida-tools',
@@ -2940,14 +2940,6 @@ ${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthComm
   }) => _updateBrewFormula(
     formula: 'openjdk',
     label: 'Java',
-    onProgress: onProgress,
-  );
-
-  Future<PluginOperationResult> updateFrida({
-    void Function(String line)? onProgress,
-  }) => _installOrUpdatePythonPackage(
-    packageName: 'frida-tools',
-    label: 'Frida',
     onProgress: onProgress,
   );
 

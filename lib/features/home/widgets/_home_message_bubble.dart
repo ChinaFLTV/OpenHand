@@ -259,16 +259,9 @@ class _MessageBubbleState extends State<_MessageBubble>
   final GlobalKey _metaCapsuleKey = GlobalKey();
   final GlobalKey _actionPanelKey = GlobalKey();
 
-  // 外层 Listener.onPointerUp 在 Flutter gesture arena
-  // 解析子节点 onTap 之前就会触发，无法事先得知本次点击是否会被
-  // Markdown 链接 / 图片附件 / 代码块工具栏等子交互组件处理。改为
-  // 延迟 80ms 调度选中切换：子交互回调命中时调用 markInteractiveTap()
-  // 取消调度，避免点完链接还顺带把功能按钮条切出来。空白处点击
-  // 仍然几乎瞬时（80ms 几乎不可察）。
+  // 指针抬起早于子组件的点击回调，延迟切换选中状态，让子交互有机会取消。
   Timer? _pendingSelectionToggleTimer;
-  // 旧版 HTML WebView 渲染器的兼容兜底：当前线程内 HTML 主路径已改为
-  // WebView 高保真渲染；命中区域时跳过气泡选中切换，并把 tap / drag
-  // 转交给对应 state 合成 DOM 点击或文本选择。
+  // HTML 区域接管点击与拖选，避免同时切换外层气泡选中状态。
   final Map<GlobalKey, _HtmlBubbleWebViewState> _htmlInteractiveRegionStates =
       <GlobalKey, _HtmlBubbleWebViewState>{};
   final Set<GlobalKey> _embeddedInteractiveRegions = <GlobalKey>{};

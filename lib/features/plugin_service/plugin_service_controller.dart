@@ -328,7 +328,9 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         PluginCatalogIds.pip => _lifecycle.installPip(onProgress: _addLog),
         PluginCatalogIds.java => _lifecycle.installJava(onProgress: _addLog),
-        PluginCatalogIds.frida => _lifecycle.installFrida(onProgress: _addLog),
+        PluginCatalogIds.frida => _lifecycle.installOrUpdateFrida(
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.mitmproxy => _lifecycle.installMitmproxy(
           onProgress: _addLog,
         ),
@@ -395,7 +397,9 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.python => _lifecycle.updatePython(onProgress: _addLog),
         PluginCatalogIds.pip => _lifecycle.updatePip(onProgress: _addLog),
         PluginCatalogIds.java => _lifecycle.updateJava(onProgress: _addLog),
-        PluginCatalogIds.frida => _lifecycle.updateFrida(onProgress: _addLog),
+        PluginCatalogIds.frida => _lifecycle.installOrUpdateFrida(
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.mitmproxy => _lifecycle.updateMitmproxy(
           onProgress: _addLog,
         ),

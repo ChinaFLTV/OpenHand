@@ -972,16 +972,6 @@ const Set<String> _androidReverseRequestFieldLabels = <String>{
 class _AiRequestCardCodec {
   const _AiRequestCardCodec._();
 
-  static Map<String, Object?>? object(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
-    }
-    if (value is Map) {
-      return stringKeyedMapFromValue(value);
-    }
-    return null;
-  }
-
   static String readString(Object? value) {
     final text = '${value ?? ''}'.trim();
     if (text.isEmpty || text == 'null') {
@@ -1135,7 +1125,7 @@ class AiMachineExpertRequestCard {
   }
 
   static AiMachineExpertRequestCard? fromMetadata(Object? raw) {
-    final map = _AiRequestCardCodec.object(raw);
+    final map = optionalStringKeyedMapFromValue(raw);
     if (map == null) {
       return null;
     }
@@ -1271,7 +1261,7 @@ class AiWebReverseRequestCard {
   }
 
   static AiWebReverseRequestCard? fromMetadata(Object? raw) {
-    final map = _AiRequestCardCodec.object(raw);
+    final map = optionalStringKeyedMapFromValue(raw);
     if (map == null) {
       return null;
     }
@@ -1484,7 +1474,7 @@ class AiAndroidReverseRequestCard {
   }
 
   static AiAndroidReverseRequestCard? fromMetadata(Object? raw) {
-    final map = _AiRequestCardCodec.object(raw);
+    final map = optionalStringKeyedMapFromValue(raw);
     if (map == null) {
       return null;
     }

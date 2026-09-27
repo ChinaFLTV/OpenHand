@@ -106,30 +106,6 @@ bool? dingTalkDetailBinaryFlag(Object? value) {
   return null;
 }
 
-String dingTalkDetailYesLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '是',
-    zhHant: '是',
-    en: 'Yes',
-    fr: 'Oui',
-    de: 'Ja',
-    ja: 'はい',
-  );
-}
-
-String dingTalkDetailNoLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '否',
-    zhHant: '否',
-    en: 'No',
-    fr: 'Non',
-    de: 'Nein',
-    ja: 'いいえ',
-  );
-}
-
 String dingTalkDetailOnLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

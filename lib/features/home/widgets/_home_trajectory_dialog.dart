@@ -108,26 +108,6 @@ class _TrajectoryRecord {
   ].join('\n').toLowerCase();
 }
 
-String _trajectoryText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 class _TrajectorySnapshot {
   const _TrajectorySnapshot({
     required this.records,
@@ -861,7 +841,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     setState(() {
       _loadingInitial = false;
       if (effective == null) {
-        _loadError = _trajectoryText(
+        _loadError = openHandLocalizedText(
           context,
           zh: '无法读取该线程的轨迹。',
           zhHant: '無法讀取該執行緒的軌跡。',
@@ -1431,7 +1411,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             ),
             kOpenHandGap12,
             Text(
-              _trajectoryText(
+              openHandLocalizedText(
                 context,
                 zh: '正在装配轨迹…',
                 zhHant: '正在組裝軌跡…',
@@ -1450,7 +1430,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         child: _TrajectoryStateMessage(
           icon: Icons.error_outline_rounded,
           title: _loadError!,
-          actionLabel: _trajectoryText(
+          actionLabel: openHandLocalizedText(
             context,
             zh: '重试',
             zhHant: '重試',
@@ -1473,7 +1453,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       return Center(
         child: _TrajectoryStateMessage(
           icon: Icons.route_outlined,
-          title: _trajectoryText(
+          title: openHandLocalizedText(
             context,
             zh: '此线程暂无可展示的轨迹',
             zhHant: '此執行緒暫無可展示的軌跡',
@@ -1601,7 +1581,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       return Center(
         child: _TrajectoryStateMessage(
           icon: Icons.search_off_rounded,
-          title: _trajectoryText(
+          title: openHandLocalizedText(
             context,
             zh: '没有匹配的轨迹记录',
             zhHant: '沒有符合的軌跡記錄',
@@ -1612,7 +1592,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
           ),
           actionLabel: _searchQuery.isEmpty
               ? null
-              : _trajectoryText(
+              : openHandLocalizedText(
                   context,
                   zh: '清除搜索',
                   zhHant: '清除搜尋',
@@ -1792,7 +1772,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                 icon: Icons.schedule_outlined,
                 label: compact
                     ? null
-                    : _trajectoryText(
+                    : openHandLocalizedText(
                         context,
                         zh: '时长',
                         zhHant: '時長',
@@ -1802,7 +1782,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                         ja: '所要時間',
                       ),
                 selected: actualDuration,
-                tooltip: _trajectoryText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: actualDuration ? '使用等宽记录' : '使用实际耗时',
                   zhHant: actualDuration ? '使用等寬記錄' : '使用實際耗時',
@@ -1825,7 +1805,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                     : Icons.indeterminate_check_box_outlined,
                 label: compact
                     ? null
-                    : _trajectoryText(
+                    : openHandLocalizedText(
                         context,
                         zh: '轮次',
                         zhHant: '輪次',
@@ -1834,7 +1814,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                         de: 'Durchläufe',
                         ja: 'ターン',
                       ),
-                tooltip: _trajectoryText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: allTurnsCollapsed ? '展开轮次' : '折叠轮次',
                   zhHant: allTurnsCollapsed ? '展開輪次' : '摺疊輪次',
@@ -1855,7 +1835,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                     : Icons.add_box_outlined,
                 label: compact
                     ? null
-                    : _trajectoryText(
+                    : openHandLocalizedText(
                         context,
                         zh: '调用',
                         zhHant: '呼叫',
@@ -1864,7 +1844,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                         de: 'Aufrufe',
                         ja: '呼び出し',
                       ),
-                tooltip: _trajectoryText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: allCallsExpanded ? '折叠调用' : '展开调用',
                   zhHant: allCallsExpanded ? '摺疊呼叫' : '展開呼叫',
@@ -1921,7 +1901,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                       height: _kTrajectoryToolbarControlHeight,
                     ),
                     isCollapsed: true,
-                    hintText: _trajectoryText(
+                    hintText: openHandLocalizedText(
                       context,
                       zh: '搜索',
                       zhHant: '搜尋',
@@ -1957,7 +1937,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                                 width: 28,
                                 height: 28,
                               ),
-                              tooltip: _trajectoryText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '清除搜索',
                                 zhHant: '清除搜尋',
@@ -2380,7 +2360,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 7,
                   right: 5,
                   child: Text(
-                    _trajectoryText(
+                    openHandLocalizedText(
                       context,
                       zh: '输入',
                       zhHant: '輸入',
@@ -2399,7 +2379,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 24,
                   right: 5,
                   child: Text(
-                    _trajectoryText(
+                    openHandLocalizedText(
                       context,
                       zh: '模型',
                       zhHant: '模型',
@@ -2418,7 +2398,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 41,
                   right: 5,
                   child: Text(
-                    _trajectoryText(
+                    openHandLocalizedText(
                       context,
                       zh: '工具',
                       zhHant: '工具',
@@ -2474,7 +2454,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                             searchMatches: widget.searchMatches,
                             selectedRecordId: widget.selectedRecordId,
                             hoveredRecordId: _hoverRecord?.id,
-                            emptyLabel: _trajectoryText(
+                            emptyLabel: openHandLocalizedText(
                               context,
                               zh: '暂无时间数据',
                               zhHant: '暫無時間資料',
@@ -2490,7 +2470,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Tooltip(
-                              message: _trajectoryText(
+                              message: openHandLocalizedText(
                                 context,
                                 zh: '加载更早轨迹',
                                 zhHant: '載入較早軌跡',
@@ -2715,7 +2695,7 @@ class _TrajectoryOlderHistoryRow extends StatelessWidget {
             : const Icon(Icons.more_horiz_rounded, size: 18),
         label: Text(
           loading
-              ? _trajectoryText(
+              ? openHandLocalizedText(
                   context,
                   zh: '正在加载更早轨迹…',
                   zhHant: '正在載入較早軌跡…',
@@ -2724,7 +2704,7 @@ class _TrajectoryOlderHistoryRow extends StatelessWidget {
                   de: 'Frühere Trajektorie wird geladen…',
                   ja: '以前の軌跡を読み込み中…',
                 )
-              : _trajectoryText(
+              : openHandLocalizedText(
                   context,
                   zh: '加载更早轨迹',
                   zhHant: '載入較早軌跡',
@@ -2808,7 +2788,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                         top: 20,
                         child: Tooltip(
                           message: record.requestNumber > 0
-                              ? _trajectoryText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '请求 #${record.requestNumber}',
                                   zhHant: '請求 #${record.requestNumber}',
@@ -2817,7 +2797,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                                   de: 'Anfrage #${record.requestNumber}',
                                   ja: 'リクエスト #${record.requestNumber}',
                                 )
-                              : _trajectoryText(
+                              : openHandLocalizedText(
                                   context,
                                   zh: '步骤 ${record.step}',
                                   zhHant: '步驟 ${record.step}',
@@ -2854,7 +2834,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                             borderRadius: kOpenHandBorderRadius3,
                           ),
                           child: Text(
-                            _trajectoryText(
+                            openHandLocalizedText(
                               context,
                               zh: '轮次 ${record.turn}',
                               zhHant: '輪次 ${record.turn}',
@@ -2887,7 +2867,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                           Expanded(
                             child: Text(
                               record.preview.isEmpty
-                                  ? _trajectoryText(
+                                  ? openHandLocalizedText(
                                       context,
                                       zh: '无内容',
                                       zhHant: '無內容',
@@ -3066,7 +3046,7 @@ IconData _trajectoryKindIcon(_TrajectoryKind kind) => switch (kind) {
 
 String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
     switch (kind) {
-      _TrajectoryKind.system => _trajectoryText(
+      _TrajectoryKind.system => openHandLocalizedText(
         context,
         zh: '系统',
         zhHant: '系統',
@@ -3075,7 +3055,7 @@ String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
         de: 'SYSTEM',
         ja: 'システム',
       ),
-      _TrajectoryKind.user => _trajectoryText(
+      _TrajectoryKind.user => openHandLocalizedText(
         context,
         zh: '用户',
         zhHant: '使用者',
@@ -3084,7 +3064,7 @@ String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
         de: 'BENUTZER',
         ja: 'ユーザー',
       ),
-      _TrajectoryKind.context => _trajectoryText(
+      _TrajectoryKind.context => openHandLocalizedText(
         context,
         zh: '上下文',
         zhHant: '上下文',
@@ -3093,7 +3073,7 @@ String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
         de: 'KONTEXT',
         ja: 'コンテキスト',
       ),
-      _TrajectoryKind.compacted => _trajectoryText(
+      _TrajectoryKind.compacted => openHandLocalizedText(
         context,
         zh: '已压缩',
         zhHant: '已壓縮',
@@ -3102,7 +3082,7 @@ String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
         de: 'KOMPRIMIERT',
         ja: '圧縮済み',
       ),
-      _TrajectoryKind.assistant => _trajectoryText(
+      _TrajectoryKind.assistant => openHandLocalizedText(
         context,
         zh: '助手',
         zhHant: '助理',
@@ -3111,7 +3091,7 @@ String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
         de: 'ASSISTENT',
         ja: 'アシスタント',
       ),
-      _TrajectoryKind.tool || _TrajectoryKind.subtool => _trajectoryText(
+      _TrajectoryKind.tool || _TrajectoryKind.subtool => openHandLocalizedText(
         context,
         zh: '工具',
         zhHant: '工具',
@@ -3163,7 +3143,7 @@ List<(String, String)> _trajectoryDetailTabs(
   _TrajectoryRecord record,
 ) {
   final labels = <String, String>{
-    'system-prompt': _trajectoryText(
+    'system-prompt': openHandLocalizedText(
       context,
       zh: '系统提示词',
       zhHant: '系統提示詞',
@@ -3172,7 +3152,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'System-Prompt',
       ja: 'システムプロンプト',
     ),
-    'tools': _trajectoryText(
+    'tools': openHandLocalizedText(
       context,
       zh: '工具',
       zhHant: '工具',
@@ -3181,7 +3161,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Werkzeuge',
       ja: 'ツール',
     ),
-    'summary': _trajectoryText(
+    'summary': openHandLocalizedText(
       context,
       zh: '摘要',
       zhHant: '摘要',
@@ -3190,7 +3170,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Zusammenfassung',
       ja: '概要',
     ),
-    'rendered': _trajectoryText(
+    'rendered': openHandLocalizedText(
       context,
       zh: '渲染内容',
       zhHant: '渲染內容',
@@ -3199,7 +3179,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Gerendert',
       ja: '表示',
     ),
-    'raw': _trajectoryText(
+    'raw': openHandLocalizedText(
       context,
       zh: '原始内容',
       zhHant: '原始內容',
@@ -3208,7 +3188,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Roh',
       ja: 'Raw',
     ),
-    'source': _trajectoryText(
+    'source': openHandLocalizedText(
       context,
       zh: '来源',
       zhHant: '來源',
@@ -3217,7 +3197,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Quelle',
       ja: 'ソース',
     ),
-    'options': _trajectoryText(
+    'options': openHandLocalizedText(
       context,
       zh: '选项',
       zhHant: '選項',
@@ -3226,7 +3206,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Optionen',
       ja: '設定',
     ),
-    'usage': _trajectoryText(
+    'usage': openHandLocalizedText(
       context,
       zh: '用量',
       zhHant: '用量',
@@ -3235,7 +3215,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Verbrauch',
       ja: '使用量',
     ),
-    'timing': _trajectoryText(
+    'timing': openHandLocalizedText(
       context,
       zh: '耗时',
       zhHant: '耗時',
@@ -3244,7 +3224,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Zeit',
       ja: '時間',
     ),
-    'input': _trajectoryText(
+    'input': openHandLocalizedText(
       context,
       zh: '输入',
       zhHant: '輸入',
@@ -3253,7 +3233,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Eingabe',
       ja: '入力',
     ),
-    'output': _trajectoryText(
+    'output': openHandLocalizedText(
       context,
       zh: '输出',
       zhHant: '輸出',
@@ -3262,7 +3242,7 @@ List<(String, String)> _trajectoryDetailTabs(
       de: 'Ausgabe',
       ja: '出力',
     ),
-    'schema': _trajectoryText(
+    'schema': openHandLocalizedText(
       context,
       zh: '结构',
       zhHant: '結構',
@@ -3309,7 +3289,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
         ? colorScheme.primary
         : accent;
     final infoText = record.turn > 0
-        ? _trajectoryText(
+        ? openHandLocalizedText(
             context,
             zh: '轮次 ${record.turn} · 步骤 ${record.step}',
             zhHant: '輪次 ${record.turn} · 步驟 ${record.step}',
@@ -3404,7 +3384,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                   _TrajectoryCloseButton(
                     size: _kTrajectoryDetailsActionSize,
                     iconSize: _kTrajectoryDetailsActionIconSize,
-                    tooltip: _trajectoryText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '关闭详情',
                       zhHant: '關閉詳情',
@@ -3541,7 +3521,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'summary' => _buildSummary(context),
       'system-prompt' => _TrajectoryMarkdownDetail(
         text: _trajectorySystemPrompt(metadata),
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '本次请求未记录系统提示词',
           zhHant: '本次請求未記錄系統提示詞',
@@ -3554,7 +3534,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'tools' => OpenHandJsonTreeView(
         text: _trajectoryToolCatalog(metadata),
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '本次请求未记录工具目录',
           zhHant: '本次請求未記錄工具目錄',
@@ -3566,7 +3546,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       ),
       'rendered' => _TrajectoryMarkdownDetail(
         text: _trajectoryRecordRawText(record),
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '无内容',
           zhHant: '無內容',
@@ -3579,7 +3559,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'raw' => OpenHandJsonTreeView(
         text: _trajectoryRecordRawText(record),
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '无内容',
           zhHant: '無內容',
@@ -3598,7 +3578,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           'metadata': metadata,
         }),
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '未记录来源',
           zhHant: '未記錄來源',
@@ -3611,7 +3591,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'input' => OpenHandJsonTreeView(
         text: record.input,
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '无输入载荷',
           zhHant: '無輸入載荷',
@@ -3625,7 +3605,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         text: record.output,
         logTag: 'trajectory',
         emptyText: record.running
-            ? _trajectoryText(
+            ? openHandLocalizedText(
                 context,
                 zh: '等待中',
                 zhHant: '等待中',
@@ -3634,7 +3614,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
                 de: 'Ausstehend',
                 ja: '待機中',
               )
-            : _trajectoryText(
+            : openHandLocalizedText(
                 context,
                 zh: '无输出载荷',
                 zhHant: '無輸出載荷',
@@ -3648,7 +3628,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'schema' => OpenHandJsonTreeView(
         text: _trajectorySchema(metadata),
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '未记录结构',
           zhHant: '未記錄結構',
@@ -3661,7 +3641,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'options' => OpenHandJsonTreeView(
         text: _trajectoryRequestOptions(metadata),
         logTag: 'trajectory',
-        emptyText: _trajectoryText(
+        emptyText: openHandLocalizedText(
           context,
           zh: '未记录请求选项',
           zhHant: '未記錄請求選項',
@@ -3691,7 +3671,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
 
   Widget _buildSummary(BuildContext context) {
     final status = record.isError
-        ? _trajectoryText(
+        ? openHandLocalizedText(
             context,
             zh: '失败',
             zhHant: '失敗',
@@ -3701,7 +3681,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
             ja: '失敗',
           )
         : record.running
-        ? _trajectoryText(
+        ? openHandLocalizedText(
             context,
             zh: '等待中',
             zhHant: '等待中',
@@ -3710,7 +3690,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
             de: 'Ausstehend',
             ja: '待機中',
           )
-        : _trajectoryText(
+        : openHandLocalizedText(
             context,
             zh: '已完成',
             zhHant: '已完成',
@@ -3730,7 +3710,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         _TrajectoryOverview(
           rows: <(String, String, bool)>[
             (
-              _trajectoryText(
+              openHandLocalizedText(
                 context,
                 zh: '状态',
                 zhHant: '狀態',
@@ -3744,7 +3724,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
             ),
             if (model != null)
               (
-                _trajectoryText(
+                openHandLocalizedText(
                   context,
                   zh: '模型',
                   zhHant: '模型',
@@ -3758,7 +3738,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
               ),
             if (record.toolName != null)
               (
-                _trajectoryText(
+                openHandLocalizedText(
                   context,
                   zh: '工具',
                   zhHant: '工具',
@@ -3772,7 +3752,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
               ),
             if (record.callId != null)
               (
-                _trajectoryText(
+                openHandLocalizedText(
                   context,
                   zh: '调用 ID',
                   zhHant: '呼叫 ID',
@@ -3786,7 +3766,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
               ),
             if (record.kind == _TrajectoryKind.assistant)
               (
-                _trajectoryText(
+                openHandLocalizedText(
                   context,
                   zh: '令牌',
                   zhHant: 'Token',
@@ -3801,7 +3781,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
                 false,
               ),
             (
-              _trajectoryText(
+              openHandLocalizedText(
                 context,
                 zh: '时长',
                 zhHant: '時長',
@@ -3819,7 +3799,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           kOpenHandGap16,
           _TrajectoryOverviewSection(
             title: record.kind == _TrajectoryKind.tool
-                ? _trajectoryText(
+                ? openHandLocalizedText(
                     context,
                     zh: '结果',
                     zhHant: '結果',
@@ -3828,7 +3808,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
                     de: 'Ergebnis',
                     ja: '結果',
                   )
-                : _trajectoryText(
+                : openHandLocalizedText(
                     context,
                     zh: '预览',
                     zhHant: '預覽',
@@ -3839,7 +3819,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
                   ),
             child: _TrajectoryMarkdownDetail(
               text: _trajectoryRecordRawText(record),
-              emptyText: _trajectoryText(
+              emptyText: openHandLocalizedText(
                 context,
                 zh: '无内容',
                 zhHant: '無內容',
@@ -3855,7 +3835,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         if (record.kind == _TrajectoryKind.assistant) ...[
           kOpenHandGap16,
           _TrajectoryOverviewSection(
-            title: _trajectoryText(
+            title: openHandLocalizedText(
               context,
               zh: '用量',
               zhHant: '用量',
@@ -3868,7 +3848,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
           kOpenHandGap16,
           _TrajectoryOverviewSection(
-            title: _trajectoryText(
+            title: openHandLocalizedText(
               context,
               zh: '耗时',
               zhHant: '耗時',
@@ -3888,7 +3868,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
     final usage = record.usage;
     if (usage == null || usage.isEmpty) {
       return OpenHandInlineEmptyState.compact(
-        message: _trajectoryText(
+        message: openHandLocalizedText(
           context,
           zh: '未报告用量',
           zhHant: '未報告用量',
@@ -3908,7 +3888,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       rows: <(String, String, bool)>[
         if (usage.promptTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '输入',
               zhHant: '輸入',
@@ -3922,7 +3902,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (usage.cacheReadTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '缓存读取',
               zhHant: '快取讀取',
@@ -3936,7 +3916,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (usage.cacheCreationTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '缓存创建',
               zhHant: '快取建立',
@@ -3950,7 +3930,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (usage.completionTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '输出',
               zhHant: '輸出',
@@ -3964,7 +3944,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (usage.reasoningTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '推理',
               zhHant: '推理',
@@ -3978,7 +3958,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (contentTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '正文',
               zhHant: '正文',
@@ -3992,7 +3972,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (usage.resolvedTotalTokens != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '总计',
               zhHant: '總計',
@@ -4052,7 +4032,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
     final fallbackCount = _trajectoryMetadataInt(metadata, const <String>[
       'request_fallback_count',
     ]);
-    final notRecorded = _trajectoryText(
+    final notRecorded = openHandLocalizedText(
       context,
       zh: '未记录',
       zhHant: '未記錄',
@@ -4074,7 +4054,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
     );
     final responseStatus = '${metadata['response_status'] ?? ''}'.trim();
     final statusLabel = switch (responseStatus) {
-      'completed' => _trajectoryText(
+      'completed' => openHandLocalizedText(
         context,
         zh: '已完成',
         zhHant: '已完成',
@@ -4083,7 +4063,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         de: 'Abgeschlossen',
         ja: '完了',
       ),
-      'cancelled' => _trajectoryText(
+      'cancelled' => openHandLocalizedText(
         context,
         zh: '已取消',
         zhHant: '已取消',
@@ -4092,7 +4072,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         de: 'Abgebrochen',
         ja: 'キャンセル済み',
       ),
-      'failed' => _trajectoryText(
+      'failed' => openHandLocalizedText(
         context,
         zh: '失败',
         zhHant: '失敗',
@@ -4107,7 +4087,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       compact: compact,
       rows: <(String, String, bool)>[
         (
-          _trajectoryText(
+          openHandLocalizedText(
             context,
             zh: '开始时间',
             zhHant: '開始時間',
@@ -4120,7 +4100,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           false,
         ),
         (
-          _trajectoryText(
+          openHandLocalizedText(
             context,
             zh: '总耗时',
             zhHant: '總耗時',
@@ -4134,7 +4114,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         ),
         if (!compact)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '首个响应',
               zhHant: '首個回應',
@@ -4149,7 +4129,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
             false,
           ),
         (
-          _trajectoryText(
+          openHandLocalizedText(
             context,
             zh: '首 Token 耗时',
             zhHant: '首 Token 耗時',
@@ -4162,7 +4142,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           false,
         ),
         (
-          _trajectoryText(
+          openHandLocalizedText(
             context,
             zh: '生成耗时',
             zhHant: '生成耗時',
@@ -4177,7 +4157,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           false,
         ),
         (
-          _trajectoryText(
+          openHandLocalizedText(
             context,
             zh: '吞吐率',
             zhHant: '吞吐率',
@@ -4193,7 +4173,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
         ),
         if (!compact && charactersPerSecond != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '字符吞吐率',
               zhHant: '字元吞吐率',
@@ -4211,7 +4191,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (!compact && outputCharacters != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '输出字符',
               zhHant: '輸出字元',
@@ -4225,7 +4205,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (!compact && streamEvents != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '流事件',
               zhHant: '串流事件',
@@ -4239,7 +4219,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (!compact && fallbackCount != null)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '请求降级',
               zhHant: '請求降級',
@@ -4253,7 +4233,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (!compact && '${metadata['finish_reason'] ?? ''}'.trim().isNotEmpty)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '结束原因',
               zhHant: '結束原因',
@@ -4267,7 +4247,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ),
         if (!compact && statusLabel.isNotEmpty)
           (
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '响应状态',
               zhHant: '回應狀態',
@@ -4354,7 +4334,7 @@ class _TrajectoryThroughputChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '响应吞吐趋势',
               zhHant: '回應吞吐趨勢',
@@ -4370,7 +4350,7 @@ class _TrajectoryThroughputChart extends StatelessWidget {
           ),
           kOpenHandGap4,
           Text(
-            _trajectoryText(
+            openHandLocalizedText(
               context,
               zh: '每 $intervalLabel 秒采样 · ${samples.length} 个点',
               zhHant: '每 $intervalLabel 秒取樣 · ${samples.length} 個點',
@@ -4390,7 +4370,7 @@ class _TrajectoryThroughputChart extends StatelessWidget {
             children: [
               _TrajectoryThroughputLegend(
                 color: colorScheme.primary,
-                label: _trajectoryText(
+                label: openHandLocalizedText(
                   context,
                   zh: '字符/秒 · 峰值 ${peakCharacters.toStringAsFixed(1)}',
                   zhHant: '字元/秒 · 峰值 ${peakCharacters.toStringAsFixed(1)}',
@@ -4403,7 +4383,7 @@ class _TrajectoryThroughputChart extends StatelessWidget {
               if (peakTokens != null)
                 _TrajectoryThroughputLegend(
                   color: colorScheme.tertiary,
-                  label: _trajectoryText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '估算 Token/秒 · 峰值 ${peakTokens.toStringAsFixed(1)}',
                     zhHant: '估算 Token/秒 · 峰值 ${peakTokens.toStringAsFixed(1)}',

@@ -1783,7 +1783,7 @@ class _UsageEventCard extends StatelessWidget {
               if (event.source.isNotEmpty)
                 _MetricPill(
                   icon: Icons.route_outlined,
-                  label: _metricSourceLabel(context),
+                  label: openHandSourceLabel(context),
                   value: _usageSourceDisplayLabel(context, event.source),
                   tone: _MetricTone.success,
                   compact: true,
@@ -2060,18 +2060,6 @@ String _formatEventDuration(int milliseconds, String source) {
     return kOpenHandTableMetricEmpty;
   }
   return openHandTableMetricDuration(milliseconds);
-}
-
-String _metricSourceLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '来源',
-    zhHant: '來源',
-    en: 'Source',
-    fr: 'Source',
-    de: 'Quelle',
-    ja: 'ソース',
-  );
 }
 
 String _usageSourceDisplayLabel(BuildContext context, String source) {

@@ -356,7 +356,7 @@ class McpServerOpsRuntime {
       ..addEntries(
         trafficSeries.map(
           (sample) => MapEntry(
-            _minuteStart(sample.minute),
+            utcMinuteStart(sample.minute),
             _McpOpsMinuteBucket.fromSample(sample),
           ),
         ),
@@ -2159,7 +2159,7 @@ class McpServerOpsRuntime {
 
   _McpOpsMinuteBucket _currentTrafficBucket() {
     final now = DateTime.now().toUtc();
-    final minute = _minuteStart(now);
+    final minute = utcMinuteStart(now);
     final bucket = _trafficBuckets.putIfAbsent(
       minute,
       () => _McpOpsMinuteBucket(minute),
@@ -2224,7 +2224,7 @@ class _McpOpsMinuteBucket {
   _McpOpsMinuteBucket(this.minute);
 
   factory _McpOpsMinuteBucket.fromSample(McpOpsTrafficSample sample) {
-    final bucket = _McpOpsMinuteBucket(_minuteStart(sample.minute));
+    final bucket = _McpOpsMinuteBucket(utcMinuteStart(sample.minute));
     bucket.success = sample.success;
     bucket.blocked = sample.blocked;
     bucket.failed = sample.failed;
@@ -2262,9 +2262,4 @@ class _McpOpsMinuteBucket {
       p95LatencyMs: p95,
     );
   }
-}
-
-DateTime _minuteStart(DateTime value) {
-  final utc = value.toUtc();
-  return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
 }

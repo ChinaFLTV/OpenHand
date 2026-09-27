@@ -764,7 +764,7 @@ class AiAttachmentService {
 
   Future<String> _readTextFile(File file, {required int characterLimit}) async {
     final preview = await _readAttachmentPrefix(file, maxTextRawBytes);
-    final decoded = _decodeTextBytes(preview.bytes);
+    final decoded = utf8.decode(preview.bytes, allowMalformed: true);
     final buffer = StringBuffer(decoded.trim());
     if (preview.totalBytes > preview.bytes.length) {
       if (buffer.isNotEmpty) {
@@ -777,14 +777,6 @@ class AiAttachmentService {
       );
     }
     return _truncateText(buffer.toString().trim(), characterLimit);
-  }
-
-  String _decodeTextBytes(List<int> bytes) {
-    try {
-      return utf8.decode(bytes);
-    } on FormatException {
-      return utf8.decode(bytes, allowMalformed: true);
-    }
   }
 
   Future<String> _readPdfPreview(File file, int characterLimit) async {

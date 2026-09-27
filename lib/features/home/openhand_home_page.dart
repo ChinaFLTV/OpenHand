@@ -8392,14 +8392,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (nextSignature == null) {
       return;
     }
-    // 仅当用户当前仍处于"贴底跟随"状态时，才在新消息
-    // 到达时重新装填强制滚到底的请求。如果用户已经手动上滑导致
-    // `_shouldAutoFollowMessages` 被置为 false（自动跟随暂停），
-    // 那么本次 session 变更不应越权把视口拉回底部 —— 必须等用户
-    // 主动滚回底部之后才恢复自动跟随。原先无脑调用 `_armAutoFollowToBottom`
-    // 会把 `_shouldAutoFollowMessages` 又置为 true，并带上
-    // `_pendingForcedScrollToBottom`，导致暂停状态在下一条新消息到来时
-    // 被悄悄取消、强行把用户拉回底部。
+    // 新消息仅延续已有贴底状态；手动上滑暂停后，须由用户主动恢复跟随。
     if (_autoFollowEnabled && _shouldAutoFollowMessages) {
       _armAutoFollowToBottom(notifyPausedState: false);
     }

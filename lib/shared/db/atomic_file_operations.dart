@@ -282,7 +282,7 @@ Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
         );
         return _AtomicProcessLockLease(handle);
       } on FileSystemException catch (error) {
-        if (!_isAtomicProcessLockContention(error)) {
+        if (!isFileLockContention(error)) {
           await _closeAtomicProcessLockFile(handle);
           rethrow;
         }
@@ -309,14 +309,6 @@ Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
 
 TimeoutException _atomicProcessLockTimeoutException() {
   return TimeoutException('等待其他原子写入进程超时。', _atomicProcessLockTimeout);
-}
-
-bool _isAtomicProcessLockContention(FileSystemException error) {
-  final code = error.osError?.errorCode;
-  if (Platform.isWindows) {
-    return code == 33 || code == 36;
-  }
-  return code == 11 || code == 13 || code == 35;
 }
 
 Future<void> _releaseLateAtomicProcessLock(

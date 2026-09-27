@@ -251,7 +251,7 @@ class DatabaseService {
       if (releaseLockOnFailure) await lock.cleanup();
       if (service._instanceLock == null &&
           error is FileSystemException &&
-          _isDatabaseLockContention(error)) {
+          isFileLockContention(error)) {
         throw StateError('另一个 OpenHand 实例正在使用数据库：$effectivePath');
       }
       Error.throwWithStackTrace(error, stack);
@@ -343,14 +343,6 @@ class DatabaseService {
     } finally {
       await lock.cleanup();
     }
-  }
-
-  static bool _isDatabaseLockContention(FileSystemException error) {
-    final code = error.osError?.errorCode;
-    if (Platform.isWindows) {
-      return code == 33 || code == 36;
-    }
-    return code == 11 || code == 13 || code == 35;
   }
 
   static Future<void> _onConfigure(Database db) async {
