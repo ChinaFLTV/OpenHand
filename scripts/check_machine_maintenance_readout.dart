@@ -116,6 +116,48 @@ void main() {
         'Permission denied',
     '异常信息丢失',
   );
+  final process = parse(
+    'PID PPID USER STAT STARTED COMMAND\n42 1 user S Tue Sep 29 16:00:00 2026 /Applications/My App',
+    'status',
+  );
+  check(process.fields && process.rows.length == 6, '单进程状态应转换为完整属性');
+  check(process.rows.last.last == '/Applications/My App', '进程命令被截断');
+  final service = parse('''{
+  "Label" = "com.example.worker";
+  "MachServices" = {
+    "com.example.worker" = { "note" = "a } b"; };
+  };
+  "ProgramArguments" = (
+    "/Applications/My App",
+    "--verbose"
+  );
+  "PID" = 42;
+}''', 'status');
+  check(service.rows.length == 4, '嵌套服务配置不应拆为括号或描述行');
+  check(
+    service.rows[1].last.contains('"a } b"') &&
+        service.rows[1].last.endsWith('};'),
+    '嵌套配置值或闭括号丢失',
+  );
+  check(
+    service.rows[2].last.contains('--verbose') &&
+        service.rows.last.first == 'PID',
+    '配置数组未完整保留或吞掉后续属性',
+  );
+  final incomplete = parse('"Options" = {\n "nested" = 42;', 'status');
+  check(
+    incomplete.rows.single.last.contains('"nested" = 42;'),
+    '截断配置必须保留已采集内容',
+  );
+  final report = parse(
+    'Date/Time: 2026-09-30 08:00:00 +0800\nREGION TYPE SIZE\nMALLOC 400M\nTOTAL 500M',
+    'memory',
+  );
+  check(report.rows.first.last == '2026-09-30 08:00:00 +0800', '报告日期被改写');
+  check(
+    report.rows.last.last.contains('MALLOC 400M\nTOTAL 500M'),
+    '非属性报告应完整成块保留',
+  );
   check(parse('', 'status').rows.isEmpty, '空输出解析错误');
   for (final sample in [
     'TCP 127.0.0.1:80 0.0.0.0:0 LISTENING 42',

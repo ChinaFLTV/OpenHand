@@ -876,7 +876,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ),
               Flexible(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
                   child: SingleChildScrollView(
                     child: _MaintenanceReadout(
                       text: text,
@@ -4261,6 +4261,52 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
     if (widget.section == 'logs') {
       return _MaintenanceLogTimeline(rows: _data.rows);
     }
+    if (_data.fields) {
+      final theme = Theme.of(context);
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 600 ? 2 : 1;
+          final width =
+              (constraints.maxWidth - _maintenanceGridGap * (columns - 1)) /
+              columns;
+          return _MaintenanceEqualHeightWrap(
+            children: [
+              for (final field in _data.rows)
+                SizedBox(
+                  width: field[1].contains('\n') || field[1].length > 70
+                      ? constraints.maxWidth
+                      : width,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: .04),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            maintenanceDetailLabel(context, field[0]),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          SelectableText(
+                            field[1].isEmpty ? '—' : field[1],
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    }
     return _MaintenanceTable(
       headers: _data.headers
           .map((label) => maintenanceDetailLabel(context, label))
@@ -4272,31 +4318,20 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
             value: 0,
             cells: [
               for (var c = 0; c < _data.rows[i].length; c++)
-                _data.fields
-                    ? c == 0
-                          ? maintenanceDetailLabel(context, _data.rows[i][c])
-                          : maintenanceDetailValue(context, _data.rows[i][c])
-                    : const [
-                        '状态',
-                        'STATUS',
-                        'STATE',
-                        'PRESET',
-                        'TYPE',
-                        'State',
-                        '启动方式',
-                        '预设',
-                        '类型',
-                      ].contains(_data.headers[c])
+                const [
+                      '状态',
+                      'STATUS',
+                      'STATE',
+                      'PRESET',
+                      'TYPE',
+                      'State',
+                      '启动方式',
+                      '预设',
+                      '类型',
+                    ].contains(_data.headers[c])
                     ? maintenanceDetailValue(context, _data.rows[i][c])
                     : _data.rows[i][c],
             ],
-            cellWidgets:
-                _data.fields && const ['io', 'memory'].contains(widget.section)
-                ? [
-                    Text(maintenanceDetailLabel(context, _data.rows[i][0])),
-                    _MaintenanceNumber(raw: _data.rows[i][1], maxLines: 3),
-                  ]
-                : null,
           ),
       ],
       maxBodyHeight: 480,
@@ -5342,16 +5377,9 @@ class _MachineMaintenanceDetailsState
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
-              child: SizedBox(
-                height: 3,
-                child: _busy
-                    ? LinearProgressIndicator(
-                        borderRadius: BorderRadius.circular(3),
-                      )
-                    : const SizedBox.shrink(),
-              ),
+            SizedBox(
+              height: 3,
+              child: _busy ? const LinearProgressIndicator() : null,
             ),
             if (_error != null || _result != null)
               Padding(
@@ -5378,24 +5406,26 @@ class _MachineMaintenanceDetailsState
                     )
                   : ListView(
                       shrinkWrap: true,
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
                       children: [
-                        _MaintenanceGrid(
-                          children: _sectionWidgets(
-                            _data!,
-                            _data!.sections.keys
-                                .where(
-                                  (key) => !const [
-                                    'platform',
-                                    'host',
-                                    'boot',
-                                    'encoding',
-                                    'uptime',
-                                  ].contains(key),
-                                )
-                                .toList(),
+                        for (final section in _sectionWidgets(
+                          _data!,
+                          _data!.sections.keys
+                              .where(
+                                (key) => !const [
+                                  'platform',
+                                  'host',
+                                  'boot',
+                                  'encoding',
+                                  'uptime',
+                                ].contains(key),
+                              )
+                              .toList(),
+                        ))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: section,
                           ),
-                        ),
                       ],
                     ),
             ),

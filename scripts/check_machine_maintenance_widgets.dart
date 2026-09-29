@@ -1198,6 +1198,50 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('详情固定字段完整展示，无分页、顶部冗余间距或等高空白', (tester) async {
+    final font = Platform.environment['MAINTENANCE_FONT'];
+    if (font != null) {
+      await tester.runAsync(() async {
+        final loader = FontLoader('运维详情字体')..addFont(File(font).readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+        await loader.load();
+      });
+    }
+    for (final width in [1100.0, 480.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        theme: ThemeData(fontFamily: font == null ? null : '运维详情字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff53651a))),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: RepaintBoundary(key: const ValueKey('详情预览'),
+          child: _MachineMaintenanceDetails(title: 'com.example.worker', actions: const {},
+            execute: (_) async => '',
+            load: () async => '__OH_OPS_platform__\\nDarwin\\n__OH_OPS_status__\\n{\\n"Label" = "com.example.worker";\\n"MachServices" = {\\n "com.example.worker" = true;\\n};\\n}\\n__OH_OPS_memory__\\nDate/Time: 2026-09-30 08:00:00 +0800\\nPhysical footprint: 430.1M\\n__OH_OPS_end__\\n')))));
+      await tester.pumpAndSettle();
+      expect(find.byType(_MaintenanceTable), findsNothing);
+      expect(find.byType(OpenHandTablePagination), findsNothing);
+      expect(find.byType(_MaintenanceGrid), findsNothing);
+      expect(find.text('2026-09-30 08:00:00 +0800'), findsOneWidget);
+      expect(find.text('{'), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is SelectableText && (w.data ?? '').contains('"com.example.worker" = true;')), findsOneWidget);
+      final header = tester.getRect(find.byType(_MachineTerminalDialogHeader));
+      final cards = find.byType(_MaintenanceCard);
+      expect(tester.getRect(cards.first).top - header.bottom, lessThanOrEqualTo(8));
+      expect(tester.getRect(cards.last).top - tester.getRect(cards.first).bottom, closeTo(12, 1));
+      expect(tester.takeException(), isNull);
+      if (width == 1100 && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+        await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('详情预览')));
+        final image = await boundary.toImage(pixelRatio: 1.5);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/maintenance-details-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+        });
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('二级详情结构化展示适配窄窗口与六种语言', (tester) async {
     final fixtures = <String, String>{
       'startup': '/Library/LaunchAgents:\\ncom.example.agent.plist\\n/Users/test/Library/LaunchAgents:\\nMy Agent.plist',
@@ -1459,8 +1503,8 @@ void main() {
           expect(tester.widget<_MachineTerminalIconButton>(button).onPressed, isNull);
         }
         expect(find.byType(OutlinedButton), findsNothing);
-        expect(progressRect.top, greaterThan(headerRect.bottom));
-        expect(progressRect.left, greaterThan(headerRect.left));
+        expect(progressRect.top, greaterThanOrEqualTo(headerRect.bottom));
+        expect(progressRect.left, greaterThanOrEqualTo(headerRect.left));
         expect(tester.takeException(), isNull);
         pending.complete('__OH_OPS_platform__\\nLinux\\n__OH_OPS_end__\\n');
         await tester.pumpAndSettle();

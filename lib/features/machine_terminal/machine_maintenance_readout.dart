@@ -272,6 +272,16 @@ class MachineMaintenanceReadout {
         }
         rows.add(cells);
       }
+      if (section == 'status' && rows.length == 1) {
+        return MachineMaintenanceReadout(
+          ['名称', '数值'],
+          [
+            for (var i = 0; i < headers.length; i++)
+              [headers[i], rows.single[i]],
+          ],
+          fields: true,
+        );
+      }
       return MachineMaintenanceReadout(headers, rows);
     }
     // 固定列输出按照表头的实际列位置切分，保留含空格的命令、时间和空列。
@@ -311,16 +321,51 @@ class MachineMaintenanceReadout {
       );
     }
     final fields = <List<String>>[];
-    for (final line in lines) {
-      final m = RegExp(
-        r'^\s*([A-Za-z_][\w.() /-]*?)\s*[:=]\s*(.*)$',
-      ).firstMatch(line);
-      if (m != null) {
-        fields.add([m[1]!.trim(), m[2]!.trim().isEmpty ? '—' : m[2]!.trim()]);
-      } else if (line.trim().endsWith('{')) {
-        fields.add(['范围', line.trim()]);
-      } else if (line.trim() != '}' && line.trim() != '};') {
-        fields.add(['描述', line.trim()]);
+    final property = RegExp(
+      r'^\s*(?:"([^"\n]+)"|([A-Za-z_][\w.() /%-]*?))\s*[:=]\s*(.*)$',
+    );
+    var depth = 0;
+    var quoted = false;
+    var escaped = false;
+    // 多行配置作为完整字段保留；引号中的括号不参与层级计算。
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+      final text = line.trim();
+      if (depth == 0 &&
+          ((index == 0 && text == '{') ||
+              (index == lines.length - 1 && (text == '}' || text == '};')))) {
+        continue;
+      }
+      if (depth > 0) {
+        fields.last[1] += '\n$line';
+      } else {
+        final match = property.firstMatch(line);
+        if (match != null) {
+          fields.add([(match[1] ?? match[2]!).trim(), match[3]!.trim()]);
+        } else if (fields.isNotEmpty && fields.last[0] == '描述') {
+          fields.last[1] += '\n$line';
+        } else {
+          fields.add(['描述', line]);
+        }
+      }
+      final value = depth > 0 ? line : fields.last[1];
+      // 只追踪字段以容器开头的值，避免普通报告中的括号影响后续字段。
+      if (depth == 0 && !RegExp(r'^[{(\[]').hasMatch(value.trimLeft())) {
+        continue;
+      }
+      for (final rune in value.runes) {
+        if (escaped) {
+          escaped = false;
+        } else if (rune == 92 && quoted) {
+          escaped = true;
+        } else if (rune == 34) {
+          quoted = !quoted;
+        } else if (!quoted) {
+          if (rune == 123 || rune == 40 || rune == 91) depth++;
+          if (rune == 125 || rune == 41 || rune == 93) {
+            if (depth > 0) depth--;
+          }
+        }
       }
     }
     return MachineMaintenanceReadout(['名称', '数值'], fields, fields: true);
