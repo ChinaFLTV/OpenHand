@@ -75,6 +75,7 @@ const _maintenanceTabIcons = <IconData>[
   Icons.health_and_safety_outlined,
   Icons.inventory_2_outlined,
 ];
+const _maintenanceDistributionMaxWidth = 600.0;
 const _maintenanceCardRadius = kOpenHandRadius12;
 const _maintenanceNoOverlay = WidgetStatePropertyAll<Color?>(
   Colors.transparent,
@@ -1191,6 +1192,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final right = <Widget>[
       if (total != null && total > 0 && available != null)
         _MaintenanceCard(
+          maxWidth: _maintenanceDistributionMaxWidth,
           title: AppLocalizations.of(context)!.maintenanceMemoryShare,
           icon: Icons.donut_large_rounded,
           child: _MaintenanceVisual(
@@ -1659,6 +1661,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       if ((device.metrics['memoryTotal'] ?? 0) > 0 &&
                           device.metrics['memoryUsed'] != null)
                         _MaintenanceCard(
+                          maxWidth: _maintenanceDistributionMaxWidth,
                           title: l10n.maintenanceGpuMemoryUsed,
                           icon: Icons.pie_chart_outline_rounded,
                           child: _MaintenanceVisual(
@@ -2525,6 +2528,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
+          maxWidth: _maintenanceDistributionMaxWidth,
           title: AppLocalizations.of(context)!.maintenanceServiceShare,
           icon: Icons.pie_chart_outline_rounded,
           child: _MaintenanceVisual(
@@ -2835,6 +2839,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             minWidth: 340,
             children: [
               _MaintenanceCard(
+                maxWidth: _maintenanceDistributionMaxWidth,
                 title: AppLocalizations.of(context)!.maintenanceConnectionShare,
                 icon: Icons.donut_small_rounded,
                 child: _MaintenanceVisual(
@@ -4958,6 +4963,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.icon = Icons.analytics_outlined,
     this.onOpen,
     this.maxHeight = 280,
+    this.maxWidth = double.infinity,
     this.scrollBody = true,
     this.contentPadding = const EdgeInsets.all(14),
     this.trailing,
@@ -4967,7 +4973,7 @@ class _MaintenanceCard extends StatelessWidget {
   final Widget child;
   final IconData icon;
   final VoidCallback? onOpen;
-  final double maxHeight;
+  final double maxHeight, maxWidth;
   final bool scrollBody;
   final EdgeInsetsGeometry contentPadding;
   final Widget? trailing;
@@ -4976,7 +4982,7 @@ class _MaintenanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tone = accent ?? cs.primary;
-    return Container(
+    final card = Container(
       clipBehavior: Clip.antiAlias,
       padding: const EdgeInsets.all(1),
       decoration: BoxDecoration(
@@ -5070,6 +5076,15 @@ class _MaintenanceCard extends StatelessWidget {
         ],
       ),
     );
+    return maxWidth.isFinite
+        ? Align(
+            alignment: AlignmentDirectional.topStart,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: card,
+            ),
+          )
+        : card;
   }
 }
 
