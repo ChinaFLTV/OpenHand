@@ -221,17 +221,25 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         : '手动刷新';
     return buildOpenHandDialog(
       insetPadding: const EdgeInsets.all(18),
-      backgroundColor: cs.surfaceContainerLowest,
+      backgroundColor: Color.alphaBlend(
+        cs.primary.withValues(alpha: .025),
+        cs.brightness == Brightness.light ? Colors.white : cs.surface,
+      ),
       child: Theme(
         data: theme.copyWith(
+          textTheme: theme.textTheme.copyWith(
+            bodyMedium: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+            bodySmall: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+            labelLarge: theme.textTheme.labelLarge?.copyWith(fontSize: 13),
+          ),
           dataTableTheme: DataTableThemeData(
             headingRowColor: WidgetStatePropertyAll(cs.surfaceContainerLow),
             headingTextStyle: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
-            headingRowHeight: 42,
-            dataRowMinHeight: 44,
-            dataRowMaxHeight: 58,
+            headingRowHeight: 34,
+            dataRowMinHeight: 38,
+            dataRowMaxHeight: 46,
             horizontalMargin: 14,
             columnSpacing: 22,
             dividerThickness: .5,
@@ -251,7 +259,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
         ),
         child: SizedBox(
-          width: math.min(size.width * .94, 1380),
+          width: math.min(size.width * .9, 1180),
           height: size.height * .88,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -583,6 +591,52 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     );
   }
 
+  Future<void> _showCollected(String title, String text) async {
+    _detailOpen = true;
+    _timer?.cancel();
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (context) => buildOpenHandDialog(
+        child: SizedBox(
+          width: math.min(MediaQuery.sizeOf(context).width * .86, 900),
+          height: MediaQuery.sizeOf(context).height * .7,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MachineTerminalDialogHeader(
+                icon: Icons.article_outlined,
+                title: title,
+                subtitle: '当前采样 · 完整原始内容',
+                onClose: () => Navigator.of(context).pop(),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: SingleChildScrollView(
+                    child: _MaintenanceReadout(text: text),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _detailOpen = false;
+    if (mounted) _schedule();
+  }
+
+  void _selectSection(int index) {
+    if (_loading) return;
+    setState(() {
+      _tab = index;
+      _page = 0;
+      _search.clear();
+      _error = null;
+    });
+    _refresh();
+  }
+
   Widget _overview(MachineMaintenanceSnapshot data) {
     final cs = Theme.of(context).colorScheme;
     final memory = data.memory;
@@ -591,46 +645,317 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final swap = memory['SwapTotal'];
     final freeSwap = memory['SwapFree'];
     final cpu = data.cpuUsage(_previous[0]);
+    final memoryUsage = total != null && total > 0 && available != null
+        ? (total - available) / total
+        : null;
     final cores = data
         .counters('cpu')
         .keys
         .where((key) => RegExp(r'^cpu\d+$').hasMatch(key))
         .toList();
+    final facts = _maintenanceFacts(data);
+    final volumes = data
+        .text('filesystems')
+        .split('\n')
+        .skip(1)
+        .map((line) => line.trim().split(RegExp(r'\s+')))
+        .where(
+          (f) =>
+              f.length >= 6 &&
+              int.tryParse(f[1]) != null &&
+              int.tryParse(f[2]) != null,
+        )
+        .toList();
+    final warnings = <String>[
+      if (cpu != null && cpu >= .85)
+        'CPU 使用率较高：${(cpu * 100).toStringAsFixed(0)}%',
+      if (memoryUsage != null && memoryUsage >= .85)
+        '内存使用率较高：${(memoryUsage * 100).toStringAsFixed(0)}%',
+    ];
+    final visibleVolumes = volumes.where((v) {
+      final mount = v.skip(5).join(' ');
+      return !const ['devfs', 'tmpfs', 'devtmpfs'].contains(v.first) &&
+          !mount.startsWith('/Library/Developer/CoreSimulator/') &&
+          (!mount.startsWith('/System/Volumes/') ||
+              mount == '/System/Volumes/Data');
+    }).toList();
+    final left = <Widget>[
+      _MaintenanceCard(
+        title: '资源使用',
+        icon: Icons.memory_rounded,
+        child: Column(
+          children: [
+            _MaintenanceUsage(label: 'CPU', value: cpu, color: cs.primary),
+            _MaintenanceUsage(
+              label: '内存',
+              value: memoryUsage,
+              color: cs.tertiary,
+            ),
+            _MaintenanceUsage(
+              label: 'SWAP',
+              value: swap != null && swap > 0 && freeSwap != null
+                  ? (swap - freeSwap) / swap
+                  : null,
+              color: cs.secondary,
+            ),
+            const Divider(height: 18),
+            _MaintenanceFacts(
+              values: {
+                '运行时间': facts['运行时间']!,
+                '负载均衡': data
+                    .text('load')
+                    .split(RegExp(r'\s+'))
+                    .take(3)
+                    .join(' / '),
+                '处理器': data.text('processor'),
+              },
+            ),
+          ],
+        ),
+      ),
+      _MaintenanceCard(
+        title: '采样状态',
+        icon: Icons.sensors_rounded,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MaintenanceStatus(
+              label: _error != null ? '数据可能过期' : '采集成功',
+              color: _error != null ? cs.error : cs.primary,
+            ),
+            const SizedBox(height: 10),
+            _MaintenanceFacts(
+              values: {
+                '刷新方式': _automatic ? '自动 · $_intervalSeconds 秒' : '手动刷新',
+                '趋势样本': '${_cpuHistory.length} / 60',
+                '目标平台': facts['操作系统']!,
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '速率根据连续采样计算；不可用字段不作推断。',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+      if (cores.isNotEmpty)
+        _MaintenanceCard(
+          title: '每核负载',
+          icon: Icons.grid_view_rounded,
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final core in cores)
+                _MaintenanceStatus(
+                  label:
+                      '$core · ${data.cpuUsage(_previous[0], core) == null ? '—' : '${(data.cpuUsage(_previous[0], core)! * 100).round()}%'}',
+                  color: cs.primary,
+                ),
+            ],
+          ),
+        ),
+    ];
+    final center = <Widget>[
+      _MaintenanceCard(
+        title: '基本信息',
+        icon: Icons.info_outline_rounded,
+        onOpen: () => _showCollected('系统原始信息', data.text('system')),
+        child: _MaintenanceFacts(
+          values: {
+            '主机名': facts['主机名']!,
+            '操作系统': facts['操作系统']!,
+            '系统版本': facts['系统版本']!,
+            '内核版本': facts['内核版本']!,
+            '逻辑处理器': facts['逻辑处理器']!,
+          },
+        ),
+      ),
+      _MaintenanceCard(
+        title: '存储空间',
+        icon: Icons.storage_rounded,
+        onOpen: () => _showCollected('文件系统', data.text('filesystems')),
+        child: visibleVolumes.isEmpty
+            ? const Text('暂无可读的文件系统', style: TextStyle(fontSize: 12))
+            : Column(
+                children: [
+                  for (final v in visibleVolumes)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  v.skip(5).join(' '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Text(v[4], style: const TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          LinearProgressIndicator(
+                            value:
+                                ((double.tryParse(v[4].replaceAll('%', '')) ??
+                                            0) /
+                                        100)
+                                    .clamp(0, 1),
+                            minHeight: 5,
+                            borderRadius: BorderRadius.circular(4),
+                            color:
+                                (double.tryParse(v[4].replaceAll('%', '')) ??
+                                        0) >=
+                                    85
+                                ? cs.error
+                                : cs.primary,
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+      ),
+      _MaintenanceCard(
+        title: '网络吞吐',
+        icon: Icons.swap_vert_rounded,
+        onOpen: () => _showCollected('网卡详情', data.text('interfaces')),
+        child: _rateTable(
+          data,
+          'network',
+          const ['网卡', '接收 / 秒', '发送 / 秒'],
+          const [0, 8],
+          const [1, 1],
+        ),
+      ),
+    ];
+    final right = <Widget>[
+      _MaintenanceCard(
+        title: 'CPU 实时趋势',
+        icon: Icons.show_chart_rounded,
+        child: SizedBox(
+          height: 94,
+          child: _cpuHistory.length < 2
+              ? Center(
+                  child: Text(
+                    _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                )
+              : CustomPaint(
+                  painter: _MaintenanceSparkline(
+                    List.of(_cpuHistory),
+                    cs.primary,
+                  ),
+                ),
+        ),
+      ),
+      _MaintenanceCard(
+        title: '运维操作',
+        icon: Icons.tune_rounded,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final action in const [
+              (1, Icons.memory_rounded, '查看进程'),
+              (2, Icons.settings_suggest_outlined, '管理系统服务'),
+              (3, Icons.hub_outlined, '网络诊断'),
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  onPressed: _loading ? null : () => _selectSection(action.$1),
+                  icon: Icon(action.$2, size: 16),
+                  label: Text(action.$3, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+          ],
+        ),
+      ),
+      _MaintenanceCard(
+        title: '资源提醒',
+        icon: Icons.notifications_none_rounded,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MaintenanceStatus(
+              label: warnings.isEmpty ? '暂无阈值提醒' : '${warnings.length} 项需关注',
+              color: warnings.isEmpty ? cs.primary : cs.error,
+            ),
+            const SizedBox(height: 10),
+            for (final warning in warnings.take(6))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  warning,
+                  style: TextStyle(fontSize: 12, color: cs.error),
+                ),
+              ),
+            Text(
+              '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    ];
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       children: [
         _MaintenanceGrid(
-          minWidth: 220,
+          minWidth: 200,
           maxColumns: 4,
           children: [
             _metric(
               'CPU 使用率',
               cpu == null ? '—' : '${(cpu * 100).toStringAsFixed(1)}%',
-              data.text('core_count').isEmpty && cores.isEmpty
-                  ? '逻辑处理器数量未知'
-                  : '${data.text('core_count').isEmpty ? cores.length : data.text('core_count')} 个逻辑处理器',
+              '${facts['逻辑处理器']} 个逻辑处理器',
               Icons.memory_rounded,
               cs.primary,
               cpu,
             ),
             _metric(
-              '物理内存',
+              '内存使用率',
+              memoryUsage == null
+                  ? '—'
+                  : '${(memoryUsage * 100).toStringAsFixed(0)}%',
               total == null || available == null
-                  ? '不可用'
-                  : formatByteSize(total - available),
-              '总量 ${total == null ? '未知' : formatByteSize(total)}',
+                  ? '暂无数据'
+                  : '${formatByteSize(total - available)} / ${formatByteSize(total)}',
               Icons.storage_rounded,
               cs.tertiary,
-              total != null && total > 0 && available != null
-                  ? (total - available) / total
-                  : null,
+              memoryUsage,
             ),
             _metric(
               'SWAP 使用量',
               swap == null || freeSwap == null
-                  ? '不可用'
+                  ? '—'
                   : formatByteSize(swap - freeSwap),
-              '总量 ${swap == null ? '未知' : formatByteSize(swap)}',
+              swap == 0
+                  ? '未配置交换空间'
+                  : '总量 ${swap == null ? '—' : formatByteSize(swap)}',
               Icons.swap_horiz_rounded,
               cs.secondary,
               swap != null && swap > 0 && freeSwap != null
@@ -639,219 +964,90 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
             _metric(
               '运行时间',
-              data.uptime == null
-                  ? '未知'
-                  : '${(data.uptime! / 86400).floor()} 天 ${(data.uptime! / 3600).floor() % 24} 小时',
-              '负载 ${data.text('load').split(' ').take(3).join(' / ')}',
+              facts['运行时间']!,
+              facts['操作系统']!,
               Icons.schedule_rounded,
               cs.primary,
               null,
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _MaintenanceGrid(
-          minWidth: 300,
-          children: [
-            _MaintenanceCard(
-              title: '基本信息',
-              child: _MaintenanceReadout(
-                text:
-                    '主机：${data.text('host')}\n系统：${data.text('platform')}\n处理器：${data.text('processor')}\n${data.text('system')}',
-              ),
-            ),
-            _MaintenanceCard(
-              title: 'CPU 趋势 · 最近 60 个有效采样',
-              child: SizedBox(
-                height: 90,
-                child: _cpuHistory.length < 2
-                    ? const Center(child: Text('开启自动采样或手动刷新以绘制趋势'))
-                    : CustomPaint(
-                        painter: _MaintenanceSparkline(
-                          List.of(_cpuHistory),
-                          cs.primary,
-                        ),
-                      ),
-              ),
-            ),
-            _MaintenanceCard(
-              title: '每核负载',
-              child: cores.isEmpty
-                  ? const Text('当前系统未提供每核计数。')
-                  : Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: cores.map((core) {
-                        final value = data.cpuUsage(_previous[0], core);
-                        return Chip(
-                          label: Text(
-                            '$core · ${value == null ? '待采样' : '${(value * 100).toStringAsFixed(0)}%'}',
-                          ),
-                        );
-                      }).toList(),
-                    ),
-            ),
-          ],
-        ),
         const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (_, constraints) {
+            Widget stack(List<Widget> items) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: item,
+                  ),
+              ],
+            );
+            if (constraints.maxWidth <
+                900 * MediaQuery.textScalerOf(context).scale(12) / 12) {
+              return stack([...center, ...left, ...right]);
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 26, child: stack(left)),
+                const SizedBox(width: 12),
+                Expanded(flex: 44, child: stack(center)),
+                const SizedBox(width: 12),
+                Expanded(flex: 30, child: stack(right)),
+              ],
+            );
+          },
+        ),
         _MaintenanceCard(
-          title: '存储空间',
-          child: LayoutBuilder(
-            builder: (_, constraints) => SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('挂载点')),
-                    DataColumn(label: Text('容量')),
-                    DataColumn(label: Text('已用')),
-                    DataColumn(label: Text('可用')),
-                    DataColumn(label: Text('使用率')),
-                  ],
-                  rows: data
-                      .text('filesystems')
-                      .split('\n')
-                      .skip(1)
-                      .map((line) => line.trim().split(RegExp(r'\s+')))
-                      .where(
-                        (fields) =>
-                            fields.length >= 6 &&
-                            int.tryParse(fields[1]) != null,
-                      )
-                      .map(
-                        (fields) => DataRow(
-                          cells: [
-                            DataCell(
-                              SizedBox(
-                                width: 220,
-                                child: Text(
-                                  fields.skip(5).join(' '),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            ...[1, 2, 3].map(
-                              (index) => DataCell(
-                                Text(
-                                  formatByteSize(
-                                    (int.tryParse(fields[index]) ?? 0) * 1024,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 130,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: LinearProgressIndicator(
-                                        value:
-                                            ((double.tryParse(
-                                                          fields[4].replaceAll(
-                                                            '%',
-                                                            '',
-                                                          ),
-                                                        ) ??
-                                                        0) /
-                                                    100)
-                                                .clamp(0, 1),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(fields[4]),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
+          title: '更多系统指标',
+          icon: Icons.dashboard_customize_outlined,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final key in const [
+                'disks',
+                'vm',
+                'pressure',
+                'memory',
+                'memory_note',
+                'memory_details',
+                'kernel',
+                'blocks',
+                'interfaces',
+                'inodes',
+                'sensors',
+                'cgroup_limits',
+                'capabilities',
+              ])
+                if (data.text(key).isNotEmpty)
+                  OutlinedButton(
+                    onPressed: () => _showCollected(
+                      _maintenanceSectionLabels[key] ?? key,
+                      data.text(key),
+                    ),
+                    child: Text(
+                      _maintenanceSectionLabels[key] ?? key,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
-        _MaintenanceGrid(
-          minWidth: 440,
-          maxColumns: 2,
-          children: [
-            _MaintenanceCard(
-              title: '磁盘 IO · 设备与分区可能重叠，不作累加',
-              child: _rateTable(
-                data,
-                'disks',
-                const [
-                  '设备',
-                  '读取 / 秒',
-                  '写入 / 秒',
-                  '读 IOPS',
-                  '写 IOPS',
-                  '忙碌毫秒 / 秒',
-                ],
-                const [2, 6, 0, 4, 9],
-                const [512, 512, 1, 1, 1],
-              ),
-            ),
-            _MaintenanceCard(
-              title: '网络 IO',
-              child: _rateTable(
-                data,
-                'network',
-                const ['网卡', '接收 / 秒', '发送 / 秒', '接收丢包 / 秒', '发送丢包 / 秒'],
-                const [0, 8, 3, 11],
-                const [1, 1, 1, 1],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
         _MaintenanceCard(
-          title: '内存 IO · 分页与交换',
-          child: data.text('vm').isEmpty
-              ? const Text('当前系统未提供统一分页计数，请查看下方内存性能详情。')
-              : Wrap(
-                  spacing: 20,
-                  runSpacing: 8,
-                  children:
-                      [
-                        'pgpgin',
-                        'pgpgout',
-                        'pswpin',
-                        'pswpout',
-                        'pgfault',
-                        'pgmajfault',
-                      ].map((key) {
-                        final value = data.rate(_previous[0], 'vm', key, 0);
-                        return Text(
-                          '$key：${value == null ? '待采样' : value.toStringAsFixed(1)} ${key.startsWith('pgpg') ? 'KiB/s' : '次/s'}',
-                        );
-                      }).toList(),
-                ),
-        ),
-        const SizedBox(height: 12),
-        _MaintenanceGrid(
-          children: _sectionWidgets(data, const [
-            'capabilities',
-            'blocks',
-            'cgroup_limits',
-            'kernel',
-            'network',
-            'pressure',
-            'filesystems',
-            'inodes',
-            'swap',
-            'interfaces',
-            'sensors',
-            'memory',
-            'memory_note',
-            'memory_details',
-            'vm',
-          ]),
+          title: '磁盘 IO',
+          icon: Icons.speed_rounded,
+          child: _rateTable(
+            data,
+            'disks',
+            const ['设备', '读取 / 秒', '写入 / 秒', '读 IOPS', '写 IOPS'],
+            const [2, 6, 0, 4],
+            const [512, 512, 1, 1],
+          ),
         ),
       ],
     );
@@ -868,7 +1064,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
@@ -878,12 +1074,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: color.withValues(alpha: .11),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, size: 23, color: color),
+            child: Icon(icon, size: 21, color: color),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -903,6 +1099,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
+                    fontSize: 20,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -914,14 +1111,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     color: cs.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 9),
-                LinearProgressIndicator(
-                  value: (progress ?? 0).clamp(0, 1),
-                  color: color,
-                  backgroundColor: color.withValues(alpha: .1),
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(4),
-                ),
+                const SizedBox(height: 7),
+                if (progress != null)
+                  LinearProgressIndicator(
+                    value: progress.clamp(0, 1),
+                    color: color,
+                    backgroundColor: color.withValues(alpha: .1),
+                    minHeight: 4,
+                    borderRadius: BorderRadius.circular(4),
+                  )
+                else
+                  const SizedBox(height: 4),
               ],
             ),
           ),
@@ -1023,198 +1223,247 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         .split('\n')
         .where((line) => line.startsWith('__COUNT__'))
         .firstOrNull;
-    return Column(
-      key: const ValueKey('运维进程列表'),
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 10,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Column(
+        key: const ValueKey('运维进程列表'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 240,
+                  child: TextField(
+                    controller: _search,
+                    onChanged: (_) => setState(() {
+                      _page = 0;
+                    }),
+                    decoration: const InputDecoration(
+                      hintText: '搜索 PID 或进程名',
+                      prefixIcon: Icon(Icons.search_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 156,
+                  child: AnimatedDropdownButtonFormField<int>(
+                    value: _sort,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('CPU 降序')),
+                      DropdownMenuItem(value: 1, child: Text('内存降序')),
+                      DropdownMenuItem(value: 2, child: Text('PID 升序')),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _sort = value!;
+                      _page = 0;
+                    }),
+                  ),
+                ),
+                Text(
+                  '匹配 ${rows.length} 项 · 总数 ${countLine?.split('\t').last ?? '未知'}',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withValues(alpha: .6),
+                ),
+              ),
+              child: LayoutBuilder(
+                builder: (_, constraints) => SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: constraints.maxWidth,
+                      ),
+                      child: DataTable(
+                        showCheckboxColumn: false,
+                        columns: const [
+                          DataColumn(label: Text('PID')),
+                          DataColumn(label: Text('进程')),
+                          DataColumn(label: Text('状态')),
+                          DataColumn(label: Text('CPU / 单核')),
+                          DataColumn(label: Text('驻留内存')),
+                          DataColumn(label: Text('线程')),
+                        ],
+                        rows: rows
+                            .skip(currentPage * 40)
+                            .take(40)
+                            .map(
+                              (p) => DataRow(
+                                onSelectChanged:
+                                    !_platform!.canInspectProcess(p)
+                                    ? null
+                                    : (_) => _details(
+                                        '进程 ${p.pid} · ${p.name}',
+                                        _platform!.process(p),
+                                        actions: {
+                                          for (final action
+                                              in _platform!
+                                                  .processActions(p)
+                                                  .entries)
+                                            action.key: _platform!.process(
+                                              p,
+                                              action: action.value,
+                                            ),
+                                        },
+                                      ),
+                                cells: [
+                                  DataCell(Text('${p.pid}')),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 220,
+                                      child: Tooltip(
+                                        message: p.name,
+                                        child: Text(
+                                          p.name
+                                              .split('/')
+                                              .last
+                                              .split('\\')
+                                              .last,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    _MaintenanceStatus(
+                                      label: _maintenanceProcessState(p.state),
+                                      color: p.state.startsWith('Z')
+                                          ? Theme.of(context).colorScheme.error
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      cpu(p) == null
+                                          ? '—'
+                                          : '${cpu(p)!.toStringAsFixed(1)}%',
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      pageSize == null || p.residentPages < 0
+                                          ? '不可用'
+                                          : formatByteSize(
+                                              p.residentPages * pageSize,
+                                            ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(p.threads < 0 ? '—' : '${p.threads}'),
+                                  ),
+                                ],
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 4,
             children: [
-              SizedBox(
-                width: 280,
-                child: TextField(
-                  controller: _search,
-                  onChanged: (_) => setState(() {
-                    _page = 0;
-                  }),
-                  decoration: const InputDecoration(
-                    hintText: '搜索 PID 或进程名',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: !_loading && _processOffset > 0
+                        ? () {
+                            setState(() {
+                              _processOffset = math.max(
+                                0,
+                                _processOffset - machineMaintenanceProcessLimit,
+                              );
+                              _page = 0;
+                            });
+                            _refresh();
+                          }
+                        : null,
+                    child: const Text('上一批进程'),
                   ),
-                ),
-              ),
-              SizedBox(
-                width: 180,
-                child: AnimatedDropdownButtonFormField<int>(
-                  value: _sort,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+                  TextButton(
+                    onPressed:
+                        !_loading &&
+                            _processOffset + machineMaintenanceProcessLimit <
+                                (int.tryParse(
+                                      countLine?.split('\t').last ?? '',
+                                    ) ??
+                                    0)
+                        ? () {
+                            setState(() {
+                              _processOffset += machineMaintenanceProcessLimit;
+                              _page = 0;
+                            });
+                            _refresh();
+                          }
+                        : null,
+                    child: const Text('下一批进程'),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('CPU 降序')),
-                    DropdownMenuItem(value: 1, child: Text('内存降序')),
-                    DropdownMenuItem(value: 2, child: Text('PID 升序')),
-                  ],
-                  onChanged: (value) => setState(() {
-                    _sort = value!;
-                    _page = 0;
-                  }),
-                ),
+                ],
               ),
-              Text(
-                '本批匹配 ${rows.length} · 可见总数 ${countLine?.split('\t').last ?? '未知'} · 从第 ${_processOffset + 1} 条起，每批 $machineMaintenanceProcessLimit 条',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: currentPage > 0
+                        ? () => setState(() {
+                            _page = currentPage - 1;
+                          })
+                        : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('${currentPage + 1} / $pages'),
+                  IconButton(
+                    onPressed: currentPage + 1 < pages
+                        ? () => setState(() {
+                            _page = currentPage + 1;
+                          })
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
               ),
             ],
           ),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (_, constraints) => SingleChildScrollView(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: DataTable(
-                    showCheckboxColumn: false,
-                    columns: const [
-                      DataColumn(label: Text('PID')),
-                      DataColumn(label: Text('进程')),
-                      DataColumn(label: Text('状态')),
-                      DataColumn(label: Text('CPU · 单核 100%')),
-                      DataColumn(label: Text('驻留内存')),
-                      DataColumn(label: Text('线程')),
-                    ],
-                    rows: rows
-                        .skip(currentPage * 40)
-                        .take(40)
-                        .map(
-                          (p) => DataRow(
-                            onSelectChanged: !_platform!.canInspectProcess(p)
-                                ? null
-                                : (_) => _details(
-                                    '进程 ${p.pid} · ${p.name}',
-                                    _platform!.process(p),
-                                    actions: {
-                                      for (final action
-                                          in _platform!
-                                              .processActions(p)
-                                              .entries)
-                                        action.key: _platform!.process(
-                                          p,
-                                          action: action.value,
-                                        ),
-                                    },
-                                  ),
-                            cells: [
-                              DataCell(Text('${p.pid}')),
-                              DataCell(
-                                SizedBox(
-                                  width: 220,
-                                  child: Text(
-                                    p.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(Text(p.state)),
-                              DataCell(
-                                Text(
-                                  cpu(p) == null
-                                      ? '—'
-                                      : '${cpu(p)!.toStringAsFixed(1)}%',
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  pageSize == null || p.residentPages < 0
-                                      ? '不可用'
-                                      : formatByteSize(
-                                          p.residentPages * pageSize,
-                                        ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(p.threads < 0 ? '—' : '${p.threads}'),
-                              ),
-                            ],
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              onPressed: currentPage > 0
-                  ? () => setState(() {
-                      _page = currentPage - 1;
-                    })
-                  : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Text('${currentPage + 1} / $pages'),
-            IconButton(
-              onPressed: currentPage + 1 < pages
-                  ? () => setState(() {
-                      _page = currentPage + 1;
-                    })
-                  : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            TextButton(
-              onPressed: !_loading && _processOffset > 0
-                  ? () {
-                      setState(() {
-                        _processOffset = math.max(
-                          0,
-                          _processOffset - machineMaintenanceProcessLimit,
-                        );
-                        _page = 0;
-                      });
-                      _refresh();
-                    }
-                  : null,
-              child: const Text('上一批进程'),
-            ),
-            TextButton(
-              onPressed:
-                  !_loading &&
-                      _processOffset + machineMaintenanceProcessLimit <
-                          (int.tryParse(countLine?.split('\t').last ?? '') ?? 0)
-                  ? () {
-                      setState(() {
-                        _processOffset += machineMaintenanceProcessLimit;
-                        _page = 0;
-                      });
-                      _refresh();
-                    }
-                  : null,
-              child: const Text('下一批进程'),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1246,71 +1495,135 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           (line) => line.toLowerCase().contains(_search.text.toLowerCase()),
         )
         .toList();
+    final cs = Theme.of(context).colorScheme;
+    final manager = data.text('manager');
+    String state(String line) {
+      final fields = line.trim().split(RegExp(r'\s+'));
+      if (manager == 'launchd') {
+        return fields.length > 1 && int.tryParse(fields[1]) != null
+            ? '运行中'
+            : '未运行';
+      }
+      if (manager == 'Windows SCM') {
+        final columns = line.split('\t');
+        return columns.length > 1 ? columns[1] : '未知';
+      }
+      if (line.contains(' failed ')) return '异常';
+      if (line.contains(' active ') || line.contains('[ started ]')) {
+        return '运行中';
+      }
+      if (line.contains(' inactive ') || line.contains('[ stopped ]')) {
+        return '未运行';
+      }
+      return '待检查';
+    }
+
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          '服务管理器：${data.text('manager')} · 点击服务查看状态与可用操作',
-          style: Theme.of(context).textTheme.titleSmall,
+        _MaintenanceGrid(
+          minWidth: 210,
+          children: [
+            _metric(
+              '已发现服务',
+              '${rows.length}',
+              manager,
+              Icons.settings_suggest_outlined,
+              cs.primary,
+              null,
+            ),
+            _metric(
+              '运行中',
+              '${rows.where((line) => const ['运行中', 'Running'].contains(state(line))).length}',
+              '当前可见服务',
+              Icons.play_circle_outline,
+              cs.tertiary,
+              null,
+            ),
+            _metric(
+              '异常服务',
+              '${rows.where((line) => state(line) == '异常').length}',
+              '仅统计明确报告失败的条目',
+              Icons.error_outline,
+              cs.error,
+              null,
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
+            isDense: true,
             hintText: '筛选服务',
-            prefixIcon: Icon(Icons.search_rounded),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
+            prefixIcon: Icon(Icons.search_rounded, size: 18),
           ),
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
           title: '服务列表 · ${filtered.length} 项',
+          icon: Icons.view_list_outlined,
+          maxHeight: 420,
           child: SizedBox(
-            height: math.min(360, MediaQuery.sizeOf(context).height * .42),
+            height: math.min(410, MediaQuery.sizeOf(context).height * .43),
             child: ListView.builder(
               primary: false,
               itemCount: filtered.length,
               itemBuilder: (_, index) {
                 final line = filtered[index];
-                final name = (line.contains('\t')
+                final name = line.contains('\t')
                     ? line.split('\t').first
-                    : line.trim().split(RegExp(r'\s+')).first);
+                    : line.trim().split(RegExp(r'\s+')).first;
                 final enabled = adapter?.accepts(name) ?? false;
-                return DecoratedBox(
+                final status = state(line);
+                return Container(
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.outlineVariant.withValues(alpha: .45),
+                        color: cs.outlineVariant.withValues(alpha: .4),
                       ),
                     ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                     leading: Icon(
-                      line.contains(' failed ')
-                          ? Icons.error_outline
-                          : Icons.settings_suggest_outlined,
-                      color: line.contains(' failed ')
-                          ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.primary,
+                      Icons.settings_suggest_outlined,
+                      size: 19,
+                      color: status == '异常' ? cs.error : cs.primary,
                     ),
-                    title: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    title: Tooltip(
+                      message: line,
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                    subtitle: Text(
-                      line,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 90,
+                          child: _MaintenanceStatus(
+                            label: status,
+                            color: status == '异常'
+                                ? cs.error
+                                : status == '未运行'
+                                ? cs.onSurfaceVariant
+                                : cs.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_right, size: 16),
+                      ],
                     ),
-                    trailing: enabled ? const Icon(Icons.chevron_right) : null,
                     onTap: enabled
                         ? () => _details(
                             name,
@@ -1328,18 +1641,188 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
         ),
         const SizedBox(height: 12),
-        _MaintenanceGrid(
-          children: _sectionWidgets(data, const ['startup', 'timers']),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            for (final name in const ['startup', 'timers'])
+              if (data.text(name).isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: () => _showCollected(
+                    _maintenanceSectionLabels[name]!,
+                    data.text(name),
+                  ),
+                  icon: const Icon(Icons.article_outlined, size: 16),
+                  label: Text(_maintenanceSectionLabels[name]!),
+                ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _sections(MachineMaintenanceSnapshot data, List<String> names) =>
-      ListView(
-        padding: const EdgeInsets.all(18),
-        children: [_MaintenanceGrid(children: _sectionWidgets(data, names))],
-      );
+  Widget _sections(MachineMaintenanceSnapshot data, List<String> names) {
+    final cs = Theme.of(context).colorScheme;
+    final connections = _maintenanceConnections(data);
+    final dns = RegExp(
+      r'(?:nameserver(?:\[\d+\])?\s*:?\s*|DNS Servers[^:]*:\s*)([a-fA-F0-9:.]+)',
+    ).allMatches(data.text('dns')).map((m) => m[1]!).toSet().toList();
+    final primary = _MaintenanceCard(
+      title: '连接与监听端口',
+      icon: Icons.hub_outlined,
+      onOpen: () => _showCollected('连接与监听端口', data.text('sockets')),
+      maxHeight: 470,
+      child: connections.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(18),
+              child: Text('未解析到 TCP / UDP 连接，可查看原始数据。'),
+            )
+          : LayoutBuilder(
+              builder: (_, constraints) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('协议')),
+                      DataColumn(label: Text('本地地址')),
+                      DataColumn(label: Text('远端地址')),
+                      DataColumn(label: Text('状态')),
+                    ],
+                    rows: [
+                      for (final row in connections)
+                        DataRow(
+                          cells: [
+                            for (final cell in row)
+                              DataCell(
+                                Tooltip(
+                                  message: cell,
+                                  child: SizedBox(
+                                    width: cell == row.first ? 46 : 150,
+                                    child: Text(
+                                      cell,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+    );
+    final secondary = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MaintenanceCard(
+          title: 'DNS 服务器',
+          icon: Icons.language_rounded,
+          onOpen: () => _showCollected('DNS 配置', data.text('dns')),
+          child: dns.isEmpty
+              ? const Text('暂无可解析的服务器地址', style: TextStyle(fontSize: 12))
+              : _MaintenanceFacts(
+                  values: {
+                    for (var i = 0; i < dns.length; i++) '服务器 ${i + 1}': dns[i],
+                  },
+                ),
+        ),
+        const SizedBox(height: 12),
+        _MaintenanceCard(
+          title: '诊断项目',
+          maxHeight: 360,
+          icon: Icons.fact_check_outlined,
+          child: Column(
+            children: [
+              for (final name in names.where(
+                (name) => name != 'sockets' && name != 'dns',
+              ))
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _maintenanceSectionIcon(name),
+                    size: 18,
+                    color: cs.primary,
+                  ),
+                  title: Text(
+                    _maintenanceSectionLabels[name] ?? name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    data.text(name).trim().isEmpty
+                        ? '暂无数据'
+                        : _maintenanceOutputStatus(data.text(name)),
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 16),
+                  onTap: () => _showCollected(
+                    _maintenanceSectionLabels[name] ?? name,
+                    data.text(name),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MaintenanceGrid(
+          minWidth: 210,
+          children: [
+            _metric(
+              '已解析连接',
+              '${connections.length}',
+              '当前采样中的 TCP / UDP',
+              Icons.hub_outlined,
+              cs.primary,
+              null,
+            ),
+            _metric(
+              'DNS 服务器',
+              '${dns.length}',
+              '解析自当前系统配置',
+              Icons.language_rounded,
+              cs.tertiary,
+              null,
+            ),
+            _metric(
+              '诊断项目',
+              '${names.length}',
+              '路由、日志、任务与安全',
+              Icons.fact_check_outlined,
+              cs.secondary,
+              null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (_, constraints) => constraints.maxWidth < 850
+              ? Column(
+                  children: [primary, const SizedBox(height: 12), secondary],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 7, child: primary),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 3, child: secondary),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 List<Widget> _sectionWidgets(
@@ -1354,6 +1837,233 @@ List<Widget> _sectionWidgets(
       ),
     )
     .toList();
+
+Map<String, String> _maintenanceFacts(MachineMaintenanceSnapshot data) {
+  final system = data.text('system');
+  String field(String key) =>
+      RegExp(
+        '^${RegExp.escape(key)}\\s*[:=]\\s*(.+)\$',
+        multiLine: true,
+      ).firstMatch(system)?.group(1)?.trim().replaceAll('"', '') ??
+      '';
+  final platform = data.text('platform');
+  final name = platform == 'Darwin' ? 'macOS' : platform;
+  final kernel = platform == 'Darwin'
+      ? RegExp('Darwin Kernel Version ([^:]+)').firstMatch(system)?.group(1)
+      : platform == 'Linux'
+      ? RegExp(
+          r'^Linux\s+\S+\s+(\S+)',
+          multiLine: true,
+        ).firstMatch(system)?.group(1)
+      : field('Version');
+  final version = platform == 'Darwin'
+      ? field('ProductVersion')
+      : platform == 'Windows'
+      ? field('Caption')
+      : field('PRETTY_NAME');
+  return {
+    '主机名': data.text('host'),
+    '操作系统': name,
+    '系统版本': version.isEmpty ? '未提供' : version,
+    '内核版本': kernel == null || kernel.isEmpty ? '未提供' : kernel,
+    '逻辑处理器': data.text('core_count').isEmpty
+        ? '${data.counters('cpu').keys.where((key) => RegExp(r'^cpu\d+$').hasMatch(key)).length}'
+        : data.text('core_count'),
+    '运行时间': data.uptime == null
+        ? '—'
+        : '${(data.uptime! / 86400).floor()} 天 ${(data.uptime! / 3600).floor() % 24} 小时',
+  };
+}
+
+List<List<String>> _maintenanceConnections(MachineMaintenanceSnapshot data) {
+  final rows = <List<String>>[];
+  for (final line in data.text('sockets').split('\n')) {
+    final fields = line.trim().split(RegExp(r'\s+'));
+    if (fields.length < 4 ||
+        !RegExp(
+          r'^(tcp|udp)(?:4|6|46)?$',
+          caseSensitive: false,
+        ).hasMatch(fields[0])) {
+      continue;
+    }
+    if (data.text('platform') == 'Windows') {
+      rows.add([
+        fields[0].toUpperCase(),
+        fields[1],
+        fields[2],
+        fields[0].toLowerCase() == 'tcp' && fields.length > 4 ? fields[3] : '—',
+      ]);
+    } else if (fields.length >= 5 && int.tryParse(fields[1]) != null) {
+      rows.add([
+        fields[0].toUpperCase(),
+        fields[3],
+        fields[4],
+        fields.length > 5 && fields[0].startsWith('tcp') ? fields[5] : '—',
+      ]);
+    } else if (fields.length >= 6) {
+      rows.add([fields[0].toUpperCase(), fields[4], fields[5], fields[1]]);
+    }
+  }
+  return rows;
+}
+
+String _maintenanceProcessState(String state) =>
+    switch (state.isEmpty ? '' : state[0]) {
+      'R' => '运行',
+      'S' => '休眠',
+      'I' => '空闲',
+      'T' => '暂停',
+      'Z' => '僵尸',
+      'D' => 'IO 等待',
+      _ => state,
+    };
+
+String _maintenanceOutputStatus(String text) =>
+    RegExp(
+      'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
+      caseSensitive: false,
+    ).hasMatch(text)
+    ? '部分不可用 · 查看原因'
+    : '已采集 · 查看详情';
+
+IconData _maintenanceSectionIcon(String name) => switch (name) {
+  'routes' => Icons.route_outlined,
+  'logs' => Icons.article_outlined,
+  'users' => Icons.people_outline,
+  'cron' => Icons.schedule_rounded,
+  'firewall' => Icons.shield_outlined,
+  'containers' => Icons.inventory_2_outlined,
+  _ => Icons.analytics_outlined,
+};
+
+class _MaintenanceFacts extends StatelessWidget {
+  const _MaintenanceFacts({required this.values});
+  final Map<String, String> values;
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (final entry in values.entries)
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: .35),
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 78,
+                child: Text(
+                  entry.key,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Tooltip(
+                  message: entry.value,
+                  child: Text(
+                    entry.value.isEmpty ? '未提供' : entry.value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+}
+
+class _MaintenanceStatus extends StatelessWidget {
+  const _MaintenanceStatus({required this.label, required this.color});
+  final String label;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 7, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MaintenanceUsage extends StatelessWidget {
+  const _MaintenanceUsage({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final double? value;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 7),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 52,
+          child: Text(label, style: const TextStyle(fontSize: 12)),
+        ),
+        Expanded(
+          child: LinearProgressIndicator(
+            value: (value ?? 0).clamp(0, 1),
+            minHeight: 5,
+            color: color,
+            backgroundColor: color.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        SizedBox(
+          width: 42,
+          child: Text(
+            value == null ? '—' : '${(value! * 100).round()}%',
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class _MaintenanceGrid extends StatelessWidget {
   const _MaintenanceGrid({
@@ -1495,80 +2205,33 @@ class _MaintenanceReadout extends StatelessWidget {
   const _MaintenanceReadout({required this.text});
   final String text;
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lines = text.trim().split('\n');
-    final structured =
-        lines.length <= 120 &&
-        lines.where((line) => RegExp('^.{1,48}[:：=]').hasMatch(line)).length >
-            lines.length / 2;
-    if (!structured) {
-      return SelectableText(
-        text.isEmpty ? '暂无可用数据' : text,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontFamily: 'monospace',
-          height: 1.7,
-        ),
-      );
-    }
-    return Column(
-      children: [
-        for (final line in lines)
-          Builder(
-            builder: (_) {
-              final separator = line.indexOf(RegExp('[:：=]'));
-              return Container(
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: .4,
-                      ),
-                    ),
-                  ),
-                ),
-                child: separator <= 0
-                    ? Align(
-                        alignment: Alignment.centerLeft,
-                        child: SelectableText(line),
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              line.substring(0, separator),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: SelectableText(
-                              line.substring(separator + 1).trim(),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-              );
-            },
-          ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: SelectableText(
+      text.isEmpty ? '暂无可用数据' : text,
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 12,
+        height: 1.65,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+    ),
+  );
 }
 
 class _MaintenanceCard extends StatelessWidget {
-  const _MaintenanceCard({required this.title, required this.child});
+  const _MaintenanceCard({
+    required this.title,
+    required this.child,
+    this.icon = Icons.analytics_outlined,
+    this.onOpen,
+    this.maxHeight = 280,
+  });
   final String title;
   final Widget child;
+  final IconData icon;
+  final VoidCallback? onOpen;
+  final double maxHeight;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -1584,30 +2247,47 @@ class _MaintenanceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             color: cs.surfaceContainerLow,
             child: Row(
               children: [
-                Icon(Icons.analytics_outlined, size: 17, color: cs.primary),
+                Icon(icon, size: 16, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
                   ),
                 ),
+                if (onOpen != null)
+                  Tooltip(
+                    message: '查看详情',
+                    child: InkWell(
+                      onTap: onOpen,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: math.min(
-                  280,
-                  MediaQuery.sizeOf(context).height * .36,
+                  maxHeight,
+                  MediaQuery.sizeOf(context).height * .56,
                 ),
               ),
               child: Material(

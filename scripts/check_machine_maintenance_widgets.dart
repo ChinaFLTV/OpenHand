@@ -27,6 +27,7 @@ Future<void> main() async {
     source:
         '''
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -67,6 +68,11 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
     expect(windowsScript, platform == 'Windows');
     calls++;
+    if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
+      final samples = jsonDecode(File(Platform.environment['MAINTENANCE_REAL_DATA']!).readAsStringSync()) as Map;
+      final key = command.contains('section processes') ? 'processes' : command.contains('section manager') ? 'services' : command.contains('section sockets') ? 'diagnostics' : calls == 1 ? 'overview' : 'overviewNext';
+      return samples[key] as String;
+    }
     if (fail) throw StateError('模拟连接中断');
     if (pending != null) return pending!.future;
     return '''
@@ -129,6 +135,49 @@ __OH_OPS_end__
 }
 
 void main() {
+  if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
+    testWidgets('真实 macOS 数据四分区视觉检查', (tester) async {
+      final service = _MaintenanceFixture()..platform = 'Darwin';
+      await tester.binding.setSurfaceSize(const Size(1440, 1000));
+      await tester.runAsync(() async {
+        for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+          if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+        }
+      });
+      for (final brightness in [Brightness.light, Brightness.dark]) {
+        await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+          child: MaterialApp(theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
+            home: const MediaQuery(data: MediaQueryData(size: Size(1440, 1000)), child: Scaffold(body: RepaintBoundary(key: ValueKey('实机预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '本机终端')))))));
+        await tester.pumpAndSettle();
+        for (var index = 0; index < _maintenanceTabs.length; index++) {
+          await tester.tap(find.text(_maintenanceTabs[index]));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('实机预览')));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/maintenance-real-\$index-\${brightness.name}.png').writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        await tester.pumpWidget(const SizedBox());
+      }
+      await tester.binding.setSurfaceSize(null);
+    });
+    return;
+  }
+  test('系统摘要与跨平台连接解析保留时间和 IPv6 地址', () {
+    final mac = MachineMaintenanceSnapshot({'platform': 'Darwin', 'system': 'ProductVersion: 27.0.1\\nDarwin host 27.0.0 Darwin Kernel Version 27.0.0: Tue 13:20:00', 'sockets': 'tcp46 0 0 *.80 *.* LISTEN\\nudp4 0 0 127.0.0.1.53 *.* 0', 'host': 'host'});
+    expect(_maintenanceFacts(mac)['系统版本'], '27.0.1');
+    expect(_maintenanceFacts(mac)['内核版本'], '27.0.0');
+    expect(_maintenanceConnections(mac).first, ['TCP46', '*.80', '*.*', 'LISTEN']);
+    final linux = MachineMaintenanceSnapshot({'platform': 'Linux', 'sockets': 'tcp LISTEN 0 128 [::]:22 [::]:*'});
+    expect(_maintenanceConnections(linux).single, ['TCP', '[::]:22', '[::]:*', 'LISTEN']);
+    final windows = MachineMaintenanceSnapshot({'platform': 'Windows', 'sockets': 'TCP [::1]:80 [::]:0 LISTENING 20'});
+    expect(_maintenanceConnections(windows).single, ['TCP', '[::1]:80', '[::]:0', 'LISTENING']);
+  });
+
   testWidgets('运维分区适配浅深主题、大字体与窄窗口', (tester) async {
     final service = _MaintenanceFixture();
     final font = Platform.environment['MAINTENANCE_FONT'];
