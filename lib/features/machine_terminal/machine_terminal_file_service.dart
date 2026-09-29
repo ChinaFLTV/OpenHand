@@ -1148,6 +1148,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       onOutput: onOutput,
     );
     if (result.succeeded) return result.output;
+    if (result.timedOut) throw TimeoutException('终端命令执行超时。', timeout);
     final error = result.error?.trim() ?? '';
     final output = result.output.trim();
     final message = error.isNotEmpty

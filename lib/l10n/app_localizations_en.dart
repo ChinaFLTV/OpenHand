@@ -12930,4 +12930,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceHealthNtp => 'NTP / Chrony services and sources';
+
+  @override
+  String get maintenanceCommandTimedOut =>
+      'The terminal timed out. Check that it is ready and at a command prompt, then retry.';
 }

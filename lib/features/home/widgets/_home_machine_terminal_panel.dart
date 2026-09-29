@@ -49,7 +49,6 @@ class _MachineExpertTerminalPanelState
     10,
   );
 
-  final ScrollController _terminalScrollController = ScrollController();
   final FocusNode _terminalFocusNode = FocusNode(
     debugLabel: 'machine-terminal',
   );
@@ -77,7 +76,6 @@ class _MachineExpertTerminalPanelState
 
   @override
   void dispose() {
-    _terminalScrollController.dispose();
     _terminalFocusNode.dispose();
     _terminalController.dispose();
     super.dispose();
@@ -128,29 +126,12 @@ class _MachineExpertTerminalPanelState
     }
   }
 
-  void _followBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_terminalScrollController.hasClients) return;
-      if (_terminalController.selection != null) return;
-      final position = _terminalScrollController.position;
-      if (position.extentAfter > _machineTerminalAutoFollowThreshold) return;
-      final target = position.maxScrollExtent;
-      if ((position.pixels - target).abs() < 2) return;
-      _terminalScrollController.animateTo(
-        target,
-        duration: kOpenHandMotion140,
-        curve: kOpenHandSwitchInCurve,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final terminalService = context.watch<MachineTerminalService>();
     final workspace = terminalService.snapshot(widget.sessionId);
     final activeSession = terminalService.activeTerminal(widget.sessionId);
     final activeSnapshot = workspace?.activeTerminal;
-    _followBottom();
 
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -223,12 +204,9 @@ class _MachineExpertTerminalPanelState
               child: ClipRRect(
                 borderRadius: kOpenHandBorderRadius8,
                 child: _MachineTerminalViewport(
-                  key: ValueKey<String>(
-                    'machine-terminal-view-${activeSession.id}',
-                  ),
+                  key: ObjectKey(activeSession),
                   session: activeSession,
                   controller: _terminalController,
-                  scrollController: _terminalScrollController,
                   focusNode: _terminalFocusNode,
                   padding: _terminalViewportPadding,
                 ),
@@ -317,32 +295,73 @@ class _MachineExpertTerminalPanelState
   }
 }
 
-class _MachineTerminalViewport extends StatelessWidget {
+class _MachineTerminalViewport extends StatefulWidget {
   const _MachineTerminalViewport({
     super.key,
     required this.session,
     required this.controller,
-    required this.scrollController,
     required this.focusNode,
     required this.padding,
   });
 
   final MachineTerminalSession session;
   final TerminalController controller;
-  final ScrollController scrollController;
   final FocusNode focusNode;
   final EdgeInsets padding;
+
+  @override
+  State<_MachineTerminalViewport> createState() =>
+      _MachineTerminalViewportState();
+}
+
+class _MachineTerminalViewportState extends State<_MachineTerminalViewport> {
+  final _scrollController = ScrollController(keepScrollOffset: false);
+  bool _followScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.terminal.addListener(_followOutput);
+  }
+
+  @override
+  void dispose() {
+    widget.session.terminal.removeListener(_followOutput);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _followOutput() {
+    if (_followScheduled || widget.controller.selection != null) return;
+    if (_scrollController.hasClients &&
+        _scrollController.position.extentAfter >
+            _machineTerminalAutoFollowThreshold) {
+      return;
+    }
+    _followScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followScheduled = false;
+      if (!mounted ||
+          !_scrollController.hasClients ||
+          widget.controller.selection != null) {
+        return;
+      }
+      final position = _scrollController.position;
+      if ((position.pixels - position.maxScrollExtent).abs() < 2) return;
+      _scrollController.jumpTo(position.maxScrollExtent);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: TerminalView(
-        session.terminal,
-        controller: controller,
-        scrollController: scrollController,
-        focusNode: focusNode,
+        widget.session.terminal,
+        controller: widget.controller,
+        scrollController: _scrollController,
+        focusNode: widget.focusNode,
         autofocus: true,
-        padding: padding,
+        padding: widget.padding,
         theme: _machineTerminalTheme(),
         alwaysShowCursor: true,
         onSecondaryTapDown: (details, _) =>
@@ -362,7 +381,7 @@ class _MachineTerminalViewport extends StatelessWidget {
           items: <PopupMenuEntry<_MachineTerminalSelectionAction>>[
             PopupMenuItem<_MachineTerminalSelectionAction>(
               value: _MachineTerminalSelectionAction.copy,
-              enabled: controller.selection != null,
+              enabled: widget.controller.selection != null,
               child: Row(
                 children: [
                   const Icon(Icons.content_copy_rounded, size: 18),
@@ -393,8 +412,8 @@ class _MachineTerminalViewport extends StatelessWidget {
         );
     if (!context.mounted || selected == null) return;
     if (selected == _MachineTerminalSelectionAction.selectAll) {
-      final terminal = session.terminal;
-      controller.setSelection(
+      final terminal = widget.session.terminal;
+      widget.controller.setSelection(
         terminal.buffer.createAnchor(
           0,
           terminal.buffer.height - terminal.viewHeight,
@@ -405,12 +424,12 @@ class _MachineTerminalViewport extends StatelessWidget {
         ),
         mode: SelectionMode.line,
       );
-      focusNode.requestFocus();
+      widget.focusNode.requestFocus();
       return;
     }
-    final selection = controller.selection;
+    final selection = widget.controller.selection;
     if (selection == null) return;
-    final text = session.terminal.buffer.getText(selection);
+    final text = widget.session.terminal.buffer.getText(selection);
     if (text.isEmpty) return;
     await copyOpenHandTextToClipboard(
       context: context,
@@ -423,7 +442,7 @@ class _MachineTerminalViewport extends StatelessWidget {
         en: 'Terminal selection copied.',
       ),
     );
-    focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 }
 

@@ -23215,6 +23215,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'NTP / Chrony 服务与同步源'**
   String get maintenanceHealthNtp;
+
+  /// No description provided for @maintenanceCommandTimedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端响应超时。请确认终端已就绪且处于命令提示符，然后重试。'**
+  String get maintenanceCommandTimedOut;
 }
 
 class _AppLocalizationsDelegate

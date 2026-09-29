@@ -13106,4 +13106,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceHealthNtp => 'Services et sources NTP / Chrony';
+
+  @override
+  String get maintenanceCommandTimedOut =>
+      'Le terminal ne répond pas. Vérifiez qu’il est prêt et affiche une invite de commande, puis réessayez.';
 }

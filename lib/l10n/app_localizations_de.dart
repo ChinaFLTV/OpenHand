@@ -13068,4 +13068,8 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceHealthNtp => 'NTP / Chrony: Dienste und Quellen';
+
+  @override
+  String get maintenanceCommandTimedOut =>
+      'Zeitüberschreitung des Terminals. Prüfen Sie, ob es bereit ist und eine Eingabeaufforderung anzeigt, und versuchen Sie es erneut.';
 }

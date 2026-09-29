@@ -8717,5 +8717,6 @@
   "maintenanceHealthUser": "Compte",
   "maintenanceHealthHome": "Dossier personnel",
   "maintenanceHealthDate": "Date, heure et fuseau horaire",
-  "maintenanceHealthNtp": "Services et sources NTP / Chrony"
+  "maintenanceHealthNtp": "Services et sources NTP / Chrony",
+  "maintenanceCommandTimedOut": "Le terminal ne répond pas. Vérifiez qu’il est prêt et affiche une invite de commande, puis réessayez."
 }

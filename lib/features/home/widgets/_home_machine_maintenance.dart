@@ -244,11 +244,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
         }
       });
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('machine_maintenance', '采集运维数据', error, stack);
       _detectedTarget = null;
       if (mounted && !_closing && tab == _tab) {
         setState(() {
-          _error = '$error';
+          _error = error is TimeoutException
+              ? AppLocalizations.of(context)!.maintenanceCommandTimedOut
+              : error is StateError
+              ? error.message
+              : error is UnsupportedError
+              ? error.message ??
+                    AppLocalizations.of(context)!.maintenanceCollectionFailed
+              : AppLocalizations.of(context)!.maintenanceCollectionFailed;
         });
       }
     } finally {
@@ -722,9 +730,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, _maintenanceControlHeight),
-                    maximumSize: const Size(
-                      double.infinity,
-                      _maintenanceControlHeight,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
                     ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -3604,14 +3612,27 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   }
 }
 
-class _MaintenanceNotice extends StatelessWidget {
+class _MaintenanceNotice extends StatefulWidget {
   const _MaintenanceNotice({required this.message, this.error = false});
   final String message;
   final bool error;
   @override
+  State<_MaintenanceNotice> createState() => _MaintenanceNoticeState();
+}
+
+class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color = error ? cs.error : cs.tertiary;
+    final color = widget.error ? cs.error : cs.tertiary;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -3623,21 +3644,31 @@ class _MaintenanceNotice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            error ? Icons.error_outline : Icons.info_outline,
+            widget.error ? Icons.error_outline : Icons.info_outline,
             size: 18,
             color: color,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 90),
-              child: SingleChildScrollView(
-                primary: false,
-                child: Text(
-                  message,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: color),
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.sizeOf(context).height * .25).clamp(
+                  96.0,
+                  240.0,
+                ),
+              ),
+              child: Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Text(
+                    widget.message,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: color),
+                  ),
                 ),
               ),
             ),

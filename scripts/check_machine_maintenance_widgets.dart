@@ -33,6 +33,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:openhand/app/support/silent_log.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +70,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   String platform = 'Linux';
   bool powershell = false;
   bool fail = false;
+  Object? failure;
   Completer<String>? pending;
   MachineTerminalUploadCancelCheck? cancelled;
   @override
@@ -85,6 +87,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
       final key = command.contains('section processes') ? 'processes' : command.contains('section manager') ? 'services' : command.contains('section sockets') ? 'diagnostics' : calls == 1 ? 'overview' : 'overviewNext';
       return samples[key] as String;
     }
+    if (failure != null) throw failure!;
     if (fail) throw StateError('模拟连接中断');
     if (pending != null) return pending!.future;
     if (command.contains('section gpu_nvidia')) return '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\nGPU主机\\n__OH_OPS_gpu_nvidia__\\nGPU-1,NVIDIA Test,550.1,00000000:01:00.0,45,1024,8192,60,80.5,150,1800,7000,0,P2\\n__OH_OPS_gpu_processes__\\nGPU-1,42,compute,128\\n__OH_OPS_end__\\n';
@@ -157,6 +160,52 @@ __OH_OPS_end__
 }
 
 void main() {
+  testWidgets('长错误信息有可见滚动入口，更新为短信息后恢复完整显示', (tester) async {
+    Widget host(String message) => MaterialApp(home: Scaffold(body: Align(alignment: Alignment.topCenter,
+      child: SizedBox(width: 360, child: _MaintenanceNotice(message: message, error: true)))));
+    await tester.pumpWidget(host(List.filled(60, '错误详情').join('\\n')));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MaintenanceNoticeState>(find.byType(_MaintenanceNotice));
+    expect(state._scrollController.position.maxScrollExtent, greaterThan(0));
+    expect(tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility, isTrue);
+    state._scrollController.jumpTo(state._scrollController.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(state._scrollController.position.extentAfter, 0);
+    await tester.pumpWidget(host('连接已恢复')); await tester.pumpAndSettle();
+    expect(state._scrollController.offset, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('错误页在大字号和窄屏下完整展示重试按钮及本地化超时信息', (tester) async {
+    for (final locale in [const Locale('zh'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja'), const Locale('zh', 'Hant')]) {
+      for (final size in [const Size(430, 560), const Size(1280, 800)]) {
+        await tester.binding.setSurfaceSize(size);
+        final service = _MaintenanceFixture()..failure = TimeoutException('模拟命令超时');
+        await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(
+          value: service, child: MaterialApp(locale: locale,
+          theme: ThemeData(filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18)))),
+          localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.5)), child: child!),
+          home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+        await tester.pumpAndSettle();
+        final l = AppLocalizations.of(tester.element(find.byType(_MachineMaintenanceDialog)))!;
+        expect(find.text(l.maintenanceCommandTimedOut), findsOneWidget);
+        final label = find.text(l.maintenanceRetry);
+        await tester.ensureVisible(label); await tester.pumpAndSettle();
+        final button = find.ancestor(of: label, matching: find.byType(FilledButton));
+        expect(tester.getRect(button).contains(tester.getRect(label).topLeft), isTrue);
+        expect(tester.getRect(button).contains(tester.getRect(label).bottomRight), isTrue);
+        expect(find.textContaining('__OPENHAND_'), findsNothing);
+        expect(tester.takeException(), isNull);
+        service.failure = null;
+        await tester.tap(label); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceCommandTimedOut), findsNothing);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('账户健康板块显示结构化账户、时区与不可用状态', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     final service = _MaintenanceFixture();

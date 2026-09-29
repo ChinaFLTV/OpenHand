@@ -8722,5 +8722,6 @@
   "maintenanceHealthUser": "Account",
   "maintenanceHealthHome": "Home directory",
   "maintenanceHealthDate": "Date, time and timezone",
-  "maintenanceHealthNtp": "NTP / Chrony services and sources"
+  "maintenanceHealthNtp": "NTP / Chrony services and sources",
+  "maintenanceCommandTimedOut": "The terminal timed out. Check that it is ready and at a command prompt, then retry."
 }

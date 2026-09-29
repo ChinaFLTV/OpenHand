@@ -8717,5 +8717,6 @@
   "maintenanceHealthUser": "Konto",
   "maintenanceHealthHome": "Home-Verzeichnis",
   "maintenanceHealthDate": "Datum, Uhrzeit und Zeitzone",
-  "maintenanceHealthNtp": "NTP / Chrony: Dienste und Quellen"
+  "maintenanceHealthNtp": "NTP / Chrony: Dienste und Quellen",
+  "maintenanceCommandTimedOut": "Zeitüberschreitung des Terminals. Prüfen Sie, ob es bereit ist und eine Eingabeaufforderung anzeigt, und versuchen Sie es erneut."
 }

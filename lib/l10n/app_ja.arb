@@ -8717,5 +8717,6 @@
   "maintenanceHealthUser": "アカウント",
   "maintenanceHealthHome": "ホームディレクトリ",
   "maintenanceHealthDate": "日付・時刻・タイムゾーン",
-  "maintenanceHealthNtp": "NTP / Chrony サービスと同期元"
+  "maintenanceHealthNtp": "NTP / Chrony サービスと同期元",
+  "maintenanceCommandTimedOut": "端末の応答がタイムアウトしました。端末が起動し、コマンド入力待ちになっていることを確認して再試行してください。"
 }

@@ -744,12 +744,11 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
   }) async {
     final workspace = await _requireWorkspace(sessionId);
-    final source =
-        workspace.terminalById(terminalId) ?? workspace.activeTerminal;
+    final source = workspace.terminalById(terminalId);
+    if (source == null) throw StateError('未找到终端。');
     return newTerminal(
       sessionId: workspace.sessionId,
-      workingDirectory:
-          source?.workingDirectory ?? workspace.defaultWorkingDirectory,
+      workingDirectory: source.workingDirectory,
     );
   }
 
@@ -769,8 +768,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
   }) async {
     final workspace = await _requireWorkspace(sessionId);
-    final terminal =
-        workspace.terminalById(terminalId) ?? workspace.activeTerminal;
+    final terminal = workspace.terminalById(terminalId);
     if (terminal == null) return;
     await terminal.stop(force: true);
     if (terminal.shouldRetainOnClose) {
@@ -779,12 +777,12 @@ class MachineTerminalService extends ChangeNotifier {
       workspace.remove(terminal.id);
     }
     if (workspace.attachedTerminals.isEmpty) {
-      workspace.add(
-        _createTerminal(
-          sessionId: workspace.sessionId,
-          workingDirectory: workspace.defaultWorkingDirectory,
-        ),
+      final replacement = _createTerminal(
+        sessionId: workspace.sessionId,
+        workingDirectory: workspace.defaultWorkingDirectory,
       );
+      workspace.add(replacement);
+      _startTerminalSoon(replacement);
     }
     _scheduleMetadataPersist(workspace.sessionId);
     _scheduleHistoryPersist(workspace.sessionId);
@@ -820,12 +818,12 @@ class MachineTerminalService extends ChangeNotifier {
     await terminal.stop(force: true);
     workspace.remove(terminal.id);
     if (workspace.attachedTerminals.isEmpty) {
-      workspace.add(
-        _createTerminal(
-          sessionId: workspace.sessionId,
-          workingDirectory: workspace.defaultWorkingDirectory,
-        ),
+      final replacement = _createTerminal(
+        sessionId: workspace.sessionId,
+        workingDirectory: workspace.defaultWorkingDirectory,
       );
+      workspace.add(replacement);
+      _startTerminalSoon(replacement);
     }
     _scheduleMetadataPersist(workspace.sessionId);
     _scheduleHistoryPersist(workspace.sessionId);
@@ -1355,8 +1353,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
   ) async {
     final workspace = await _requireWorkspace(sessionId);
-    final terminal =
-        workspace.terminalById(terminalId) ?? workspace.activeTerminal;
+    final terminal = workspace.terminalById(terminalId);
     if (terminal == null) {
       throw StateError('会话 $sessionId 没有可用终端。');
     }
@@ -1399,7 +1396,15 @@ class MachineTerminalService extends ChangeNotifier {
     startSafeTimer(
       Duration.zero,
       () async {
-        if (_isDisposed || terminal.isRunningOrStarting) return;
+        if (_isDisposed ||
+            !terminal.attached ||
+            terminal.isRunningOrStarting ||
+            !identical(
+              _workspaces[terminal.sessionId]?.terminalById(terminal.id),
+              terminal,
+            )) {
+          return;
+        }
         await terminal.start().whenComplete(
           () => _scheduleMetadataPersist(terminal.sessionId),
         );
@@ -1759,6 +1764,7 @@ class MachineTerminalSession {
   bool _attached = true;
   bool _hasUserActivity = false;
   bool _forceStopRequested = false;
+  bool _disposed = false;
 
   MachineTerminalStatus get status => _status;
   bool get attached => _attached;
@@ -1877,6 +1883,9 @@ class MachineTerminalSession {
   }
 
   Future<void> start() {
+    if (_disposed || !_attached) {
+      return Future<void>.error(StateError('终端已关闭。'));
+    }
     if (_status == MachineTerminalStatus.running && _pty != null) {
       return Future<void>.value();
     }
@@ -1952,7 +1961,9 @@ class MachineTerminalSession {
           .cast<List<int>>()
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
-            _handleOutput,
+            (text) {
+              if (identical(_pty, pty)) _handleOutput(text);
+            },
             onError: (Object error, StackTrace stack) {
               _handlePtyChannelFailure(
                 pty,
@@ -2593,6 +2604,8 @@ class MachineTerminalSession {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     unawaited(
       stop(force: true).then<void>(
         (_) {},
@@ -2883,6 +2896,7 @@ class _MachineTerminalWorkspace {
     final index = terminals.indexWhere((item) => item.id == terminalId);
     if (index < 0) return null;
     final removed = terminals.removeAt(index);
+    removed.dispose();
     if (activeTerminalId == terminalId) {
       _selectFallbackActive();
     }
@@ -3222,7 +3236,9 @@ Write-Output ($endMarker + ':' + $status)
 /// [_plainText]，就地构造正则等于每秒白白编译 25 次。
 final RegExp _ansiCsiPattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
 final RegExp _markerExitCodePattern = RegExp(r'^:(-?\d+)\n');
-final RegExp _ansiOscPattern = RegExp(r'\x1B\][^\x07]*(\x07|\x1B\\)');
+final RegExp _ansiOscPattern = RegExp(
+  r'\x1B\](?:[^\x07\x1B]|\x1B(?!\\))*(?:\x07|\x1B\\)',
+);
 final RegExp _ansiEscapePattern = RegExp(r'\x1B[ -/]*[0-~]');
 
 String _plainText(String value) {

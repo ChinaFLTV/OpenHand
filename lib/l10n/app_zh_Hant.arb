@@ -8717,5 +8717,6 @@
   "maintenanceHealthUser": "帳戶",
   "maintenanceHealthHome": "主目錄",
   "maintenanceHealthDate": "日期、時間與時區",
-  "maintenanceHealthNtp": "NTP / Chrony 服務與同步來源"
+  "maintenanceHealthNtp": "NTP / Chrony 服務與同步來源",
+  "maintenanceCommandTimedOut": "終端回應逾時。請確認終端已就緒且處於命令提示字元，然後重試。"
 }
