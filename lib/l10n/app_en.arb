@@ -8880,5 +8880,6 @@
   "maintenanceGpuDetailLinkCounters": "NVLink cumulative error counters",
   "maintenanceGpuDetailAttached": "Attached GPUs",
   "maintenanceLogArchives": "Rotation records",
-  "maintenanceLogPolicy": "Rotation policy"
+  "maintenanceLogPolicy": "Rotation policy",
+  "maintenanceAccountGroup": "Group"
 }

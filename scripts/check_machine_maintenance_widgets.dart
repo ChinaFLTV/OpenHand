@@ -53,6 +53,7 @@ import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:openhand/shared/ui/openhand_ops_charts.dart';
+import 'package:openhand/shared/ui/openhand_ops_press_scale.dart';
 import 'package:openhand/shared/ui/openhand_console_log_panel.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 import 'package:openhand/shared/util/localized_text.dart';
@@ -995,6 +996,31 @@ void main() {
     }
   });
 
+  testWidgets('共用卡片悬停无阴影遮罩，按压仍有反馈', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child:
+      OpenHandOpsPressScale(tone: Colors.blue, onTap: () => taps++, child:
+        const SizedBox(width: 240, height: 100, child: Text('卡片')))))));
+    final card = find.byType(OpenHandOpsPressScale);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(card));
+    await tester.pumpAndSettle();
+    BoxDecoration decoration() => tester.widget<AnimatedContainer>(find.descendant(
+      of: card, matching: find.byType(AnimatedContainer))).decoration! as BoxDecoration;
+    expect(decoration().color!.a, 0);
+    expect(decoration().boxShadow, isNull);
+    final press = await tester.startGesture(tester.getCenter(card));
+    await tester.pumpAndSettle();
+    expect(decoration().color!.a, greaterThan(0));
+    await press.up();
+    await tester.pumpAndSettle();
+    expect(taps, 1);
+    expect(decoration().color!.a, 0);
+    await mouse.removePointer();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('浅深主题条目与输入框无悬停底色且保留点击和焦点反馈', (tester) async {
     for (final theme in [OpenHandTheme.light(OpenHandThemePreset.values.first), OpenHandTheme.dark(OpenHandThemePreset.values.first)]) {
       var taps = 0;
@@ -1494,6 +1520,13 @@ void main() {
       await tester.pumpAndSettle();
       final context = tester.element(find.byType(_MaintenanceBrowser));
       final l10n = AppLocalizations.of(context)!;
+      final modes = find.byType(SegmentedButton<bool>);
+      expect(tester.getTopLeft(modes).dx, 0);
+      expect(tester.getSize(modes).height, greaterThanOrEqualTo(34));
+      expect(maintenanceDetailLabel(context, 'Label'), l10n.maintenanceName);
+      expect(maintenanceLabel(context, 'Label'), l10n.maintenanceName);
+      expect(maintenanceDetailLabel(context, 'WorkingDirectory'), l10n.cronsWorkingDirectory);
+      expect(maintenanceDetailLabel(context, 'GroupName'), l10n.maintenanceAccountGroup);
       await tester.tap(find.text(l10n.maintenanceNameTree));
       await tester.pumpAndSettle();
       expect(find.text('com.apple'), findsOneWidget);

@@ -13438,4 +13438,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceLogPolicy => 'Rotation policy';
+
+  @override
+  String get maintenanceAccountGroup => 'Group';
 }

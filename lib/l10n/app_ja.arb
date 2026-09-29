@@ -8875,5 +8875,6 @@
   "maintenanceGpuDetailLinkCounters": "NVLink 累積エラーカウンター",
   "maintenanceGpuDetailAttached": "接続 GPU 数",
   "maintenanceLogArchives": "ローテーション履歴",
-  "maintenanceLogPolicy": "ローテーション設定"
+  "maintenanceLogPolicy": "ローテーション設定",
+  "maintenanceAccountGroup": "グループ"
 }

@@ -5,6 +5,8 @@ import '../../l10n/app_localizations.dart';
 String maintenanceLabel(BuildContext context, String label) {
   final l10n = AppLocalizations.of(context)!;
   label = switch (label) {
+    'Label' || 'label' || 'Name' || 'DisplayName' => '名称',
+    'Description' => '描述',
     'Running' => '运行中',
     'Stopped' => '未运行',
     'Paused' => '暂停',
@@ -758,6 +760,20 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'Hard Limit': '硬限制',
     'Units': '单位',
     'Name': '名称',
+    'Label': '名称',
+    'label': '名称',
+    'DisplayName': '名称',
+    'Program': '启动命令',
+    'ProgramArguments': '启动命令',
+    'WorkingDirectory': '工作目录',
+    'UserName': '用户',
+    'GroupName': '组',
+    'LastExitStatus': '退出代码',
+    'LoadState': '加载状态',
+    'ExecMainStatus': '退出代码',
+    'TasksCurrent': '任务数',
+    'NRestarts': '重启次数',
+    'MemoryCurrent': '内存',
     'Description': '描述',
     'State': '状态',
     'ActiveState': '状态',
@@ -798,6 +814,8 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   };
   final name = aliases[field] ?? field;
   final translated = switch (name) {
+    '工作目录' => l10n.cronsWorkingDirectory,
+    '组' => l10n.maintenanceAccountGroup,
     '系统代理' => l10n.maintenanceStartupSystemAgent,
     '用户代理' => l10n.maintenanceStartupUserAgent,
     '系统守护进程' => l10n.maintenanceStartupDaemon,

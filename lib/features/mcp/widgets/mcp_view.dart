@@ -9848,9 +9848,6 @@ class _McpServerCardState extends State<_McpServerCard> {
             if (states.contains(WidgetState.pressed)) {
               return colorScheme.primary.withValues(alpha: 0.10);
             }
-            if (states.contains(WidgetState.hovered)) {
-              return colorScheme.primary.withValues(alpha: 0.04);
-            }
             // 弹窗关闭后卡片仍可能保留焦点，焦点不应改变整卡底色。
             return Colors.transparent;
           }),

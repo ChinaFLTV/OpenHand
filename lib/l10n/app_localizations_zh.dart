@@ -13015,6 +13015,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceLogPolicy => '轮转策略';
+
+  @override
+  String get maintenanceAccountGroup => '用户组';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26010,4 +26013,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceLogPolicy => '輪轉策略';
+
+  @override
+  String get maintenanceAccountGroup => '使用者群組';
 }

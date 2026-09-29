@@ -13141,4 +13141,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceLogPolicy => 'ローテーション設定';
+
+  @override
+  String get maintenanceAccountGroup => 'グループ';
 }

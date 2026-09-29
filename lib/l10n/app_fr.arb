@@ -8875,5 +8875,6 @@
   "maintenanceGpuDetailLinkCounters": "Compteurs d’erreurs cumulés NVLink",
   "maintenanceGpuDetailAttached": "GPU connectés",
   "maintenanceLogArchives": "Historique de rotation",
-  "maintenanceLogPolicy": "Règles de rotation"
+  "maintenanceLogPolicy": "Règles de rotation",
+  "maintenanceAccountGroup": "Groupe"
 }

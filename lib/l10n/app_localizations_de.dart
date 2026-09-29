@@ -13580,4 +13580,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceLogPolicy => 'Rotationsregeln';
+
+  @override
+  String get maintenanceAccountGroup => 'Gruppe';
 }

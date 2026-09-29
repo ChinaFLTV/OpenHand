@@ -24166,6 +24166,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'轮转策略'**
   String get maintenanceLogPolicy;
+
+  /// No description provided for @maintenanceAccountGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户组'**
+  String get maintenanceAccountGroup;
 }
 
 class _AppLocalizationsDelegate

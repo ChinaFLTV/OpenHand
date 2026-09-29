@@ -21,7 +21,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
     this.borderRadius,
     this.hoverScale = kOpenHandOpsHoverScale,
     this.pressScale = kOpenHandOpsPressScale,
-    this.showHoverOverlay = true,
+    this.showHoverOverlay = false,
     this.showFocusRing = false,
     this.motionClearance,
   });

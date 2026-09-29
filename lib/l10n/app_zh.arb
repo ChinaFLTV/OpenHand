@@ -9849,5 +9849,6 @@
   "maintenanceGpuDetailLinkCounters": "NVLink 累计错误计数",
   "maintenanceGpuDetailAttached": "已连接显卡数量",
   "maintenanceLogArchives": "轮转记录",
-  "maintenanceLogPolicy": "轮转策略"
+  "maintenanceLogPolicy": "轮转策略",
+  "maintenanceAccountGroup": "用户组"
 }

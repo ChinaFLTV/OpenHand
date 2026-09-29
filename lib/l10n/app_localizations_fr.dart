@@ -13630,4 +13630,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceLogPolicy => 'Règles de rotation';
+
+  @override
+  String get maintenanceAccountGroup => 'Groupe';
 }

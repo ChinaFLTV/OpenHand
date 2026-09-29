@@ -3220,13 +3220,40 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
             child: SegmentedButton<bool>(
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
+              style: ButtonStyle(
+                minimumSize: const WidgetStatePropertyAll(
+                  Size(112, _maintenanceControlHeight),
+                ),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                textStyle: WidgetStatePropertyAll(
+                  Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: 13,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? cs.secondaryContainer
+                      : cs.surface,
+                ),
+                side: WidgetStatePropertyAll(
+                  BorderSide(color: cs.outlineVariant),
+                ),
+                elevation: const WidgetStatePropertyAll(0),
+                visualDensity: VisualDensity.standard,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               showSelectedIcon: false,

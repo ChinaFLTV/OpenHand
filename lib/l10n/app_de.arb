@@ -8875,5 +8875,6 @@
   "maintenanceGpuDetailLinkCounters": "Kumulative NVLink-Fehlerzähler",
   "maintenanceGpuDetailAttached": "Angeschlossene GPUs",
   "maintenanceLogArchives": "Rotationsprotokolle",
-  "maintenanceLogPolicy": "Rotationsregeln"
+  "maintenanceLogPolicy": "Rotationsregeln",
+  "maintenanceAccountGroup": "Gruppe"
 }
