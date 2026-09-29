@@ -637,9 +637,20 @@ void main() {
     final table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
     expect(table.limitToViewport, isFalse);
     expect(table.maxBodyHeight, greaterThan(1100 * .45));
+    final dialogBottom = tester.getRect(find.byType(Dialog).first).bottom;
+    expect(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).bottom, lessThanOrEqualTo(dialogBottom - 16));
     final summary = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.filter_list_rounded);
     final search = find.byType(TextField).first;
     expect(tester.getRect(summary).left, greaterThan(tester.getRect(search).right));
+    for (final tab in ['运行总览', '系统服务', '网络与诊断']) {
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      final viewport = find.byType(ListView).first;
+      expect(tester.getRect(viewport).bottom, lessThanOrEqualTo(dialogBottom - 16));
+      await tester.drag(viewport, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(viewport).bottom, lessThanOrEqualTo(dialogBottom - 16));
+    }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);

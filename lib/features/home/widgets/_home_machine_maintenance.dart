@@ -559,18 +559,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: motion.entranceDuration,
-                  reverseDuration: motion.exitDuration,
-                  switchInCurve: kOpenHandSwitchInCurve,
-                  switchOutCurve: kOpenHandSwitchOutCurve,
-                  child: KeyedSubtree(
-                    key: ValueKey((
-                      _tab,
-                      data == null,
-                      data == null && _error != null,
-                    )),
-                    child: _content(data, theme, size, motion),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: AnimatedSwitcher(
+                    duration: motion.entranceDuration,
+                    reverseDuration: motion.exitDuration,
+                    switchInCurve: kOpenHandSwitchInCurve,
+                    switchOutCurve: kOpenHandSwitchOutCurve,
+                    child: KeyedSubtree(
+                      key: ValueKey((
+                        _tab,
+                        data == null,
+                        data == null && _error != null,
+                      )),
+                      child: _content(data, theme, size, motion),
+                    ),
                   ),
                 ),
               ),
@@ -997,7 +1000,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
     ];
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
           minWidth: 200,
@@ -1527,7 +1530,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
           minWidth: 210,
@@ -1797,7 +1800,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ],
     );
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
           minWidth: 210,
