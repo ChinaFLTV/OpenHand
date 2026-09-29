@@ -12666,4 +12666,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceMasked => 'Masked';
+
+  @override
+  String get maintenanceTrendGesture =>
+      'Pinch to zoom · Drag to pan · Double-click to reset';
 }

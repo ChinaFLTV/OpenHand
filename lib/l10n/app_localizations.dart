@@ -22693,6 +22693,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已屏蔽'**
   String get maintenanceMasked;
+
+  /// No description provided for @maintenanceTrendGesture.
+  ///
+  /// In zh, this message translates to:
+  /// **'双指缩放 · 拖动平移 · 双击复位'**
+  String get maintenanceTrendGesture;
 }
 
 class _AppLocalizationsDelegate

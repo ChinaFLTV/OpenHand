@@ -12802,4 +12802,8 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceMasked => 'Maskiert';
+
+  @override
+  String get maintenanceTrendGesture =>
+      'Zum Zoomen spreizen · Zum Verschieben ziehen · Doppelklick zum Zurücksetzen';
 }

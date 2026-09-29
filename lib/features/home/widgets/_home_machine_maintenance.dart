@@ -57,7 +57,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     with WidgetsBindingObserver {
   final _snapshots = <int, MachineMaintenanceSnapshot>{};
   final _previous = <int, MachineMaintenanceSnapshot>{};
-  final _cpuHistory = <double>[];
+  final _cpuHistory = <({double time, double value})>[];
   final _search = TextEditingController();
   Timer? _timer;
   MachineMaintenancePlatformAdapter? _platform;
@@ -184,7 +184,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         if (tab == 0) {
           if (old?.identity != result.identity) _cpuHistory.clear();
           final cpu = result.cpuUsage(old);
-          if (cpu != null) _cpuHistory.add(cpu);
+          if (cpu != null && cpu.isFinite) {
+            _cpuHistory.add((
+              time: DateTime.now().millisecondsSinceEpoch.toDouble(),
+              value: cpu.clamp(0, 1),
+            ));
+          }
           if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
         }
       });
@@ -937,7 +942,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         title: maintenanceLabel(context, 'CPU 实时趋势'),
         icon: Icons.show_chart_rounded,
         child: SizedBox(
-          height: 94,
+          height: 190,
           child: _cpuHistory.length < 2
               ? Center(
                   child: Text(
@@ -948,12 +953,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 )
-              : CustomPaint(
-                  painter: _MaintenanceSparkline(
-                    List.of(_cpuHistory),
-                    cs.primary,
-                  ),
-                ),
+              : _MaintenanceTrend(points: List.of(_cpuHistory)),
         ),
       ),
       _MaintenanceCard(
@@ -2999,47 +2999,336 @@ class _MaintenanceCard extends StatelessWidget {
   }
 }
 
-class _MaintenanceSparkline extends CustomPainter {
-  _MaintenanceSparkline(this.points, this.color);
-  final List<double> points;
-  final Color color;
+class _MaintenanceTrend extends StatefulWidget {
+  const _MaintenanceTrend({required this.points});
+  final List<({double time, double value})> points;
+
+  @override
+  State<_MaintenanceTrend> createState() => _MaintenanceTrendState();
+}
+
+class _MaintenanceTrendState extends State<_MaintenanceTrend>
+    with SingleTickerProviderStateMixin {
+  static const _segments = 120;
+  late final AnimationController _animation = AnimationController(vsync: this);
+  late List<double> _from;
+  late List<double> _to;
+  late double _start;
+  late double _end;
+  late double _fromStart;
+  late double _fromEnd;
+  double? _window;
+  double? _anchorEnd;
+  double _gestureSpan = 0;
+  double _gestureAnchor = 0;
+  double _gestureFraction = 0;
+  Curve _curve = kOpenHandEntranceCurve;
+
+  @override
+  void initState() {
+    super.initState();
+    _start = _fromStart = widget.points.first.time;
+    _end = _fromEnd = widget.points.last.time;
+    _from = _to = _values();
+    _animation.value = 1;
+  }
+
+  List<double> _values() {
+    var index = 0;
+    return List.generate(_segments + 1, (i) {
+      final time = _start + (_end - _start) * i / _segments;
+      while (index < widget.points.length - 2 &&
+          widget.points[index + 1].time < time) {
+        index++;
+      }
+      final a = widget.points[index];
+      final b = widget.points[index + 1];
+      final fraction = b.time <= a.time
+          ? 1.0
+          : ((time - a.time) / (b.time - a.time)).clamp(0.0, 1.0);
+      final smooth = fraction * fraction * (3 - 2 * fraction);
+      return a.value + (b.value - a.value) * smooth;
+    });
+  }
+
+  void _update({bool animate = true}) {
+    final progress = _curve.transform(_animation.value);
+    _from = List.generate(
+      _to.length,
+      (i) => (_from[i] + (_to[i] - _from[i]) * progress).clamp(0, 1),
+    );
+    _fromStart += (_start - _fromStart) * progress;
+    _fromEnd += (_end - _fromEnd) * progress;
+    final first = widget.points.first.time;
+    final last = widget.points.last.time;
+    final span = (_window ?? last - first).clamp(
+      1.0,
+      math.max(1.0, last - first),
+    );
+    _end = (_anchorEnd ?? last).clamp(
+      first + span,
+      math.max(first + span, last),
+    );
+    _start = _end - span;
+    _to = _values();
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    _curve = settings.curve.curve;
+    _animation.duration = settings.entranceDuration;
+    if (!animate || settings.disablesAnimation) {
+      _animation.value = 1;
+    } else {
+      _animation.forward(from: 0);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_MaintenanceTrend oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.points, widget.points)) _update();
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hint = AppLocalizations.of(context)!.maintenanceTrendGesture;
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final axisWidth = math.max(
+                38.0,
+                MediaQuery.textScalerOf(context).scale(10) * 4 + 6,
+              );
+              final width = math.max(
+                1.0,
+                constraints.maxWidth - axisWidth - 16,
+              );
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                trackpadScrollCausesScale: true,
+                onDoubleTap: () => setState(() {
+                  _window = _anchorEnd = null;
+                  _update();
+                }),
+                onScaleStart: (details) {
+                  _gestureSpan = math.max(1, _end - _start);
+                  _gestureFraction =
+                      ((details.localFocalPoint.dx - axisWidth) / width).clamp(
+                        0,
+                        1,
+                      );
+                  _gestureAnchor = _start + _gestureSpan * _gestureFraction;
+                },
+                onScaleUpdate: (details) => setState(() {
+                  final total = math.max(
+                    1.0,
+                    widget.points.last.time - widget.points.first.time,
+                  );
+                  _window = (_gestureSpan / math.max(.01, details.scale)).clamp(
+                    math.min(1000.0, total),
+                    total,
+                  );
+                  final fraction =
+                      ((details.localFocalPoint.dx - axisWidth) / width).clamp(
+                        0,
+                        1,
+                      );
+                  _anchorEnd = _gestureAnchor + _window! * (1 - fraction);
+                  _update(animate: false);
+                }),
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, _) => CustomPaint(
+                      size: Size.infinite,
+                      painter: _MaintenanceTrendPainter(
+                        from: _from,
+                        to: _to,
+                        progress: _curve.transform(_animation.value),
+                        start: _fromStart,
+                        end: _fromEnd,
+                        targetStart: _start,
+                        targetEnd: _end,
+                        color: cs.primary,
+                        labelColor: cs.onSurfaceVariant,
+                        gridColor: cs.outlineVariant,
+                        textDirection: Directionality.of(context),
+                        textScale: MediaQuery.textScalerOf(context).scale(10),
+                        fontFamily: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.fontFamily,
+                        timeLabel: (time, milliseconds) {
+                          final date = DateTime.fromMillisecondsSinceEpoch(
+                            time.round(),
+                          );
+                          final label = MaterialLocalizations.of(context)
+                              .formatTimeOfDay(
+                                TimeOfDay.fromDateTime(date),
+                                alwaysUse24HourFormat: true,
+                              );
+                          final seconds =
+                              '$label:${date.second.toString().padLeft(2, '0')}';
+                          return milliseconds
+                              ? '$seconds.${date.millisecond.toString().padLeft(3, '0')}'
+                              : seconds;
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          hint,
+          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _MaintenanceTrendPainter extends CustomPainter {
+  const _MaintenanceTrendPainter({
+    required this.from,
+    required this.to,
+    required this.progress,
+    required this.start,
+    required this.end,
+    required this.targetStart,
+    required this.targetEnd,
+    required this.color,
+    required this.labelColor,
+    required this.gridColor,
+    required this.textDirection,
+    required this.textScale,
+    required this.timeLabel,
+    this.fontFamily,
+  });
+  final List<double> from, to;
+  final double progress, start, end, targetStart, targetEnd, textScale;
+  final Color color, labelColor, gridColor;
+  final TextDirection textDirection;
+  final String Function(double, bool) timeLabel;
+  final String? fontFamily;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = i * size.width / (points.length - 1);
-      final y = size.height * (1 - points[i]);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
+    final plot = Rect.fromLTRB(
+      math.max(38, textScale * 4 + 6),
+      8,
+      size.width - 16,
+      size.height - textScale - 14,
+    );
+    if (plot.width <= 0 || plot.height <= 0) return;
+    void label(String text, Offset position, double align) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontSize: textScale,
+            color: labelColor,
+            fontFamily: fontFamily,
+          ),
+        ),
+        textDirection: textDirection,
+      )..layout();
+      painter.paint(
+        canvas,
+        Offset(
+          (position.dx - painter.width * align).clamp(
+            0,
+            math.max(0, size.width - painter.width),
+          ),
+          position.dy,
+        ),
+      );
+      painter.dispose();
     }
+
+    final grid = Paint()
+      ..color = gridColor.withValues(alpha: .65)
+      ..strokeWidth = .7;
+    for (var i = 0; i <= 4; i++) {
+      final y = plot.bottom - plot.height * i / 4;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
+      label('${i * 25}%', Offset(plot.left - 5, y - textScale / 2), 1);
+    }
+    final left = start + (targetStart - start) * progress;
+    final right = end + (targetEnd - end) * progress;
+    final milliseconds = right - left < 3000;
+    final labelWidth = textScale * (milliseconds ? 11 : 8) + 16;
+    final ticks = (plot.width / labelWidth).floor().clamp(1, 3);
+    for (var i = 0; i <= ticks; i++) {
+      final x = plot.left + plot.width * i / ticks;
+      canvas.drawLine(Offset(x, plot.top), Offset(x, plot.bottom), grid);
+      label(
+        timeLabel(left + (right - left) * i / ticks, milliseconds),
+        Offset(x, plot.bottom + 7),
+        i == 0
+            ? 0
+            : i == ticks
+            ? 1
+            : .5,
+      );
+    }
+    final path = Path();
+    Offset? previous;
+    for (var i = 0; i < to.length; i++) {
+      final value = (from[i] + (to[i] - from[i]) * progress).clamp(0, 1);
+      final point = Offset(
+        plot.left + plot.width * i / (to.length - 1),
+        plot.bottom - plot.height * value,
+      );
+      if (previous == null) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        final middle = (previous.dx + point.dx) / 2;
+        path.cubicTo(middle, previous.dy, middle, point.dy, point.dx, point.dy);
+      }
+      previous = point;
+    }
+    canvas.save();
+    canvas.clipRect(plot.inflate(1));
+    final fill = Path.from(path)
+      ..lineTo(plot.right, plot.bottom)
+      ..lineTo(plot.left, plot.bottom)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: .22), color.withValues(alpha: .01)],
+        ).createShader(plot),
+    );
     canvas.drawPath(
       path,
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..strokeJoin = StrokeJoin.round,
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
     );
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color.withValues(alpha: .25), color.withValues(alpha: .01)],
-        ).createShader(Offset.zero & size),
-    );
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_MaintenanceSparkline oldDelegate) =>
-      color != oldDelegate.color || !listEquals(points, oldDelegate.points);
+  bool shouldRepaint(_MaintenanceTrendPainter oldDelegate) => true;
 }
 
 class _MachineMaintenanceDetails extends StatefulWidget {

@@ -8635,5 +8635,6 @@
   "maintenanceLoaded": "Loaded",
   "maintenanceExited": "Exited",
   "maintenanceStatic": "Static",
-  "maintenanceMasked": "Masked"
+  "maintenanceMasked": "Masked",
+  "maintenanceTrendGesture": "Pinch to zoom · Drag to pan · Double-click to reset"
 }

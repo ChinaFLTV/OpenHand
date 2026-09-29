@@ -12840,4 +12840,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceMasked => 'Masqué';
+
+  @override
+  String get maintenanceTrendGesture =>
+      'Pincer pour zoomer · Glisser pour déplacer · Double-clic pour réinitialiser';
 }

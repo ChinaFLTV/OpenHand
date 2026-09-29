@@ -8630,5 +8630,6 @@
   "maintenanceLoaded": "Chargé",
   "maintenanceExited": "Terminé",
   "maintenanceStatic": "Statique",
-  "maintenanceMasked": "Masqué"
+  "maintenanceMasked": "Masqué",
+  "maintenanceTrendGesture": "Pincer pour zoomer · Glisser pour déplacer · Double-clic pour réinitialiser"
 }

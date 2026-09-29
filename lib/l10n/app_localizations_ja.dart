@@ -12394,4 +12394,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceMasked => 'マスク済み';
+
+  @override
+  String get maintenanceTrendGesture => 'ピンチで拡大縮小 · ドラッグで移動 · ダブルクリックでリセット';
 }

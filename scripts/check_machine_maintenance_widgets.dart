@@ -154,6 +154,82 @@ __OH_OPS_end__
 }
 
 void main() {
+  testWidgets('趋势按实际时间插值且刷新平滑过渡，减少动画直接完成', (tester) async {
+    var reduced = false;
+    var points = [(time: 0.0, value: .1), (time: 1000.0, value: .8), (time: 10000.0, value: .2)];
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+          child: SizedBox(width: 360, height: 190, child: _MaintenanceTrend(points: points)));
+      }))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MaintenanceTrendState>(find.byType(_MaintenanceTrend));
+    expect(state._to[12], closeTo(.8, .001));
+    update(() => points = [...points, (time: 13000.0, value: .9)]);
+    await tester.pump();
+    expect(state._animation.isAnimating, isTrue);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(state._animation.value, greaterThan(0));
+    expect(state._animation.value, lessThan(1));
+    await tester.pumpAndSettle();
+    expect(state._to.last, closeTo(.9, .001));
+    update(() { reduced = true; points = [...points, (time: 17000.0, value: .3)]; });
+    await tester.pump();
+    expect(state._animation.value, 1);
+    expect(state._to.last, closeTo(.3, .001));
+    state.setState(() { state._window = 5000; state._anchorEnd = 11000; state._update(animate: false); });
+    await tester.pump();
+    update(() => points = [...points, (time: 21000.0, value: .6)]);
+    await tester.pumpAndSettle();
+    expect(state._start, 6000);
+    expect(state._end, 11000);
+    update(() => points = [(time: 15000.0, value: .2), (time: 21000.0, value: .6)]);
+    await tester.pumpAndSettle();
+    expect(state._start, 15000);
+    expect(state._end, 20000);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('趋势双指缩放保持时间锚点，平移有界且双击恢复全范围', (tester) async {
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SizedBox(width: 360, height: 190,
+        child: _MaintenanceTrend(points: List.generate(60,
+          (i) => (time: i * 1000.0, value: i / 60)))))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MaintenanceTrendState>(find.byType(_MaintenanceTrend));
+    final center = tester.getCenter(find.byType(_MaintenanceTrend));
+    final left = await tester.startGesture(center - const Offset(35, 0), pointer: 1);
+    final right = await tester.startGesture(center + const Offset(35, 0), pointer: 2);
+    await tester.pump();
+    await left.moveTo(center - const Offset(45, 0));
+    await right.moveTo(center + const Offset(45, 0));
+    await tester.pump();
+    await left.moveTo(center - const Offset(100, 0));
+    await right.moveTo(center + const Offset(100, 0));
+    await tester.pump();
+    expect(state._end - state._start, lessThan(59000));
+    expect(state._end - state._start, greaterThanOrEqualTo(1000));
+    await left.up(); await right.up();
+    await tester.drag(find.byType(_MaintenanceTrend), const Offset(500, 0));
+    await tester.pumpAndSettle();
+    expect(state._start, greaterThanOrEqualTo(0));
+    expect(state._end, lessThanOrEqualTo(59000));
+    await tester.tapAt(center); await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(center); await tester.pumpAndSettle();
+    expect(state._window, isNull);
+    expect(state._start, 0);
+    expect(state._end, 59000);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
     testWidgets('真实 macOS 数据四分区视觉检查', (tester) async {
       final service = _MaintenanceFixture()..platform = 'Darwin';
@@ -230,6 +306,37 @@ void main() {
     });
     return;
   }
+
+  testWidgets('趋势窄窗口和大字体适配浅深主题', (tester) async {
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      await tester.runAsync(() async {
+        await (FontLoader('运维预览字体')..addFont(File(Platform.environment['MAINTENANCE_FONT']!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+      });
+    }
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      await tester.pumpWidget(MaterialApp(locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] != null ? '运维预览字体' : null, colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)),
+        home: Scaffold(body: MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: RepaintBoundary(key: const ValueKey('趋势预览'), child: SizedBox(width: 280, height: 190,
+            child: _MaintenanceTrend(points: List.generate(30,
+              (i) => (time: 1700000000000.0 + i * 3000, value: .45 + .25 * math.sin(i / 3))))))))));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      if (Platform.environment['MAINTENANCE_TREND_PREVIEW'] != null) {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('趋势预览')));
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/maintenance-trend-\${brightness.name}.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('系统摘要与跨平台连接解析保留时间和 IPv6 地址', () {
     final mac = MachineMaintenanceSnapshot({'platform': 'Darwin', 'system': 'ProductVersion: 27.0.1\\nDarwin host 27.0.0 Darwin Kernel Version 27.0.0: Tue 13:20:00', 'sockets': 'tcp46 0 0 *.80 *.* LISTEN\\nudp4 0 0 127.0.0.1.53 *.* 0', 'host': 'host'});
     expect(_maintenanceFacts(mac)['系统版本'], '27.0.1');

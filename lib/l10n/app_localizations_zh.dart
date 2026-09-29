@@ -12270,6 +12270,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceMasked => '已屏蔽';
+
+  @override
+  String get maintenanceTrendGesture => '双指缩放 · 拖动平移 · 双击复位';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24520,4 +24523,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceMasked => '已遮罩';
+
+  @override
+  String get maintenanceTrendGesture => '雙指縮放 · 拖動平移 · 按兩下重設';
 }

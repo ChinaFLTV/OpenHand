@@ -9604,5 +9604,6 @@
   "maintenanceLoaded": "已加载",
   "maintenanceExited": "已退出",
   "maintenanceStatic": "静态",
-  "maintenanceMasked": "已屏蔽"
+  "maintenanceMasked": "已屏蔽",
+  "maintenanceTrendGesture": "双指缩放 · 拖动平移 · 双击复位"
 }

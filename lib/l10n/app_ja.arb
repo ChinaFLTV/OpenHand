@@ -8630,5 +8630,6 @@
   "maintenanceLoaded": "読み込み済み",
   "maintenanceExited": "終了",
   "maintenanceStatic": "静的",
-  "maintenanceMasked": "マスク済み"
+  "maintenanceMasked": "マスク済み",
+  "maintenanceTrendGesture": "ピンチで拡大縮小 · ドラッグで移動 · ダブルクリックでリセット"
 }

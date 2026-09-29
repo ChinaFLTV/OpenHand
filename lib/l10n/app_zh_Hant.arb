@@ -8630,5 +8630,6 @@
   "maintenanceLoaded": "已載入",
   "maintenanceExited": "已結束",
   "maintenanceStatic": "靜態",
-  "maintenanceMasked": "已遮罩"
+  "maintenanceMasked": "已遮罩",
+  "maintenanceTrendGesture": "雙指縮放 · 拖動平移 · 按兩下重設"
 }
