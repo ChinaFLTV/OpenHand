@@ -1158,8 +1158,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
                 const SizedBox(height: 5),
-                _MaintenanceValue(
-                  value: value,
+                _MaintenanceNumber(
+                  raw: value,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
@@ -2126,7 +2126,14 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                       ],
                       const SizedBox(height: 12),
                       Text(
-                        '${maintenanceLabel(context, table.headers.last)} · ${row.last}',
+                        maintenanceLabel(context, table.headers.last),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      _MaintenanceNumber(
+                        raw: row.last,
                         style: TextStyle(
                           fontSize: 11,
                           color: cs.onSurfaceVariant,
@@ -2170,8 +2177,12 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            _MaintenanceValue(
-                              value: value,
+                            _MaintenanceNumber(
+                              raw: row[1],
+                              unit: unit == '—'
+                                  ? ''
+                                  : maintenanceMetricLabel(context, unit, '单位'),
+                              readable: multiplier != null ? value : null,
                               maxLines: 2,
                               style: TextStyle(
                                 fontSize: 20,
@@ -2219,7 +2230,51 @@ class _MaintenanceTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OpenHandOperationalRankTable(
     headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
-    rows: rows,
+    rows: [
+      for (final row in rows)
+        OpenHandOperationalRankRow(
+          cells: row.cells,
+          value: row.value,
+          rowKey: row.rowKey,
+          subtitle: row.subtitle,
+          cellSubtitles: row.cellSubtitles,
+          data: row.data,
+          cellWidgets: [
+            for (var i = 0; i < row.cells.length; i++)
+              if (row.cellWidgets != null &&
+                  i < row.cellWidgets!.length &&
+                  row.cellWidgets![i] != null)
+                row.cellWidgets![i]
+              else if (i < headers.length &&
+                  const {
+                    '累计读取次数',
+                    '累计写入次数',
+                    '累计读取字节',
+                    '累计写入字节',
+                    '累计读取耗时',
+                    '累计写入耗时',
+                    '已用 inode',
+                    '可用 inode',
+                    '接收字节',
+                    '发送字节',
+                    '读取字节',
+                    '写入字节',
+                    '线程',
+                    '读 IOPS',
+                    '写 IOPS',
+                    '次数',
+                    '页数',
+                    '数值',
+                  }.contains(headers[i]))
+                _MaintenanceNumber(
+                  raw: row.cells[i],
+                  unit: headers[i].contains('字节') ? 'B' : '',
+                )
+              else
+                null,
+          ],
+        ),
+    ],
     sortByValue: false,
     animateCellChanges: true,
     onRowTap: onRowTap,
@@ -2324,6 +2379,117 @@ class _MaintenanceStatus extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 完整数值始终使用采样原文，避免大整数经浮点换算后丢失精度。
+class _MaintenanceNumber extends StatefulWidget {
+  const _MaintenanceNumber({
+    required this.raw,
+    this.unit = '',
+    this.readable,
+    this.style,
+    this.maxLines = 1,
+  });
+  final String raw;
+  final String unit;
+  final String? readable;
+  final TextStyle? style;
+  final int maxLines;
+  @override
+  State<_MaintenanceNumber> createState() => _MaintenanceNumberState();
+}
+
+class _MaintenanceNumberState extends State<_MaintenanceNumber> {
+  bool _exact = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final match = RegExp(
+      r'^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*(.*)$',
+    ).firstMatch(widget.raw);
+    final number = match == null ? null : double.tryParse(match[1]!);
+    final unit = widget.unit.isNotEmpty ? widget.unit : match?[2] ?? '';
+    final raw = widget.unit.isEmpty
+        ? widget.raw
+        : '${widget.raw} ${widget.unit}';
+    var readable = widget.readable ?? raw;
+    if (widget.readable == null && number != null && number.isFinite) {
+      var scaled = number;
+      var suffix = unit;
+      if (unit == 'B') {
+        final locale = Localizations.localeOf(context);
+        readable = formatByteSize(
+          number,
+          languageCode: locale.languageCode,
+          scriptCode: locale.scriptCode,
+          countryCode: locale.countryCode,
+        );
+      } else {
+        if (unit == 'ms' && number.abs() >= 1000) {
+          scaled /= 1000;
+          suffix = 's';
+          if (scaled.abs() >= 60) {
+            scaled /= 60;
+            suffix = 'min';
+          }
+          if (suffix == 'min' && scaled.abs() >= 60) {
+            scaled /= 60;
+            suffix = 'h';
+          }
+          if (suffix == 'h' && scaled.abs() >= 24) {
+            scaled /= 24;
+            suffix = 'd';
+          }
+        } else if (number.abs() >= 1000) {
+          const prefixes = ['', 'k', 'M', 'G', 'T', 'P', 'E'];
+          var index = 0;
+          while (scaled.abs() >= 999.95 && index < prefixes.length - 1) {
+            scaled /= 1000;
+            index++;
+          }
+          suffix = '${prefixes[index]}${unit.isEmpty ? '' : ' $unit'}';
+        }
+        if (scaled != number) {
+          var digits = scaled
+              .toStringAsFixed(1)
+              .replaceFirst(RegExp(r'\.0$'), '');
+          if (const [
+            'fr',
+            'de',
+          ].contains(Localizations.localeOf(context).languageCode)) {
+            digits = digits.replaceAll('.', ',');
+          }
+          readable =
+              '$digits${const ['s', 'min', 'h', 'd'].contains(suffix) ? ' ' : ''}$suffix';
+        }
+      }
+    }
+    final value = _MaintenanceValue(
+      value: _exact ? raw : readable,
+      style: widget.style,
+      maxLines: widget.maxLines,
+    );
+    if (readable == raw) return value;
+    final l10n = AppLocalizations.of(context)!;
+    return Tooltip(
+      message:
+          '${_exact ? l10n.maintenanceShowReadableValue : l10n.maintenanceShowExactValue} · ${_exact ? readable : raw}',
+      child: Semantics(
+        button: true,
+        label: _exact
+            ? l10n.maintenanceShowReadableValue
+            : l10n.maintenanceShowExactValue,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() => _exact = !_exact),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: value,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _MaintenanceValue extends StatelessWidget {

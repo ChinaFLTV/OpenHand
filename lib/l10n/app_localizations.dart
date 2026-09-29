@@ -22453,6 +22453,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'扩展指标：{name}'**
   String maintenanceExtendedMetric(String name);
+
+  /// No description provided for @maintenanceShowExactValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示完整数值'**
+  String get maintenanceShowExactValue;
+
+  /// No description provided for @maintenanceShowReadableValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示易读数值'**
+  String get maintenanceShowReadableValue;
 }
 
 class _AppLocalizationsDelegate

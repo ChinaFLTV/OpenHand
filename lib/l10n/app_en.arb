@@ -8595,5 +8595,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceShowExactValue": "Show exact value",
+  "maintenanceShowReadableValue": "Show readable value"
 }

@@ -303,6 +303,77 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('数字切换保留精度、单位与刷新偏好并遵循减少动画', (tester) async {
+    var raw = '9007199254740993';
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return Scaffold(body: MediaQuery(data: const MediaQueryData(disableAnimations: true), child: Column(children: [
+          _MaintenanceNumber(raw: raw),
+          const _MaintenanceNumber(raw: '1500'),
+          const _MaintenanceNumber(raw: '1536', unit: 'B'),
+          const _MaintenanceNumber(raw: '3600000 ms'),
+          const _MaintenanceNumber(raw: '—'),
+          const _MaintenanceNumber(raw: 'NaN'),
+          const _MaintenanceNumber(raw: '0'),
+          const _MaintenanceNumber(raw: '-1500'),
+        ])));
+      })));
+    await tester.pumpAndSettle();
+    expect(find.text('1.5k'), findsOneWidget);
+    expect(find.text('-1.5k'), findsOneWidget);
+    expect(find.text('1 h'), findsOneWidget);
+    expect(find.text('1.5 KB'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
+    expect(find.text('NaN'), findsOneWidget);
+    await tester.tap(find.text('1.5k'));
+    await tester.pump();
+    expect(find.text('1500'), findsOneWidget);
+    await tester.tap(find.text('9P'));
+    await tester.pump();
+    expect(find.text('9007199254740993'), findsOneWidget);
+    update(() => raw = '9007199254740995');
+    await tester.pump();
+    expect(find.text('9007199254740995'), findsOneWidget);
+    await tester.tap(find.text('9007199254740995'));
+    await tester.pump();
+    expect(find.text('9P'), findsOneWidget);
+    await tester.tap(find.text('1 h'));
+    await tester.pump();
+    expect(find.text('3600000 ms'), findsOneWidget);
+    await tester.tap(find.text('1.5 KB'));
+    await tester.pump();
+    expect(find.text('1536 B'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('磁盘单元格可独立切换且进程标识不缩写', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: _MaintenanceTable(
+        headers: ['PID', '累计读取次数', '累计读取字节'],
+        rows: [OpenHandOperationalRankRow(rowKey: 'disk', value: 0,
+          cells: ['123456', '1500', '1536'])]))));
+    await tester.pumpAndSettle();
+    expect(find.text('123456'), findsOneWidget);
+    expect(find.text('1.5k'), findsOneWidget);
+    expect(find.text('1.5 KB'), findsOneWidget);
+    await tester.tap(find.text('1.5k'));
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(find.text('1500'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('1.5k'), findsNothing);
+    expect(find.text('1.5 KB'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('六种语言切换覆盖标签、状态与原始数据边界', (tester) async {
     final service = _MaintenanceFixture();
     for (final width in [1180.0, 580.0]) {

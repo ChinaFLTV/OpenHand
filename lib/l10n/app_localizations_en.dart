@@ -12546,4 +12546,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String maintenanceExtendedMetric(String name) {
     return 'Extended metric: $name';
   }
+
+  @override
+  String get maintenanceShowExactValue => 'Show exact value';
+
+  @override
+  String get maintenanceShowReadableValue => 'Show readable value';
 }

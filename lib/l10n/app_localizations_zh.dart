@@ -12150,6 +12150,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String maintenanceExtendedMetric(String name) {
     return '扩展指标：$name';
   }
+
+  @override
+  String get maintenanceShowExactValue => '显示完整数值';
+
+  @override
+  String get maintenanceShowReadableValue => '显示易读数值';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24280,4 +24286,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String maintenanceExtendedMetric(String name) {
     return '擴充指標：$name';
   }
+
+  @override
+  String get maintenanceShowExactValue => '顯示完整數值';
+
+  @override
+  String get maintenanceShowReadableValue => '顯示易讀數值';
 }

@@ -12720,4 +12720,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String maintenanceExtendedMetric(String name) {
     return 'Indicateur supplémentaire : $name';
   }
+
+  @override
+  String get maintenanceShowExactValue => 'Afficher la valeur exacte';
+
+  @override
+  String get maintenanceShowReadableValue => 'Afficher la valeur simplifiée';
 }

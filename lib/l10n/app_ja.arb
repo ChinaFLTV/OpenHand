@@ -8590,5 +8590,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceShowExactValue": "正確な値を表示",
+  "maintenanceShowReadableValue": "読みやすい値を表示"
 }

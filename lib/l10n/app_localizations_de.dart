@@ -12682,4 +12682,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String maintenanceExtendedMetric(String name) {
     return 'Erweiterte Kennzahl: $name';
   }
+
+  @override
+  String get maintenanceShowExactValue => 'Exakten Wert anzeigen';
+
+  @override
+  String get maintenanceShowReadableValue => 'Lesbaren Wert anzeigen';
 }

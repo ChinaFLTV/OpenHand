@@ -8590,5 +8590,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceShowExactValue": "顯示完整數值",
+  "maintenanceShowReadableValue": "顯示易讀數值"
 }

@@ -12274,4 +12274,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String maintenanceExtendedMetric(String name) {
     return '拡張指標：$name';
   }
+
+  @override
+  String get maintenanceShowExactValue => '正確な値を表示';
+
+  @override
+  String get maintenanceShowReadableValue => '読みやすい値を表示';
 }

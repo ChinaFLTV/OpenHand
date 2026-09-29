@@ -9564,5 +9564,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceShowExactValue": "显示完整数值",
+  "maintenanceShowReadableValue": "显示易读数值"
 }
