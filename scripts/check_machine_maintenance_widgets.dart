@@ -1053,6 +1053,77 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+
+  testWidgets('关系树处理循环孤儿搜索并保留展开状态与详情操作', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    var tapped = '';
+    final rows = [
+      for (final id in ['1', '2', '3', '4'])
+        OpenHandOperationalRankRow(value: 0, cells: [id, '进程\$id', '运行中']),
+    ];
+    Widget host(String query) => MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MaintenanceBrowser(
+        query: query, nameColumn: 1,
+        parents: const {'1': ['3'], '2': ['1'], '3': ['2'], '4': ['999']},
+        table: _MaintenanceTable(headers: const ['PID', '进程', '状态'], rows: rows,
+          onRowTap: (row) => tapped = row.cells.first))));
+    await tester.pumpWidget(host(''));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关系树'));
+    await tester.pumpAndSettle();
+    for (final id in ['1', '2', '3', '4']) expect(find.text('进程\$id'), findsOneWidget);
+    await tester.tap(find.byTooltip('收起').first);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('展开'), findsOneWidget);
+    await tester.pumpWidget(host('进程2'));
+    await tester.pumpAndSettle();
+    expect(find.text('进程2'), findsOneWidget);
+    expect(find.text('进程1'), findsOneWidget);
+    expect(find.text('进程4'), findsNothing);
+    await tester.tap(find.text('进程2'));
+    expect(tapped, '2');
+    await tester.pumpWidget(host(''));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('展开'), findsOneWidget);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceTable), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+
+  testWidgets('服务名称分组适配六种语言窄窗口，节点可展开且保留完整名称', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(380, 700));
+    for (final locale in [const Locale('zh'), const Locale('zh', 'Hant'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja')]) {
+      await tester.pumpWidget(MaterialApp(
+        locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MaintenanceBrowser(query: '', parents: const {}, groupNames: true,
+          table: _MaintenanceTable(headers: const ['名称', '状态', 'PID'], rows: [
+            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.test', 'running', '123']),
+            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.worker', 'stopped', '—']),
+          ])))));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(_MaintenanceBrowser));
+      final l10n = AppLocalizations.of(context)!;
+      await tester.tap(find.text(l10n.maintenanceNameTree));
+      await tester.pumpAndSettle();
+      expect(find.text('com.apple'), findsOneWidget);
+      expect(find.text('com.apple.test'), findsOneWidget);
+      await tester.tap(find.byTooltip(l10n.maintenanceTreeCollapse));
+      await tester.pumpAndSettle();
+      expect(find.text('com.apple.test'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('首次加载与分区加载仅显示居中进度，刷新保留已有数据', (tester) async {
     final service = _MaintenanceFixture()..pending = Completer<String>();
     await tester.binding.setSurfaceSize(const Size(1280, 900));

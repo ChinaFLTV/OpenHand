@@ -1315,9 +1315,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
   Widget _processes(MachineMaintenanceSnapshot data) {
     final query = _search.text.trim().toLowerCase();
-    final rows = data.processes
-        .where((p) => '${p.pid} ${p.name}'.toLowerCase().contains(query))
-        .toList();
+    final rows = data.processes.toList();
     final pageSize = int.tryParse(data.text('page_size'));
     final ticksPerSecond = int.tryParse(data.text('clock_ticks'));
     final old = _previous[1];
@@ -1443,94 +1441,102 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   children: [
                     charts,
                     const SizedBox(height: 12),
-                    _MaintenanceTable(
-                      key: ValueKey((_search.text, _sort)),
-                      limitToViewport: false,
-                      maxBodyHeight: math.max(
-                        100,
-                        constraints.maxHeight -
-                            (constraints.maxWidth < 720 ? 148 : 96),
-                      ),
-                      headers: const [
-                        'PID',
-                        '进程',
-                        '状态',
-                        'CPU / 单核',
-                        '驻留内存',
-                        '线程',
-                        '父进程 ID',
-                        '优先级',
-                        '虚拟内存',
-                        '累计 CPU 时间',
-                      ],
-                      rows: [
-                        for (final p in rows)
-                          OpenHandOperationalRankRow(
-                            value: 0,
-                            rowKey: (p.pid, p.startToken),
-                            data: p,
-                            cells: [
-                              '${p.pid}',
-                              p.name.split('/').last.split('\\').last,
-                              maintenanceLabel(
-                                context,
-                                _maintenanceProcessState(p.state),
-                              ),
-                              cpu(p) == null
-                                  ? '—'
-                                  : '${cpu(p)!.toStringAsFixed(1)}%',
-                              pageSize == null || p.residentPages < 0
-                                  ? maintenanceLabel(context, '不可用')
-                                  : formatByteSize(p.residentPages * pageSize),
-                              p.threads < 0 ? '—' : '${p.threads}',
-                              '${p.parent}',
-                              '${p.nice}',
-                              p.virtualBytes < 0
-                                  ? '—'
-                                  : formatByteSize(p.virtualBytes),
-                              ticksPerSecond == null ||
-                                      ticksPerSecond <= 0 ||
-                                      p.ticks < 0
-                                  ? '—'
-                                  : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
-                            ],
-                            cellWidgets: [
-                              null,
-                              Tooltip(
-                                message: p.name,
-                                child: Text(
-                                  p.name.split('/').last.split('\\').last,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              _MaintenanceStatus(
-                                label: _maintenanceProcessState(p.state),
-                                color: p.state.startsWith('Z')
-                                    ? Theme.of(context).colorScheme.error
-                                    : Theme.of(context).colorScheme.primary,
-                              ),
-                            ],
-                          ),
-                      ],
-                      onRowTap: (row) {
-                        final p = row.data! as MachineMaintenanceProcess;
-                        if (!_platform!.canInspectProcess(p)) return;
-                        _details(
-                          AppLocalizations.of(
-                            context,
-                          )!.maintenanceProcessTitle('${p.pid}', p.name),
-                          _platform!.process(p),
-                          actions: {
-                            for (final action
-                                in _platform!.processActions(p).entries)
-                              action.key: _platform!.process(
-                                p,
-                                action: action.value,
-                              ),
-                          },
-                        );
+                    _MaintenanceBrowser(
+                      query: query,
+                      nameColumn: 1,
+                      parents: {
+                        for (final p in rows) '${p.pid}': ['${p.parent}'],
                       },
+                      table: _MaintenanceTable(
+                        limitToViewport: false,
+                        maxBodyHeight: math.max(
+                          100,
+                          constraints.maxHeight -
+                              (constraints.maxWidth < 720 ? 148 : 96),
+                        ),
+                        headers: const [
+                          'PID',
+                          '进程',
+                          '状态',
+                          'CPU / 单核',
+                          '驻留内存',
+                          '线程',
+                          '父进程 ID',
+                          '优先级',
+                          '虚拟内存',
+                          '累计 CPU 时间',
+                        ],
+                        rows: [
+                          for (final p in rows)
+                            OpenHandOperationalRankRow(
+                              value: 0,
+                              rowKey: (p.pid, p.startToken),
+                              data: p,
+                              cells: [
+                                '${p.pid}',
+                                p.name.split('/').last.split('\\').last,
+                                maintenanceLabel(
+                                  context,
+                                  _maintenanceProcessState(p.state),
+                                ),
+                                cpu(p) == null
+                                    ? '—'
+                                    : '${cpu(p)!.toStringAsFixed(1)}%',
+                                pageSize == null || p.residentPages < 0
+                                    ? maintenanceLabel(context, '不可用')
+                                    : formatByteSize(
+                                        p.residentPages * pageSize,
+                                      ),
+                                p.threads < 0 ? '—' : '${p.threads}',
+                                '${p.parent}',
+                                '${p.nice}',
+                                p.virtualBytes < 0
+                                    ? '—'
+                                    : formatByteSize(p.virtualBytes),
+                                ticksPerSecond == null ||
+                                        ticksPerSecond <= 0 ||
+                                        p.ticks < 0
+                                    ? '—'
+                                    : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
+                              ],
+                              cellWidgets: [
+                                null,
+                                Tooltip(
+                                  message: p.name,
+                                  child: Text(
+                                    p.name.split('/').last.split('\\').last,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                _MaintenanceStatus(
+                                  label: _maintenanceProcessState(p.state),
+                                  color: p.state.startsWith('Z')
+                                      ? Theme.of(context).colorScheme.error
+                                      : Theme.of(context).colorScheme.primary,
+                                ),
+                              ],
+                            ),
+                        ],
+                        onRowTap: (row) {
+                          final p = row.data! as MachineMaintenanceProcess;
+                          if (!_platform!.canInspectProcess(p)) return;
+                          _details(
+                            AppLocalizations.of(
+                              context,
+                            )!.maintenanceProcessTitle('${p.pid}', p.name),
+                            _platform!.process(p),
+                            actions: {
+                              for (final action
+                                  in _platform!.processActions(p).entries)
+                                action.key: _platform!.process(
+                                  p,
+                                  action: action.value,
+                                ),
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -1701,6 +1707,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return '待检查';
     }
 
+    final parents = <String, List<String>>{};
+    for (final entry in serviceMetrics.entries) {
+      parents[entry.key] = [
+        for (final property in ['Requires', 'Wants'])
+          ...(entry.value[property] ?? '')
+              .split(' ')
+              .where((name) => name.endsWith('.service')),
+      ];
+    }
+    for (final line in data.text('service_dependencies').split('\n')) {
+      final fields = line.split('\t');
+      if (fields.length == 2) (parents[fields[0]] ??= []).add(fields[1]);
+    }
     final distribution = <String, int>{};
     for (final line in rows) {
       final label = maintenanceLabel(context, state(line));
@@ -1823,43 +1842,47 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
           icon: Icons.view_list_outlined,
           maxHeight: 420,
-          child: _MaintenanceTable(
-            key: ValueKey(_search.text),
-            maxBodyHeight: 360,
-            headers: serviceHeaders,
-            rows: [
-              for (final line in filtered)
-                OpenHandOperationalRankRow(
-                  value: 0,
-                  rowKey: line.contains('\t')
-                      ? line.split('\t').first
-                      : line.trim().split(RegExp(r'\s+')).first,
-                  data: line,
-                  cells: serviceCells(
-                    line,
-                    maintenanceLabel(context, state(line)),
-                  ),
-                  cellWidgets: [
-                    null,
-                    _MaintenanceStatus(
-                      label: state(line),
-                      color: state(line) == '异常' ? cs.error : cs.primary,
+          child: _MaintenanceBrowser(
+            query: _search.text,
+            parents: parents,
+            groupNames: manager == 'launchd',
+            table: _MaintenanceTable(
+              maxBodyHeight: 360,
+              headers: serviceHeaders,
+              rows: [
+                for (final line in rows)
+                  OpenHandOperationalRankRow(
+                    value: 0,
+                    rowKey: line.contains('\t')
+                        ? line.split('\t').first
+                        : line.trim().split(RegExp(r'\s+')).first,
+                    data: line,
+                    cells: serviceCells(
+                      line,
+                      maintenanceLabel(context, state(line)),
                     ),
-                  ],
-                ),
-            ],
-            onRowTap: (row) {
-              final name = row.cells.first;
-              if (!(adapter?.accepts(name) ?? false)) return;
-              _details(
-                name,
-                adapter!.command(name),
-                actions: {
-                  for (final action in adapter.actions.entries)
-                    action.key: adapter.command(name, action.value),
-                },
-              );
-            },
+                    cellWidgets: [
+                      null,
+                      _MaintenanceStatus(
+                        label: state(line),
+                        color: state(line) == '异常' ? cs.error : cs.primary,
+                      ),
+                    ],
+                  ),
+              ],
+              onRowTap: (row) {
+                final name = row.cells.first;
+                if (!(adapter?.accepts(name) ?? false)) return;
+                _details(
+                  name,
+                  adapter!.command(name),
+                  actions: {
+                    for (final action in adapter.actions.entries)
+                      action.key: adapter.command(name, action.value),
+                  },
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -2423,6 +2446,303 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                     },
                   ),
           ),
+      ],
+    );
+  }
+}
+
+class _MaintenanceBrowser extends StatefulWidget {
+  const _MaintenanceBrowser({
+    required this.table,
+    required this.parents,
+    required this.query,
+    this.nameColumn = 0,
+    this.groupNames = false,
+  });
+  final _MaintenanceTable table;
+  final Map<String, List<String>> parents;
+  final String query;
+  final int nameColumn;
+  final bool groupNames;
+
+  @override
+  State<_MaintenanceBrowser> createState() => _MaintenanceBrowserState();
+}
+
+class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
+  bool _tree = false;
+  final _collapsed = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final rows = {for (final row in widget.table.rows) row.cells.first: row};
+    final children = <String, List<String>>{};
+    final parent = <String, String>{};
+    for (final id in rows.keys) {
+      if (widget.groupNames) {
+        final dot = id.lastIndexOf('.');
+        if (dot > 0) {
+          final group = 'group:${id.substring(0, dot)}';
+          parent[id] = group;
+          (children[group] ??= []).add(id);
+        }
+      } else {
+        for (final candidate in widget.parents[id] ?? const <String>[]) {
+          if (candidate == id || !rows.containsKey(candidate)) continue;
+          var ancestor = candidate;
+          final seen = <String>{id};
+          while (seen.add(ancestor) && parent.containsKey(ancestor)) {
+            ancestor = parent[ancestor]!;
+          }
+          if (seen.contains(ancestor) && parent.containsKey(ancestor) ||
+              ancestor == id) {
+            continue;
+          }
+          parent[id] = candidate;
+          (children[candidate] ??= []).add(id);
+          break;
+        }
+      }
+    }
+    final query = widget.query.trim().toLowerCase();
+    final matches = rows.keys
+        .where((id) => rows[id]!.cells.join(' ').toLowerCase().contains(query))
+        .toSet();
+    final visible = {...matches};
+    for (final id in matches) {
+      var ancestor = parent[id];
+      while (ancestor != null && visible.add(ancestor)) {
+        ancestor = parent[ancestor];
+      }
+    }
+    final roots = [
+      ...children.keys.where((id) => id.startsWith('group:')),
+      ...rows.keys.where((id) => !parent.containsKey(id)),
+    ];
+    _collapsed.removeWhere((id) => !children.containsKey(id));
+    final entries = <(String, int)>[];
+    final stack = [for (final id in roots.reversed) (id, 0)];
+    final visited = <String>{};
+    while (stack.isNotEmpty) {
+      final entry = stack.removeLast();
+      if (!visited.add(entry.$1) || !visible.contains(entry.$1)) continue;
+      entries.add(entry);
+      if (query.isEmpty && _collapsed.contains(entry.$1)) continue;
+      for (final child in (children[entry.$1] ?? const <String>[]).reversed) {
+        stack.add((child, entry.$2 + 1));
+      }
+    }
+    final entryIndexes = {
+      for (var i = 0; i < entries.length; i++) entries[i].$1: i,
+    };
+    final table = _MaintenanceTable(
+      key: ValueKey((false, query)),
+      headers: widget.table.headers,
+      rows: rows.entries
+          .where((entry) => matches.contains(entry.key))
+          .map((entry) => entry.value)
+          .toList(),
+      maxBodyHeight: widget.table.maxBodyHeight,
+      limitToViewport: widget.table.limitToViewport,
+      onRowTap: widget.table.onRowTap,
+    );
+    final tree = ConstrainedBox(
+      key: const ValueKey(true),
+      constraints: BoxConstraints(maxHeight: widget.table.maxBodyHeight),
+      child: entries.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(18),
+              child: Text(maintenanceLabel(context, '暂无可用数据')),
+            )
+          : ListView.builder(
+              primary: false,
+              shrinkWrap: true,
+              itemCount: entries.length,
+              findChildIndexCallback: (key) =>
+                  key is ValueKey<String> ? entryIndexes[key.value] : null,
+              itemBuilder: (context, index) {
+                final (id, depth) = entries[index];
+                final row = rows[id];
+                final branches = children[id] ?? const <String>[];
+                final collapsed = query.isEmpty && _collapsed.contains(id);
+                return TweenAnimationBuilder<double>(
+                  key: ValueKey(id),
+                  tween: Tween(begin: 0, end: 1),
+                  duration: openHandMotionDuration(context, motion.duration),
+                  builder: (_, value, child) =>
+                      Opacity(opacity: value.clamp(0, 1), child: child),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: index.isEven ? cs.surface : cs.surfaceContainerLow,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: .35),
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        start: math.min(depth, 8) * 16.0,
+                        end: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 34,
+                            child: branches.isEmpty
+                                ? Icon(
+                                    Icons.subdirectory_arrow_right_rounded,
+                                    size: 16,
+                                    color: cs.outline,
+                                  )
+                                : IconButton(
+                                    tooltip: collapsed
+                                        ? l10n.maintenanceTreeExpand
+                                        : l10n.maintenanceTreeCollapse,
+                                    onPressed: query.isNotEmpty
+                                        ? null
+                                        : () => setState(() {
+                                            if (!_collapsed.add(id)) {
+                                              _collapsed.remove(id);
+                                            }
+                                          }),
+                                    icon: AnimatedRotation(
+                                      turns: collapsed ? 0 : .25,
+                                      duration: openHandMotionDuration(
+                                        context,
+                                        motion.duration,
+                                      ),
+                                      curve: motion.curve.curve,
+                                      child: const Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              hoverColor: Colors.transparent,
+                              onTap: row == null
+                                  ? null
+                                  : () => widget.table.onRowTap?.call(row),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      row == null
+                                          ? id.substring(6)
+                                          : row.cells[widget.nameColumn],
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: row == null
+                                            ? cs.primary
+                                            : cs.onSurface,
+                                      ),
+                                    ),
+                                    if (row != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        [
+                                          for (final i
+                                              in widget.nameColumn == 1
+                                                  ? const [0, 2, 3, 4, 6]
+                                                  : const [1, 2, 3, 4])
+                                            if (i < row.cells.length)
+                                              '${maintenanceLabel(context, widget.table.headers[i])}: ${row.cells[i]}',
+                                        ].join(' · '),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      if (widget.nameColumn == 0 &&
+                                          !widget.groupNames &&
+                                          (widget.parents[id]?.isNotEmpty ??
+                                              false))
+                                        Text(
+                                          '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (branches.isNotEmpty)
+                            Text(
+                              '${branches.length}',
+                              style: TextStyle(color: cs.primary, fontSize: 12),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SegmentedButton<bool>(
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  icon: const Icon(Icons.view_list_outlined, size: 16),
+                  label: Text(l10n.maintenanceListView),
+                ),
+                ButtonSegment(
+                  value: true,
+                  icon: const Icon(Icons.account_tree_outlined, size: 16),
+                  label: Text(
+                    widget.groupNames
+                        ? l10n.maintenanceNameTree
+                        : l10n.maintenanceTreeView,
+                  ),
+                ),
+              ],
+              selected: {_tree},
+              onSelectionChanged: (selection) =>
+                  setState(() => _tree = selection.first),
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: openHandMotionDuration(context, motion.duration),
+          curve: motion.curve.curve,
+          alignment: Alignment.topCenter,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, motion.duration),
+            switchInCurve: motion.curve.curve,
+            switchOutCurve: Curves.easeOut,
+            child: _tree ? tree : table,
+          ),
+        ),
       ],
     );
   }

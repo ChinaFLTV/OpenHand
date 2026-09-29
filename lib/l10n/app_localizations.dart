@@ -22825,6 +22825,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'临时链接'**
   String get maintenanceStartupLinkedRuntime;
+
+  /// No description provided for @maintenanceListView.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表'**
+  String get maintenanceListView;
+
+  /// No description provided for @maintenanceTreeView.
+  ///
+  /// In zh, this message translates to:
+  /// **'关系树'**
+  String get maintenanceTreeView;
+
+  /// No description provided for @maintenanceNameTree.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称分组'**
+  String get maintenanceNameTree;
+
+  /// No description provided for @maintenanceTreeExpand.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开'**
+  String get maintenanceTreeExpand;
+
+  /// No description provided for @maintenanceTreeCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get maintenanceTreeCollapse;
+
+  /// No description provided for @maintenanceTreeDependencies.
+  ///
+  /// In zh, this message translates to:
+  /// **'依赖'**
+  String get maintenanceTreeDependencies;
 }
 
 class _AppLocalizationsDelegate

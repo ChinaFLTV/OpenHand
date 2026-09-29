@@ -9626,5 +9626,11 @@
   "maintenanceStartupLinked": "已链接",
   "maintenanceStartupEnabledRuntime": "临时启用",
   "maintenanceStartupMaskedRuntime": "临时屏蔽",
-  "maintenanceStartupLinkedRuntime": "临时链接"
+  "maintenanceStartupLinkedRuntime": "临时链接",
+  "maintenanceListView": "列表",
+  "maintenanceTreeView": "关系树",
+  "maintenanceNameTree": "名称分组",
+  "maintenanceTreeExpand": "展开",
+  "maintenanceTreeCollapse": "收起",
+  "maintenanceTreeDependencies": "依赖"
 }

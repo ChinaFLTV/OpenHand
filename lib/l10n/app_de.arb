@@ -8652,5 +8652,11 @@
   "maintenanceStartupLinked": "Verknüpft",
   "maintenanceStartupEnabledRuntime": "Bis zum Neustart aktiviert",
   "maintenanceStartupMaskedRuntime": "Bis zum Neustart maskiert",
-  "maintenanceStartupLinkedRuntime": "Bis zum Neustart verknüpft"
+  "maintenanceStartupLinkedRuntime": "Bis zum Neustart verknüpft",
+  "maintenanceListView": "Liste",
+  "maintenanceTreeView": "Beziehungsbaum",
+  "maintenanceNameTree": "Namensgruppen",
+  "maintenanceTreeExpand": "Aufklappen",
+  "maintenanceTreeCollapse": "Zuklappen",
+  "maintenanceTreeDependencies": "Abhängigkeiten"
 }

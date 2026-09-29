@@ -12911,4 +12911,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceStartupLinkedRuntime => 'Lié jusqu’au redémarrage';
+
+  @override
+  String get maintenanceListView => 'Liste';
+
+  @override
+  String get maintenanceTreeView => 'Arbre des relations';
+
+  @override
+  String get maintenanceNameTree => 'Groupes de noms';
+
+  @override
+  String get maintenanceTreeExpand => 'Développer';
+
+  @override
+  String get maintenanceTreeCollapse => 'Réduire';
+
+  @override
+  String get maintenanceTreeDependencies => 'Dépendances';
 }

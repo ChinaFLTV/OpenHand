@@ -12871,4 +12871,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceStartupLinkedRuntime => 'Bis zum Neustart verknüpft';
+
+  @override
+  String get maintenanceListView => 'Liste';
+
+  @override
+  String get maintenanceTreeView => 'Beziehungsbaum';
+
+  @override
+  String get maintenanceNameTree => 'Namensgruppen';
+
+  @override
+  String get maintenanceTreeExpand => 'Aufklappen';
+
+  @override
+  String get maintenanceTreeCollapse => 'Zuklappen';
+
+  @override
+  String get maintenanceTreeDependencies => 'Abhängigkeiten';
 }

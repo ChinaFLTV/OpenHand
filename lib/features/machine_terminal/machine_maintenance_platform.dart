@@ -364,6 +364,9 @@ emit("manager","Windows SCM");
 var services=rows("SELECT Name,DisplayName,State,StartMode,ProcessId,StartName,ExitCode,PathName FROM Win32_Service"),lines=[],startup=[];
 for(var i=0;i<services.length;i++){var s=services[i];lines.push([clean(s.Name),clean(s.State),clean(s.DisplayName),clean(s.ProcessId),clean(s.StartName),clean(s.ExitCode),clean(s.PathName)].join("\t"));startup.push(clean(s.Name)+"\t"+clean(s.StartMode));}
 emit("services",lines.join("\n").substr(0,50000));emit("startup",startup.join("\n").substr(0,16000));
+var dependencies=rows("SELECT Antecedent,Dependent FROM Win32_DependentService"),links=[];
+for(var i=0;i<dependencies.length;i++){var d=dependencies[i],a=String(d.Antecedent).match(/Name="([^"]+)"/i),b=String(d.Dependent).match(/Name="([^"]+)"/i);if(a&&b)links.push(clean(b[1])+"\t"+clean(a[1]));}
+emit("service_dependencies",links.join("\n").substr(0,50000));
 emit("timers",command("schtasks /query /fo LIST",12000));
 ''';
 

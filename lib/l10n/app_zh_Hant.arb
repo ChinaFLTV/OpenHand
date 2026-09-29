@@ -8652,5 +8652,11 @@
   "maintenanceStartupLinked": "已連結",
   "maintenanceStartupEnabledRuntime": "暫時啟用",
   "maintenanceStartupMaskedRuntime": "暫時遮蔽",
-  "maintenanceStartupLinkedRuntime": "暫時連結"
+  "maintenanceStartupLinkedRuntime": "暫時連結",
+  "maintenanceListView": "清單",
+  "maintenanceTreeView": "關係樹",
+  "maintenanceNameTree": "名稱分組",
+  "maintenanceTreeExpand": "展開",
+  "maintenanceTreeCollapse": "收合",
+  "maintenanceTreeDependencies": "相依"
 }

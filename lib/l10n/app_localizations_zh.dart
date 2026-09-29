@@ -12336,6 +12336,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceStartupLinkedRuntime => '临时链接';
+
+  @override
+  String get maintenanceListView => '列表';
+
+  @override
+  String get maintenanceTreeView => '关系树';
+
+  @override
+  String get maintenanceNameTree => '名称分组';
+
+  @override
+  String get maintenanceTreeExpand => '展开';
+
+  @override
+  String get maintenanceTreeCollapse => '收起';
+
+  @override
+  String get maintenanceTreeDependencies => '依赖';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24652,4 +24670,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceStartupLinkedRuntime => '暫時連結';
+
+  @override
+  String get maintenanceListView => '清單';
+
+  @override
+  String get maintenanceTreeView => '關係樹';
+
+  @override
+  String get maintenanceNameTree => '名稱分組';
+
+  @override
+  String get maintenanceTreeExpand => '展開';
+
+  @override
+  String get maintenanceTreeCollapse => '收合';
+
+  @override
+  String get maintenanceTreeDependencies => '相依';
 }

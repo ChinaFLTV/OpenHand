@@ -12735,4 +12735,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceStartupLinkedRuntime => 'Linked until restart';
+
+  @override
+  String get maintenanceListView => 'List';
+
+  @override
+  String get maintenanceTreeView => 'Relationship tree';
+
+  @override
+  String get maintenanceNameTree => 'Name groups';
+
+  @override
+  String get maintenanceTreeExpand => 'Expand';
+
+  @override
+  String get maintenanceTreeCollapse => 'Collapse';
+
+  @override
+  String get maintenanceTreeDependencies => 'Dependencies';
 }

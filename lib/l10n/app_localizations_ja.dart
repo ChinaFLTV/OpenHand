@@ -12461,4 +12461,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceStartupLinkedRuntime => '再起動までリンク';
+
+  @override
+  String get maintenanceListView => '一覧';
+
+  @override
+  String get maintenanceTreeView => '関係ツリー';
+
+  @override
+  String get maintenanceNameTree => '名前別グループ';
+
+  @override
+  String get maintenanceTreeExpand => '展開';
+
+  @override
+  String get maintenanceTreeCollapse => '折りたたむ';
+
+  @override
+  String get maintenanceTreeDependencies => '依存関係';
 }

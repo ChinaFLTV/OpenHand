@@ -8657,5 +8657,11 @@
   "maintenanceStartupLinked": "Linked",
   "maintenanceStartupEnabledRuntime": "Enabled until restart",
   "maintenanceStartupMaskedRuntime": "Masked until restart",
-  "maintenanceStartupLinkedRuntime": "Linked until restart"
+  "maintenanceStartupLinkedRuntime": "Linked until restart",
+  "maintenanceListView": "List",
+  "maintenanceTreeView": "Relationship tree",
+  "maintenanceNameTree": "Name groups",
+  "maintenanceTreeExpand": "Expand",
+  "maintenanceTreeCollapse": "Collapse",
+  "maintenanceTreeDependencies": "Dependencies"
 }

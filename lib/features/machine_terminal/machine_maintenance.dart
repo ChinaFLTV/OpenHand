@@ -327,7 +327,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   section services
   bounded systemctl list-units --type=service --all --no-legend --plain --no-pager 2>&1 | head -c 50000
   section service_metrics
-  bounded sh -c 'systemctl list-units --type=service --all --no-legend --plain --no-pager | sed "s/^ *//;s/ .*//" | grep "[.]service$" | xargs -r -d "\n" systemctl show --no-pager -p Id -p MainPID -p MemoryCurrent -p CPUUsageNSec -p TasksCurrent -p NRestarts -p ExecMainStatus --' 2>&1 | head -c 160000
+  bounded sh -c 'systemctl list-units --type=service --all --no-legend --plain --no-pager | sed "s/^ *//;s/ .*//" | grep "[.]service$" | xargs -r -d "\n" systemctl show --no-pager -p Id -p MainPID -p MemoryCurrent -p CPUUsageNSec -p TasksCurrent -p NRestarts -p ExecMainStatus -p Requires -p Wants --' 2>&1 | head -c 160000
   section startup
   bounded systemctl list-unit-files --type=service --no-legend --no-pager 2>&1 | head -c 20000
   section timers
