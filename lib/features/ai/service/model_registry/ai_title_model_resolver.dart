@@ -66,7 +66,13 @@ class AiTitleModelResolver {
     final profile = model.profileFor(modelId);
     // 输入文本不代表能够生成文本，优先使用明确的输出模态。
     final architecture = profile.architecture;
-    final outputs = architecture?.outputModalities ?? const <String>[];
+    final inputs = architecture?.inputModalities.isNotEmpty == true
+        ? architecture!.inputModalities
+        : stringListFromValue(profile.sourceMetadata['input_modalities']);
+    if (inputs.isNotEmpty && !inputs.contains('text')) return false;
+    final outputs = architecture?.outputModalities.isNotEmpty == true
+        ? architecture!.outputModalities
+        : stringListFromValue(profile.sourceMetadata['output_modalities']);
     if (outputs.isNotEmpty) {
       return outputs.any((item) => item.trim().toLowerCase() == 'text');
     }

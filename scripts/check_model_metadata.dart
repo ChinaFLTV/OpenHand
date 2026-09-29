@@ -44,7 +44,7 @@ void main() {
   }
   test('目录保留全部历史型号与新增型号，档案按需解析并复用', () {
     final ids = {...openRouterExactModelProfiles.keys, ...openRouterLatestModelProfiles.keys};
-    expect(ids.length, greaterThanOrEqualTo(569));
+    expect(ids.length, greaterThanOrEqualTo(573));
     expect(ids, contains('cognitivecomputations/dolphin-mistral-24b-venice-edition:free'));
     for (final id in ['openai/gpt-6-luna', 'anthropic/claude-opus-5.5', 'x-ai/grok-4.7', 'deepseek/deepseek-v4.1-flash']) {
       expect(ids, contains(id));
@@ -60,6 +60,116 @@ void main() {
     expect(identical(first, profiles['model']), isTrue);
     expect(profiles['missing'], isNull);
     expect(() => profiles.clear(), throwsUnsupportedError);
+  });
+  test('新直连型号与网关规格独立，未知版本不套用已知参数', () {
+    final sol = AiModelCatalog.lookup('gpt-6.1-sol', AiProtocolType.openai)!;
+    expect((sol.maxContextLength, sol.maxOutputLength, sol.cacheReadUsdPer1M), (1050000, 128000, 0.1));
+    expect(sol.maxThinkingLength, isNull);
+    expect(sol.sourceMetadata['max_input_tokens'], 922000);
+    expect(sol.reasoningEffortOptions.map((e) => e.value), ['low', 'medium', 'high', 'xhigh', 'max']);
+    expect(AiModelCatalog.lookup('gpt-6.1-sol-2', AiProtocolType.openai), isNull);
+    final sonnet = AiModelCatalog.lookup('claude-sonnet-5-5', AiProtocolType.claude)!;
+    expect((sonnet.maxOutputLength, sonnet.knowledgeCutoff, sonnet.reasoningEffort), (128000, '2026-06', 'high'));
+    expect(sonnet.sourceMetadata['batch_max_output_tokens'], 300000);
+    expect(sonnet.expirationDate, isNull);
+    expect(AiModelCatalog.lookup('anthropic/claude-sonnet-5.5', AiProtocolType.openai)!.sourceMetadata['id'], 'anthropic/claude-sonnet-5.5');
+    final kimi = AiModelCatalog.lookup('kimi-k3', AiProtocolType.kimi)!;
+    expect(kimi.maxOutputLength, 1048576);
+    expect(kimi.defaultParameters['max_completion_tokens'], 131072);
+    final step = AiModelCatalog.lookup('step-3.7-flash', AiProtocolType.stepfun)!;
+    expect(step.maxOutputLength, isNull);
+    expect(step.defaultParameters['temperature'], 0.5);
+    expect(step.supportedParameters, containsAll(['reasoning_effort', 'response_format']));
+    expect(step.canonicalSlug, 'step-3.7-flash');
+    expect(AiModelCatalog.lookup('step-3.8-flash', AiProtocolType.stepfun), isNull);
+    expect(AiModelCatalog.lookup('qwen3.8-27b', AiProtocolType.qwen)!.maxThinkingLength, 262144);
+    expect(AiModelCatalog.lookup('qwen3.8-2.4t-a95b', AiProtocolType.qwen)!.maxThinkingLength, 131072);
+  });
+  test('语音模型跨协议匹配不会误用 OpenAI TTS 规格', () {
+    final gemini = AiModelCatalog.lookup('gemini-3.8-flash-tts', AiProtocolType.openai)!;
+    expect(gemini.displayName, 'Gemini 3.8 Flash TTS');
+    expect(gemini.maxContextLength, 8192);
+    final step = AiModelCatalog.lookup('stepaudio-3-tts', AiProtocolType.openai)!;
+    expect(step.displayName, 'StepAudio 3 TTS');
+    expect(step.inputUsdPer1M, isNull);
+    final asr = AiModelCatalog.lookup('stepaudio-3-asr-max', AiProtocolType.openai)!;
+    expect(asr.capabilities, isNot(contains(AiModelCapability.audioGeneration)));
+    expect(asr.sourceMetadata['endpoint'], '/v1/audio/asr/sse');
+    expect(AiModelCatalog.lookup('hy-image-v3.5-preview', AiProtocolType.hunyuan)!.capabilities, contains(AiModelCapability.imageGeneration));
+  });
+  test('Meta 新模型区分价格档位、音频限制和专用输出', () {
+    final standard = AiModelCatalog.lookup('muse-spark-1.3', AiProtocolType.meta)!;
+    final contributor = AiModelCatalog.lookup('muse-spark-1.3-contributor', AiProtocolType.meta)!;
+    expect(standard.maxContextLength, 1048576);
+    expect(AiModelCatalog.lookup('muse-spark-1.3', AiProtocolType.openai)!.canonicalSlug, 'muse-spark-1.3');
+    expect(standard.maxOutputLength, isNull);
+    expect(standard.requiresThinking, isTrue);
+    expect(standard.inputUsdPer1M, 1.25);
+    expect(contributor.inputUsdPer1M, 0.1);
+    expect(contributor.sourceMetadata['training_eligible'], isTrue);
+    expect(standard.sourceMetadata['audio_support'], 'partial');
+    expect(standard.reasoningEffortOptions.map((e) => e.value), contains('max'));
+    expect(contributor.reasoningEffortOptions.map((e) => e.value), isNot(contains('max')));
+    expect(AiTitleModelResolver.supportsTextTitleGeneration(model('muse-image-1.0')), isFalse);
+    expect(AiTitleModelResolver.supportsTextTitleGeneration(model('muse-voice-transcribe-1.0')), isFalse);
+    expect(AiModelCatalog.lookup('muse-spark-1.4', AiProtocolType.meta), isNull);
+  });
+  test('Google 专用媒体模型区分输入、输出与时长限制', () {
+    final transcribe = AiModelCatalog.lookup('gemini-3.5-transcribe', AiProtocolType.gemini)!;
+    expect(transcribe.maxOutputLength, isNull);
+    expect(transcribe.sourceMetadata['max_audio_seconds'], 3600);
+    expect(AiModelCatalog.lookup('gemini-3.5-transcribe-live', AiProtocolType.gemini)!.sourceMetadata['max_audio_seconds'], 600);
+    final omni = AiModelCatalog.lookup('gemini-omni-1.1-flash', AiProtocolType.gemini)!;
+    expect(omni.maxContextLength, 1048576);
+    expect(omni.capabilities, contains(AiModelCapability.videoGeneration));
+    expect(AiTitleModelResolver.supportsTextTitleGeneration(model('gemini-omni-1.1-flash')), isFalse);
+    expect(AiTitleModelResolver.supportsTextTitleGeneration(model('gemini-3.5-transcribe')), isFalse);
+    final music = AiModelCatalog.lookup('lyria-3.5', AiProtocolType.gemini)!;
+    expect(music.maxContextLength, isNull);
+    expect(music.sourceMetadata['max_input_tokens'], 131072);
+    final image = AiModelCatalog.lookup('gemini-3.1-flash-lite-image', AiProtocolType.gemini)!;
+    expect(image.maxOutputLength, 4096);
+    expect(image.reasoningEffortOptions.map((e) => e.value), ['minimal', 'high']);
+    final generation = <String, Object?>{};
+    const imageId = 'gemini-3.1-flash-lite-image';
+    AiThinkingRequestPolicy.applyGeminiGenerationConfig(generation, model(imageId, profiles: {imageId: const AiModelProfile(thinkingEnabled: false)}).copyWith(protocolType: AiProtocolType.gemini));
+    expect((generation['thinkingConfig'] as Map)['thinkingLevel'], 'MINIMAL');
+
+  });
+  test('MiniMax 新模型发送原生推理强度且拒绝旧配置关闭思考', () {
+    const id = 'MiniMax-M3.1-Flash-Preview';
+    final config = model(id, profiles: {id: const AiModelProfile(thinkingEnabled: false)}).copyWith(protocolType: AiProtocolType.minimax);
+    expect(config.resolvedThinkingEnabled, isTrue);
+    expect(config.profileFor(id).maxOutputLength, 524288);
+    final body = <String, Object?>{};
+    AiThinkingRequestPolicy.applyOpenAiCompatible(body, config);
+    expect(body['reasoning_effort'], 'max');
+    expect(body['thinking'], {'type': 'adaptive'});
+    expect(AiThinkingRequestPolicy.claudeOutputConfigFor(config), {'effort': 'max'});
+    body.addAll({'thinking': {'type': 'disabled'}, 'reasoning_effort': 'none', 'reasoning_split': false});
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, config);
+    expect(body['thinking'], {'type': 'adaptive'});
+    expect(body['reasoning_effort'], 'max');
+    expect(body['reasoning_split'], isTrue);
+  });
+  test('Sonnet 5.5 关闭前置思考使用工具间模式并限制强度', () {
+    const id = 'claude-sonnet-5-5';
+    final config = model(id, profiles: {id: const AiModelProfile(thinkingEnabled: false)}).copyWith(protocolType: AiProtocolType.claude);
+    expect(AiThinkingRequestPolicy.claudeThinkingFor(model: config, maxTokens: 8192), {'type': 'between_tools'});
+    final body = <String, Object?>{'thinking': {'type': 'disabled', 'budget_tokens': 1024}, 'output_config': {'effort': 'max'}, 'temperature': 0.5, 'tool_choice': {'type': 'any'}};
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, config);
+    expect(body['thinking'], {'type': 'between_tools'});
+    expect(body['output_config'], {'effort': 'high'});
+    expect(body['tool_choice'], {'type': 'auto'});
+    expect(body.containsKey('temperature'), isFalse);
+  });
+  test('GPT-6.1 Sol 不发送无思考档位并约束官方工具接口', () {
+    final config = model('gpt-6.1-sol').copyWith(baseUrl: 'https://api.openai.com/v1');
+    final body = <String, Object?>{'reasoning_effort': 'none', 'reasoning': {'effort': 'minimal'}};
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, config);
+    expect(body['reasoning_effort'], 'low');
+    expect(body['reasoning'], {'effort': 'low'});
+    expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody({'messages': [], 'tools': [{}]}, config), throwsUnsupportedError);
   });
   test('来源字段完整往返，未知上限与默认档位保持未配置', () {
     final raw = <String, Object?>{
@@ -289,7 +399,7 @@ void main() {
       expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody({}, config), throwsUnsupportedError);
     }
     expect(AiModelCatalog.lookup('jev-1.13.0', AiProtocolType.openai)?.maxContextLength, 64000);
-    expect(AiModelCatalog.lookup('jev-latest', AiProtocolType.openai)?.maxContextLength, isNull);
+    expect(AiModelCatalog.lookup('jev-latest', AiProtocolType.openai)?.maxContextLength, 64000);
     expect(AiModelCatalog.lookup('typesafe/jev-1.13', AiProtocolType.openai)?.maxContextLength, 32000);
   });
   test('Laya 检查点仅产生结构化决策，使用 Jev 兼容接口', () {

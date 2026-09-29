@@ -157,6 +157,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final size in [const Size(1100, 900), const Size(390, 844)]) {
+    testWidgets('Step 参数分区在宽窄屏可编辑且未知输出上限保持空值 $size', (tester) async {
+      _ModelProfileEditorResult? saved;
+      await _openEditor(tester, size: size, id: 'step-3.7-flash', protocol: AiProtocolType.stepfun, onResult: (value) => saved = value);
+      final state = tester.state<_ModelProfileEditorDialogState>(_editor);
+      expect(state._maxOutputLengthController.text, '');
+      expect(state._supportedParametersController.text, contains('reasoning_effort'));
+      expect(state._defaultParametersController.text, contains('0.5'));
+      await _captureEditor(tester, _editor, 'step-summary-${size.width.toInt()}');
+      await tester.ensureVisible(find.byWidgetPredicate((widget) => widget is TextField && widget.controller == state._maxContextLengthController));
+      await tester.pumpAndSettle();
+      await _captureEditor(tester, _editor, 'step-limits-${size.width.toInt()}');
+      state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(find.byType(OpenHandJsonTreeView), findsNothing);
+      await _captureEditor(tester, _editor, 'step-parameters-${size.width.toInt()}');
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(saved?.profile.maxOutputLength, isNull);
+      expect(saved?.profile.sourceMetadata['verified_at'], '2026-09-30');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('更换模型标识不会保存原模型来源和架构', (tester) async {
     _ModelProfileEditorResult? saved;
     await _openEditor(tester, id: 'deepseek/deepseek-v4.1-flash', protocol: AiProtocolType.openai, onResult: (value) => saved = value);

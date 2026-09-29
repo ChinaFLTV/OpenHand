@@ -2198,6 +2198,10 @@ class AiModelConfig {
 
   bool get usesClaudeOutputEffort {
     if (usesDecisionProtocol) return false;
+    if (protocolType == AiProtocolType.minimax &&
+        AiModelCatalog.matchesVersion(modelId, 'minimax-m3.1-flash-preview')) {
+      return true;
+    }
     if (protocolType == AiProtocolType.dots) return true;
     if (protocolType != AiProtocolType.claude &&
         !lowercaseStringFromValue(modelId).contains('claude')) {
@@ -2240,7 +2244,11 @@ class AiModelConfig {
   bool get resolvedThinkingEnabled {
     if (usesDecisionProtocol) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
-    if (profileFor(trimmedModelId).requiresThinking) return true;
+    if (profileFor(trimmedModelId).requiresThinking ||
+        AiModelCatalog.lookup(trimmedModelId, protocolType)?.requiresThinking ==
+            true) {
+      return true;
+    }
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.contains('gpt-6-astra') ||
         _looksLikeAlwaysOnClaudeAdaptiveThinking(trimmedModelId) ||

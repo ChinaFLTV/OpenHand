@@ -120,6 +120,9 @@ abstract final class AiThinkingRequestPolicy {
       body[_thinkingField] = <String, Object?>{
         'type': enabled ? 'adaptive' : 'disabled',
       };
+      if (effortControlEnabled && effort != null) {
+        body[_reasoningEffortField] = effort;
+      }
       return;
     }
 
@@ -216,6 +219,51 @@ abstract final class AiThinkingRequestPolicy {
       body[_reasoningEffortField] =
           const {'low', 'high', 'max'}.contains(effort) ? effort : 'max';
     }
+    if (AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol')) {
+      if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
+          body.containsKey('messages') &&
+          body['tools'] is List &&
+          (body['tools'] as List).isNotEmpty) {
+        throw UnsupportedError('GPT-6.1 Sol 的工具调用需要 Responses API，请启用该接口。');
+      }
+      if (const {'none', 'minimal'}.contains(body[_reasoningEffortField])) {
+        body[_reasoningEffortField] = 'low';
+      }
+      if (body[_reasoningField] is Map) {
+        final reasoning = stringKeyedMapFromValue(body[_reasoningField]);
+        if (const {'none', 'minimal'}.contains(reasoning['effort'])) {
+          reasoning['effort'] = 'low';
+        }
+        body[_reasoningField] = reasoning;
+      }
+    }
+    if (model.protocolType == AiProtocolType.minimax &&
+        AiModelCatalog.matchesVersion(modelId, 'minimax-m3.1-flash-preview')) {
+      body[_thinkingField] = <String, Object?>{'type': 'adaptive'};
+      if (body['reasoning_split'] == false) body['reasoning_split'] = true;
+      for (final field in [
+        _reasoningEffortField,
+        _reasoningField,
+        _outputConfigField,
+      ]) {
+        if (!body.containsKey(field)) continue;
+        final value = field == _reasoningEffortField
+            ? body[field]
+            : stringKeyedMapFromValue(body[field])['effort'];
+        if (value == null ||
+            const {'low', 'medium', 'high', 'xhigh', 'max'}.contains(value)) {
+          continue;
+        }
+        if (field == _reasoningEffortField) {
+          body[field] = model.resolvedReasoningEffort ?? 'max';
+        } else {
+          body[field] = <String, Object?>{
+            ...stringKeyedMapFromValue(body[field]),
+            'effort': model.resolvedReasoningEffort ?? 'max',
+          };
+        }
+      }
+    }
     if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro')) {
       if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
@@ -272,7 +320,11 @@ abstract final class AiThinkingRequestPolicy {
       );
     }
 
-    if (AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
+    final sonnet55 =
+        AiModelCatalog.matchesVersion(modelId, 'claude-sonnet-5-5') ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-5-5-sonnet');
+    if (sonnet55 ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
         AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1') ||
         AiModelCatalog.matchesVersion(modelId, 'claude-opus-5-5') ||
         AiModelCatalog.matchesVersion(modelId, 'claude-5-5-opus')) {
@@ -280,8 +332,22 @@ abstract final class AiThinkingRequestPolicy {
       if (thinking is Map) {
         body[_thinkingField] = <String, Object?>{
           ...stringKeyedMapFromValue(thinking)..remove('budget_tokens'),
-          'type': 'adaptive',
+          'type':
+              sonnet55 &&
+                  const {'disabled', 'between_tools'}.contains(thinking['type'])
+              ? 'between_tools'
+              : 'adaptive',
         };
+        if (sonnet55 &&
+            (body[_thinkingField] as Map)['type'] == 'between_tools') {
+          final config = stringKeyedMapFromValue(body[_outputConfigField]);
+          if (const {'xhigh', 'max'}.contains(config['effort'])) {
+            body[_outputConfigField] = <String, Object?>{
+              ...config,
+              'effort': 'high',
+            };
+          }
+        }
       }
       final toolChoice = body['tool_choice'];
       if (toolChoice is Map) {
@@ -385,6 +451,12 @@ abstract final class AiThinkingRequestPolicy {
         'type': model.resolvedThinkingEnabled ? 'adaptive' : 'disabled',
       };
     }
+    if (AiModelCatalog.matchesVersion(model.modelId, 'claude-sonnet-5-5') ||
+        AiModelCatalog.matchesVersion(model.modelId, 'claude-5-5-sonnet')) {
+      return <String, Object?>{
+        'type': model.resolvedThinkingEnabled ? 'adaptive' : 'between_tools',
+      };
+    }
     // Fable 5 / Mythos 5 省略 thinking 时自动使用自适应思考。
     if (model.usesAlwaysOnClaudeAdaptiveThinking) return null;
     if (!model.resolvedThinkingEnabled) {
@@ -432,12 +504,17 @@ abstract final class AiThinkingRequestPolicy {
     if (_usesGeminiThinkingLevel(model)) {
       final id = lowercaseStringFromValue(model.modelId);
       final disabledLevel =
-          id.contains('gemini-3.5') || id.contains('gemini-3.6')
+          id.contains('gemini-3.5') ||
+              id.contains('gemini-3.6') ||
+              id == 'gemini-3.1-flash-lite-image'
           ? 'minimal'
           : 'low';
       generationConfig[_thinkingConfigField] = <String, Object?>{
         _thinkingLevelField: _geminiThinkingLevel(
-          enabled ? effort ?? 'medium' : disabledLevel,
+          enabled
+              ? effort ??
+                    (id == 'gemini-3.1-flash-lite-image' ? 'minimal' : 'medium')
+              : disabledLevel,
         ),
         if (enabled) 'includeThoughts': true,
       };

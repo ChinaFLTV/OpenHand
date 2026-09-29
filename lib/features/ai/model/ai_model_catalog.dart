@@ -538,6 +538,20 @@ class AiModelCatalog {
     'instruct',
   ];
 
+  static const _gpt6SourceMetadata = <String, Object?>{
+    'verified_at': '2026-09-30',
+    'max_input_tokens': 922000,
+    'pricing_currency': 'USD',
+    'standard_context_limit': 272000,
+    'long_context_price_multipliers': {
+      'input': 2,
+      'cache_read': 2,
+      'cache_write': 2,
+      'output': 1.5,
+    },
+    'pricing_scope': '标准服务、普通上下文；长上下文及服务等级另计',
+  };
+
   /// 模型目录条目的简写构造器。
   static AiModelProfile _p({
     required String name,
@@ -959,7 +973,9 @@ class AiModelCatalog {
         supportedParameters: videoParameters,
       );
     }
-    if (id.contains('tts') || id.contains('speech')) {
+    if (id == 'tts-1' ||
+        id == 'tts-1-hd' ||
+        matchesVersion(id, 'gpt-4o-mini-tts')) {
       return _p(
         name: 'OpenAI Audio',
         desc: 'Audio generation model',
@@ -1136,6 +1152,34 @@ class AiModelCatalog {
     }
 
     // ── GPT-6 / GPT-5.6 系列 ───────────────────────────────────────────
+    if (matchesVersion(id, 'gpt-6.1-sol')) {
+      return _p(
+        name: 'GPT-6.1 Sol',
+        desc: '面向复杂编程、计算机操作与专业任务的推理模型；工具调用使用 Responses API。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 2,
+        outputUsdPer1M: 10,
+        cacheReadUsdPer1M: 0.1,
+        cacheWriteUsdPer1M: 2.5,
+        canonicalSlug: 'gpt-6.1-sol',
+        knowledgeCutoff: '2026-04-30',
+        sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6.1-sol',
+        supportedParameters: _gpt6Parameters,
+        sourceMetadata: const {
+          ..._gpt6SourceMetadata,
+          'reasoning': {'mandatory': true},
+          'tool_calling_api': 'responses',
+        },
+      );
+    }
     if (matchesVersion(id, 'gpt-6-sol')) {
       return _p(
         name: 'GPT-6 Sol',
@@ -1145,7 +1189,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1050000,
         output: 128000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
@@ -1157,6 +1201,7 @@ class AiModelCatalog {
         sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-sol',
         knowledgeCutoff: '2026-04-20',
         supportedParameters: _gpt6Parameters,
+        sourceMetadata: _gpt6SourceMetadata,
       );
     }
     if (matchesVersion(id, 'gpt-6-luna')) {
@@ -1168,7 +1213,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1050000,
         output: 128000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
@@ -1180,6 +1225,7 @@ class AiModelCatalog {
         sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-luna',
         knowledgeCutoff: '2026-05-18',
         supportedParameters: _gpt6Parameters,
+        sourceMetadata: _gpt6SourceMetadata,
       );
     }
     if (matchesVersion(id, 'gpt-6-astra')) {
@@ -1191,7 +1237,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1050000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
@@ -1204,6 +1249,7 @@ class AiModelCatalog {
         sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-astra',
         knowledgeCutoff: '2026-04-30',
         supportedParameters: _gpt6Parameters,
+        sourceMetadata: _gpt6SourceMetadata,
       );
     }
     if (id.startsWith('gpt-5.6-cyber')) {
@@ -1500,7 +1546,11 @@ class AiModelCatalog {
       return null;
     }
     final pinnedGateway = id == 'typesafe/jev-1.13';
-    final pinnedNative = id == 'jev-1.13.0';
+    final pinnedNative = const {
+      'jev-1.13.0',
+      'jev-latest',
+      'jev-preview',
+    }.contains(nativeId);
     final pinned = pinnedGateway || pinnedNative;
     return AiModelProfile(
       maxContextLength: pinnedGateway ? 32000 : (pinnedNative ? 64000 : null),
@@ -1521,6 +1571,14 @@ class AiModelCatalog {
         outputModalities: ['decisions'],
       ),
       supportedParameters: ['model', 'state', 'questions'],
+      canonicalSlug: pinnedNative ? 'jev-1.13.0' : null,
+      sourceMetadata: {
+        'verified_at': '2026-09-30',
+        if (pinnedNative) 'state_and_longest_question_tokens': 32000,
+        if (nativeId == 'jev-latest' || nativeId == 'jev-preview')
+          'alias_target': 'jev-1.13.0',
+        'endpoint': '/v1/systemone',
+      },
       links: AiModelLinksMetadata(
         details: pinnedGateway
             ? 'https://openrouter.ai/typesafe/jev-1.13'
@@ -1532,6 +1590,43 @@ class AiModelCatalog {
   // Anthropic / Claude 模型
 
   static AiModelProfile? _claude(String id) {
+    if (matchesVersion(id, 'claude-sonnet-5-5') ||
+        matchesVersion(id, 'claude-5-5-sonnet')) {
+      return _p(
+        name: 'Claude Sonnet 5.5',
+        desc: '兼顾速度与智能的视觉模型，支持自适应思考及工具间进度更新。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 2,
+        outputUsdPer1M: 10,
+        cacheReadUsdPer1M: 0.2,
+        cacheWriteUsdPer1M: 2.5,
+        canonicalSlug: 'claude-sonnet-5-5',
+        knowledgeCutoff: '2026-06',
+        sourceUrl:
+            'https://platform.claude.com/docs/en/models/sonnet-5-5/overview',
+        supportedParameters: _claude51Parameters,
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'released_at': '2026-09-28',
+          'retirement_not_before': '2027-09-28',
+          'thinking_types': ['adaptive', 'between_tools'],
+          'between_tools_max_effort': 'high',
+          'forced_tool_choice': false,
+          'cache_write_1h_usd_per_million': 4,
+          'minimum_cacheable_tokens': 512,
+          'batch_max_output_tokens': 300000,
+          'batch_output_beta': 'output-300k-2026-03-24',
+        },
+      );
+    }
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
     if (matchesVersion(id, 'claude-opus-5-5') ||
         matchesVersion(id, 'claude-5-5-opus')) {
@@ -1543,7 +1638,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
@@ -1569,7 +1663,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1595,7 +1688,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1619,7 +1711,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1642,7 +1733,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1666,7 +1756,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1702,7 +1791,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1724,7 +1812,6 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
@@ -1743,7 +1830,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
@@ -1790,7 +1877,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 200000,
         output: 32000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
@@ -1805,7 +1892,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 200000,
         output: 64000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
@@ -1823,7 +1910,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 200000,
         output: 64000,
-        thinking: 128000,
+        thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
@@ -1890,6 +1977,136 @@ class AiModelCatalog {
   // Google Gemini 模型
 
   static AiModelProfile? _gemini(String id) {
+    if (id == 'gemini-3.5-transcribe' || id == 'gemini-3.5-transcribe-live') {
+      final live = id.endsWith('-live');
+      return _p(
+        name: live ? 'Gemini 3.5 Transcribe Live' : 'Gemini 3.5 Transcribe',
+        desc: '语音转写模型；文件模式支持说话人区分及词级时间戳，实时模式使用 Live API。',
+        multimodal: true,
+        supportsAttachments: !live,
+        modalities: const {AiModelModality.audio, AiModelModality.text},
+        thinkingEnabled: false,
+        reasoningEffortControlEnabled: false,
+        canonicalSlug: id,
+        sourceUrl:
+            'https://ai.google.dev/gemini-api/docs/models/gemini-3.5-transcribe',
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['audio'],
+          'output_modalities': ['text'],
+          'live_api': live,
+          'max_audio_seconds': live ? 600 : 3600,
+          if (!live) 'max_annotated_audio_seconds': 1800,
+          'max_vocabulary_terms': 1000,
+          'word_timestamps': !live,
+          'speaker_diarization': !live,
+          if (!live) 'max_speakers': 8,
+          if (!live) 'experimental_speaker_count_above': 2,
+          'vocabulary_incompatible_with': [
+            'speaker_diarization',
+            'word_timestamps',
+          ],
+          'tools': false,
+          'caching': false,
+          'batch': false,
+        },
+      );
+    }
+    if (id == 'gemini-omni-1.1-flash' || id == 'gemini-omni-flash-preview') {
+      return _p(
+        name: id == 'gemini-omni-1.1-flash'
+            ? 'Gemini Omni 1.1 Flash'
+            : 'Gemini Omni Flash Preview',
+        desc: '视频生成与编辑模型，通过 Interactions API 支持延长视频及分辨率提升。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1048576,
+        capabilities: _videoGen,
+        canonicalSlug: id,
+        sourceUrl:
+            'https://ai.google.dev/gemini-api/docs/models/gemini-omni-flash',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['text', 'image', 'video'],
+          'output_modalities': ['video'],
+          'api': 'interactions',
+          'max_input_video_seconds': 10,
+          'min_output_video_seconds': 3,
+          'max_output_video_seconds': 10,
+          'video_resolutions': ['360p', '720p', '1080p', '4K'],
+          'video_fps': 24,
+        },
+      );
+    }
+    if (id == 'lyria-3.5') {
+      return _p(
+        name: 'Lyria 3.5',
+        desc: '音乐生成模型，接收文本或图片并输出立体声音乐及歌词。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: const {
+          AiModelModality.text,
+          AiModelModality.image,
+          AiModelModality.audio,
+        },
+        capabilities: _audioGen,
+        thinkingEnabled: false,
+        reasoningEffortControlEnabled: false,
+        canonicalSlug: id,
+        sourceUrl: 'https://ai.google.dev/gemini-api/docs/models/lyria-3.5',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['text', 'image'],
+          'output_modalities': ['audio', 'text'],
+          'max_input_tokens': 131072,
+          'audio_format': 'mp3',
+          'sample_rate_hz': 44100,
+          'audio_channels': 2,
+          'tools': false,
+          'caching': false,
+          'batch': false,
+          'live_api': false,
+          'structured_outputs': false,
+        },
+      );
+    }
+    if (id == 'gemini-3.1-flash-lite-image') {
+      return _p(
+        name: 'Nano Banana 2 Lite',
+        desc: '轻量图片生成与编辑模型，仅支持 1K 图片输出。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: const {
+          AiModelModality.text,
+          AiModelModality.image,
+          AiModelModality.video,
+          AiModelModality.file,
+        },
+        output: 4096,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(const [
+          'minimal',
+          'high',
+        ]),
+        capabilities: _imageGen,
+        canonicalSlug: id,
+        sourceUrl:
+            'https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['text', 'image', 'video', 'file'],
+          'output_modalities': ['image', 'text'],
+          'max_input_tokens': 65536,
+          'image_sizes': ['1024px'],
+          'tools': false,
+          'caching': false,
+          'batch': true,
+          'structured_outputs': false,
+        },
+      );
+    }
     if (id == 'gemini-3.8-flash-tts' || id == 'gemini-3.8-flash-lite-tts') {
       return _p(
         name: id == 'gemini-3.8-flash-tts'
@@ -2372,6 +2589,43 @@ class AiModelCatalog {
   // Qwen（阿里云 / 通义千问）模型
 
   static AiModelProfile? _qwen(String id) {
+    if (id == 'qwen3.8-27b' || id == 'qwen3.8-2.4t-a95b') {
+      final moe = id == 'qwen3.8-2.4t-a95b';
+      return _p(
+        name: moe ? 'Qwen3.8 2.4T A95B' : 'Qwen3.8 27B',
+        desc: '百炼托管的开源视觉语言模型，支持图像、视频、工具调用和结构化输出。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: moe ? 131072 : 262144,
+        reasoningEffortControlEnabled: false,
+        canonicalSlug: id,
+        sourceUrl:
+            'https://help.aliyun.com/en/model-studio/${moe ? 'qwen3-8-2-4t-a95b' : 'qwen3-8-27b'}',
+        supportedParameters: const [
+          'model',
+          'messages',
+          'max_tokens',
+          'stream',
+          'tools',
+          'response_format',
+          'enable_thinking',
+          'thinking_budget',
+        ],
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          'deployment': '阿里云百炼',
+          'reasoning': {'mandatory': moe},
+          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
+          'pricing_source':
+              'https://help.aliyun.com/en/model-studio/${moe ? 'qwen3-8-2-4t-a95b' : 'qwen3-8-27b'}',
+          'pricing_currency': 'CNY',
+          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
+        },
+      );
+    }
     if (id == 'qwen3.8-omni-flash') {
       return _p(
         name: 'Qwen3.8 Omni Flash',
@@ -2777,6 +3031,15 @@ class AiModelCatalog {
           const <String>['low', 'medium', 'xhigh'],
         ),
         canonicalSlug: 'qwen3.8-max-2026-09-02',
+        sourceUrl: id.contains('flash')
+            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
+            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
+          'pricing_currency': 'CNY',
+          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
+        },
         supportedParameters: _qwen38Parameters,
       );
     }
@@ -2797,6 +3060,15 @@ class AiModelCatalog {
           const <String>['low', 'medium', 'xhigh'],
         ),
         canonicalSlug: 'qwen3.8-flash',
+        sourceUrl: id.contains('flash')
+            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
+            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
+          'pricing_currency': 'CNY',
+          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
+        },
         supportedParameters: _qwen38Parameters,
       );
     }
@@ -2816,6 +3088,15 @@ class AiModelCatalog {
           const <String>['low', 'medium', 'xhigh'],
         ),
         canonicalSlug: 'qwen3.8-max',
+        sourceUrl: id.contains('flash')
+            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
+            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
+          'pricing_currency': 'CNY',
+          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
+        },
         supportedParameters: _qwen38Parameters,
       );
     }
@@ -3328,12 +3609,22 @@ class AiModelCatalog {
         requiresReasoningEcho: true,
         modalities: _textImageVideo,
         context: 1000000,
-        output: 131072,
+        output: 1048576,
         inputUsdPer1M: 3,
         outputUsdPer1M: 15,
         cacheReadUsdPer1M: 0.3,
-        sourceUrl:
-            'https://forum.moonshot.ai/t/kimi-k3-is-here-our-most-capable-model/480',
+        sourceUrl: 'https://platform.kimi.com/docs/guide/kimi-k3-quickstart',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'reasoning': {'mandatory': true},
+          'fixed_parameters': {
+            'temperature': 1.0,
+            'top_p': 0.95,
+            'n': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+          },
+        },
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'max',
@@ -3350,8 +3641,7 @@ class AiModelCatalog {
           'tools',
         ],
         defaultParameters: const <String, Object?>{
-          'temperature': 1.0,
-          'top_p': 0.95,
+          'max_completion_tokens': 131072,
         },
       );
     }
@@ -3695,6 +3985,70 @@ class AiModelCatalog {
   // StepFun（阶跃星辰）模型
 
   static AiModelProfile? _stepfun(String id) {
+    const audio3 = <String, (String, String, String)>{
+      'stepaudio-3-tts': (
+        'StepAudio 3 TTS',
+        'stepaudio-3-tts',
+        '/v1/audio/speech',
+      ),
+      'stepaudio-3-gen-preview': (
+        'StepAudio 3 Gen Preview',
+        'stepaudio-3-gen',
+        '/v1/audio/generate',
+      ),
+      'stepaudio-3-music-preview': (
+        'StepAudio 3 Music Preview',
+        'stepaudio-3-music',
+        '/v1/audio/music',
+      ),
+      'stepaudio-3-realtime-preview': (
+        'StepAudio 3 Realtime Preview',
+        'stepaudio-3-realtime',
+        '/v1/realtime',
+      ),
+      'stepaudio-3-chat-preview': (
+        'StepAudio 3 Chat Preview',
+        'stepaudio-3-realtime',
+        '/v1/chat/completions',
+      ),
+      'stepaudio-3-asr-max': (
+        'StepAudio 3 ASR Max',
+        'stepaudio-3-asr',
+        '/v1/audio/asr/sse',
+      ),
+    };
+    if (audio3[id] case final spec?) {
+      final textOutput =
+          id == 'stepaudio-3-chat-preview' || id == 'stepaudio-3-asr-max';
+      return _p(
+        name: spec.$1,
+        desc: textOutput
+            ? 'StepAudio 3 语音理解与转写模型，输出文本。'
+            : 'StepAudio 3 音频生成模型，使用对应语音或实时接口。',
+        multimodal: true,
+        supportsAttachments: id != 'stepaudio-3-gen-preview',
+        modalities: const {AiModelModality.text, AiModelModality.audio},
+        capabilities: textOutput ? const {} : _audioGen,
+        reasoningEffortControlEnabled: false,
+        canonicalSlug: id,
+        sourceUrl:
+            'https://platform.stepfun.com/docs/zh/guides/models/${spec.$2}',
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          'endpoint': spec.$3,
+          'output_modalities': [textOutput ? 'text' : 'audio'],
+          if (id.endsWith('-preview')) 'availability': '限时免费预览，正式版将使用新型号',
+          if (id == 'stepaudio-3-tts')
+            'pricing': {
+              'currency': 'CNY',
+              'per_10000_characters': 2.5,
+              'per_voice_clone': 9.9,
+            },
+          if (id == 'stepaudio-3-asr-max')
+            'pricing': {'currency': 'CNY', 'per_hour': 2.8},
+        },
+      );
+    }
     const imageParameters = <String>[
       'prompt',
       'size',
@@ -3775,23 +4129,53 @@ class AiModelCatalog {
         ],
       );
     }
-    if (id.startsWith('step-3.7') || id.startsWith('step-3-7')) {
+    if (matchesVersion(id, 'step-3.7-flash')) {
       return _p(
         name: 'Step 3.7 Flash',
         desc: '阶跃星辰旗舰多模态推理模型。',
         multimodal: true,
         supportsAttachments: true,
         modalities: _textImageVideo,
-        context: _parseStepContext(id) ?? 256000,
-        output: 32768,
+        context: 256000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         sourceUrl:
             'https://platform.stepfun.com/docs/zh/guides/models/step-3.7-flash',
+        canonicalSlug: 'step-3.7-flash',
+        supportedParameters: const [
+          'model',
+          'messages',
+          'tools',
+          'max_tokens',
+          'temperature',
+          'top_p',
+          'n',
+          'stream',
+          'stop',
+          'frequency_penalty',
+          'response_format',
+          'reasoning_format',
+          'reasoning_effort',
+        ],
+        defaultParameters: const {
+          'temperature': 0.5,
+          'top_p': 0.9,
+          'n': 1,
+          'stream': false,
+          'frequency_penalty': 0,
+          'response_format': {'type': 'text'},
+          'reasoning_format': 'general',
+        },
         sourceMetadata: const {
-          'verified_at': '2026-09-26',
+          'verified_at': '2026-09-30',
+          'total_parameters': 198000000000,
+          'active_parameters': 11000000000,
+          'default_max_tokens': 'INF',
+          'messages_effort_field': 'output_config.effort',
+          'parameter_source':
+              'https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create',
           'pricing_currency': 'CNY',
           'pricing_per_million': {
             'input': 1.35,
@@ -3837,7 +4221,7 @@ class AiModelCatalog {
     }
 
     // ── 文本模型 ─────────────────────────────────────────────────────────
-    if (id.startsWith('step-3')) {
+    if (id == 'step-3' || RegExp(r'^step-3-\d+k$').hasMatch(id)) {
       return _p(
         name: 'Step-3',
         desc: '阶跃星辰文本主力模型。',
@@ -3880,6 +4264,32 @@ class AiModelCatalog {
   // Mistral AI 模型
 
   static AiModelProfile? _mistral(String id) {
+    if (id == 'mistral-medium-3-5') {
+      return _p(
+        name: 'Mistral Medium 3.5',
+        desc: '面向智能体与编程任务的开放权重多模态模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 256000,
+        inputUsdPer1M: 1.5,
+        outputUsdPer1M: 7.5,
+        canonicalSlug: 'mistral-medium-3-5',
+        sourceUrl: 'https://docs.mistral.ai/models/mistral-medium-3-5-26-04',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'released_at': '2026-04-28',
+          'license': 'Modified MIT',
+          'features': [
+            'function_calling',
+            'structured_outputs',
+            'predicted_outputs',
+            'prefix',
+            'batch',
+          ],
+        },
+      );
+    }
     if (id == 'labs-leanstral-1-5') {
       return _p(
         name: 'Leanstral 1.5',
@@ -4960,9 +5370,14 @@ class AiModelCatalog {
           'high',
           'xhigh',
         ]),
+        canonicalSlug: 'grok-4.7',
+        knowledgeCutoff: '2026-05',
         sourceUrl: 'https://docs.x.ai/developers/models/grok-4.7',
         sourceMetadata: const {
-          'verified_at': '2026-09-26',
+          'verified_at': '2026-09-30',
+          'batch_api': false,
+          'unsupported_parameters': ['logprobs', 'top_logprobs'],
+          'responses_encrypted_reasoning': true,
           'pricing_currency': 'USD',
           'pricing_unit': '每百万词元',
           'standard_context_limit': 200000,
@@ -5110,6 +5525,25 @@ class AiModelCatalog {
   // Hunyuan（腾讯混元）模型
 
   static AiModelProfile? _hunyuan(String id) {
+    if (id == 'hy-image-v3.5-preview' || id == 'hy-image-v3') {
+      return _p(
+        name: id == 'hy-image-v3' ? 'HY Image 3.0' : 'HY Image 3.5 Preview',
+        desc: '腾讯混元图像生成与编辑模型，支持文字及参考图输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        capabilities: _imageGen,
+        thinkingEnabled: false,
+        reasoningEffortControlEnabled: false,
+        canonicalSlug: id,
+        sourceUrl: 'https://cloud.tencent.com/document/product/1823/130051',
+        sourceMetadata: const {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['text', 'image'],
+          'output_modalities': ['image'],
+        },
+      );
+    }
     if (id == 'hy4-preview' || id == 'hy3') {
       return _p(
         name: id == 'hy4-preview' ? 'HY4 Preview' : 'HY3',
@@ -5233,6 +5667,7 @@ class AiModelCatalog {
   // 讯飞星火模型，通常通过兼容 OpenAI 的网关接入。
 
   static AiModelProfile? _spark(String id) {
+    if (id.startsWith('muse-')) return null;
     if (id == 'spark-x2.5' || id == 'xsparkx2flash') {
       return _p(
         name: id == 'spark-x2.5' ? 'Spark X2.5' : 'Spark X2 Flash',
@@ -5458,7 +5893,9 @@ class AiModelCatalog {
         endpointPath: 'v1/embeddings',
       );
     }
-    if (id.contains('image')) {
+    if (id == 'image-01' ||
+        id == 'image-01-live' ||
+        id.startsWith('minimax-image')) {
       return _p(
         name: 'MiniMax Image',
         desc: 'MiniMax image-01 / image-01-live generation model',
@@ -5574,17 +6011,26 @@ class AiModelCatalog {
         ],
       );
     }
-    if (id == 'minimax-m3' || id == 'minimax_m3') {
+    if (id == 'minimax-m3' ||
+        id == 'minimax_m3' ||
+        id == 'minimax-m3.1-flash-preview') {
+      final flash = id == 'minimax-m3.1-flash-preview';
       return _p(
-        name: 'MiniMax M3',
-        desc: 'MiniMax 原生视觉模型，支持长上下文与工具调用；价格按输入长度及服务等级分档。',
+        name: flash ? 'MiniMax M3.1 Flash Preview' : 'MiniMax M3',
+        desc: flash
+            ? '原生视觉编程模型，思考不可关闭；目前仅通过 Token Plan 与 MiniMax Code 提供。'
+            : 'MiniMax 原生视觉模型，支持长上下文与工具调用；价格按输入长度及服务等级分档。',
         multimodal: true,
         supportsAttachments: true,
         modalities: _textImageVideo,
         context: 1000000,
         output: 524288,
         thinkingEnabled: true,
-        reasoningEffortControlEnabled: false,
+        reasoningEffortControlEnabled: flash,
+        reasoningEffort: flash ? 'max' : null,
+        reasoningEffortOptions: flash
+            ? AiReasoningEffortOption.lowMediumHighXHighMax
+            : const [],
         requiresReasoningEcho: true,
         sourceUrl: 'https://platform.minimax.io/docs/api-reference/text-chat',
         defaultParameters: const {
@@ -5592,38 +6038,42 @@ class AiModelCatalog {
           'top_p': 0.95,
           'service_tier': 'standard',
         },
-        sourceMetadata: const {
-          'verified_at': '2026-09-26',
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          if (flash) 'reasoning': {'mandatory': true},
+          if (flash) 'availability': ['Token Plan', 'MiniMax Code'],
           'recommended_max_completion_tokens': 131072,
-          'thinking_types': ['adaptive', 'disabled'],
+          'thinking_types': flash ? ['adaptive'] : ['adaptive', 'disabled'],
           'thinking_default_by_api': {
             'chat_completions': true,
-            'messages': false,
+            'messages': flash,
           },
           'pricing_source':
               'https://platform.minimax.io/docs/guides/pricing-paygo',
           'pricing_currency': 'USD',
-          'pricing_per_million': [
-            {
-              'input_tokens': '≤512k',
-              'input': 0.3,
-              'output': 1.2,
-              'cache_read': 0.06,
-            },
-            {
-              'input_tokens': '>512k',
-              'input': 0.6,
-              'output': 2.4,
-              'cache_read': 0.12,
-            },
-          ],
+          if (!flash)
+            'pricing_per_million': [
+              {
+                'input_tokens': '≤512k',
+                'input': 0.3,
+                'output': 1.2,
+                'cache_read': 0.06,
+              },
+              {
+                'input_tokens': '>512k',
+                'input': 0.6,
+                'output': 2.4,
+                'cache_read': 0.12,
+              },
+            ],
           'priority_price_multiplier': 1.5,
           'max_image_bytes': 10485760,
           'max_video_bytes': 52428800,
           'max_request_bytes': 67108864,
           'max_file_video_bytes': 536870912,
         },
-        supportedParameters: const <String>[
+        supportedParameters: <String>[
+          if (flash) 'reasoning_effort',
           'service_tier',
           'thinking',
           'reasoning_split',
@@ -6015,7 +6465,7 @@ class AiModelCatalog {
         outputsNormalized: true,
       );
     }
-    if (id.contains('ernie-vilg') || id.contains('image')) {
+    if (id.contains('ernie-vilg') || id.startsWith('ernie-image')) {
       return _p(
         name: 'ERNIE Image',
         desc: 'Baidu image generation model',
@@ -6128,6 +6578,93 @@ class AiModelCatalog {
   // Meta AI / Llama 模型
 
   static AiModelProfile? _meta(String id) {
+    const sparkIds = {
+      'muse-spark-1.3',
+      'muse-spark-1.3-contributor',
+      'muse-spark-1.2',
+      'muse-spark-1.2-contributor',
+      'muse-spark-1.1',
+    };
+    if (sparkIds.contains(id)) {
+      final contributor = id.endsWith('-contributor');
+      final version = id.split('-')[2];
+      return _p(
+        name: 'Muse Spark $version${contributor ? ' Contributor' : ''}',
+        desc: contributor
+            ? '优惠档位，允许服务商使用请求及回复训练模型；不支持 max 推理强度。'
+            : 'Meta 多模态推理模型，支持工具调用、结构化输出及搜索。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: false,
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues([
+          'minimal',
+          'low',
+          'medium',
+          'high',
+          'xhigh',
+          if (id == 'muse-spark-1.3') 'max',
+        ]),
+        inputUsdPer1M: contributor ? 0.1 : 1.25,
+        outputUsdPer1M: contributor ? 0.2 : 4.25,
+        cacheReadUsdPer1M: contributor ? 0.002 : 0.15,
+        canonicalSlug: id,
+        sourceUrl: 'https://dev.meta.ai/docs/models',
+        supportedParameters: const [
+          'model',
+          'messages',
+          'max_tokens',
+          'reasoning_effort',
+          'tools',
+        ],
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          'input_modalities': ['text', 'image', 'video', 'audio', 'file'],
+          'output_modalities': ['text'],
+          'reasoning': {'mandatory': true},
+          'reasoning_default': 'model-determined',
+          'reasoning_content_visible': false,
+          'reasoning_counts_toward_output_limit': true,
+          'training_eligible': contributor,
+          'audio_support': version == '1.3' ? 'partial' : 'supported',
+          'rpm': contributor ? 100 : 3000,
+          'tpm': contributor ? 3000000 : 4000000,
+          'reasoning_source': 'https://dev.meta.ai/docs/reasoning',
+          'pricing_source': 'https://dev.meta.ai/docs/pricing-rate-limits',
+        },
+      );
+    }
+    if (id == 'muse-image-1.0' || id == 'muse-voice-transcribe-1.0') {
+      final image = id == 'muse-image-1.0';
+      return _p(
+        name: image ? 'Muse Image 1.0' : 'Muse Voice Transcribe 1.0',
+        desc: image ? '支持参考图和多轮编辑的图片生成模型。' : '音频转写模型，支持说话人区分及轮次时间戳；不提供语音生成。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: image
+            ? _textImage
+            : const {AiModelModality.audio, AiModelModality.text},
+        capabilities: image ? _imageGen : const {},
+        canonicalSlug: id,
+        sourceUrl: 'https://dev.meta.ai/docs/models',
+        sourceMetadata: {
+          'verified_at': '2026-09-30',
+          'input_modalities': image ? ['text', 'image'] : ['audio'],
+          'output_modalities': image ? ['image'] : ['text'],
+          'endpoints': image
+              ? ['/v1/responses', '/v1/images/generations', '/v1/images/edits']
+              : ['/v1/asr/transcribe', '/v1/asr/realtime'],
+          'pricing_currency': 'USD',
+          if (image) 'price_per_image': 0.01,
+          if (!image) 'price_per_audio_hour': 0.18,
+          if (!image) 'word_timestamps': false,
+          if (!image) 'speaker_diarization': true,
+          'pricing_source': 'https://dev.meta.ai/docs/pricing-rate-limits',
+        },
+      );
+    }
     if (id.contains('llama-4-scout') || id.contains('llama4-scout')) {
       return _p(
         name: 'Llama 4 Scout',
@@ -6135,7 +6672,8 @@ class AiModelCatalog {
         multimodal: true,
         modalities: _textImage,
         context: 10000000,
-        output: 8192,
+        sourceUrl:
+            'https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct',
       );
     }
     if (id.contains('llama-4-maverick') || id.contains('llama4-maverick')) {
@@ -6145,7 +6683,8 @@ class AiModelCatalog {
         multimodal: true,
         modalities: _textImage,
         context: 1000000,
-        output: 8192,
+        sourceUrl:
+            'https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E-Instruct',
       );
     }
     if (id.contains('llama-4') || id.contains('llama4')) {
@@ -6154,8 +6693,6 @@ class AiModelCatalog {
         desc: 'Meta multimodal model family',
         multimodal: true,
         modalities: _textImage,
-        context: 1000000,
-        output: 8192,
       );
     }
     if (id.contains('llama-3.2-vision') ||

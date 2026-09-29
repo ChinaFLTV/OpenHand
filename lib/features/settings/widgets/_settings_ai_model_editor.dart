@@ -4998,122 +4998,136 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: _AiProviderDragHandleFrame(
-                  opacity: draft.enabled ? 1 : 0.58,
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 420;
+              return Flex(
+                direction: compact ? Axis.vertical : Axis.horizontal,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    flex: compact ? 0 : 1,
+                    child: Row(
                       children: [
-                        _AiTtsPriorityBadge(index: index),
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: _AiProviderDragHandleFrame(
+                            opacity: draft.enabled ? 1 : 0.58,
                           ),
                         ),
-                        _AiTtsStatusBadge(enabled: draft.enabled),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  _AiTtsPriorityBadge(index: index),
+                                  Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  _AiTtsStatusBadge(enabled: draft.enabled),
+                                ],
+                              ),
+                              kOpenHandGap5,
+                              Text(
+                                nativeValue ??
+                                    openHandLocalizedText(
+                                      context,
+                                      zh: '未填写原生值',
+                                      zhHant: '未填寫原生值',
+                                      en: 'Native value not set',
+                                      fr: 'Valeur native non définie',
+                                      de: 'Nativer Wert fehlt',
+                                      ja: 'ネイティブ値未設定',
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                    kOpenHandGap5,
-                    Text(
-                      nativeValue ??
-                          openHandLocalizedText(
-                            context,
-                            zh: '未填写原生值',
-                            zhHant: '未填寫原生值',
-                            en: 'Native value not set',
-                            fr: 'Valeur native non définie',
-                            de: 'Nativer Wert fehlt',
-                            ja: 'ネイティブ値未設定',
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandHGap8,
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                alignment: WrapAlignment.end,
-                children: [
-                  _buildReasoningEffortRoundActionButton(
-                    tooltip: draft.expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '折叠档位',
-                            zhHant: '摺疊檔位',
-                            en: 'Collapse option',
-                            fr: 'Replier l’option',
-                            de: 'Option einklappen',
-                            ja: 'オプションを折りたたむ',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开档位',
-                            zhHant: '展開檔位',
-                            en: 'Expand option',
-                            fr: 'Déplier l’option',
-                            de: 'Option ausklappen',
-                            ja: 'オプションを展開',
-                          ),
-                    icon: AnimatedRotation(
-                      turns: draft.expanded ? 0.5 : 0,
-                      duration: openHandMotionDuration(
-                        context,
-                        kOpenHandMotion220,
-                      ),
-                      curve: kOpenHandSwitchInCurve,
-                      child: const Icon(Icons.keyboard_arrow_down_rounded),
-                    ),
-                    onPressed: () =>
-                        _toggleReasoningEffortOptionExpanded(draft),
                   ),
-                  _buildReasoningEffortRoundActionButton(
-                    tooltip: openHandLocalizedText(
-                      context,
-                      zh: '删除档位',
-                      zhHant: '刪除檔位',
-                      en: 'Delete option',
-                      fr: 'Supprimer l’option',
-                      de: 'Option löschen',
-                      ja: 'オプションを削除',
-                    ),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    foregroundColor: colorScheme.error,
-                    backgroundColor: colorScheme.errorContainer.withValues(
-                      alpha: 0.36,
-                    ),
-                    onPressed: () => _removeReasoningEffortOptionDraft(draft),
-                  ),
-                  _SettingsSwitch(
-                    value: draft.enabled,
-                    onChanged: (value) =>
-                        _setReasoningEffortOptionEnabled(draft, value),
+                  SizedBox(width: compact ? 0 : 8, height: compact ? 8 : 0),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      _buildReasoningEffortRoundActionButton(
+                        tooltip: draft.expanded
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '折叠档位',
+                                zhHant: '摺疊檔位',
+                                en: 'Collapse option',
+                                fr: 'Replier l’option',
+                                de: 'Option einklappen',
+                                ja: 'オプションを折りたたむ',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '展开档位',
+                                zhHant: '展開檔位',
+                                en: 'Expand option',
+                                fr: 'Déplier l’option',
+                                de: 'Option ausklappen',
+                                ja: 'オプションを展開',
+                              ),
+                        icon: AnimatedRotation(
+                          turns: draft.expanded ? 0.5 : 0,
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion220,
+                          ),
+                          curve: kOpenHandSwitchInCurve,
+                          child: const Icon(Icons.keyboard_arrow_down_rounded),
+                        ),
+                        onPressed: () =>
+                            _toggleReasoningEffortOptionExpanded(draft),
+                      ),
+                      _buildReasoningEffortRoundActionButton(
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '删除档位',
+                          zhHant: '刪除檔位',
+                          en: 'Delete option',
+                          fr: 'Supprimer l’option',
+                          de: 'Option löschen',
+                          ja: 'オプションを削除',
+                        ),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        foregroundColor: colorScheme.error,
+                        backgroundColor: colorScheme.errorContainer.withValues(
+                          alpha: 0.36,
+                        ),
+                        onPressed: () =>
+                            _removeReasoningEffortOptionDraft(draft),
+                      ),
+                      _SettingsSwitch(
+                        value: draft.enabled,
+                        onChanged: (value) =>
+                            _setReasoningEffortOptionEnabled(draft, value),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
           _AnimatedSettingReveal(
             visible: draft.expanded,
@@ -5124,6 +5138,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildModelFieldPair({required Widget first, required Widget second}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 440) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [first, kOpenHandGap12, second],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: first),
+            kOpenHandHGap12,
+            Expanded(child: second),
+          ],
+        );
+      },
     );
   }
 
@@ -6310,160 +6344,155 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     kOpenHandGap16,
                   ],
                 ],
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.mdlEdTokenLimits,
-                ),
-                kOpenHandGap8,
-                if (widget.protocolType != AiProtocolType.jev) ...[
-                  _buildOneMillionContextControl(),
-                  kOpenHandGap12,
-                ],
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _maxContextLengthController,
-                        readOnly: _oneMillionContextEnabled,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdContextLength,
-                          suffixIcon: _oneMillionContextEnabled
-                              ? Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 18,
-                                  color: colorScheme.onSurfaceVariant,
-                                )
-                              : null,
-                          suffixIconConstraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
+                OpenHandDialogSectionCard(
+                  icon: Icons.data_usage_rounded,
+                  title: l10n.mdlEdTokenLimits,
+                  accent: colorScheme.secondary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.protocolType != AiProtocolType.jev) ...[
+                        _buildOneMillionContextControl(),
+                        kOpenHandGap12,
+                      ],
+                      _buildModelFieldPair(
+                        first: TextField(
+                          controller: _maxContextLengthController,
+                          readOnly: _oneMillionContextEnabled,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdContextLength,
+                            suffixIcon: _oneMillionContextEnabled
+                                ? Icon(
+                                    Icons.lock_outline_rounded,
+                                    size: 18,
+                                    color: colorScheme.onSurfaceVariant,
+                                  )
+                                : null,
+                            suffixIconConstraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            isDense: true,
                           ),
-                          isDense: true,
+                        ),
+                        second: TextField(
+                          controller: _maxSummaryLengthController,
+                          enabled: widget.protocolType != AiProtocolType.jev,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdSummaryLength,
+                            isDense: true,
+                          ),
                         ),
                       ),
-                    ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: TextField(
-                        controller: _maxSummaryLengthController,
-                        enabled: widget.protocolType != AiProtocolType.jev,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdSummaryLength,
-                          isDense: true,
+                      kOpenHandGap12,
+                      _buildModelFieldPair(
+                        first: TextField(
+                          controller: _maxOutputLengthController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdOutputLength,
+                            isDense: true,
+                          ),
+                        ),
+                        second: TextField(
+                          controller: _maxThinkingLengthController,
+                          enabled: widget.protocolType != AiProtocolType.jev,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdThinkingLength,
+                            isDense: true,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                kOpenHandGap12,
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _maxOutputLengthController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdOutputLength,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: TextField(
-                        controller: _maxThinkingLengthController,
-                        enabled: widget.protocolType != AiProtocolType.jev,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdThinkingLength,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 kOpenHandGap16,
-                _buildSectionHeader(
-                  AppLocalizations.of(
+                OpenHandDialogSectionCard(
+                  icon: Icons.payments_outlined,
+                  title: openHandLocalizedText(
                     context,
-                  )!.mdlEdTokenPricingUsd1mTokensLeave,
-                ),
-                kOpenHandGap8,
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _inputUsdPer1MController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                    zh: '词元价格',
+                    zhHant: '詞元價格',
+                    en: 'Token pricing',
+                    fr: 'Tarifs des tokens',
+                    de: 'Tokenpreise',
+                    ja: 'トークン料金',
+                  ),
+                  subtitle: l10n.mdlEdTokenPricingUsd1mTokensLeave,
+                  accent: colorScheme.tertiary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildModelFieldPair(
+                        first: TextField(
+                          controller: _inputUsdPer1MController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(context)!.mdlEdInput,
+                            isDense: true,
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(context)!.mdlEdInput,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: TextField(
-                        controller: _outputUsdPer1MController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(context)!.mdlEdOutput,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                kOpenHandGap12,
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _cacheReadUsdPer1MController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdCacheRead,
-                          isDense: true,
+                        second: TextField(
+                          controller: _outputUsdPer1MController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdOutput,
+                            isDense: true,
+                          ),
                         ),
                       ),
-                    ),
-                    kOpenHandHGap12,
-                    Expanded(
-                      child: TextField(
-                        controller: _cacheWriteUsdPer1MController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                      kOpenHandGap12,
+                      _buildModelFieldPair(
+                        first: TextField(
+                          controller: _cacheReadUsdPer1MController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdCacheRead,
+                            isDense: true,
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.mdlEdCacheWrite,
-                          isDense: true,
+                        second: TextField(
+                          controller: _cacheWriteUsdPer1MController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.mdlEdCacheWrite,
+                            isDense: true,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 kOpenHandGap16,
-                _buildSectionHeader(
-                  openHandLocalizedText(
+                OpenHandDialogSectionCard(
+                  icon: Icons.tune_rounded,
+                  accent: colorScheme.primary,
+                  title: openHandLocalizedText(
                     context,
                     zh: '来源信息与参数覆盖',
                     zhHant: '來源資訊與參數覆寫',
@@ -6472,64 +6501,70 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     de: 'Quellinformationen und Parameterüberschreibungen',
                     ja: 'ソース情報とパラメータの上書き',
                   ),
-                ),
-                kOpenHandGap8,
-                TextField(
-                  controller: _canonicalSlugController,
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdCanonicalSlug,
-                    isDense: true,
-                  ),
-                ),
-                kOpenHandGap12,
-                TextField(
-                  controller: _huggingFaceIdController,
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdHuggingFaceId,
-                    isDense: true,
-                  ),
-                ),
-                kOpenHandGap12,
-                TextField(
-                  controller: _knowledgeCutoffController,
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdKnowledgeCutoff,
-                    isDense: true,
-                  ),
-                ),
-                kOpenHandGap12,
-                TextField(
-                  controller: _expirationDateController,
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdExpirationDate,
-                    isDense: true,
-                  ),
-                ),
-                kOpenHandGap12,
-                TextField(
-                  controller: _supportedParametersController,
-                  readOnly: widget.protocolType == AiProtocolType.jev,
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdSupportedParametersCsv,
-                    hintText: l10n.mdlEdSupportedParametersCsvHint,
-                    isDense: true,
-                  ),
-                ),
-                kOpenHandGap12,
-                TextField(
-                  controller: _defaultParametersController,
-                  readOnly: widget.protocolType == AiProtocolType.jev,
-                  minLines: 2,
-                  maxLines: 5,
-                  onChanged: (_) {
-                    if (_profileErrorMessage == null) return;
-                    setState(() => _profileErrorMessage = null);
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.mdlEdDefaultParametersJson,
-                    hintText: l10n.mdlEdDefaultParametersJsonHint,
-                    alignLabelWithHint: true,
-                    isDense: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _canonicalSlugController,
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdCanonicalSlug,
+                          isDense: true,
+                        ),
+                      ),
+                      kOpenHandGap12,
+                      TextField(
+                        controller: _huggingFaceIdController,
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdHuggingFaceId,
+                          isDense: true,
+                        ),
+                      ),
+                      kOpenHandGap12,
+                      TextField(
+                        controller: _knowledgeCutoffController,
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdKnowledgeCutoff,
+                          isDense: true,
+                        ),
+                      ),
+                      kOpenHandGap12,
+                      TextField(
+                        controller: _expirationDateController,
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdExpirationDate,
+                          isDense: true,
+                        ),
+                      ),
+                      kOpenHandGap12,
+                      TextField(
+                        controller: _supportedParametersController,
+                        minLines: 1,
+                        maxLines: 4,
+                        readOnly: widget.protocolType == AiProtocolType.jev,
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdSupportedParametersCsv,
+                          hintText: l10n.mdlEdSupportedParametersCsvHint,
+                          isDense: true,
+                        ),
+                      ),
+                      kOpenHandGap12,
+                      TextField(
+                        controller: _defaultParametersController,
+                        readOnly: widget.protocolType == AiProtocolType.jev,
+                        minLines: 2,
+                        maxLines: 5,
+                        onChanged: (_) {
+                          if (_profileErrorMessage == null) return;
+                          setState(() => _profileErrorMessage = null);
+                        },
+                        decoration: InputDecoration(
+                          labelText: l10n.mdlEdDefaultParametersJson,
+                          hintText: l10n.mdlEdDefaultParametersJsonHint,
+                          alignLabelWithHint: true,
+                          isDense: true,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 kOpenHandGap16,
@@ -6672,6 +6707,23 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               height: 1.5,
             ),
           ),
+          if (catalog != null) ...[
+            kOpenHandGap8,
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '未公开或未核实的字段留空；默认值与能力上限分别记录。',
+                zhHant: '未公開或未核實的欄位留空；預設值與能力上限分別記錄。',
+                en: 'Unpublished or unverified fields stay empty. Defaults and limits are recorded separately.',
+                fr: 'Les champs non publiés ou non vérifiés restent vides. Valeurs par défaut et limites sont distinctes.',
+                de: 'Unveröffentlichte oder ungeprüfte Felder bleiben leer. Standardwerte und Grenzen sind getrennt.',
+                ja: '未公開・未確認の項目は空欄です。既定値と上限は区別して記録します。',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           if (sourceUri != null &&
               (sourceUri.scheme == 'https' || sourceUri.scheme == 'http')) ...[
             kOpenHandGap8,
@@ -6814,6 +6866,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       'canonical_slug': profile.canonicalSlug,
       'hugging_face_id': profile.huggingFaceId,
       'created': profile.created,
+      'limits': {
+        'context': profile.maxContextLength,
+        'output': profile.maxOutputLength,
+        'thinking': profile.maxThinkingLength,
+      },
       'architecture': profile.architecture?.toJson(),
       'supported_parameters': profile.supportedParameters,
       'default_parameters': profile.defaultParameters,
