@@ -3621,57 +3621,20 @@ class _MaintenanceFacts extends StatelessWidget {
   final Map<String, String> values;
   final double labelWidth;
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      for (final entry in values.entries)
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.outlineVariant.withValues(alpha: .35),
-              ),
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: labelWidth,
-                child: Text(
-                  maintenanceLabel(context, entry.key),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Tooltip(
-                  message: entry.value,
-                  child: _MaintenanceValue(
-                    value: entry.value.isEmpty || entry.value == '未提供'
-                        ? maintenanceLabel(context, '未提供')
-                        : entry.value,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    assert(labelWidth > 0);
+    return _MaintenanceFields(
+      rows: [
+        for (final entry in values.entries)
+          [
+            maintenanceLabel(context, entry.key),
+            entry.value.isEmpty || entry.value == '未提供'
+                ? maintenanceLabel(context, '未提供')
+                : entry.value,
+          ],
+      ],
+    );
+  }
 }
 
 class _MaintenanceStatus extends StatelessWidget {
@@ -4185,48 +4148,85 @@ class _MaintenanceHealthContent extends StatelessWidget {
             ],
           ),
         if (report.data.rows.isNotEmpty && !report.data.fields)
-          _MaintenanceTable(
-            maxBodyHeight: 300,
-            paginate: report.data.rows.length > 20,
-            headers: report.data.headers
-                .map((s) => maintenanceHealthLabel(context, s))
-                .toList(),
-            rows: [
-              for (var i = 0; i < report.data.rows.length; i++)
-                OpenHandOperationalRankRow(
-                  rowKey: i,
-                  value: 0,
-                  cells: [
-                    for (var c = 0; c < report.data.rows[i].length; c++)
-                      report.data.fields && c == 0
-                          ? maintenanceHealthLabel(
-                              context,
-                              report.data.rows[i][c],
-                            )
-                          : maintenanceHealthValue(
-                              context,
-                              report.data.rows[i][c],
-                            ),
+          if (report.data.rows.length <= 8 && report.data.headers.length <= 6)
+            for (final row in report.data.rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _MaintenanceFields(
+                  rows: [
+                    for (var c = 0; c < report.data.headers.length; c++)
+                      [
+                        maintenanceHealthLabel(context, report.data.headers[c]),
+                        c < row.length
+                            ? maintenanceHealthValue(context, row[c])
+                            : '—',
+                      ],
                   ],
                 ),
-            ],
-          ),
+              )
+          else
+            _MaintenanceTable(
+              maxBodyHeight: 300,
+              paginate: report.data.rows.length > 20,
+              headers: report.data.headers
+                  .map((s) => maintenanceHealthLabel(context, s))
+                  .toList(),
+              rows: [
+                for (var i = 0; i < report.data.rows.length; i++)
+                  OpenHandOperationalRankRow(
+                    rowKey: i,
+                    value: 0,
+                    cells: [
+                      for (var c = 0; c < report.data.rows[i].length; c++)
+                        maintenanceHealthValue(context, report.data.rows[i][c]),
+                    ],
+                  ),
+              ],
+            ),
         for (final entry in report.tables.entries) ...[
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
+            child: Row(
+              children: [
+                _MaintenanceIconBadge(
+                  icon: Icons.table_rows_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 28,
+                  iconSize: 14,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    RegExp(r'[^\x00-\x7F]').hasMatch(entry.key)
+                        ? entry.key
+                        : maintenanceHealthLabel(context, entry.key),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           _MaintenanceTable(
             maxBodyHeight: 300,
             paginate: entry.value.rows.length > 20,
-            headers: entry.value.headers,
+            headers: [
+              for (final header in entry.value.headers)
+                maintenanceHealthLabel(context, header),
+            ],
             rows: [
               for (var i = 0; i < entry.value.rows.length; i++)
                 OpenHandOperationalRankRow(
                   rowKey: i,
                   value: 0,
-                  cells: entry.value.rows[i],
+                  cells: [
+                    for (final cell in entry.value.rows[i])
+                      maintenanceHealthValue(context, cell),
+                  ],
                 ),
             ],
           ),
