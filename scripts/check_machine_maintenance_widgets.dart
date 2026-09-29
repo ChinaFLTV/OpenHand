@@ -311,6 +311,43 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('全局胶囊主题下运维输入框各状态保持圆角矩形', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    final service = _MaintenanceFixture();
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      const capsule = OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(999)));
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(brightness: brightness, inputDecorationTheme: const InputDecorationTheme(
+            border: capsule, enabledBorder: capsule, disabledBorder: capsule,
+            focusedBorder: capsule, errorBorder: capsule, focusedErrorBorder: capsule)),
+          home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      for (final label in ['进程管理', '系统服务']) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        final field = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText != null);
+        await tester.ensureVisible(field);
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        final decorator = tester.widget<InputDecorator>(find.descendant(of: field, matching: find.byType(InputDecorator)));
+        expect(decorator.isFocused, isTrue);
+        final decoration = decorator.decoration.applyDefaults(Theme.of(tester.element(field)).inputDecorationTheme);
+        for (final border in [decoration.border, decoration.enabledBorder, decoration.disabledBorder,
+          decoration.focusedBorder, decoration.errorBorder, decoration.focusedErrorBorder]) {
+          expect(border, isA<OutlineInputBorder>());
+          expect((border! as OutlineInputBorder).borderRadius, BorderRadius.circular(10));
+        }
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('首次加载与分区加载仅显示居中进度，刷新保留已有数据', (tester) async {
     final service = _MaintenanceFixture()..pending = Completer<String>();
     await tester.binding.setSurfaceSize(const Size(1280, 900));

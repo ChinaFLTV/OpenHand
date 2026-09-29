@@ -211,6 +211,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final cs = theme.colorScheme;
     final size = MediaQuery.sizeOf(context);
     final data = _snapshots[_tab];
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: cs.outlineVariant),
+    );
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
@@ -242,10 +246,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               horizontal: 12,
               vertical: 12,
             ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: cs.outlineVariant),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            disabledBorder: inputBorder.copyWith(
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: .5),
+              ),
+            ),
+            focusedBorder: inputBorder.copyWith(
+              borderSide: BorderSide(color: cs.primary, width: 2),
+            ),
+            errorBorder: inputBorder.copyWith(
+              borderSide: BorderSide(color: cs.error),
+            ),
+            focusedErrorBorder: inputBorder.copyWith(
+              borderSide: BorderSide(color: cs.error, width: 2),
             ),
           ),
         ),
@@ -1181,9 +1196,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     decoration: InputDecoration(
                       hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
                       prefixIcon: const Icon(Icons.search_rounded),
-                      border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
                     ),
                   ),
                 ),
@@ -1191,12 +1203,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   width: 156,
                   child: AnimatedDropdownButtonFormField<int>(
                     value: _sort,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                    ),
+                    decoration: const InputDecoration(isDense: true),
                     items: [
                       DropdownMenuItem(
                         value: 0,
