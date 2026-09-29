@@ -226,6 +226,49 @@ void main() {
     expect(calls, 3);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('行点击和更多菜单详情共用入口，业务操作不触发行点击', (tester) async {
+    const row = OpenHandOperationalRankRow(cells: ['测试条目'], value: 1);
+    var details = 0, stopped = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: OpenHandOperationalRankTable(
+      headers: const ['名称'], rows: const [row],
+      onRowTap: (value) { expect(identical(value, row), isTrue); details++; },
+      rowActions: (_) => {'停止': () => stopped++},
+    ))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('测试条目').first);
+    expect(details, 1);
+    await tester.tap(find.byType(OpenHandOperationalRowMenu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Details').last);
+    await tester.pumpAndSettle();
+    expect(details, 2); expect(stopped, 0);
+    await tester.tap(find.byType(OpenHandOperationalRowMenu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('停止').last);
+    await tester.pumpAndSettle();
+    expect(details, 2); expect(stopped, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('菜单业务动作复用详情确认流程，取消不执行命令', (tester) async {
+    var executed = 0;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MachineMaintenanceDetails(
+        title: '测试服务', load: () async => '__OH_OPS_platform__\\nDarwin\\n__OH_OPS_status__\\n状态: running\\n__OH_OPS_end__\\n',
+        actions: const {'停止': '测试命令'}, initialAction: '停止',
+        execute: (_) async { executed++; return ''; },
+      ))));
+    await tester.pumpAndSettle();
+    expect(find.text('确认执行'), findsOneWidget);
+    expect(executed, 0);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(executed, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   test('采集并发数持久化、校验及保存失败回滚', () async {
     final store = _MemorySettingsStore();
     final settings = await SettingsController.create(store: store);

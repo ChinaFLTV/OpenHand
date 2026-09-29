@@ -15,6 +15,7 @@ import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
+import 'animated_menu.dart';
 import 'appear_once.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -3428,6 +3429,36 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
       _finite(segment.value).toStringAsFixed(0);
 }
 
+/// 行点击与更多菜单共用详情入口，业务操作由调用方按能力提供。
+class OpenHandOperationalRowMenu extends StatelessWidget {
+  const OpenHandOperationalRowMenu({
+    super.key,
+    this.onDetails,
+    this.actions = const {},
+  });
+  final VoidCallback? onDetails;
+  final Map<String, VoidCallback> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = <String, VoidCallback>{
+      if (onDetails != null)
+        openHandLocalizedText(context, zh: '详情', en: 'Details'): onDetails!,
+      ...actions,
+    };
+    return AnimatedPopupMenuButton<String>(
+      tooltip: openHandLocalizedText(context, zh: '更多操作', en: 'More actions'),
+      enabled: entries.isNotEmpty,
+      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      onSelected: (action) => entries[action]?.call(),
+      itemBuilder: (_) => [
+        for (final entry in entries.keys)
+          PopupMenuItem(value: entry, child: Text(entry)),
+      ],
+    );
+  }
+}
+
 /// 通用排行表的一行。
 class OpenHandOperationalRankRow {
   const OpenHandOperationalRankRow({
@@ -3458,6 +3489,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     required this.rows,
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
+    this.rowActions,
     this.sortByValue = true,
     this.compact = false,
     this.maxBodyHeight = _kRankBodyMaxHeight,
@@ -3475,6 +3507,8 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final List<OpenHandOperationalRankRow> rows;
   final String emptyLabel;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
+  final Map<String, VoidCallback> Function(OpenHandOperationalRankRow)?
+  rowActions;
   final bool sortByValue;
   final bool compact;
   final double maxBodyHeight;
@@ -3658,6 +3692,11 @@ class _OpenHandOperationalRankTableState
 
   @override
   Widget build(BuildContext context) {
+    final hasActions = widget.onRowTap != null || widget.rowActions != null;
+    final headers = [
+      ...widget.headers,
+      if (hasActions) openHandLocalizedText(context, zh: '操作', en: 'Actions'),
+    ];
     if (widget.headers.isEmpty || widget.rows.isEmpty) {
       return _EmptyChartLabel(label: widget.emptyLabel);
     }
@@ -3729,7 +3768,7 @@ class _OpenHandOperationalRankTableState
       color: colors.onSurfaceVariant,
     );
     final scaler = MediaQuery.textScalerOf(context);
-    final columnCount = widget.headers.length;
+    final columnCount = headers.length;
     String subtitleFor(OpenHandOperationalRankRow row, int index) {
       final subtitles = row.cellSubtitles;
       if (subtitles != null && index < subtitles.length) {
@@ -3740,11 +3779,7 @@ class _OpenHandOperationalRankTableState
 
     final natural = List<double>.filled(columnCount, 0);
     for (var i = 0; i < columnCount; i++) {
-      var content = _rankTextWidth(
-        widget.headers[i],
-        headerStyle,
-        textScaler: scaler,
-      );
+      var content = _rankTextWidth(headers[i], headerStyle, textScaler: scaler);
       final samples = <String>[
         for (final row in widthRows) i < row.cells.length ? row.cells[i] : '--',
       ];
@@ -3765,10 +3800,12 @@ class _OpenHandOperationalRankTableState
         );
       }
       final fitted = _rankFitColumnWidth(
-        _rankColumnKind(index: i, header: widget.headers[i], cells: samples),
+        _rankColumnKind(index: i, header: headers[i], cells: samples),
         content + _kRankCellPadding * 2,
       );
-      natural[i] = math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
+      natural[i] = hasActions && i == columnCount - 1
+          ? math.max(kMinInteractiveDimension, content + _kRankCellPadding * 2)
+          : math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
     }
     final widths = _syncWidths(natural);
     return OverlayPortal(
@@ -3786,13 +3823,20 @@ class _OpenHandOperationalRankTableState
               final viewportWidth = constraints.hasBoundedWidth
                   ? constraints.maxWidth
                   : contentWidth;
+              final actionWidth = hasActions ? widths.last : 0.0;
+              final scalableWidth = contentWidth - actionWidth;
               final widthScale =
-                  contentWidth > 0 && viewportWidth > contentWidth
-                  ? viewportWidth / contentWidth
+                  scalableWidth > 0 && viewportWidth > contentWidth
+                  ? (viewportWidth - actionWidth) / scalableWidth
                   : 1.0;
               final displayWidths = widthScale == 1
                   ? widths
-                  : <double>[for (final width in widths) width * widthScale];
+                  : <double>[
+                      for (var i = 0; i < widths.length; i++)
+                        hasActions && i == widths.length - 1
+                            ? widths[i]
+                            : widths[i] * widthScale,
+                    ];
               final tableWidth = math.max(contentWidth, viewportWidth);
               final bodyCap =
                   widget.maxBodyHeight.isFinite &&
@@ -3832,7 +3876,7 @@ class _OpenHandOperationalRankTableState
                   builder: (cellContext) => MouseRegion(
                     onEnter: (_) => _showCellTip(
                       cellContext: cellContext,
-                      title: widget.headers[index],
+                      title: headers[index],
                       body: text,
                       note: note,
                       accent: colors.primary,
@@ -3849,7 +3893,7 @@ class _OpenHandOperationalRankTableState
                 required int index,
                 required OpenHandOperationalRankRow? row,
               }) {
-                final headerText = widget.headers[index];
+                final headerText = headers[index];
                 final alignment =
                     widget.columnAlignments[index] ??
                     _rankCellAlignment(index, headerText);
@@ -3866,6 +3910,16 @@ class _OpenHandOperationalRankTableState
                       text: headerText,
                       style: headerStyle,
                       align: textAlign,
+                    ),
+                  );
+                }
+                if (hasActions && index == headers.length - 1 && row != null) {
+                  return Center(
+                    child: OpenHandOperationalRowMenu(
+                      onDetails: widget.onRowTap == null
+                          ? null
+                          : () => widget.onRowTap!(row),
+                      actions: widget.rowActions?.call(row) ?? const {},
                     ),
                   );
                 }

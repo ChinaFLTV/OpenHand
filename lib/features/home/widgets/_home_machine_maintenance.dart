@@ -381,6 +381,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String command, {
     Map<String, String> actions = const {},
     bool service = false,
+    String? initialAction,
   }) async {
     if (_loading || _platform == null) return;
     final platform = _platform!;
@@ -393,6 +394,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         context: context,
         builder: (_) => _MachineMaintenanceDetails(
           title: title,
+          initialAction: initialAction,
           load: () => _run(
             platform.bind(snapshot, command),
             isCancelled: () => !active,
@@ -1970,6 +1972,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
       ],
     );
+    void openProcess(OpenHandOperationalRankRow row, {String? action}) {
+      final p = row.data! as MachineMaintenanceProcess;
+      if (!_platform!.canInspectProcess(p)) return;
+      _details(
+        AppLocalizations.of(context)!.maintenanceProcessTitle(
+          '${p.pid}',
+          p.name.split('/').last.split('\\').last,
+        ),
+        _platform!.process(p),
+        initialAction: action,
+        actions: {
+          for (final action in _platform!.processActions(p).entries)
+            action.key: _platform!.process(p, action: action.value),
+        },
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: LayoutBuilder(
@@ -2110,24 +2129,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ],
                         ),
                     ],
-                    onRowTap: (row) {
-                      final p = row.data! as MachineMaintenanceProcess;
-                      if (!_platform!.canInspectProcess(p)) return;
-                      _details(
-                        AppLocalizations.of(context)!.maintenanceProcessTitle(
-                          '${p.pid}',
-                          p.name.split('/').last.split('\\').last,
-                        ),
-                        _platform!.process(p),
-                        actions: {
-                          for (final action
-                              in _platform!.processActions(p).entries)
-                            action.key: _platform!.process(
-                              p,
-                              action: action.value,
-                            ),
-                        },
-                      );
+                    onRowTap: openProcess,
+                    rowActions: (row) => {
+                      if (_platform!.canInspectProcess(
+                        row.data! as MachineMaintenanceProcess,
+                      ))
+                        for (final action
+                            in _platform!
+                                .processActions(
+                                  row.data! as MachineMaintenanceProcess,
+                                )
+                                .keys)
+                          maintenanceLabel(context, action): () =>
+                              openProcess(row, action: action),
                     },
                   ),
                 ),
@@ -2357,6 +2371,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       final label = maintenanceLabel(context, state(line));
       distribution[label] = (distribution[label] ?? 0) + 1;
     }
+    void openService(OpenHandOperationalRankRow row, {String? action}) {
+      final name = row.cells.first;
+      if (!(adapter?.accepts(name) ?? false)) return;
+      _details(
+        name,
+        adapter!.command(name),
+        service: true,
+        initialAction: action,
+        actions: {
+          for (final action in adapter.actions.entries)
+            action.key: adapter.command(name, action.value),
+        },
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
@@ -2510,18 +2539,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ],
                   ),
               ],
-              onRowTap: (row) {
-                final name = row.cells.first;
-                if (!(adapter?.accepts(name) ?? false)) return;
-                _details(
-                  name,
-                  adapter!.command(name),
-                  service: true,
-                  actions: {
-                    for (final action in adapter.actions.entries)
-                      action.key: adapter.command(name, action.value),
-                  },
-                );
+              onRowTap: openService,
+              rowActions: (row) => {
+                if (adapter?.accepts(row.cells.first) ?? false)
+                  for (final action in adapter!.actions.keys)
+                    maintenanceLabel(context, action): () =>
+                        openService(row, action: action),
               },
             ),
           ),
@@ -3447,6 +3470,7 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
       maxBodyHeight: widget.table.maxBodyHeight,
       limitToViewport: widget.table.limitToViewport,
       onRowTap: widget.table.onRowTap,
+      rowActions: widget.table.rowActions,
     );
     final tree = ConstrainedBox(
       key: const ValueKey(true),
@@ -3663,6 +3687,13 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                 ),
                               ),
                             ),
+                            if (row != null && widget.table.onRowTap != null)
+                              OpenHandOperationalRowMenu(
+                                onDetails: () => widget.table.onRowTap!(row),
+                                actions:
+                                    widget.table.rowActions?.call(row) ??
+                                    const {},
+                              ),
                             if (branches.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -3826,6 +3857,7 @@ class _MaintenanceTable extends StatelessWidget {
     required this.headers,
     required this.rows,
     this.onRowTap,
+    this.rowActions,
     this.maxBodyHeight = 220,
     this.limitToViewport = true,
     this.paginate = true,
@@ -3833,6 +3865,8 @@ class _MaintenanceTable extends StatelessWidget {
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
+  final Map<String, VoidCallback> Function(OpenHandOperationalRankRow)?
+  rowActions;
   final double maxBodyHeight;
   final bool limitToViewport;
   final bool paginate;
@@ -3900,6 +3934,7 @@ class _MaintenanceTable extends StatelessWidget {
     compact: true,
     animateCellChanges: true,
     onRowTap: onRowTap,
+    rowActions: rowActions,
     maxBodyHeight: limitToViewport
         ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
         : maxBodyHeight,
@@ -5795,7 +5830,9 @@ class _MachineMaintenanceDetails extends StatefulWidget {
     required this.actions,
     required this.execute,
     this.refreshInterval,
+    this.initialAction,
   });
+  final String? initialAction;
   final Duration? refreshInterval;
   final String title;
   final Future<String> Function() load;
@@ -5839,7 +5876,15 @@ class _MachineMaintenanceDetailsState
   @override
   void initState() {
     super.initState();
-    _load();
+    _load().then((_) {
+      final action = widget.initialAction;
+      if (mounted &&
+          _error == null &&
+          action != null &&
+          widget.actions.containsKey(action)) {
+        _act(MapEntry(action, widget.actions[action]!));
+      }
+    });
   }
 
   Future<void> _load() async {
