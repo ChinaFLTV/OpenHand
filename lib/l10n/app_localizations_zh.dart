@@ -11519,6 +11519,234 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceSendBytes => '发送字节';
+
+  @override
+  String get maintenanceMetricValue => '数值';
+
+  @override
+  String get maintenanceMetricUnit => '单位';
+
+  @override
+  String get maintenanceMetricTotalReads => '累计读取次数';
+
+  @override
+  String get maintenanceMetricTotalWrites => '累计写入次数';
+
+  @override
+  String get maintenanceMetricBytesReadTotal => '累计读取字节';
+
+  @override
+  String get maintenanceMetricBytesWrittenTotal => '累计写入字节';
+
+  @override
+  String get maintenanceMetricReadTimeTotal => '累计读取耗时';
+
+  @override
+  String get maintenanceMetricWriteTimeTotal => '累计写入耗时';
+
+  @override
+  String get maintenanceMetricResource => '资源';
+
+  @override
+  String get maintenanceMetricScope => '范围';
+
+  @override
+  String get maintenanceMetric10SecondAverage => '10 秒平均';
+
+  @override
+  String get maintenanceMetric60SecondAverage => '60 秒平均';
+
+  @override
+  String get maintenanceMetric300SecondAverage => '300 秒平均';
+
+  @override
+  String get maintenanceMetricTotalStallTime => '累计等待时间';
+
+  @override
+  String get maintenanceMetricPages => '页数';
+
+  @override
+  String get maintenanceMetricCount => '次数';
+
+  @override
+  String get maintenanceMetricPageSize => '页大小';
+
+  @override
+  String get maintenanceMetricFreeMemory => '空闲内存比例';
+
+  @override
+  String get maintenanceMetricUsedInodes => '已用 inode';
+
+  @override
+  String get maintenanceMetricFreeInodes => '可用 inode';
+
+  @override
+  String get maintenanceMetricInodeUsage => 'inode 使用率';
+
+  @override
+  String get maintenanceMetricMountPoint => '挂载点';
+
+  @override
+  String get maintenanceMetricCapacity => '容量';
+
+  @override
+  String get maintenanceMetricParentDeviceBus => '所属设备';
+
+  @override
+  String get maintenanceMetricMajorMinor => '主次设备号';
+
+  @override
+  String get maintenanceMetricRemovable => '可移除';
+
+  @override
+  String get maintenanceMetricReadOnly => '只读';
+
+  @override
+  String get maintenanceMetricMembersAndSyncStatus => '成员与同步状态';
+
+  @override
+  String get maintenanceMetricLinkGateway => '链路';
+
+  @override
+  String get maintenanceMetricKernelInterfaces => '内核接口';
+
+  @override
+  String get maintenanceMetricAvailableTools => '可用工具';
+
+  @override
+  String get maintenanceMetricMacosTools => 'macOS 原生命令';
+
+  @override
+  String get maintenanceMetricCumulativeDiskCounters => '磁盘累计计数';
+
+  @override
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries =>
+      '可用内存包含可回收页，具体统计口径因系统而异。';
+
+  @override
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed =>
+      '部分字段未识别或不可用，已显示可解析的指标。';
+
+  @override
+  String get maintenanceMetricSomeTasks => '部分任务';
+
+  @override
+  String get maintenanceMetricAllTasks => '全部任务';
+
+  @override
+  String get maintenanceMetricSwapInPages => '换入页数';
+
+  @override
+  String get maintenanceMetricSwapOutPages => '换出页数';
+
+  @override
+  String get maintenanceMetricPageInVolume => '分页读取';
+
+  @override
+  String get maintenanceMetricPageOutVolume => '分页写入';
+
+  @override
+  String get maintenanceMetricTotalSwap => '交换空间总量';
+
+  @override
+  String get maintenanceMetricFreeSwap => '空闲交换空间';
+
+  @override
+  String get maintenanceMetricProcessLimit => '进程上限';
+
+  @override
+  String get maintenanceMetricFileLimit => '文件上限';
+
+  @override
+  String get maintenanceMetricThreadLimit => '线程上限';
+
+  @override
+  String get maintenanceMetricConnected => '已连接';
+
+  @override
+  String get maintenanceMetricDisconnected => '未连接';
+
+  @override
+  String get maintenanceMetricPhysicalStore => '物理存储';
+
+  @override
+  String get maintenanceMetricInternalPhysicalDisk => '内部物理磁盘';
+
+  @override
+  String get maintenanceMetricSynthesizedDisk => '合成磁盘';
+
+  @override
+  String get maintenanceMetricDiskImage => '磁盘映像';
+
+  @override
+  String get maintenanceMetricCommittedMemory => '提交内存';
+
+  @override
+  String get maintenanceMetricTaskThreads => '任务线程数';
+
+  @override
+  String get maintenanceMetricFileAllocated => '已分配文件句柄';
+
+  @override
+  String get maintenanceMetricFileUnused => '空闲文件句柄';
+
+  @override
+  String get maintenanceMetricSwapTendency => '交换倾向';
+
+  @override
+  String get maintenanceMetricListenLimit => '监听队列上限';
+
+  @override
+  String get maintenanceMetricCpuQuota => 'CPU 配额';
+
+  @override
+  String get maintenanceMetricCpuPeriod => 'CPU 配额周期';
+
+  @override
+  String get maintenanceMetricMemoryLimit => '内存上限';
+
+  @override
+  String get maintenanceMetricMemoryCurrent => '当前内存';
+
+  @override
+  String get maintenanceMetricUnlimited => '不设上限';
+
+  @override
+  String get maintenanceMetricActiveMemory => '活跃内存';
+
+  @override
+  String get maintenanceMetricInactiveMemory => '非活跃内存';
+
+  @override
+  String get maintenanceMetricAnonymousMemory => '匿名内存';
+
+  @override
+  String get maintenanceMetricSlabMemory => '内核对象缓存';
+
+  @override
+  String get maintenanceMetricMappedMemory => '映射内存';
+
+  @override
+  String get maintenanceMetricSharedMemory => '共享内存';
+
+  @override
+  String get maintenanceMetricDirtyMemory => '待写回内存';
+
+  @override
+  String get maintenanceMetricWritebackMemory => '写回中内存';
+
+  @override
+  String get maintenanceMetricGuidScheme => 'GUID 分区表';
+
+  @override
+  String get maintenanceMetricApfsVolume => 'APFS 卷';
+
+  @override
+  String get maintenanceMetricApfsSnapshot => 'APFS 快照';
+
+  @override
+  String get maintenanceMetricApfsContainer => 'APFS 容器';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -23018,4 +23246,232 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceSendBytes => '傳送位元組';
+
+  @override
+  String get maintenanceMetricValue => '數值';
+
+  @override
+  String get maintenanceMetricUnit => '單位';
+
+  @override
+  String get maintenanceMetricTotalReads => '累計讀取次數';
+
+  @override
+  String get maintenanceMetricTotalWrites => '累計寫入次數';
+
+  @override
+  String get maintenanceMetricBytesReadTotal => '累計讀取位元組';
+
+  @override
+  String get maintenanceMetricBytesWrittenTotal => '累計寫入位元組';
+
+  @override
+  String get maintenanceMetricReadTimeTotal => '累計讀取耗時';
+
+  @override
+  String get maintenanceMetricWriteTimeTotal => '累計寫入耗時';
+
+  @override
+  String get maintenanceMetricResource => '資源';
+
+  @override
+  String get maintenanceMetricScope => '範圍';
+
+  @override
+  String get maintenanceMetric10SecondAverage => '10 秒平均';
+
+  @override
+  String get maintenanceMetric60SecondAverage => '60 秒平均';
+
+  @override
+  String get maintenanceMetric300SecondAverage => '300 秒平均';
+
+  @override
+  String get maintenanceMetricTotalStallTime => '累計等待時間';
+
+  @override
+  String get maintenanceMetricPages => '頁數';
+
+  @override
+  String get maintenanceMetricCount => '次數';
+
+  @override
+  String get maintenanceMetricPageSize => '頁面大小';
+
+  @override
+  String get maintenanceMetricFreeMemory => '可用記憶體比例';
+
+  @override
+  String get maintenanceMetricUsedInodes => '已用 inode';
+
+  @override
+  String get maintenanceMetricFreeInodes => '可用 inode';
+
+  @override
+  String get maintenanceMetricInodeUsage => 'inode 使用率';
+
+  @override
+  String get maintenanceMetricMountPoint => '掛載點';
+
+  @override
+  String get maintenanceMetricCapacity => '容量';
+
+  @override
+  String get maintenanceMetricParentDeviceBus => '所屬裝置／匯流排';
+
+  @override
+  String get maintenanceMetricMajorMinor => '主次裝置號';
+
+  @override
+  String get maintenanceMetricRemovable => '可移除';
+
+  @override
+  String get maintenanceMetricReadOnly => '唯讀';
+
+  @override
+  String get maintenanceMetricMembersAndSyncStatus => '成員與同步狀態';
+
+  @override
+  String get maintenanceMetricLinkGateway => '鏈路／閘道';
+
+  @override
+  String get maintenanceMetricKernelInterfaces => '核心介面';
+
+  @override
+  String get maintenanceMetricAvailableTools => '可用工具';
+
+  @override
+  String get maintenanceMetricMacosTools => 'macOS 原生命令';
+
+  @override
+  String get maintenanceMetricCumulativeDiskCounters => '磁碟累計計數';
+
+  @override
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries =>
+      '可用記憶體包含可回收頁，統計方式因系統而異。';
+
+  @override
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed =>
+      '部分欄位未識別或無法使用，已顯示可解析的指標。';
+
+  @override
+  String get maintenanceMetricSomeTasks => '部分工作';
+
+  @override
+  String get maintenanceMetricAllTasks => '全部工作';
+
+  @override
+  String get maintenanceMetricSwapInPages => '換入頁數';
+
+  @override
+  String get maintenanceMetricSwapOutPages => '換出頁數';
+
+  @override
+  String get maintenanceMetricPageInVolume => '分頁讀取';
+
+  @override
+  String get maintenanceMetricPageOutVolume => '分頁寫入';
+
+  @override
+  String get maintenanceMetricTotalSwap => '交換空間總量';
+
+  @override
+  String get maintenanceMetricFreeSwap => '可用交換空間';
+
+  @override
+  String get maintenanceMetricProcessLimit => '處理程序上限';
+
+  @override
+  String get maintenanceMetricFileLimit => '檔案上限';
+
+  @override
+  String get maintenanceMetricThreadLimit => '執行緒上限';
+
+  @override
+  String get maintenanceMetricConnected => '已連線';
+
+  @override
+  String get maintenanceMetricDisconnected => '未連線';
+
+  @override
+  String get maintenanceMetricPhysicalStore => '實體儲存';
+
+  @override
+  String get maintenanceMetricInternalPhysicalDisk => '內部實體磁碟';
+
+  @override
+  String get maintenanceMetricSynthesizedDisk => '合成磁碟';
+
+  @override
+  String get maintenanceMetricDiskImage => '磁碟映像';
+
+  @override
+  String get maintenanceMetricCommittedMemory => '提交記憶體';
+
+  @override
+  String get maintenanceMetricTaskThreads => '工作執行緒數';
+
+  @override
+  String get maintenanceMetricFileAllocated => '已分配檔案控制代碼';
+
+  @override
+  String get maintenanceMetricFileUnused => '可用檔案控制代碼';
+
+  @override
+  String get maintenanceMetricSwapTendency => '交換傾向';
+
+  @override
+  String get maintenanceMetricListenLimit => '監聽佇列上限';
+
+  @override
+  String get maintenanceMetricCpuQuota => 'CPU 配額';
+
+  @override
+  String get maintenanceMetricCpuPeriod => 'CPU 配額週期';
+
+  @override
+  String get maintenanceMetricMemoryLimit => '記憶體上限';
+
+  @override
+  String get maintenanceMetricMemoryCurrent => '目前記憶體';
+
+  @override
+  String get maintenanceMetricUnlimited => '不設上限';
+
+  @override
+  String get maintenanceMetricActiveMemory => '作用中記憶體';
+
+  @override
+  String get maintenanceMetricInactiveMemory => '非作用中記憶體';
+
+  @override
+  String get maintenanceMetricAnonymousMemory => '匿名記憶體';
+
+  @override
+  String get maintenanceMetricSlabMemory => '核心物件快取';
+
+  @override
+  String get maintenanceMetricMappedMemory => '映射記憶體';
+
+  @override
+  String get maintenanceMetricSharedMemory => '共用記憶體';
+
+  @override
+  String get maintenanceMetricDirtyMemory => '待寫回記憶體';
+
+  @override
+  String get maintenanceMetricWritebackMemory => '寫回中記憶體';
+
+  @override
+  String get maintenanceMetricGuidScheme => 'GUID 分割表';
+
+  @override
+  String get maintenanceMetricApfsVolume => 'APFS 卷宗';
+
+  @override
+  String get maintenanceMetricApfsSnapshot => 'APFS 快照';
+
+  @override
+  String get maintenanceMetricApfsContainer => 'APFS 容器';
 }

@@ -11997,4 +11997,235 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceSendBytes => 'Gesendete Bytes';
+
+  @override
+  String get maintenanceMetricValue => 'Wert';
+
+  @override
+  String get maintenanceMetricUnit => 'Einheit';
+
+  @override
+  String get maintenanceMetricTotalReads => 'Lesevorgänge gesamt';
+
+  @override
+  String get maintenanceMetricTotalWrites => 'Schreibvorgänge gesamt';
+
+  @override
+  String get maintenanceMetricBytesReadTotal => 'Gelesene Bytes gesamt';
+
+  @override
+  String get maintenanceMetricBytesWrittenTotal => 'Geschriebene Bytes gesamt';
+
+  @override
+  String get maintenanceMetricReadTimeTotal => 'Lesezeit gesamt';
+
+  @override
+  String get maintenanceMetricWriteTimeTotal => 'Schreibzeit gesamt';
+
+  @override
+  String get maintenanceMetricResource => 'Ressource';
+
+  @override
+  String get maintenanceMetricScope => 'Umfang';
+
+  @override
+  String get maintenanceMetric10SecondAverage => '10-Sekunden-Mittel';
+
+  @override
+  String get maintenanceMetric60SecondAverage => '60-Sekunden-Mittel';
+
+  @override
+  String get maintenanceMetric300SecondAverage => '300-Sekunden-Mittel';
+
+  @override
+  String get maintenanceMetricTotalStallTime => 'Wartezeit gesamt';
+
+  @override
+  String get maintenanceMetricPages => 'Seiten';
+
+  @override
+  String get maintenanceMetricCount => 'Anzahl';
+
+  @override
+  String get maintenanceMetricPageSize => 'Seitengröße';
+
+  @override
+  String get maintenanceMetricFreeMemory => 'Freier Speicher';
+
+  @override
+  String get maintenanceMetricUsedInodes => 'Belegte Inodes';
+
+  @override
+  String get maintenanceMetricFreeInodes => 'Freie Inodes';
+
+  @override
+  String get maintenanceMetricInodeUsage => 'Inode-Auslastung';
+
+  @override
+  String get maintenanceMetricMountPoint => 'Einhängepunkt';
+
+  @override
+  String get maintenanceMetricCapacity => 'Kapazität';
+
+  @override
+  String get maintenanceMetricParentDeviceBus => 'Übergeordnetes Gerät / Bus';
+
+  @override
+  String get maintenanceMetricMajorMinor => 'Major:Minor';
+
+  @override
+  String get maintenanceMetricRemovable => 'Wechselmedium';
+
+  @override
+  String get maintenanceMetricReadOnly => 'Schreibgeschützt';
+
+  @override
+  String get maintenanceMetricMembersAndSyncStatus =>
+      'Mitglieder und Synchronisierung';
+
+  @override
+  String get maintenanceMetricLinkGateway => 'Verbindung / Gateway';
+
+  @override
+  String get maintenanceMetricKernelInterfaces => 'Kernelschnittstellen';
+
+  @override
+  String get maintenanceMetricAvailableTools => 'Verfügbare Werkzeuge';
+
+  @override
+  String get maintenanceMetricMacosTools => 'macOS-Werkzeuge';
+
+  @override
+  String get maintenanceMetricCumulativeDiskCounters =>
+      'Kumulative Datenträgerzähler';
+
+  @override
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries =>
+      'Verfügbarer Speicher umfasst rückgewinnbare Seiten; die Berechnung ist systemabhängig.';
+
+  @override
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed =>
+      'Einige Felder sind unbekannt oder nicht verfügbar. Erkannte Messwerte werden angezeigt.';
+
+  @override
+  String get maintenanceMetricSomeTasks => 'Einige Aufgaben';
+
+  @override
+  String get maintenanceMetricAllTasks => 'Alle Aufgaben';
+
+  @override
+  String get maintenanceMetricSwapInPages => 'Eingelagerte Seiten';
+
+  @override
+  String get maintenanceMetricSwapOutPages => 'Ausgelagerte Seiten';
+
+  @override
+  String get maintenanceMetricPageInVolume => 'Eingelesene Daten';
+
+  @override
+  String get maintenanceMetricPageOutVolume => 'Ausgeschriebene Daten';
+
+  @override
+  String get maintenanceMetricTotalSwap => 'Swap gesamt';
+
+  @override
+  String get maintenanceMetricFreeSwap => 'Freier Swap';
+
+  @override
+  String get maintenanceMetricProcessLimit => 'Prozesslimit';
+
+  @override
+  String get maintenanceMetricFileLimit => 'Dateilimit';
+
+  @override
+  String get maintenanceMetricThreadLimit => 'Threadlimit';
+
+  @override
+  String get maintenanceMetricConnected => 'Verbunden';
+
+  @override
+  String get maintenanceMetricDisconnected => 'Getrennt';
+
+  @override
+  String get maintenanceMetricPhysicalStore => 'Physischer Speicher';
+
+  @override
+  String get maintenanceMetricInternalPhysicalDisk =>
+      'Interner physischer Datenträger';
+
+  @override
+  String get maintenanceMetricSynthesizedDisk => 'Synthetischer Datenträger';
+
+  @override
+  String get maintenanceMetricDiskImage => 'Datenträgerabbild';
+
+  @override
+  String get maintenanceMetricCommittedMemory => 'Zugesicherter Speicher';
+
+  @override
+  String get maintenanceMetricTaskThreads => 'Aufgaben-Threads';
+
+  @override
+  String get maintenanceMetricFileAllocated => 'Zugewiesene Dateihandles';
+
+  @override
+  String get maintenanceMetricFileUnused => 'Freie Dateihandles';
+
+  @override
+  String get maintenanceMetricSwapTendency => 'Swappiness';
+
+  @override
+  String get maintenanceMetricListenLimit => 'Limit der Warteschlange';
+
+  @override
+  String get maintenanceMetricCpuQuota => 'CPU-Kontingent';
+
+  @override
+  String get maintenanceMetricCpuPeriod => 'CPU-Kontingentperiode';
+
+  @override
+  String get maintenanceMetricMemoryLimit => 'Speicherlimit';
+
+  @override
+  String get maintenanceMetricMemoryCurrent => 'Aktueller Speicher';
+
+  @override
+  String get maintenanceMetricUnlimited => 'Unbegrenzt';
+
+  @override
+  String get maintenanceMetricActiveMemory => 'Aktiver Speicher';
+
+  @override
+  String get maintenanceMetricInactiveMemory => 'Inaktiver Speicher';
+
+  @override
+  String get maintenanceMetricAnonymousMemory => 'Anonymer Speicher';
+
+  @override
+  String get maintenanceMetricSlabMemory => 'Kernel-Objektcache';
+
+  @override
+  String get maintenanceMetricMappedMemory => 'Zugeordneter Speicher';
+
+  @override
+  String get maintenanceMetricSharedMemory => 'Gemeinsamer Speicher';
+
+  @override
+  String get maintenanceMetricDirtyMemory => 'Geänderter Speicher';
+
+  @override
+  String get maintenanceMetricWritebackMemory => 'Speicher im Rückschreiben';
+
+  @override
+  String get maintenanceMetricGuidScheme => 'GUID-Partitionstabelle';
+
+  @override
+  String get maintenanceMetricApfsVolume => 'APFS-Volume';
+
+  @override
+  String get maintenanceMetricApfsSnapshot => 'APFS-Schnappschuss';
+
+  @override
+  String get maintenanceMetricApfsContainer => 'APFS-Container';
 }

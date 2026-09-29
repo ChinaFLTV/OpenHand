@@ -11893,4 +11893,233 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceSendBytes => 'Sent bytes';
+
+  @override
+  String get maintenanceMetricValue => 'Value';
+
+  @override
+  String get maintenanceMetricUnit => 'Unit';
+
+  @override
+  String get maintenanceMetricTotalReads => 'Total reads';
+
+  @override
+  String get maintenanceMetricTotalWrites => 'Total writes';
+
+  @override
+  String get maintenanceMetricBytesReadTotal => 'Bytes read (total)';
+
+  @override
+  String get maintenanceMetricBytesWrittenTotal => 'Bytes written (total)';
+
+  @override
+  String get maintenanceMetricReadTimeTotal => 'Read time (total)';
+
+  @override
+  String get maintenanceMetricWriteTimeTotal => 'Write time (total)';
+
+  @override
+  String get maintenanceMetricResource => 'Resource';
+
+  @override
+  String get maintenanceMetricScope => 'Scope';
+
+  @override
+  String get maintenanceMetric10SecondAverage => '10-second average';
+
+  @override
+  String get maintenanceMetric60SecondAverage => '60-second average';
+
+  @override
+  String get maintenanceMetric300SecondAverage => '300-second average';
+
+  @override
+  String get maintenanceMetricTotalStallTime => 'Total stall time';
+
+  @override
+  String get maintenanceMetricPages => 'Pages';
+
+  @override
+  String get maintenanceMetricCount => 'Count';
+
+  @override
+  String get maintenanceMetricPageSize => 'Page size';
+
+  @override
+  String get maintenanceMetricFreeMemory => 'Free memory';
+
+  @override
+  String get maintenanceMetricUsedInodes => 'Used inodes';
+
+  @override
+  String get maintenanceMetricFreeInodes => 'Free inodes';
+
+  @override
+  String get maintenanceMetricInodeUsage => 'Inode usage';
+
+  @override
+  String get maintenanceMetricMountPoint => 'Mount point';
+
+  @override
+  String get maintenanceMetricCapacity => 'Capacity';
+
+  @override
+  String get maintenanceMetricParentDeviceBus => 'Parent device / bus';
+
+  @override
+  String get maintenanceMetricMajorMinor => 'Major:minor';
+
+  @override
+  String get maintenanceMetricRemovable => 'Removable';
+
+  @override
+  String get maintenanceMetricReadOnly => 'Read-only';
+
+  @override
+  String get maintenanceMetricMembersAndSyncStatus => 'Members and sync status';
+
+  @override
+  String get maintenanceMetricLinkGateway => 'Link / gateway';
+
+  @override
+  String get maintenanceMetricKernelInterfaces => 'Kernel interfaces';
+
+  @override
+  String get maintenanceMetricAvailableTools => 'Available tools';
+
+  @override
+  String get maintenanceMetricMacosTools => 'macOS tools';
+
+  @override
+  String get maintenanceMetricCumulativeDiskCounters =>
+      'Cumulative disk counters';
+
+  @override
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries =>
+      'Available memory includes reclaimable pages; accounting varies by system.';
+
+  @override
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed =>
+      'Some fields are unrecognized or unavailable. Parsed metrics are shown.';
+
+  @override
+  String get maintenanceMetricSomeTasks => 'Some tasks';
+
+  @override
+  String get maintenanceMetricAllTasks => 'All tasks';
+
+  @override
+  String get maintenanceMetricSwapInPages => 'Swap-in pages';
+
+  @override
+  String get maintenanceMetricSwapOutPages => 'Swap-out pages';
+
+  @override
+  String get maintenanceMetricPageInVolume => 'Page-in volume';
+
+  @override
+  String get maintenanceMetricPageOutVolume => 'Page-out volume';
+
+  @override
+  String get maintenanceMetricTotalSwap => 'Total swap';
+
+  @override
+  String get maintenanceMetricFreeSwap => 'Free swap';
+
+  @override
+  String get maintenanceMetricProcessLimit => 'Process limit';
+
+  @override
+  String get maintenanceMetricFileLimit => 'File limit';
+
+  @override
+  String get maintenanceMetricThreadLimit => 'Thread limit';
+
+  @override
+  String get maintenanceMetricConnected => 'Connected';
+
+  @override
+  String get maintenanceMetricDisconnected => 'Disconnected';
+
+  @override
+  String get maintenanceMetricPhysicalStore => 'Physical store';
+
+  @override
+  String get maintenanceMetricInternalPhysicalDisk => 'Internal physical disk';
+
+  @override
+  String get maintenanceMetricSynthesizedDisk => 'Synthesized disk';
+
+  @override
+  String get maintenanceMetricDiskImage => 'Disk image';
+
+  @override
+  String get maintenanceMetricCommittedMemory => 'Committed memory';
+
+  @override
+  String get maintenanceMetricTaskThreads => 'Task threads';
+
+  @override
+  String get maintenanceMetricFileAllocated => 'Allocated file handles';
+
+  @override
+  String get maintenanceMetricFileUnused => 'Unused file handles';
+
+  @override
+  String get maintenanceMetricSwapTendency => 'Swappiness';
+
+  @override
+  String get maintenanceMetricListenLimit => 'Listen backlog limit';
+
+  @override
+  String get maintenanceMetricCpuQuota => 'CPU quota';
+
+  @override
+  String get maintenanceMetricCpuPeriod => 'CPU quota period';
+
+  @override
+  String get maintenanceMetricMemoryLimit => 'Memory limit';
+
+  @override
+  String get maintenanceMetricMemoryCurrent => 'Current memory';
+
+  @override
+  String get maintenanceMetricUnlimited => 'Unlimited';
+
+  @override
+  String get maintenanceMetricActiveMemory => 'Active memory';
+
+  @override
+  String get maintenanceMetricInactiveMemory => 'Inactive memory';
+
+  @override
+  String get maintenanceMetricAnonymousMemory => 'Anonymous memory';
+
+  @override
+  String get maintenanceMetricSlabMemory => 'Kernel object cache';
+
+  @override
+  String get maintenanceMetricMappedMemory => 'Mapped memory';
+
+  @override
+  String get maintenanceMetricSharedMemory => 'Shared memory';
+
+  @override
+  String get maintenanceMetricDirtyMemory => 'Dirty memory';
+
+  @override
+  String get maintenanceMetricWritebackMemory => 'Writeback memory';
+
+  @override
+  String get maintenanceMetricGuidScheme => 'GUID partition table';
+
+  @override
+  String get maintenanceMetricApfsVolume => 'APFS volume';
+
+  @override
+  String get maintenanceMetricApfsSnapshot => 'APFS snapshot';
+
+  @override
+  String get maintenanceMetricApfsContainer => 'APFS container';
 }

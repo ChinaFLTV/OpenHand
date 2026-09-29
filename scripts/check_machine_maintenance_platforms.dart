@@ -71,6 +71,27 @@ Future<void> main() async {
       '脚本超时或清理路径缺失',
     );
   }
+  final macOverview = MachineMaintenancePlatformAdapter.forPlatform(
+    'Darwin',
+  ).collect(0);
+  final awkStart = macOverview.indexOf("awk 'function counter") + 5;
+  final awkEnd = macOverview.indexOf("'\n", awkStart);
+  final diskReader = await Process.start('awk', [
+    macOverview.substring(awkStart, awkEnd),
+  ]);
+  diskReader.stdin.writeln(
+    '"Statistics" = {"Operations (Read)"=3,"Bytes (Read)"=1024,"Total Time (Read)"=2000000}',
+  );
+  diskReader.stdin.writeln(
+    '"Statistics" = {"Operations (Read)"=1,"Bytes (Read)"=512}',
+  );
+  await diskReader.stdin.close();
+  final diskRows = (await utf8.decoder.bind(diskReader.stdout).join())
+      .trim()
+      .split('\n');
+  final diskError = await utf8.decoder.bind(diskReader.stderr).join();
+  check(await diskReader.exitCode == 0, '磁盘采集脚本检查失败：$diskError');
+  check(diskRows.last.split(' ')[4] == '-1', '磁盘缺失字段沿用了上一条记录');
   final windows = MachineMaintenancePlatformAdapter.forPlatform('Windows');
   const process = MachineMaintenanceProcess(
     42,
@@ -119,6 +140,16 @@ Future<void> main() async {
       );
       if (i == 0) {
         check(data.memory['MemTotal'] == 8388608 * 1024, 'Windows 内存单位错误');
+        check(
+          data
+              .text('interfaces')
+              .contains('测试网卡\tactive\taa:bb\t—\t10.0.0.2, fe80::1'),
+          'Windows 网卡结构化采集失败',
+        );
+        check(
+          data.text('blocks').contains('测试磁盘\t107374182400 B'),
+          'Windows 磁盘结构化采集失败',
+        );
       }
       if (i == 1) {
         check(
@@ -181,6 +212,8 @@ const birth='20260929100000.000000+000';
 function item(values){values.Properties_=Object.keys(values).map(Name=>({Name,Value:values[Name]}));return values;}
 const datasets={
 Win32_OperatingSystem:[item({CSName:'测试主机',LastBootUpTime:'20260929080000.000000+000',LocalDateTime:'20260929120000.000000+000',TotalVisibleMemorySize:8388608,FreePhysicalMemory:4194304,Caption:'Windows 测试'})],
+Win32_NetworkAdapterConfiguration:[item({Description:'测试网卡',IPEnabled:true,MACAddress:'aa:bb',IPAddress:['10.0.0.2','fe80::1'],DefaultIPGateway:['10.0.0.1']})],
+Win32_DiskDrive:[item({DeviceID:'disk0',MediaType:'Fixed',Model:'测试磁盘',Size:'107374182400',InterfaceType:'SCSI'})],
 Win32_Processor:[item({Name:'测试 CPU',NumberOfLogicalProcessors:4})],
 Win32_PerfRawData_PerfOS_System:[item({SystemUpTime:0,Timestamp_Object:14400,Frequency_Object:1})],
 Win32_PerfRawData_PerfOS_Processor:[item({Name:'_Total',PercentProcessorTime:100000000,Timestamp_Sys100NS:200000000})],
@@ -193,6 +226,7 @@ const results=[];
 for(const script of scripts){
 let output=[];
 const context={
+VBArray:function(value){this.toArray=()=>value;},
 Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
 GetObject:()=>({ExecQuery:(q)=>datasets[(q.match(/FROM\s+(\w+)/i)||[])[1]]||[],Get:()=>datasets.Win32_Service[0]}),
 ActiveXObject:function(){this.Exec=()=>({Status:1,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},

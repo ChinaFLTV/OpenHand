@@ -164,6 +164,27 @@ void main() {
             image.dispose();
           });
         }
+        final sample = jsonDecode(File(Platform.environment['MAINTENANCE_REAL_DATA']!).readAsStringSync()) as Map;
+        final data = MachineMaintenanceSnapshot.parse(sample['overview'] as String);
+        await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
+          home: Scaffold(body: RepaintBoundary(key: const ValueKey('指标预览'), child: Padding(
+            padding: const EdgeInsets.all(24), child: ListView(children: [
+              for (final key in ['blocks', 'disks']) Padding(padding: const EdgeInsets.only(bottom: 12),
+                child: _MaintenanceCard(title: key == 'blocks' ? '块设备与 RAID' : '磁盘累计计数', scrollBody: false,
+                  child: _MaintenanceMetricContent(data: data, section: key))),
+            ]))))));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final metricsBoundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('指标预览')));
+        await tester.runAsync(() async {
+          final image = await metricsBoundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/maintenance-metrics-\${brightness.name}.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
         await tester.pumpWidget(const SizedBox());
       }
       await tester.binding.setSurfaceSize(null);
@@ -179,6 +200,27 @@ void main() {
     expect(_maintenanceConnections(linux).single, ['TCP', '[::]:22', '[::]:*', 'LISTEN']);
     final windows = MachineMaintenanceSnapshot({'platform': 'Windows', 'sockets': 'TCP [::1]:80 [::]:0 LISTENING 20'});
     expect(_maintenanceConnections(windows).single, ['TCP', '[::1]:80', '[::]:0', 'LISTENING']);
+  });
+
+  testWidgets('扩展指标直接显示分页表格并区分累计值与缺失值', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 800));
+    final data = MachineMaintenanceSnapshot({
+      'platform': 'Linux',
+      'disks': List.generate(35, (i) => 'disk\$i 20 0 4 8 30 0 6 9').join('\\n'),
+    });
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MaintenanceCard(title: '磁盘累计计数', scrollBody: false,
+        child: _MaintenanceMetricContent(data: data, section: 'disks')))));
+    await tester.pumpAndSettle();
+    expect(find.text('累计读取次数'), findsOneWidget);
+    expect(find.text('disk0'), findsOneWidget);
+    expect(find.byType(OpenHandOperationalRankTable), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.byType(SelectableText), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
   });
 
   testWidgets('六种语言切换覆盖标签、状态与原始数据边界', (tester) async {

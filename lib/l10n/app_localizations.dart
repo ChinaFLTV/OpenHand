@@ -21204,6 +21204,457 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'发送字节'**
   String get maintenanceSendBytes;
+
+  /// No description provided for @maintenanceMetricValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'数值'**
+  String get maintenanceMetricValue;
+
+  /// No description provided for @maintenanceMetricUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'单位'**
+  String get maintenanceMetricUnit;
+
+  /// No description provided for @maintenanceMetricTotalReads.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计读取次数'**
+  String get maintenanceMetricTotalReads;
+
+  /// No description provided for @maintenanceMetricTotalWrites.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计写入次数'**
+  String get maintenanceMetricTotalWrites;
+
+  /// No description provided for @maintenanceMetricBytesReadTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计读取字节'**
+  String get maintenanceMetricBytesReadTotal;
+
+  /// No description provided for @maintenanceMetricBytesWrittenTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计写入字节'**
+  String get maintenanceMetricBytesWrittenTotal;
+
+  /// No description provided for @maintenanceMetricReadTimeTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计读取耗时'**
+  String get maintenanceMetricReadTimeTotal;
+
+  /// No description provided for @maintenanceMetricWriteTimeTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计写入耗时'**
+  String get maintenanceMetricWriteTimeTotal;
+
+  /// No description provided for @maintenanceMetricResource.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源'**
+  String get maintenanceMetricResource;
+
+  /// No description provided for @maintenanceMetricScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'范围'**
+  String get maintenanceMetricScope;
+
+  /// No description provided for @maintenanceMetric10SecondAverage.
+  ///
+  /// In zh, this message translates to:
+  /// **'10 秒平均'**
+  String get maintenanceMetric10SecondAverage;
+
+  /// No description provided for @maintenanceMetric60SecondAverage.
+  ///
+  /// In zh, this message translates to:
+  /// **'60 秒平均'**
+  String get maintenanceMetric60SecondAverage;
+
+  /// No description provided for @maintenanceMetric300SecondAverage.
+  ///
+  /// In zh, this message translates to:
+  /// **'300 秒平均'**
+  String get maintenanceMetric300SecondAverage;
+
+  /// No description provided for @maintenanceMetricTotalStallTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计等待时间'**
+  String get maintenanceMetricTotalStallTime;
+
+  /// No description provided for @maintenanceMetricPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'页数'**
+  String get maintenanceMetricPages;
+
+  /// No description provided for @maintenanceMetricCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'次数'**
+  String get maintenanceMetricCount;
+
+  /// No description provided for @maintenanceMetricPageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'页大小'**
+  String get maintenanceMetricPageSize;
+
+  /// No description provided for @maintenanceMetricFreeMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲内存比例'**
+  String get maintenanceMetricFreeMemory;
+
+  /// No description provided for @maintenanceMetricUsedInodes.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用 inode'**
+  String get maintenanceMetricUsedInodes;
+
+  /// No description provided for @maintenanceMetricFreeInodes.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用 inode'**
+  String get maintenanceMetricFreeInodes;
+
+  /// No description provided for @maintenanceMetricInodeUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'inode 使用率'**
+  String get maintenanceMetricInodeUsage;
+
+  /// No description provided for @maintenanceMetricMountPoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载点'**
+  String get maintenanceMetricMountPoint;
+
+  /// No description provided for @maintenanceMetricCapacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'容量'**
+  String get maintenanceMetricCapacity;
+
+  /// No description provided for @maintenanceMetricParentDeviceBus.
+  ///
+  /// In zh, this message translates to:
+  /// **'所属设备'**
+  String get maintenanceMetricParentDeviceBus;
+
+  /// No description provided for @maintenanceMetricMajorMinor.
+  ///
+  /// In zh, this message translates to:
+  /// **'主次设备号'**
+  String get maintenanceMetricMajorMinor;
+
+  /// No description provided for @maintenanceMetricRemovable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可移除'**
+  String get maintenanceMetricRemovable;
+
+  /// No description provided for @maintenanceMetricReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只读'**
+  String get maintenanceMetricReadOnly;
+
+  /// No description provided for @maintenanceMetricMembersAndSyncStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'成员与同步状态'**
+  String get maintenanceMetricMembersAndSyncStatus;
+
+  /// No description provided for @maintenanceMetricLinkGateway.
+  ///
+  /// In zh, this message translates to:
+  /// **'链路'**
+  String get maintenanceMetricLinkGateway;
+
+  /// No description provided for @maintenanceMetricKernelInterfaces.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核接口'**
+  String get maintenanceMetricKernelInterfaces;
+
+  /// No description provided for @maintenanceMetricAvailableTools.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用工具'**
+  String get maintenanceMetricAvailableTools;
+
+  /// No description provided for @maintenanceMetricMacosTools.
+  ///
+  /// In zh, this message translates to:
+  /// **'macOS 原生命令'**
+  String get maintenanceMetricMacosTools;
+
+  /// No description provided for @maintenanceMetricCumulativeDiskCounters.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘累计计数'**
+  String get maintenanceMetricCumulativeDiskCounters;
+
+  /// No description provided for @maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用内存包含可回收页，具体统计口径因系统而异。'**
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries;
+
+  /// No description provided for @maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分字段未识别或不可用，已显示可解析的指标。'**
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed;
+
+  /// No description provided for @maintenanceMetricSomeTasks.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分任务'**
+  String get maintenanceMetricSomeTasks;
+
+  /// No description provided for @maintenanceMetricAllTasks.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部任务'**
+  String get maintenanceMetricAllTasks;
+
+  /// No description provided for @maintenanceMetricSwapInPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'换入页数'**
+  String get maintenanceMetricSwapInPages;
+
+  /// No description provided for @maintenanceMetricSwapOutPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'换出页数'**
+  String get maintenanceMetricSwapOutPages;
+
+  /// No description provided for @maintenanceMetricPageInVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页读取'**
+  String get maintenanceMetricPageInVolume;
+
+  /// No description provided for @maintenanceMetricPageOutVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页写入'**
+  String get maintenanceMetricPageOutVolume;
+
+  /// No description provided for @maintenanceMetricTotalSwap.
+  ///
+  /// In zh, this message translates to:
+  /// **'交换空间总量'**
+  String get maintenanceMetricTotalSwap;
+
+  /// No description provided for @maintenanceMetricFreeSwap.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲交换空间'**
+  String get maintenanceMetricFreeSwap;
+
+  /// No description provided for @maintenanceMetricProcessLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'进程上限'**
+  String get maintenanceMetricProcessLimit;
+
+  /// No description provided for @maintenanceMetricFileLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件上限'**
+  String get maintenanceMetricFileLimit;
+
+  /// No description provided for @maintenanceMetricThreadLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'线程上限'**
+  String get maintenanceMetricThreadLimit;
+
+  /// No description provided for @maintenanceMetricConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接'**
+  String get maintenanceMetricConnected;
+
+  /// No description provided for @maintenanceMetricDisconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'未连接'**
+  String get maintenanceMetricDisconnected;
+
+  /// No description provided for @maintenanceMetricPhysicalStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'物理存储'**
+  String get maintenanceMetricPhysicalStore;
+
+  /// No description provided for @maintenanceMetricInternalPhysicalDisk.
+  ///
+  /// In zh, this message translates to:
+  /// **'内部物理磁盘'**
+  String get maintenanceMetricInternalPhysicalDisk;
+
+  /// No description provided for @maintenanceMetricSynthesizedDisk.
+  ///
+  /// In zh, this message translates to:
+  /// **'合成磁盘'**
+  String get maintenanceMetricSynthesizedDisk;
+
+  /// No description provided for @maintenanceMetricDiskImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘映像'**
+  String get maintenanceMetricDiskImage;
+
+  /// No description provided for @maintenanceMetricCommittedMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交内存'**
+  String get maintenanceMetricCommittedMemory;
+
+  /// No description provided for @maintenanceMetricTaskThreads.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务线程数'**
+  String get maintenanceMetricTaskThreads;
+
+  /// No description provided for @maintenanceMetricFileAllocated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已分配文件句柄'**
+  String get maintenanceMetricFileAllocated;
+
+  /// No description provided for @maintenanceMetricFileUnused.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲文件句柄'**
+  String get maintenanceMetricFileUnused;
+
+  /// No description provided for @maintenanceMetricSwapTendency.
+  ///
+  /// In zh, this message translates to:
+  /// **'交换倾向'**
+  String get maintenanceMetricSwapTendency;
+
+  /// No description provided for @maintenanceMetricListenLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听队列上限'**
+  String get maintenanceMetricListenLimit;
+
+  /// No description provided for @maintenanceMetricCpuQuota.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 配额'**
+  String get maintenanceMetricCpuQuota;
+
+  /// No description provided for @maintenanceMetricCpuPeriod.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 配额周期'**
+  String get maintenanceMetricCpuPeriod;
+
+  /// No description provided for @maintenanceMetricMemoryLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存上限'**
+  String get maintenanceMetricMemoryLimit;
+
+  /// No description provided for @maintenanceMetricMemoryCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前内存'**
+  String get maintenanceMetricMemoryCurrent;
+
+  /// No description provided for @maintenanceMetricUnlimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'不设上限'**
+  String get maintenanceMetricUnlimited;
+
+  /// No description provided for @maintenanceMetricActiveMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'活跃内存'**
+  String get maintenanceMetricActiveMemory;
+
+  /// No description provided for @maintenanceMetricInactiveMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'非活跃内存'**
+  String get maintenanceMetricInactiveMemory;
+
+  /// No description provided for @maintenanceMetricAnonymousMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名内存'**
+  String get maintenanceMetricAnonymousMemory;
+
+  /// No description provided for @maintenanceMetricSlabMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核对象缓存'**
+  String get maintenanceMetricSlabMemory;
+
+  /// No description provided for @maintenanceMetricMappedMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'映射内存'**
+  String get maintenanceMetricMappedMemory;
+
+  /// No description provided for @maintenanceMetricSharedMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存'**
+  String get maintenanceMetricSharedMemory;
+
+  /// No description provided for @maintenanceMetricDirtyMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'待写回内存'**
+  String get maintenanceMetricDirtyMemory;
+
+  /// No description provided for @maintenanceMetricWritebackMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'写回中内存'**
+  String get maintenanceMetricWritebackMemory;
+
+  /// No description provided for @maintenanceMetricGuidScheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'GUID 分区表'**
+  String get maintenanceMetricGuidScheme;
+
+  /// No description provided for @maintenanceMetricApfsVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'APFS 卷'**
+  String get maintenanceMetricApfsVolume;
+
+  /// No description provided for @maintenanceMetricApfsSnapshot.
+  ///
+  /// In zh, this message translates to:
+  /// **'APFS 快照'**
+  String get maintenanceMetricApfsSnapshot;
+
+  /// No description provided for @maintenanceMetricApfsContainer.
+  ///
+  /// In zh, this message translates to:
+  /// **'APFS 容器'**
+  String get maintenanceMetricApfsContainer;
 }
 
 class _AppLocalizationsDelegate

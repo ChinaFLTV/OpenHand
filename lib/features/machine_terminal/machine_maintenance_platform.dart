@@ -159,7 +159,7 @@ printf 'macOS 可用内存按空闲、非活跃与推测页估算；每核计数
 section vm
 vm_stat | awk 'NR==1 {p=$8;gsub(/[^0-9]/,"",p)} /Pageins:|Pageouts:|Swapins:|Swapouts:/ {v=$NF;gsub(/\./,"",v); k=$1;gsub(/:/,"",k); if(k=="Pageins")printf "pgpgin %.0f\n",v*p/1024;if(k=="Pageouts")printf "pgpgout %.0f\n",v*p/1024;if(k=="Swapins")print "pswpin",v;if(k=="Swapouts")print "pswpout",v}'
 section disks
-ioreg -r -c IOBlockStorageDriver -l -w0 | awk '/"Statistics" =/ {n++;line=$0;sub(/^.*= \{/,"",line);gsub(/[{}"]/,"",line);c=split(line,a,",");for(i=1;i<=c;i++){split(a[i],b,"=");v[b[1]]=b[2]} printf "存储驱动%d %.0f 0 %.0f %.0f %.0f 0 %.0f %.0f\n",n,v["Operations (Read)"],v["Bytes (Read)"]/512,v["Total Time (Read)"]/1000000,v["Operations (Write)"],v["Bytes (Write)"]/512,v["Total Time (Write)"]/1000000}'
+ioreg -r -c IOBlockStorageDriver -l -w0 | awk 'function counter(k,s) {return k in v?v[k]/s:-1} /"Statistics" =/ {for(k in v)delete v[k];n++;line=$0;sub(/^.*= \{/,"",line);gsub(/[{}"]/,"",line);c=split(line,a,",");for(i=1;i<=c;i++){split(a[i],b,"=");v[b[1]]=b[2]} printf "存储驱动%d %.0f 0 %.0f %.0f %.0f 0 %.0f %.0f\n",n,counter("Operations (Read)",1),counter("Bytes (Read)",512),counter("Total Time (Read)",1000000),counter("Operations (Write)",1),counter("Bytes (Write)",512),counter("Total Time (Write)",1000000)}'
 section network
 netstat -ibn | awk '/<Link#/ {n=NF; printf "%s: %.0f %.0f %.0f 0 0 0 0 0 %.0f %.0f %.0f 0 0 0 0 0\n",$1,$(n-4),$(n-6),$(n-5),$(n-1),$(n-3),$(n-2)}'
 section filesystems
@@ -303,7 +303,11 @@ var nets=rows("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface"),lines=[]
 for(var i=0;i<nets.length;i++){var n=nets[i];if(n.BytesReceivedPersec==null || n.BytesSentPersec==null)continue;lines.push(encodeURIComponent(clean(n.Name))+": "+fixed(Number(n.BytesReceivedPersec))+" "+counter(n.PacketsReceivedPersec)+" "+counter(n.PacketsReceivedErrors)+" "+counter(n.PacketsReceivedDiscarded)+" 0 0 0 0 "+fixed(Number(n.BytesSentPersec))+" "+counter(n.PacketsSentPersec)+" "+counter(n.PacketsOutboundErrors)+" "+counter(n.PacketsOutboundDiscarded)+" 0 0 0 0");}emit("network",lines.join("\n"));
 var mem=rows("SELECT * FROM Win32_PerfRawData_PerfOS_Memory")[0];emit("memory_details",describe(mem));
 var system=rows("SELECT * FROM Win32_PerfRawData_PerfOS_System")[0];emit("pressure",describe(system));
-emit("interfaces",command("ipconfig /all",12000));
+var adapters=rows("SELECT Description,IPEnabled,MACAddress,IPAddress,DefaultIPGateway FROM Win32_NetworkAdapterConfiguration"),lines=[];
+function arrayText(value){if(value==null)return "—";try{return new VBArray(value).toArray().join(", ");}catch(e){return clean(value);}}
+for(var i=0;i<adapters.length;i++){var a=adapters[i];lines.push([clean(a.Description),a.IPEnabled==null?"—":a.IPEnabled?"active":"inactive",clean(a.MACAddress)||"—","—",arrayText(a.IPAddress),arrayText(a.DefaultIPGateway)].join("\t"));}emit("interfaces",lines.join("\n"));
+var physical=rows("SELECT DeviceID,MediaType,Model,Size,InterfaceType FROM Win32_DiskDrive"),lines=[];
+for(var i=0;i<physical.length;i++){var d=physical[i];lines.push([clean(d.DeviceID),clean(d.MediaType)||"—",clean(d.Model),d.Size==null?"—":clean(d.Size)+" B",clean(d.InterfaceType)||"—"].join("\t"));}emit("blocks",lines.join("\n"));
 emit("capabilities","Windows WMI / WSH JScript；性能计数器取决于系统提供程序，缺失字段不作估算。\n"+warnings.join("\n"));
 ''';
 

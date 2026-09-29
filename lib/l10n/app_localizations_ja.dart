@@ -11641,4 +11641,232 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceSendBytes => '送信バイト数';
+
+  @override
+  String get maintenanceMetricValue => '値';
+
+  @override
+  String get maintenanceMetricUnit => '単位';
+
+  @override
+  String get maintenanceMetricTotalReads => '累計読み取り回数';
+
+  @override
+  String get maintenanceMetricTotalWrites => '累計書き込み回数';
+
+  @override
+  String get maintenanceMetricBytesReadTotal => '累計読み取りバイト';
+
+  @override
+  String get maintenanceMetricBytesWrittenTotal => '累計書き込みバイト';
+
+  @override
+  String get maintenanceMetricReadTimeTotal => '累計読み取り時間';
+
+  @override
+  String get maintenanceMetricWriteTimeTotal => '累計書き込み時間';
+
+  @override
+  String get maintenanceMetricResource => 'リソース';
+
+  @override
+  String get maintenanceMetricScope => '範囲';
+
+  @override
+  String get maintenanceMetric10SecondAverage => '10 秒平均';
+
+  @override
+  String get maintenanceMetric60SecondAverage => '60 秒平均';
+
+  @override
+  String get maintenanceMetric300SecondAverage => '300 秒平均';
+
+  @override
+  String get maintenanceMetricTotalStallTime => '累計待機時間';
+
+  @override
+  String get maintenanceMetricPages => 'ページ数';
+
+  @override
+  String get maintenanceMetricCount => '回数';
+
+  @override
+  String get maintenanceMetricPageSize => 'ページサイズ';
+
+  @override
+  String get maintenanceMetricFreeMemory => '空きメモリ比率';
+
+  @override
+  String get maintenanceMetricUsedInodes => '使用済み inode';
+
+  @override
+  String get maintenanceMetricFreeInodes => '空き inode';
+
+  @override
+  String get maintenanceMetricInodeUsage => 'inode 使用率';
+
+  @override
+  String get maintenanceMetricMountPoint => 'マウント先';
+
+  @override
+  String get maintenanceMetricCapacity => '容量';
+
+  @override
+  String get maintenanceMetricParentDeviceBus => '親デバイス／バス';
+
+  @override
+  String get maintenanceMetricMajorMinor => 'メジャー：マイナー';
+
+  @override
+  String get maintenanceMetricRemovable => '取り外し可能';
+
+  @override
+  String get maintenanceMetricReadOnly => '読み取り専用';
+
+  @override
+  String get maintenanceMetricMembersAndSyncStatus => 'メンバーと同期状態';
+
+  @override
+  String get maintenanceMetricLinkGateway => 'リンク／ゲートウェイ';
+
+  @override
+  String get maintenanceMetricKernelInterfaces => 'カーネルインターフェース';
+
+  @override
+  String get maintenanceMetricAvailableTools => '利用可能なツール';
+
+  @override
+  String get maintenanceMetricMacosTools => 'macOS ツール';
+
+  @override
+  String get maintenanceMetricCumulativeDiskCounters => 'ディスク累計カウンター';
+
+  @override
+  String
+  get maintenanceMetricAvailableMemoryIncludesReclaimablePagesAccountingVaries =>
+      '利用可能なメモリには回収可能なページが含まれ、集計方法はシステムにより異なります。';
+
+  @override
+  String get maintenanceMetricSomeFieldsAreUnrecognizedOrUnavailableParsed =>
+      '一部の項目は未対応または利用できません。解析できた指標を表示しています。';
+
+  @override
+  String get maintenanceMetricSomeTasks => '一部のタスク';
+
+  @override
+  String get maintenanceMetricAllTasks => 'すべてのタスク';
+
+  @override
+  String get maintenanceMetricSwapInPages => 'スワップインページ';
+
+  @override
+  String get maintenanceMetricSwapOutPages => 'スワップアウトページ';
+
+  @override
+  String get maintenanceMetricPageInVolume => 'ページ読み取り量';
+
+  @override
+  String get maintenanceMetricPageOutVolume => 'ページ書き込み量';
+
+  @override
+  String get maintenanceMetricTotalSwap => 'スワップ総容量';
+
+  @override
+  String get maintenanceMetricFreeSwap => '空きスワップ';
+
+  @override
+  String get maintenanceMetricProcessLimit => 'プロセス上限';
+
+  @override
+  String get maintenanceMetricFileLimit => 'ファイル上限';
+
+  @override
+  String get maintenanceMetricThreadLimit => 'スレッド上限';
+
+  @override
+  String get maintenanceMetricConnected => '接続済み';
+
+  @override
+  String get maintenanceMetricDisconnected => '未接続';
+
+  @override
+  String get maintenanceMetricPhysicalStore => '物理ストレージ';
+
+  @override
+  String get maintenanceMetricInternalPhysicalDisk => '内蔵物理ディスク';
+
+  @override
+  String get maintenanceMetricSynthesizedDisk => '合成ディスク';
+
+  @override
+  String get maintenanceMetricDiskImage => 'ディスクイメージ';
+
+  @override
+  String get maintenanceMetricCommittedMemory => 'コミット済みメモリ';
+
+  @override
+  String get maintenanceMetricTaskThreads => 'タスクのスレッド数';
+
+  @override
+  String get maintenanceMetricFileAllocated => '割り当て済みファイルハンドル';
+
+  @override
+  String get maintenanceMetricFileUnused => '未使用ファイルハンドル';
+
+  @override
+  String get maintenanceMetricSwapTendency => 'スワップ傾向';
+
+  @override
+  String get maintenanceMetricListenLimit => '待ち受けキュー上限';
+
+  @override
+  String get maintenanceMetricCpuQuota => 'CPU クォータ';
+
+  @override
+  String get maintenanceMetricCpuPeriod => 'CPU クォータ周期';
+
+  @override
+  String get maintenanceMetricMemoryLimit => 'メモリ上限';
+
+  @override
+  String get maintenanceMetricMemoryCurrent => '現在のメモリ';
+
+  @override
+  String get maintenanceMetricUnlimited => '無制限';
+
+  @override
+  String get maintenanceMetricActiveMemory => 'アクティブメモリ';
+
+  @override
+  String get maintenanceMetricInactiveMemory => '非アクティブメモリ';
+
+  @override
+  String get maintenanceMetricAnonymousMemory => '匿名メモリ';
+
+  @override
+  String get maintenanceMetricSlabMemory => 'カーネルオブジェクトキャッシュ';
+
+  @override
+  String get maintenanceMetricMappedMemory => 'マップ済みメモリ';
+
+  @override
+  String get maintenanceMetricSharedMemory => '共有メモリ';
+
+  @override
+  String get maintenanceMetricDirtyMemory => 'ダーティメモリ';
+
+  @override
+  String get maintenanceMetricWritebackMemory => '書き戻し中のメモリ';
+
+  @override
+  String get maintenanceMetricGuidScheme => 'GUID パーティションテーブル';
+
+  @override
+  String get maintenanceMetricApfsVolume => 'APFS ボリューム';
+
+  @override
+  String get maintenanceMetricApfsSnapshot => 'APFS スナップショット';
+
+  @override
+  String get maintenanceMetricApfsContainer => 'APFS コンテナ';
 }

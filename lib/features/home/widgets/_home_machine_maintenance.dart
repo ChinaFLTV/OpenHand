@@ -966,46 +966,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           },
         ),
         _MaintenanceCard(
-          title: maintenanceLabel(context, '更多系统指标'),
-          icon: Icons.dashboard_customize_outlined,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final key in const [
-                'disks',
-                'vm',
-                'pressure',
-                'memory',
-                'memory_note',
-                'memory_details',
-                'kernel',
-                'blocks',
-                'interfaces',
-                'inodes',
-                'sensors',
-                'cgroup_limits',
-                'capabilities',
-              ])
-                if (data.text(key).isNotEmpty)
-                  OutlinedButton(
-                    onPressed: () => _showCollected(
-                      _maintenanceSectionLabels[key] ?? key,
-                      data.text(key),
-                    ),
-                    child: Text(
-                      maintenanceLabel(
-                        context,
-                        _maintenanceSectionLabels[key] ?? key,
-                      ),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _MaintenanceCard(
           title: maintenanceLabel(context, '磁盘 IO'),
           icon: Icons.speed_rounded,
           child: _rateTable(
@@ -1016,6 +976,41 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             const [512, 512, 1, 1],
           ),
         ),
+        for (final section in const [
+          'disks',
+          'memory',
+          'memory_details',
+          'vm',
+          'pressure',
+          'kernel',
+          'blocks',
+          'interfaces',
+          'inodes',
+          'sensors',
+          'cgroup_limits',
+          'capabilities',
+        ])
+          if (data.text(section).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _MaintenanceCard(
+                title: maintenanceLabel(
+                  context,
+                  section == 'disks'
+                      ? '磁盘累计计数'
+                      : _maintenanceSectionLabels[section] ?? section,
+                ),
+                icon: switch (section) {
+                  'disks' || 'blocks' || 'inodes' => Icons.storage_rounded,
+                  'memory' || 'memory_details' || 'vm' => Icons.memory_rounded,
+                  'interfaces' => Icons.lan_outlined,
+                  'pressure' || 'sensors' => Icons.monitor_heart_outlined,
+                  _ => Icons.tune_rounded,
+                },
+                scrollBody: false,
+                child: _MaintenanceMetricContent(data: data, section: section),
+              ),
+            ),
       ],
     );
   }
@@ -1785,6 +1780,57 @@ String _maintenanceRateLabel(double? rate, {required bool bytes}) =>
     ? '${formatByteSize(rate)}/s'
     : rate.toStringAsFixed(1);
 
+class _MaintenanceMetricContent extends StatelessWidget {
+  const _MaintenanceMetricContent({required this.data, required this.section});
+  final MachineMaintenanceSnapshot data;
+  final String section;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = MachineMaintenanceMetrics.parse(data, section);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (section == 'memory' && data.text('memory_note').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(maintenanceLabel(context, '可用内存包含可回收页，具体统计口径因系统而异。')),
+          ),
+        for (var t = 0; t < metrics.tables.length; t++)
+          _MaintenanceTable(
+            key: ValueKey((section, t)),
+            headers: metrics.tables[t].headers,
+            rows: [
+              for (var r = 0; r < metrics.tables[t].rows.length; r++)
+                OpenHandOperationalRankRow(
+                  value: 0,
+                  rowKey: '$section:$t:$r',
+                  cells: [
+                    for (var c = 0; c < metrics.tables[t].rows[r].length; c++)
+                      maintenanceMetricLabel(
+                        context,
+                        metrics.tables[t].rows[r][c],
+                        metrics.tables[t].headers[c],
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        if (metrics.unparsed > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              maintenanceLabel(context, '部分字段未识别或不可用，已显示可解析的指标。'),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _MaintenanceTable extends StatelessWidget {
   const _MaintenanceTable({
     super.key,
@@ -2144,12 +2190,14 @@ class _MaintenanceCard extends StatelessWidget {
     this.icon = Icons.analytics_outlined,
     this.onOpen,
     this.maxHeight = 280,
+    this.scrollBody = true,
   });
   final String title;
   final Widget child;
   final IconData icon;
   final VoidCallback? onOpen;
   final double maxHeight;
+  final bool scrollBody;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -2205,7 +2253,7 @@ class _MaintenanceCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: child is _MaintenanceTable
+            child: !scrollBody || child is _MaintenanceTable
                 ? child
                 : ConstrainedBox(
                     constraints: BoxConstraints(
