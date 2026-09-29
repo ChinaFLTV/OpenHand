@@ -1649,27 +1649,28 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final charts = _MaintenanceGrid(
       minWidth: 300,
       children: [
-        _MaintenanceCard(
-          title: AppLocalizations.of(context)!.maintenanceCpuRank,
-          icon: Icons.bar_chart_rounded,
-          child: _MaintenanceVisual(
-            segments: [
-              for (final p in cpuRank.take(_maintenanceChartLimit))
-                OpenHandChartSegment(
-                  label: '${p.pid} · ${p.name.split('/').last}',
-                  value: cpu(p)!,
-                  valueLabel: '${cpu(p)!.toStringAsFixed(1)}%',
-                  color: cs.primary,
-                ),
-            ],
+        if (cpuRank.isNotEmpty)
+          _MaintenanceCard(
+            title: AppLocalizations.of(context)!.maintenanceCpuRank,
+            icon: Icons.bar_chart_rounded,
+            child: _MaintenanceVisual(
+              segments: [
+                for (final p in cpuRank.take(_maintenanceChartLimit))
+                  OpenHandChartSegment(
+                    label: '${p.pid} · ${p.name.split('/').last}',
+                    value: cpu(p)!,
+                    valueLabel: '${cpu(p)!.toStringAsFixed(1)}%',
+                    color: cs.primary,
+                  ),
+              ],
+            ),
           ),
-        ),
-        _MaintenanceCard(
-          title: AppLocalizations.of(context)!.maintenanceMemoryRank,
-          icon: Icons.stacked_bar_chart_rounded,
-          child: _MaintenanceVisual(
-            segments: [
-              if (pageSize != null && pageSize > 0)
+        if (memoryRank.isNotEmpty && pageSize != null && pageSize > 0)
+          _MaintenanceCard(
+            title: AppLocalizations.of(context)!.maintenanceMemoryRank,
+            icon: Icons.stacked_bar_chart_rounded,
+            child: _MaintenanceVisual(
+              segments: [
                 for (final p in memoryRank.take(_maintenanceChartLimit))
                   OpenHandChartSegment(
                     label: '${p.pid} · ${p.name.split('/').last}',
@@ -1677,9 +1678,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     valueLabel: formatByteSize(p.residentPages * pageSize),
                     color: cs.tertiary,
                   ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
     return Padding(
@@ -2243,6 +2244,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _MaintenanceGrid(
           minWidth: 420,
           maxColumns: 2,
+          staggered: true,
           children: [
             for (var i = 0; i < machineHealthSections.length; i++)
               Builder(
@@ -2469,62 +2471,56 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
         const SizedBox(height: 12),
-        _MaintenanceGrid(
-          minWidth: 340,
-          children: [
-            _MaintenanceCard(
-              title: AppLocalizations.of(context)!.maintenanceConnectionShare,
-              icon: Icons.donut_small_rounded,
-              child: _MaintenanceVisual(
-                donut: true,
-                segments: [
-                  for (final entry in states.entries)
-                    OpenHandChartSegment(
-                      label: entry.key,
-                      value: entry.value,
-                      color: [
-                        cs.primary,
-                        cs.tertiary,
-                        cs.secondary,
-                        cs.error,
-                      ][states.keys.toList().indexOf(entry.key) % 4],
-                    ),
-                ],
-              ),
-            ),
-            _MaintenanceCard(
-              title: AppLocalizations.of(context)!.maintenanceConnectionGraph,
-              icon: Icons.account_tree_outlined,
-              child: _MaintenanceConnectionGraph(rows: connections),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (_, constraints) => constraints.maxWidth < 850
-              ? Column(
-                  children: [primary, const SizedBox(height: 12), secondary],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 7, child: primary),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 3, child: secondary),
+        if (connections.isNotEmpty)
+          _MaintenanceGrid(
+            minWidth: 340,
+            children: [
+              _MaintenanceCard(
+                title: AppLocalizations.of(context)!.maintenanceConnectionShare,
+                icon: Icons.donut_small_rounded,
+                child: _MaintenanceVisual(
+                  donut: true,
+                  segments: [
+                    for (final entry in states.entries)
+                      OpenHandChartSegment(
+                        label: entry.key,
+                        value: entry.value,
+                        color: [
+                          cs.primary,
+                          cs.tertiary,
+                          cs.secondary,
+                          cs.error,
+                        ][states.keys.toList().indexOf(entry.key) % 4],
+                      ),
                   ],
                 ),
-        ),
-        const SizedBox(height: 12),
-        _MaintenanceCard(
-          title: maintenanceLabel(context, '最近日志'),
-          icon: Icons.receipt_long_outlined,
-          onOpen: () => _showCollected('最近日志', data.text('logs')),
-          child: _MaintenanceLogTimeline(
-            rows: MachineMaintenanceReadout.parse(
-              data.text('logs'),
-              'logs',
-            ).rows,
+              ),
+              _MaintenanceCard(
+                title: AppLocalizations.of(context)!.maintenanceConnectionGraph,
+                icon: Icons.account_tree_outlined,
+                child: _MaintenanceConnectionGraph(rows: connections),
+              ),
+            ],
           ),
+        const SizedBox(height: 12),
+        _MaintenanceGrid(
+          maxColumns: 2,
+          staggered: true,
+          children: [
+            primary,
+            ...secondary.children,
+            _MaintenanceCard(
+              title: maintenanceLabel(context, '最近日志'),
+              icon: Icons.receipt_long_outlined,
+              onOpen: () => _showCollected('最近日志', data.text('logs')),
+              child: _MaintenanceLogTimeline(
+                rows: MachineMaintenanceReadout.parse(
+                  data.text('logs'),
+                  'logs',
+                ).rows,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -2995,118 +2991,152 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                   duration: openHandMotionDuration(context, motion.duration),
                   builder: (_, value, child) =>
                       Opacity(opacity: value.clamp(0, 1), child: child),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: index.isEven ? cs.surface : cs.surfaceContainerLow,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: cs.outlineVariant.withValues(alpha: .35),
+                  child: CustomPaint(
+                    foregroundPainter: _MaintenanceTreeGuide(
+                      depth: math.min(depth, 8),
+                      color: cs.outlineVariant,
+                      rtl: Directionality.of(context) == TextDirection.rtl,
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: index.isEven
+                            ? cs.surface
+                            : cs.surfaceContainerLow,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: .35),
+                          ),
                         ),
                       ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        start: math.min(depth, 8) * 16.0,
-                        end: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 34,
-                            child: branches.isEmpty
-                                ? Icon(
-                                    Icons.subdirectory_arrow_right_rounded,
-                                    size: 16,
-                                    color: cs.outline,
-                                  )
-                                : IconButton(
-                                    tooltip: collapsed
-                                        ? l10n.maintenanceTreeExpand
-                                        : l10n.maintenanceTreeCollapse,
-                                    onPressed: query.isNotEmpty
-                                        ? null
-                                        : () => setState(() {
-                                            if (!_collapsed.add(id)) {
-                                              _collapsed.remove(id);
-                                            }
-                                          }),
-                                    icon: AnimatedRotation(
-                                      turns: collapsed ? 0 : .25,
-                                      duration: openHandMotionDuration(
-                                        context,
-                                        motion.duration,
-                                      ),
-                                      curve: motion.curve.curve,
-                                      child: const Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 18,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          Expanded(
-                            child: InkWell(
-                              hoverColor: Colors.transparent,
-                              onTap: row == null
-                                  ? null
-                                  : () => widget.table.onRowTap?.call(row),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      row == null
-                                          ? id.substring(6)
-                                          : row.cells[widget.nameColumn],
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: row == null
-                                            ? cs.primary
-                                            : cs.onSurface,
-                                      ),
-                                    ),
-                                    if (row != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        [
-                                          for (final i
-                                              in widget.nameColumn == 1
-                                                  ? const [0, 2, 3, 4, 6]
-                                                  : const [1, 2, 3, 4])
-                                            if (i < row.cells.length)
-                                              '${maintenanceLabel(context, widget.table.headers[i])}: ${row.cells[i]}',
-                                        ].join(' · '),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: cs.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      if (widget.nameColumn == 0 &&
-                                          !widget.groupNames &&
-                                          (widget.parents[id]?.isNotEmpty ??
-                                              false))
-                                        Text(
-                                          '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: cs.onSurfaceVariant,
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: 12 + math.min(depth, 8) * 20.0,
+                          end: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: branches.isEmpty
+                                  ? Icon(
+                                      Icons.subdirectory_arrow_right_rounded,
+                                      size: 16,
+                                      color: cs.outline,
+                                    )
+                                  : IconButton(
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size.square(32),
+                                        maximumSize: const Size.square(32),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
                                           ),
                                         ),
+                                      ),
+                                      tooltip: collapsed
+                                          ? l10n.maintenanceTreeExpand
+                                          : l10n.maintenanceTreeCollapse,
+                                      onPressed: query.isNotEmpty
+                                          ? null
+                                          : () => setState(() {
+                                              if (!_collapsed.add(id)) {
+                                                _collapsed.remove(id);
+                                              }
+                                            }),
+                                      icon: AnimatedRotation(
+                                        turns: collapsed ? 0 : .25,
+                                        duration: openHandMotionDuration(
+                                          context,
+                                          motion.duration,
+                                        ),
+                                        curve: motion.curve.curve,
+                                        child: const Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                hoverColor: Colors.transparent,
+                                onTap: row == null
+                                    ? null
+                                    : () => widget.table.onRowTap?.call(row),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        row == null
+                                            ? id.substring(6)
+                                            : row.cells[widget.nameColumn],
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: row == null
+                                              ? cs.primary
+                                              : cs.onSurface,
+                                        ),
+                                      ),
+                                      if (row != null) ...[
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 16,
+                                          runSpacing: 4,
+                                          children: [
+                                            for (final i
+                                                in widget.nameColumn == 1
+                                                    ? const [0, 2, 3, 4, 6]
+                                                    : const [1, 2, 3, 4])
+                                              if (i < row.cells.length)
+                                                Text(
+                                                  '${maintenanceLabel(context, widget.table.headers[i])}: ${row.cells[i]}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: cs.onSurfaceVariant,
+                                                  ),
+                                                ),
+                                          ],
+                                        ),
+                                        if (widget.nameColumn == 0 &&
+                                            !widget.groupNames &&
+                                            (widget.parents[id]?.isNotEmpty ??
+                                                false))
+                                          Text(
+                                            '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                          ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          if (branches.isNotEmpty)
-                            Text(
-                              '${branches.length}',
-                              style: TextStyle(color: cs.primary, fontSize: 12),
-                            ),
-                        ],
+                            if (branches.isNotEmpty)
+                              Text(
+                                '${branches.length}',
+                                style: TextStyle(
+                                  color: cs.primary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -3158,12 +3188,56 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
             duration: openHandMotionDuration(context, motion.duration),
             switchInCurve: motion.curve.curve,
             switchOutCurve: Curves.easeOut,
-            child: _tree ? tree : table,
+            child: _tree
+                ? ClipRRect(
+                    key: const ValueKey(true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Material(color: cs.surface, child: tree),
+                  )
+                : table,
           ),
         ),
       ],
     );
   }
+}
+
+class _MaintenanceTreeGuide extends CustomPainter {
+  const _MaintenanceTreeGuide({
+    required this.depth,
+    required this.color,
+    required this.rtl,
+  });
+  final int depth;
+  final Color color;
+  final bool rtl;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (rtl) {
+      canvas.translate(size.width, 0);
+      canvas.scale(-1, 1);
+    }
+    final pen = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (var level = 0; level < depth; level++) {
+      final x = 28.0 + level * 20;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), pen);
+      if (level == depth - 1) {
+        canvas.drawLine(
+          Offset(x, size.height / 2),
+          Offset(x + 10, size.height / 2),
+          pen,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MaintenanceTreeGuide oldDelegate) =>
+      depth != oldDelegate.depth ||
+      color != oldDelegate.color ||
+      rtl != oldDelegate.rtl;
 }
 
 class _MaintenanceTable extends StatelessWidget {
@@ -3542,18 +3616,42 @@ class _MaintenanceGrid extends StatelessWidget {
     required this.children,
     this.minWidth = 360,
     this.maxColumns = 3,
+    this.staggered = false,
   });
   final List<Widget> children;
   final double minWidth;
   final int maxColumns;
+  final bool staggered;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (_, constraints) {
       final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
       final columns = ((constraints.maxWidth + 12) / (minWidth * scale + 12))
           .floor()
-          .clamp(1, maxColumns);
+          .clamp(1, math.max(1, math.min(maxColumns, children.length)))
+          .toInt();
       final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+      if (staggered && columns > 1) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var column = 0; column < columns; column++) ...[
+              if (column > 0) const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = column; i < children.length; i += columns) ...[
+                      if (i >= columns) const SizedBox(height: 12),
+                      children[i],
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      }
       return Wrap(
         spacing: 12,
         runSpacing: 12,

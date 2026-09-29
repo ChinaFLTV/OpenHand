@@ -1278,6 +1278,48 @@ void main() {
   });
 
 
+  testWidgets('树形按钮保持方形，双卡填满列宽，错列卡片紧接前项', (tester) async {
+    await tester.runAsync(() async {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+        if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+      }
+    });
+    await tester.binding.setSurfaceSize(const Size(1100, 850));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, theme: OpenHandTheme.light(OpenHandThemePreset.values.first).copyWith(textTheme: OpenHandTheme.light(OpenHandThemePreset.values.first).textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+      home: Scaffold(body: RepaintBoundary(key: const ValueKey('树预览'), child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+        _MaintenanceGrid(children: [Container(key: const ValueKey('甲'), height: 40), Container(key: const ValueKey('乙'), height: 40)]),
+        _MaintenanceGrid(staggered: true, maxColumns: 2, children: [SizedBox(key: const ValueKey('长卡'), height: 100), SizedBox(key: const ValueKey('短卡'), height: 30), SizedBox(height: 10), SizedBox(key: const ValueKey('续卡'), height: 10)]),
+        _MaintenanceBrowser(query: '', nameColumn: 1, parents: const {'2': ['1'], '3': ['2']},
+          table: _MaintenanceTable(maxBodyHeight: 450, headers: const ['PID', '进程', '状态', 'CPU', '内存'], rows: [
+            OpenHandOperationalRankRow(value: 0, cells: ['1', 'launchd', '运行', '1%', '20 MB']),
+            OpenHandOperationalRankRow(value: 0, cells: ['2', '应用进程', '运行', '2%', '120 MB']),
+            OpenHandOperationalRankRow(value: 0, cells: ['3', '后台工作进程', '休眠', '0%', '12 MB']),
+          ])),
+      ]))))));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const ValueKey('甲'))).width, 528);
+    expect(tester.getRect(find.byKey(const ValueKey('续卡'))).top - tester.getRect(find.byKey(const ValueKey('短卡'))).bottom, 12);
+    await tester.tap(find.text('关系树'));
+    await tester.pumpAndSettle();
+    for (final button in find.byType(IconButton).evaluate()) {
+      final size = tester.getSize(find.byWidget(button.widget));
+      expect(size.width, 32);
+      expect(size.height, 32);
+    }
+    expect(tester.getTopLeft(find.text('后台工作进程')).dx, greaterThan(tester.getTopLeft(find.text('应用进程')).dx));
+    final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('树预览')));
+    await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/maintenance-tree-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('服务名称分组适配六种语言窄窗口，节点可展开且保留完整名称', (tester) async {
     await tester.binding.setSurfaceSize(const Size(380, 700));
     for (final locale in [const Locale('zh'), const Locale('zh', 'Hant'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja')]) {
