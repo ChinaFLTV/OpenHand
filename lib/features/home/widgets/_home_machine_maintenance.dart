@@ -1969,167 +1969,169 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: Column(
+      child: LayoutBuilder(
         key: const ValueKey('运维进程列表'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: LayoutBuilder(
-              builder: (_, constraints) {
-                final search = SizedBox(
-                  width: math.min(
-                    _maintenanceSearchWidth,
-                    constraints.maxWidth,
-                  ),
-                  child: TextField(
-                    controller: _search,
-                    style: const TextStyle(fontSize: 13, height: 1.2),
-                    textAlignVertical: TextAlignVertical.center,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    ),
-                  ),
-                );
-                final sort = _MaintenanceToolbarMenu<int>(
-                  label: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
-                  tooltip: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
-                  value: _sort,
-                  items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
-                  onSelected: (value) => setState(() => _sort = value),
-                );
-                if (constraints.maxWidth <
-                    420 * MediaQuery.textScalerOf(context).scale(12) / 12) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(alignment: Alignment.centerLeft, child: search),
-                      const SizedBox(height: 10),
-                      Align(alignment: Alignment.centerRight, child: sort),
-                    ],
-                  );
-                }
-                return Row(children: [search, const Spacer(), sort]);
-              },
-            ),
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (_, constraints) => SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    charts,
-                    const SizedBox(height: 12),
-                    _MaintenanceBrowser(
-                      query: query,
-                      nameColumn: 1,
-                      parents: {
-                        for (final p in rows) '${p.pid}': ['${p.parent}'],
-                      },
-                      table: _MaintenanceTable(
-                        limitToViewport: false,
-                        maxBodyHeight: math.max(
-                          100,
-                          constraints.maxHeight -
-                              (constraints.maxWidth < 720 ? 148 : 96),
+        builder: (_, constraints) => SizedBox.expand(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                charts,
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: LayoutBuilder(
+                    builder: (_, constraints) {
+                      final search = SizedBox(
+                        width: math.min(
+                          _maintenanceSearchWidth,
+                          constraints.maxWidth,
                         ),
-                        headers: const [
-                          'PID',
-                          '进程',
-                          '状态',
-                          'CPU / 单核',
-                          '驻留内存',
-                          '线程',
-                          '父进程 ID',
-                          '优先级',
-                          '虚拟内存',
-                          '累计 CPU 时间',
-                        ],
-                        rows: [
-                          for (final p in rows)
-                            OpenHandOperationalRankRow(
-                              value: 0,
-                              rowKey: (p.pid, p.startToken),
-                              data: p,
-                              cells: [
-                                '${p.pid}',
-                                p.name.split('/').last.split('\\').last,
-                                maintenanceLabel(
-                                  context,
-                                  _maintenanceProcessState(p.state),
-                                ),
-                                cpu(p) == null
-                                    ? '—'
-                                    : '${cpu(p)!.toStringAsFixed(1)}%',
-                                pageSize == null || p.residentPages < 0
-                                    ? maintenanceLabel(context, '不可用')
-                                    : formatByteSize(
-                                        p.residentPages * pageSize,
-                                      ),
-                                p.threads < 0 ? '—' : '${p.threads}',
-                                '${p.parent}',
-                                '${p.nice}',
-                                p.virtualBytes < 0
-                                    ? '—'
-                                    : formatByteSize(p.virtualBytes),
-                                ticksPerSecond == null ||
-                                        ticksPerSecond <= 0 ||
-                                        p.ticks < 0
-                                    ? '—'
-                                    : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
-                              ],
-                              cellWidgets: [
-                                null,
-                                Tooltip(
-                                  message: p.name,
-                                  child: Text(
-                                    p.name.split('/').last.split('\\').last,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                _MaintenanceStatus(
-                                  label: _maintenanceProcessState(p.state),
-                                  color: _maintenanceStateColor(
-                                    Theme.of(context).colorScheme,
-                                    _maintenanceProcessState(p.state),
-                                  ),
-                                ),
-                              ],
+                        child: TextField(
+                          controller: _search,
+                          style: const TextStyle(fontSize: 13, height: 1.2),
+                          textAlignVertical: TextAlignVertical.center,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 18,
                             ),
-                        ],
-                        onRowTap: (row) {
-                          final p = row.data! as MachineMaintenanceProcess;
-                          if (!_platform!.canInspectProcess(p)) return;
-                          _details(
-                            AppLocalizations.of(
-                              context,
-                            )!.maintenanceProcessTitle(
-                              '${p.pid}',
-                              p.name.split('/').last.split('\\').last,
+                          ),
+                        ),
+                      );
+                      final sort = _MaintenanceToolbarMenu<int>(
+                        label: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                        tooltip: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                        value: _sort,
+                        items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
+                        onSelected: (value) => setState(() => _sort = value),
+                      );
+                      if (constraints.maxWidth <
+                          420 *
+                              MediaQuery.textScalerOf(context).scale(12) /
+                              12) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: search,
                             ),
-                            _platform!.process(p),
-                            actions: {
-                              for (final action
-                                  in _platform!.processActions(p).entries)
-                                action.key: _platform!.process(
-                                  p,
-                                  action: action.value,
-                                ),
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: sort,
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(children: [search, const Spacer(), sort]);
+                    },
+                  ),
                 ),
-              ),
+                _MaintenanceBrowser(
+                  query: query,
+                  nameColumn: 1,
+                  parents: {
+                    for (final p in rows) '${p.pid}': ['${p.parent}'],
+                  },
+                  table: _MaintenanceTable(
+                    limitToViewport: false,
+                    maxBodyHeight: math.max(
+                      100,
+                      constraints.maxHeight -
+                          (constraints.maxWidth < 720 ? 148 : 96),
+                    ),
+                    headers: const [
+                      'PID',
+                      '进程',
+                      '状态',
+                      'CPU / 单核',
+                      '驻留内存',
+                      '线程',
+                      '父进程 ID',
+                      '优先级',
+                      '虚拟内存',
+                      '累计 CPU 时间',
+                    ],
+                    rows: [
+                      for (final p in rows)
+                        OpenHandOperationalRankRow(
+                          value: 0,
+                          rowKey: (p.pid, p.startToken),
+                          data: p,
+                          cells: [
+                            '${p.pid}',
+                            p.name.split('/').last.split('\\').last,
+                            maintenanceLabel(
+                              context,
+                              _maintenanceProcessState(p.state),
+                            ),
+                            cpu(p) == null
+                                ? '—'
+                                : '${cpu(p)!.toStringAsFixed(1)}%',
+                            pageSize == null || p.residentPages < 0
+                                ? maintenanceLabel(context, '不可用')
+                                : formatByteSize(p.residentPages * pageSize),
+                            p.threads < 0 ? '—' : '${p.threads}',
+                            '${p.parent}',
+                            '${p.nice}',
+                            p.virtualBytes < 0
+                                ? '—'
+                                : formatByteSize(p.virtualBytes),
+                            ticksPerSecond == null ||
+                                    ticksPerSecond <= 0 ||
+                                    p.ticks < 0
+                                ? '—'
+                                : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
+                          ],
+                          cellWidgets: [
+                            null,
+                            Tooltip(
+                              message: p.name,
+                              child: Text(
+                                p.name.split('/').last.split('\\').last,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            _MaintenanceStatus(
+                              label: _maintenanceProcessState(p.state),
+                              color: _maintenanceStateColor(
+                                Theme.of(context).colorScheme,
+                                _maintenanceProcessState(p.state),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                    onRowTap: (row) {
+                      final p = row.data! as MachineMaintenanceProcess;
+                      if (!_platform!.canInspectProcess(p)) return;
+                      _details(
+                        AppLocalizations.of(context)!.maintenanceProcessTitle(
+                          '${p.pid}',
+                          p.name.split('/').last.split('\\').last,
+                        ),
+                        _platform!.process(p),
+                        actions: {
+                          for (final action
+                              in _platform!.processActions(p).entries)
+                            action.key: _platform!.process(
+                              p,
+                              action: action.value,
+                            ),
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
