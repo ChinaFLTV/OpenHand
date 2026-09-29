@@ -919,7 +919,7 @@ class _MachineTerminalHistoryDialogState
                     ? SystemMouseCursors.basic
                     : SystemMouseCursors.click,
                 onTap: actionDisabled ? null : () => widget.onReplay(terminal),
-                hoverColor: cs.primary.withValues(alpha: 0.045),
+                hoverColor: Colors.transparent,
                 splashColor: cs.primary.withValues(alpha: 0.08),
                 highlightColor: cs.primary.withValues(alpha: 0.055),
                 child: Row(

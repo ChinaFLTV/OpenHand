@@ -2058,7 +2058,7 @@ class _TrajectoryCloseButton extends StatelessWidget {
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurfaceVariant,
         backgroundColor: colorScheme.surfaceContainerHighest,
-        hoverColor: colorScheme.primary.withValues(alpha: 0.08),
+        hoverColor: Colors.transparent,
         focusColor: colorScheme.primary.withValues(alpha: 0.08),
         highlightColor: colorScheme.primary.withValues(alpha: 0.12),
         shape: const RoundedRectangleBorder(
@@ -2752,7 +2752,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         onDoubleTap: onDoublePressed,
-        hoverColor: colorScheme.onSurface.withValues(alpha: 0.045),
+        hoverColor: Colors.transparent,
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border(

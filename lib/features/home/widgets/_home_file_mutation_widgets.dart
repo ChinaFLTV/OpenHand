@@ -1158,7 +1158,7 @@ class _FileMutationCardRow extends StatelessWidget {
                     _showRowContextMenu(context, position: d.globalPosition),
                   );
                 },
-                hoverColor: cs.primary.withValues(alpha: 0.05),
+                hoverColor: Colors.transparent,
                 splashColor: cs.primary.withValues(alpha: 0.10),
                 highlightColor: cs.primary.withValues(alpha: 0.06),
                 focusColor: cs.primary.withValues(alpha: 0.12),
@@ -2589,7 +2589,7 @@ class _RevealMoreRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return InkWell(
       onTap: onRevealStep,
-      hoverColor: cs.primary.withValues(alpha: 0.05),
+      hoverColor: Colors.transparent,
       splashColor: cs.primary.withValues(alpha: 0.10),
       highlightColor: cs.primary.withValues(alpha: 0.06),
       child: Padding(

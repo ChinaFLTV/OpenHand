@@ -713,7 +713,7 @@ class _MachineTerminalFileManagerDialogState
       color: Colors.transparent,
       child: InkWell(
         onTap: busy ? null : () => unawaited(_openEntry(entry)),
-        hoverColor: cs.primary.withValues(alpha: 0.045),
+        hoverColor: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
             border: Border(

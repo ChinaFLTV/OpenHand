@@ -91,6 +91,7 @@ abstract final class OpenHandTheme {
       brightness: brightness,
       colorScheme: colorScheme,
       splashFactory: InkSparkle.splashFactory,
+      hoverColor: Colors.transparent,
       visualDensity: VisualDensity.standard,
     );
 
@@ -186,6 +187,7 @@ abstract final class OpenHandTheme {
       ),
       tooltipTheme: const TooltipThemeData(waitDuration: kOpenHandTooltipWait),
       inputDecorationTheme: InputDecorationTheme(
+        hoverColor: Colors.transparent,
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(
           alpha: isDark ? 0.45 : 0.84,

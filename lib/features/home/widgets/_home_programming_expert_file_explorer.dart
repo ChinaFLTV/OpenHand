@@ -11783,7 +11783,7 @@ class _BreadcrumbSegment extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(kOpenHandRadius4),
         mouseCursor: SystemMouseCursors.click,
-        hoverColor: colorScheme.primary.withValues(alpha: 0.06),
+        hoverColor: Colors.transparent,
         onTap: () => _handleTap(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),

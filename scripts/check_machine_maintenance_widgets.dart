@@ -39,6 +39,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:openhand/features/machine_terminal/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
+import 'package:openhand/app/theme/openhand_theme.dart';
+import 'package:openhand/app/theme/openhand_theme_preset.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
@@ -372,6 +374,35 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('浅深主题条目与输入框无悬停底色且保留点击和焦点反馈', (tester) async {
+    for (final theme in [OpenHandTheme.light(OpenHandThemePreset.values.first), OpenHandTheme.dark(OpenHandThemePreset.values.first)]) {
+      var taps = 0;
+      final focus = FocusNode();
+      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Column(children: [
+        ListTile(title: const Text('诊断条目'), onTap: () => taps++),
+        TextField(focusNode: focus),
+      ]))));
+      expect(theme.hoverColor, Colors.transparent);
+      expect(theme.inputDecorationTheme.hoverColor, Colors.transparent);
+      expect(theme.focusColor.a, greaterThan(0));
+      final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text('诊断条目')));
+      await tester.pumpAndSettle();
+      final ink = tester.widget<InkWell>(find.descendant(of: find.byType(ListTile), matching: find.byType(InkWell)));
+      expect(ink.hoverColor ?? theme.hoverColor, Colors.transparent);
+      await tester.tap(find.text('诊断条目'));
+      expect(taps, 1);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+      await mouse.removePointer();
+      await tester.pumpWidget(const SizedBox());
+      focus.dispose();
+    }
   });
 
   testWidgets('六种语言切换覆盖标签、状态与原始数据边界', (tester) async {

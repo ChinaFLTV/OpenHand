@@ -1747,6 +1747,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 (name) => name != 'sockets' && name != 'dns',
               ))
                 ListTile(
+                  hoverColor: Colors.transparent,
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     Icons.fact_check_outlined,
@@ -2480,6 +2481,7 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
             ? l10n.maintenanceShowReadableValue
             : l10n.maintenanceShowExactValue,
         child: InkWell(
+          hoverColor: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() => _exact = !_exact),
           child: Padding(

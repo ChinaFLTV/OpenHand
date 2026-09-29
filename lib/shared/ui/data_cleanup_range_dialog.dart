@@ -310,7 +310,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: kOpenHandPillBorderRadius,
-        hoverColor: cs.primary.withValues(alpha: 0.08),
+        hoverColor: Colors.transparent,
         splashColor: cs.primary.withValues(alpha: 0.10),
         highlightColor: cs.primary.withValues(alpha: 0.05),
         onTap: onPressed,
