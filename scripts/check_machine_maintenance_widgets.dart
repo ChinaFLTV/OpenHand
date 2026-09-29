@@ -1198,6 +1198,60 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('网格末行填满可用宽度且网络诊断没有空白占位', (tester) async {
+    for (final width in [420.0, 900.0, 1300.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      for (final count in [1, 2, 3, 4, 5, 7]) {
+        await tester.pumpWidget(MaterialApp(home: Scaffold(body: _MaintenanceGrid(
+          minWidth: 300,
+          children: [for (var i = 0; i < count; i++)
+            Container(key: ValueKey(i), height: 40.0 + i * 5, color: Colors.green)],
+        ))));
+        await tester.pumpAndSettle();
+        final rows = <double, List<Rect>>{};
+        for (var i = 0; i < count; i++) {
+          final rect = tester.getRect(find.byKey(ValueKey(i)));
+          (rows[rect.top] ??= []).add(rect);
+        }
+        for (final row in rows.values) {
+          expect(row.first.left, closeTo(0, .1));
+          expect(row.last.right, closeTo(width, .1));
+          for (final rect in row) expect(rect.height, closeTo(row.first.height, .1));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(
+      value: service,
+      child: const MaterialApp(locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('网络与诊断'));
+    await tester.pumpAndSettle();
+    final grids = tester.widgetList<_MaintenanceGrid>(find.byType(_MaintenanceGrid));
+    final details = grids.singleWhere((grid) => grid.maxColumns == 2);
+    expect(details.children.length, 2);
+    expect(details.children.every((child) => child is _MaintenanceCard), isTrue);
+    final rects = [for (final child in details.children) tester.getRect(find.byWidget(child))];
+    final layoutRows = <double, List<Rect>>{};
+    for (final rect in rects) (layoutRows[rect.top] ??= []).add(rect);
+    final bounds = tester.getRect(find.byWidget(details));
+    double? previousBottom;
+    for (final row in layoutRows.values) {
+      expect(row.first.left, closeTo(bounds.left, .1));
+      expect(row.last.right, closeTo(bounds.right, .1));
+      if (previousBottom != null) expect(row.first.top - previousBottom, closeTo(_maintenanceGridGap, .1));
+      previousBottom = row.first.bottom;
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('详情固定字段完整展示，无分页、顶部冗余间距或等高空白', (tester) async {
     final font = Platform.environment['MAINTENANCE_FONT'];
     if (font != null) {

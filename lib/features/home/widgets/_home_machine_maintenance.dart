@@ -2518,98 +2518,94 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ],
             ),
     );
-    final secondary = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _MaintenanceCard(
-          title: maintenanceLabel(context, 'DNS 服务器'),
-          icon: Icons.language_rounded,
-          onOpen: () => _showCollected('DNS 配置', data.text('dns')),
-          child: dns.isEmpty
-              ? _MaintenanceEmptyHint(
-                  message: maintenanceLabel(context, '暂无可解析的服务器地址'),
-                )
-              : _MaintenanceFacts(
-                  values: {
-                    for (var i = 0; i < dns.length; i++)
-                      AppLocalizations.of(
+    final dnsCard = _MaintenanceCard(
+      title: maintenanceLabel(context, 'DNS 服务器'),
+      icon: Icons.language_rounded,
+      onOpen: () => _showCollected('DNS 配置', data.text('dns')),
+      child: dns.isEmpty
+          ? _MaintenanceEmptyHint(
+              message: maintenanceLabel(context, '暂无可解析的服务器地址'),
+            )
+          : _MaintenanceFacts(
+              values: {
+                for (var i = 0; i < dns.length; i++)
+                  AppLocalizations.of(
+                    context,
+                  )!.maintenanceServerNumber('${i + 1}'): dns[i],
+              },
+            ),
+    );
+    final diagnostics = _MaintenanceCard(
+      title: maintenanceLabel(context, '诊断项目'),
+      contentPadding: const EdgeInsets.all(8),
+      scrollBody: false,
+      icon: Icons.fact_check_outlined,
+      child: _MaintenanceGrid(
+        minWidth: 220,
+        maxColumns: 4,
+        children: [
+          for (final name in names.where(
+            (name) => name != 'sockets' && name != 'dns',
+          ))
+            Builder(
+              builder: (context) {
+                final empty = data.text(name).trim().isEmpty;
+                final status = empty
+                    ? '暂无数据'
+                    : _maintenanceOutputStatus(data.text(name));
+                return Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(
+                    hoverColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                    selectedTileColor: Colors.transparent,
+                    mouseCursor: SystemMouseCursors.click,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    leading: _MaintenanceIconBadge(
+                      icon: Icons.fact_check_outlined,
+                      color: empty
+                          ? cs.onSurfaceVariant
+                          : status.startsWith('部分不可用')
+                          ? OpenHandStatusColors.warning
+                          : OpenHandStatusColors.success,
+                      size: 32,
+                      iconSize: 16,
+                    ),
+                    title: Text(
+                      maintenanceLabel(
                         context,
-                      )!.maintenanceServerNumber('${i + 1}'): dns[i],
-                  },
-                ),
-        ),
-        const SizedBox(height: 12),
-        _MaintenanceCard(
-          title: maintenanceLabel(context, '诊断项目'),
-          contentPadding: EdgeInsets.zero,
-          maxHeight: 360,
-          icon: Icons.fact_check_outlined,
-          child: Column(
-            children: [
-              for (final name in names.where(
-                (name) => name != 'sockets' && name != 'dns',
-              ))
-                Builder(
-                  builder: (context) {
-                    final empty = data.text(name).trim().isEmpty;
-                    final status = empty
-                        ? '暂无数据'
-                        : _maintenanceOutputStatus(data.text(name));
-                    return ListTile(
-                      hoverColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      selectedTileColor: Colors.transparent,
-                      mouseCursor: SystemMouseCursors.click,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        _maintenanceSectionLabels[name] ?? name,
                       ),
-                      leading: _MaintenanceIconBadge(
-                        icon: Icons.fact_check_outlined,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      maintenanceLabel(context, status),
+                      style: TextStyle(
+                        fontSize: 12,
                         color: empty
                             ? cs.onSurfaceVariant
                             : status.startsWith('部分不可用')
                             ? OpenHandStatusColors.warning
                             : OpenHandStatusColors.success,
-                        size: 32,
-                        iconSize: 16,
                       ),
-                      title: Text(
-                        maintenanceLabel(
-                          context,
-                          _maintenanceSectionLabels[name] ?? name,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        maintenanceLabel(context, status),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: empty
-                              ? cs.onSurfaceVariant
-                              : status.startsWith('部分不可用')
-                              ? OpenHandStatusColors.warning
-                              : OpenHandStatusColors.success,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                      ),
-                      onTap: () => _showCollected(
-                        _maintenanceSectionLabels[name] ?? name,
-                        data.text(name),
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-      ],
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+                    onTap: () => _showCollected(
+                      _maintenanceSectionLabels[name] ?? name,
+                      data.text(name),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -2676,11 +2672,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ],
           ),
         const SizedBox(height: 12),
+        primary,
+        const SizedBox(height: _maintenanceGridGap),
         _MaintenanceGrid(
           maxColumns: 2,
           children: [
-            primary,
-            ...secondary.children,
+            dnsCard,
             _MaintenanceCard(
               title: maintenanceLabel(context, '最近日志'),
               icon: Icons.receipt_long_outlined,
@@ -2694,6 +2691,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
           ],
         ),
+        const SizedBox(height: _maintenanceGridGap),
+        diagnostics,
+        const SizedBox(height: _maintenancePanelBottomInset),
       ],
     );
   }
@@ -3909,14 +3909,17 @@ class _MaintenanceGrid extends StatelessWidget {
               .floor()
               .clamp(1, math.max(1, math.min(maxColumns, children.length)))
               .toInt();
-      final width =
-          (constraints.maxWidth - (columns - 1) * _maintenanceGridGap) /
-          columns;
-      return _MaintenanceEqualHeightWrap(
-        children: [
-          for (final child in children) SizedBox(width: width, child: child),
-        ],
-      );
+      final tiles = <Widget>[];
+      for (var start = 0; start < children.length; start += columns) {
+        // 末行按实际卡片数分配宽度，不留下整列空位。
+        final count = math.min(columns, children.length - start);
+        final width =
+            (constraints.maxWidth - (count - 1) * _maintenanceGridGap) / count;
+        for (var i = 0; i < count; i++) {
+          tiles.add(SizedBox(width: width, child: children[start + i]));
+        }
+      }
+      return _MaintenanceEqualHeightWrap(children: tiles);
     },
   );
 }
