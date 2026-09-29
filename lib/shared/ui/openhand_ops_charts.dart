@@ -3683,6 +3683,23 @@ class _OpenHandOperationalRankTableState
       total: sortedRows.length,
     );
     final pageRows = widget.paginate ? window.slice(sortedRows) : sortedRows;
+    final keyedRows = widget.animateCellChanges || widget.animateRows;
+    final occurrences = <Object?, int>{};
+    // 重复名称或标识也必须对应独立子项，序号在分页前计算以避免跨页复用。
+    final rowKeys = keyedRows
+        ? sortedRows.map((row) {
+            final identity = row.rowKey ?? row.cells.firstOrNull;
+            final occurrence = occurrences[identity] ?? 0;
+            occurrences[identity] = occurrence + 1;
+            return ValueKey((identity, occurrence));
+          }).toList()
+        : const <Key>[];
+    final pageKeys = keyedRows && widget.paginate
+        ? window.slice(rowKeys)
+        : rowKeys;
+    final rowIndices = <Key, int>{
+      for (var i = 0; i < pageKeys.length; i++) pageKeys[i]: i,
+    };
     var usesMetricRows = false;
     for (final row in widget.rows) {
       final widgets = row.cellWidgets;
@@ -4080,19 +4097,8 @@ class _OpenHandOperationalRankTableState
                                       primary: false,
                                       padding: EdgeInsets.zero,
                                       itemCount: pageRows.length,
-                                      findChildIndexCallback:
-                                          widget.animateCellChanges
-                                          ? (key) {
-                                              final index = pageRows.indexWhere(
-                                                (row) =>
-                                                    ValueKey(
-                                                      row.rowKey ??
-                                                          row.cells.firstOrNull,
-                                                    ) ==
-                                                    key,
-                                              );
-                                              return index < 0 ? null : index;
-                                            }
+                                      findChildIndexCallback: keyedRows
+                                          ? (key) => rowIndices[key]
                                           : null,
                                       itemExtent: rowHeight,
                                       physics: openHandDialogAwareScrollPhysics(
@@ -4121,18 +4127,12 @@ class _OpenHandOperationalRankTableState
                                         }
                                         if (widget.animateRows) {
                                           interactive = SettingsAwareAppearOnce(
-                                            key: ValueKey<Object>(
-                                              row.rowKey ?? row,
-                                            ),
                                             child: interactive,
                                           );
                                         }
-                                        return widget.animateCellChanges
+                                        return keyedRows
                                             ? KeyedSubtree(
-                                                key: ValueKey(
-                                                  row.rowKey ??
-                                                      row.cells.firstOrNull,
-                                                ),
+                                                key: pageKeys[index],
                                                 child: interactive,
                                               )
                                             : interactive;

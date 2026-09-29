@@ -67,10 +67,12 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   bool powershell = false;
   bool fail = false;
   Completer<String>? pending;
+  MachineTerminalUploadCancelCheck? cancelled;
   @override
   Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
     expect(windowsScript, platform == 'Windows');
+    cancelled = isCancelled;
     calls++;
     lastCommand = command;
     if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
@@ -581,6 +583,40 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('重复行标识刷新、缩页与关闭弹窗不破坏列表索引', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(builder: (context) => Scaffold(body: TextButton(
+        onPressed: () => showAnimatedDialog<void>(context: context, builder: (context) {
+          var revision = 0;
+          return StatefulBuilder(builder: (context, update) => Dialog(child: SizedBox(width: 650, height: 450,
+            child: Column(children: [
+              TextButton(onPressed: () => update(() => revision++), child: const Text('更新重复行')),
+              OpenHandOperationalRankTable(headers: const ['名称', '数值'],
+                sortByValue: false, animateCellChanges: true,
+                maxBodyHeight: 220, rows: List.generate(revision > 1 ? 4 : 20, (i) => OpenHandOperationalRankRow(
+                  rowKey: i.isEven ? '重复标识' : null,
+                  cells: ['相同名称', '\$revision-\$i'], value: 0))),
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('关闭测试弹窗')),
+            ]))));
+        }), child: const Text('打开测试弹窗'))))));
+    await tester.tap(find.text('打开测试弹窗'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('更新重复行'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    await tester.tap(find.text('关闭测试弹窗'));
+    await tester.pumpAndSettle();
+    expect(find.text('关闭测试弹窗'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('运维公共表格支持页码、条数、跳页和刷新缩页', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1100, 900));
     var count = 55;
@@ -738,6 +774,40 @@ void main() {
     expect(service.lastCommand, contains('section manager'));
     expect(service.lastCommand, isNot(contains('section processes')));
     expect(state._error, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('退场开始即取消采集，迟到结果不再更新面板', (tester) async {
+    final service = _MaintenanceFixture();
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(builder: (context) => Scaffold(body: TextButton(
+          onPressed: () => showAnimatedDialog<void>(context: context, builder: (_) =>
+            const _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')),
+          child: const Text('打开运维')))))));
+    await tester.tap(find.text('打开运维'));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final snapshot = state._snapshots[0];
+    service.pending = Completer<String>();
+    final refresh = state._refresh();
+    await tester.pump();
+    expect(service.cancelled!(), isFalse);
+    Navigator.of(state.context).pop();
+    expect(state.mounted, isTrue);
+    expect(service.cancelled!(), isTrue);
+    service.pending!.complete('');
+    await refresh;
+    expect(identical(state._snapshots[0], snapshot), isTrue);
+    await tester.pumpAndSettle();
+    final calls = service.calls;
+    await tester.pump(const Duration(seconds: 60));
+    expect(service.calls, calls);
+    expect(find.byType(_MachineMaintenanceDialog), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);

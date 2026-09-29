@@ -66,7 +66,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   bool _loading = false,
       _automatic = false,
       _foreground = true,
-      _detailOpen = false;
+      _detailOpen = false,
+      _closing = false;
   String? _error;
   DateTime? _updated;
   int _tab = 0, _sort = 0, _processOffset = 0;
@@ -103,6 +104,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   void _schedule() {
     _timer?.cancel();
     if (mounted &&
+        !_closing &&
         _automatic &&
         _foreground &&
         !_loading &&
@@ -119,11 +121,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         command: command,
         windowsScript: !probe && (_platform?.windowsScript ?? false),
         commandShell: probe ? MachineTerminalCommandShell.probe : _commandShell,
-        isCancelled: () => !mounted,
+        isCancelled: () => !mounted || _closing,
       );
 
   Future<void> _refresh() async {
-    if (_loading || !mounted) return;
+    if (_loading || !mounted || _closing) return;
     _timer?.cancel();
     final tab = _tab;
     _collecting.value = true;
@@ -135,7 +137,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       final target = parseMachineTerminalShellProbe(
         await _run(machineTerminalShellProbe, probe: true),
       );
-      if (!mounted) return;
+      if (!mounted || _closing) return;
       if (_requestedShell != MachineTerminalCommandShell.automatic &&
           (_requestedShell == MachineTerminalCommandShell.posix) !=
               (target.platform != 'Windows')) {
@@ -162,7 +164,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         previous: _snapshots[tab],
       );
-      if (!mounted) return;
+      if (!mounted || _closing) return;
       setState(() {
         final old = _snapshots[tab];
         if (old != null) _previous[tab] = old;
@@ -176,13 +178,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         }
       });
     } catch (error) {
-      if (mounted && tab == _tab) {
+      if (mounted && !_closing && tab == _tab) {
         setState(() {
           _error = '$error';
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && !_closing) {
         _collecting.value = false;
         setState(() {
           _loading = false;
@@ -240,7 +242,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         : _automatic
         ? '自动刷新'
         : '手动刷新';
-    return buildOpenHandDialog(
+    final dialog = buildOpenHandDialog(
       insetPadding: const EdgeInsets.all(18),
       backgroundColor: Color.alphaBlend(
         cs.primary.withValues(alpha: .025),
@@ -576,6 +578,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
         ),
       ),
+    );
+    return PopScope<void>(
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        _closing = true;
+        _timer?.cancel();
+      },
+      child: dialog,
     );
   }
 
