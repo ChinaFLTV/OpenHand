@@ -865,6 +865,44 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('同行等高支持内容增长缩短、换行、大字号和反向布局', (tester) async {
+    for (final width in [1000.0, 560.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      for (final scale in [1.0, 1.8]) {
+        for (final direction in TextDirection.values) {
+          for (final height in [120.0, 180.0, 60.0]) {
+            await tester.pumpWidget(MaterialApp(home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Directionality(textDirection: direction, child: Scaffold(
+                body: SingleChildScrollView(child: _MaintenanceGrid(minWidth: 200, children: [
+                  for (var i = 0; i < 5; i++)
+                    Container(key: ValueKey(i), color: Colors.teal,
+                      child: LayoutBuilder(builder: (_, constraints) => SingleChildScrollView(
+                        child: SizedBox(height: i.isEven ? height : 30, child: Text('卡片'))))),
+                ])))))));
+            await tester.pumpAndSettle();
+            final rows = <double, Rect>{};
+            for (var i = 0; i < 5; i++) {
+              final rect = tester.getRect(find.byKey(ValueKey(i)));
+              final first = rows.putIfAbsent(rect.top, () => rect);
+              expect(rect.height, closeTo(first.height, .01));
+              expect(rect.left, greaterThanOrEqualTo(0));
+              expect(rect.right, lessThanOrEqualTo(width + .01));
+              expect(rect.height, lessThanOrEqualTo(height));
+            }
+            final ordered = rows.values.toList()..sort((a, b) => a.top.compareTo(b.top));
+            for (var i = 1; i < ordered.length; i++) {
+              expect(ordered[i].top - ordered[i - 1].bottom, closeTo(_maintenanceGridGap, .01));
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('动态指标卡片随语言切换更新并保留原始标识', (tester) async {
     await tester.binding.setSurfaceSize(const Size(360, 900));
     final data = MachineMaintenanceSnapshot({'platform': 'Linux',
@@ -1181,6 +1219,15 @@ void main() {
         await tester.tap(find.text(label));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
+          if (label == '系统服务' && width == 1280 && brightness == Brightness.light && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('运维预览')));
+            await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File(Platform.environment['MAINTENANCE_PREVIEW']! + '.services.png').writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
           if (label == '进程管理') {
             expect(find.text('测试进程'), findsOneWidget);
             await tester.ensureVisible(find.text('测试进程'));
@@ -1317,9 +1364,18 @@ void main() {
         expect(services.headers.length, 12);
         expect(services.rows.first.cells.skip(6).toList(), ['42', '1 MB', '2.00 s', '3', '0', '0']);
         expect(tester.getSize(find.byType(TextField).first).height, controlHeight);
+        expect(tester.getSize(find.byType(TextField).first).width, _maintenanceSearchWidth);
         for (final label in ['开机启动状态', '系统定时器']) {
           final button = find.widgetWithText(OutlinedButton, label);
           if (button.evaluate().isNotEmpty) expect(tester.getSize(button).height, controlHeight);
+        }
+      }
+      for (final element in find.byType(_MaintenanceGrid).evaluate()) {
+        final grid = element.widget as _MaintenanceGrid;
+        final bottoms = <double, double>{};
+        for (final child in grid.children) {
+          final rect = tester.getRect(find.byWidget(child));
+          expect(rect.bottom, closeTo(bottoms.putIfAbsent(rect.top, () => rect.bottom), .01));
         }
       }
       final viewport = find.byType(ListView).first;
@@ -1465,7 +1521,7 @@ void main() {
   });
 
 
-  testWidgets('树形按钮保持方形，双卡填满列宽，错列卡片紧接前项', (tester) async {
+  testWidgets('树形按钮保持方形，双卡填满列宽，同行卡片等高', (tester) async {
     await tester.runAsync(() async {
       for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
         if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
@@ -1476,7 +1532,7 @@ void main() {
       supportedLocales: AppLocalizations.supportedLocales, theme: OpenHandTheme.light(OpenHandThemePreset.values.first).copyWith(textTheme: OpenHandTheme.light(OpenHandThemePreset.values.first).textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
       home: Scaffold(body: RepaintBoundary(key: const ValueKey('树预览'), child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
         _MaintenanceGrid(children: [Container(key: const ValueKey('甲'), height: 40), Container(key: const ValueKey('乙'), height: 40)]),
-        _MaintenanceGrid(staggered: true, maxColumns: 2, children: [SizedBox(key: const ValueKey('长卡'), height: 100), SizedBox(key: const ValueKey('短卡'), height: 30), SizedBox(height: 10), SizedBox(key: const ValueKey('续卡'), height: 10)]),
+        _MaintenanceGrid(maxColumns: 2, children: [SizedBox(key: const ValueKey('长卡'), height: 100), SizedBox(key: const ValueKey('短卡'), height: 30), SizedBox(height: 10), SizedBox(key: const ValueKey('续卡'), height: 10)]),
         _MaintenanceBrowser(query: '', nameColumn: 1, parents: const {'2': ['1'], '3': ['2']},
           table: _MaintenanceTable(maxBodyHeight: 450, headers: const ['PID', '进程', '状态', 'CPU', '内存'], rows: [
             OpenHandOperationalRankRow(value: 0, cells: ['1', 'launchd', '运行', '1%', '20 MB']),
@@ -1486,6 +1542,7 @@ void main() {
       ]))))));
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byKey(const ValueKey('甲'))).width, 528);
+    expect(tester.getSize(find.byKey(const ValueKey('短卡'))).height, 100);
     expect(tester.getRect(find.byKey(const ValueKey('续卡'))).top - tester.getRect(find.byKey(const ValueKey('短卡'))).bottom, 12);
     await tester.tap(find.text('关系树'));
     await tester.pumpAndSettle();

@@ -1,6 +1,8 @@
 part of '../openhand_home_page.dart';
 
 const _maintenanceControlHeight = 34.0;
+const _maintenanceSearchWidth = 280.0;
+const _maintenanceGridGap = 12.0;
 const _maintenancePanelBottomInset = 8.0;
 
 const _maintenanceTabs = [
@@ -612,10 +614,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                     )
                                   : BorderSide.none,
                             ),
-                            icon: Icon(
-                              _maintenanceTabIcons[index],
-                              size: 18,
-                            ),
+                            icon: Icon(_maintenanceTabIcons[index], size: 18),
                             label: Text(
                               maintenanceLabel(
                                 context,
@@ -1207,34 +1206,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
         const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (_, constraints) {
-            Widget stack(List<Widget> items) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: item,
-                  ),
-              ],
-            );
-            if (constraints.maxWidth <
-                900 * MediaQuery.textScalerOf(context).scale(12) / 12) {
-              return stack([...center, ...left, ...right]);
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 26, child: stack(left)),
-                const SizedBox(width: 12),
-                Expanded(flex: 44, child: stack(center)),
-                const SizedBox(width: 12),
-                Expanded(flex: 30, child: stack(right)),
-              ],
-            );
-          },
+        _MaintenanceGrid(
+          minWidth: 300,
+          children: [
+            for (
+              var row = 0;
+              row <
+                  math.max(center.length, math.max(left.length, right.length));
+              row++
+            ) ...[
+              if (row < left.length) left[row],
+              if (row < center.length) center[row],
+              if (row < right.length) right[row],
+            ],
+          ],
         ),
+        const SizedBox(height: _maintenanceGridGap),
         _MaintenanceCard(
           title: maintenanceLabel(context, '磁盘 IO'),
           scrollBody: false,
@@ -1851,7 +1838,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             child: LayoutBuilder(
               builder: (_, constraints) {
                 final search = SizedBox(
-                  width: math.min(240, constraints.maxWidth),
+                  width: math.min(
+                    _maintenanceSearchWidth,
+                    constraints.maxWidth,
+                  ),
                   child: TextField(
                     controller: _search,
                     style: const TextStyle(fontSize: 13, height: 1.2),
@@ -2216,6 +2206,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           builder: (context, constraints) {
             const height = _maintenanceControlHeight;
             final search = SizedBox(
+              width: math.min(_maintenanceSearchWidth, constraints.maxWidth),
               height: height,
               child: TextField(
                 controller: _search,
@@ -2258,7 +2249,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ),
                   ),
             ];
-            if (buttons.isEmpty) return search;
+            if (buttons.isEmpty) {
+              return Align(alignment: Alignment.centerLeft, child: search);
+            }
             final actions = Wrap(
               alignment: WrapAlignment.end,
               spacing: 10,
@@ -2270,7 +2263,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  search,
+                  Align(alignment: Alignment.centerLeft, child: search),
                   const SizedBox(height: 10),
                   Align(alignment: Alignment.centerRight, child: actions),
                 ],
@@ -2278,9 +2271,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             }
             return Row(
               children: [
-                Expanded(child: search),
+                search,
                 const SizedBox(width: 12),
-                actions,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: actions,
+                  ),
+                ),
               ],
             );
           },
@@ -2402,7 +2400,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _MaintenanceGrid(
           minWidth: 420,
           maxColumns: 2,
-          staggered: true,
           children: [
             for (var i = 0; i < machineHealthSections.length; i++)
               Builder(
@@ -2631,7 +2628,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         _MaintenanceGrid(
           maxColumns: 2,
-          staggered: true,
           children: [
             primary,
             ...secondary.children,
@@ -3790,51 +3786,70 @@ class _MaintenanceGrid extends StatelessWidget {
     required this.children,
     this.minWidth = 360,
     this.maxColumns = 3,
-    this.staggered = false,
   });
   final List<Widget> children;
   final double minWidth;
   final int maxColumns;
-  final bool staggered;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (_, constraints) {
       final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      final columns = ((constraints.maxWidth + 12) / (minWidth * scale + 12))
-          .floor()
-          .clamp(1, math.max(1, math.min(maxColumns, children.length)))
-          .toInt();
-      final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-      if (staggered && columns > 1) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var column = 0; column < columns; column++) ...[
-              if (column > 0) const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = column; i < children.length; i += columns) ...[
-                      if (i >= columns) const SizedBox(height: 12),
-                      children[i],
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        );
-      }
-      return Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      final columns =
+          ((constraints.maxWidth + _maintenanceGridGap) /
+                  (minWidth * scale + _maintenanceGridGap))
+              .floor()
+              .clamp(1, math.max(1, math.min(maxColumns, children.length)))
+              .toInt();
+      final width =
+          (constraints.maxWidth - (columns - 1) * _maintenanceGridGap) /
+          columns;
+      return _MaintenanceEqualHeightWrap(
         children: [
           for (final child in children) SizedBox(width: width, child: child),
         ],
       );
     },
   );
+}
+
+/// 同行按最高内容对齐，不做固有尺寸查询，兼容卡片内的布局构建器和滚动视口。
+class _MaintenanceEqualHeightWrap extends Wrap {
+  const _MaintenanceEqualHeightWrap({required super.children})
+    : super(spacing: _maintenanceGridGap, runSpacing: _maintenanceGridGap);
+
+  @override
+  RenderWrap createRenderObject(BuildContext context) =>
+      _MaintenanceRenderWrap(textDirection: Directionality.of(context));
+}
+
+class _MaintenanceRenderWrap extends RenderWrap {
+  _MaintenanceRenderWrap({required TextDirection textDirection})
+    : super(
+        spacing: _maintenanceGridGap,
+        runSpacing: _maintenanceGridGap,
+        textDirection: textDirection,
+      );
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final rowHeights = <double, double>{};
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final top = (child.parentData! as WrapParentData).offset.dy;
+      rowHeights[top] = math.max(rowHeights[top] ?? 0, child.size.height);
+    }
+    // 同一次布局内拉齐外框，保留换行位置，避免测量回调造成闪动。
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final top = (child.parentData! as WrapParentData).offset.dy;
+      final height = rowHeights[top]!;
+      if (child.size.height < height) {
+        child.layout(
+          BoxConstraints.tightFor(width: child.size.width, height: height),
+          parentUsesSize: true,
+        );
+      }
+    }
+  }
 }
 
 class _MaintenanceToolbarMenu<T> extends StatelessWidget {
@@ -5395,7 +5410,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   }),
                 ),
                 SizedBox(
-                  width: 230,
+                  width: _maintenanceSearchWidth,
                   height: _maintenanceControlHeight,
                   child: TextField(
                     onChanged: (value) =>
