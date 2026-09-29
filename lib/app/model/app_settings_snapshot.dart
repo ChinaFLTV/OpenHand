@@ -164,6 +164,7 @@ class AppSettingsSnapshot {
     required this.userMemoryFilePath,
     required this.editorWordWrap,
     required this.editorIndentSpaces,
+    this.maintenanceWorkers = defaultMaintenanceWorkers,
     required this.editorCodeTheme,
     required this.editorLspSettings,
     required this.editorShortcutBindings,
@@ -790,6 +791,13 @@ class AppSettingsSnapshot {
       McpKeywordIndexIntervalUnit.hour;
   static const String defaultMcpKeywordIndexScheduledTimeOfDay = '02:00';
 
+  static const maintenanceWorkerOptions = [1, 2, 4, 8];
+  static const defaultMaintenanceWorkers = 4;
+  static int normalizeMaintenanceWorkers(int? value) =>
+      maintenanceWorkerOptions.contains(value)
+      ? value!
+      : defaultMaintenanceWorkers;
+
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
   final AppLanguage language;
@@ -835,6 +843,7 @@ class AppSettingsSnapshot {
   final String userMemoryFilePath;
   final bool editorWordWrap;
   final int editorIndentSpaces;
+  final int maintenanceWorkers;
   final EditorCodeTheme editorCodeTheme;
   final Map<String, AiLspLanguageSettings> editorLspSettings;
   final Map<EditorShortcutAction, List<int>> editorShortcutBindings;
@@ -1056,6 +1065,7 @@ class AppSettingsSnapshot {
     String? userMemoryFilePath,
     bool? editorWordWrap,
     int? editorIndentSpaces,
+    int? maintenanceWorkers,
     EditorCodeTheme? editorCodeTheme,
     Map<String, AiLspLanguageSettings>? editorLspSettings,
     Map<EditorShortcutAction, List<int>>? editorShortcutBindings,
@@ -1178,6 +1188,7 @@ class AppSettingsSnapshot {
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,
       editorIndentSpaces: editorIndentSpaces ?? this.editorIndentSpaces,
+      maintenanceWorkers: maintenanceWorkers ?? this.maintenanceWorkers,
       editorCodeTheme: editorCodeTheme ?? this.editorCodeTheme,
       editorLspSettings: editorLspSettings ?? this.editorLspSettings,
       editorShortcutBindings:

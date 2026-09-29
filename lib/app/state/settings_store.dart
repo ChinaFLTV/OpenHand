@@ -353,6 +353,9 @@ class SettingsStore {
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
+      'maintenance_workers': AppSettingsSnapshot.normalizeMaintenanceWorkers(
+        snapshot.maintenanceWorkers,
+      ),
       'editor_indent_spaces': normalizeEditorIndentSpaces(
         snapshot.editorIndentSpaces,
       ),
@@ -1225,6 +1228,9 @@ class SettingsStore {
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,
       editorIndentSpaces: editorIndentSpaces,
+      maintenanceWorkers: AppSettingsSnapshot.normalizeMaintenanceWorkers(
+        optionalIntFromValue(json['maintenance_workers']),
+      ),
       editorCodeTheme: editorCodeTheme,
       editorLspSettings: editorLspSettings,
       editorShortcutBindings: editorShortcutBindings,

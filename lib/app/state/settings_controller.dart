@@ -100,6 +100,7 @@ class SettingsController extends ChangeNotifier {
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
        _editorIndentSpaces = snapshot.editorIndentSpaces,
+       _maintenanceWorkers = snapshot.maintenanceWorkers,
        _editorCodeTheme = snapshot.editorCodeTheme,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
@@ -267,6 +268,7 @@ class SettingsController extends ChangeNotifier {
   String _userMemoryFilePath;
   bool _editorWordWrap;
   int _editorIndentSpaces;
+  int _maintenanceWorkers;
   EditorCodeTheme _editorCodeTheme;
   Map<String, AiLspLanguageSettings> _editorLspSettings;
   Map<EditorShortcutAction, List<int>> _editorShortcutBindings;
@@ -403,6 +405,7 @@ class SettingsController extends ChangeNotifier {
   String get userMemoryFilePath => _userMemoryFilePath;
   bool get editorWordWrap => _editorWordWrap;
   int get editorIndentSpaces => _editorIndentSpaces;
+  int get maintenanceWorkers => _maintenanceWorkers;
   EditorCodeTheme get editorCodeTheme => _editorCodeTheme;
   Map<String, AiLspLanguageSettings> get editorLspSettings =>
       _cloneEditorLspSettingsMap(_editorLspSettings);
@@ -883,6 +886,17 @@ class SettingsController extends ChangeNotifier {
       return _MutationDisposition.apply;
     });
   }
+
+  Future<bool> updateMaintenanceWorkers(int value) => _commitMutation(() {
+    if (!AppSettingsSnapshot.maintenanceWorkerOptions.contains(value)) {
+      return _MutationDisposition.reject;
+    }
+    if (_maintenanceWorkers == value) {
+      return _MutationDisposition.successNoChange;
+    }
+    _maintenanceWorkers = value;
+    return _MutationDisposition.apply;
+  });
 
   Future<bool> updateEditorIndentSpaces(int value) async {
     final normalizedValue = normalizeEditorIndentSpaces(value);
@@ -2420,6 +2434,7 @@ class SettingsController extends ChangeNotifier {
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
       editorIndentSpaces: _editorIndentSpaces,
+      maintenanceWorkers: _maintenanceWorkers,
       editorCodeTheme: _editorCodeTheme,
       editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
       editorShortcutBindings: _cloneEditorShortcutBindings(
@@ -2543,6 +2558,7 @@ class SettingsController extends ChangeNotifier {
     _userMemoryFilePath = snapshot.userMemoryFilePath;
     _editorWordWrap = snapshot.editorWordWrap;
     _editorIndentSpaces = snapshot.editorIndentSpaces;
+    _maintenanceWorkers = snapshot.maintenanceWorkers;
     _editorCodeTheme = snapshot.editorCodeTheme;
     _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
     _editorShortcutBindings = _cloneEditorShortcutBindings(

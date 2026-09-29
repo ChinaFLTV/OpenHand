@@ -38,6 +38,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:openhand/app/model/app_settings_snapshot.dart';
+import 'package:openhand/app/state/settings_controller.dart';
+import 'package:openhand/app/state/settings_store.dart';
 import 'package:openhand/features/machine_terminal/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/app/theme/openhand_theme.dart';
@@ -56,7 +59,8 @@ import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
 $header
 $button
-$_checks
+${_checks.replaceAll('MaterialApp(', '_SettingsApp(')}
+$_settingsHarness
 ''',
   );
 }
@@ -78,7 +82,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
-    expect(windowsScript, platform == 'Windows');
+    expectSync(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
     calls++;
     lastCommand = command;
@@ -160,6 +164,39 @@ __OH_OPS_end__
 }
 
 void main() {
+  setUp(() async { _testSettings = await SettingsController.create(store: _MemorySettingsStore()); });
+  tearDown(() { _testSettings.dispose(); });
+  test('采集并发数持久化、校验及保存失败回滚', () async {
+    final store = _MemorySettingsStore();
+    final settings = await SettingsController.create(store: store);
+    expect(await settings.updateMaintenanceWorkers(8), isTrue);
+    final reopened = await SettingsController.create(store: store);
+    expect(reopened.maintenanceWorkers, 8);
+    expect(await settings.updateMaintenanceWorkers(3), isFalse);
+    store.fail = true;
+    expect(await settings.updateMaintenanceWorkers(2), isFalse);
+    expect(settings.maintenanceWorkers, 8);
+    expect(AppSettingsSnapshot.normalizeMaintenanceWorkers(3), 4);
+    expect(AppSettingsSnapshot.normalizeMaintenanceWorkers(null), 4);
+    settings.dispose();
+    reopened.dispose();
+  });
+  testWidgets('重新打开弹窗沿用已保存的采集并发数', (tester) async {
+    await tester.runAsync(() => _testSettings.updateMaintenanceWorkers(8));
+    final service = _MaintenanceFixture();
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    for (var i = 0; i < 2; i++) {
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      expect(find.text('最多 8 个采集进程'), findsOneWidget);
+      expect(service.lastCommand, contains('oh_workers=8'));
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('长错误信息有可见滚动入口，更新为短信息后恢复完整显示', (tester) async {
     Widget host(String message) => MaterialApp(home: Scaffold(body: Align(alignment: Alignment.topCenter,
       child: SizedBox(width: 360, child: _MaintenanceNotice(message: message, error: true)))));
@@ -1603,6 +1640,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('最多 2 个采集进程').last);
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async { await Future<void>.delayed(Duration.zero); });
+    await tester.pumpAndSettle();
+    expect(_testSettings.maintenanceWorkers, 2);
     await tester.tap(find.byTooltip('开启自动刷新（当前分区）'));
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
@@ -1624,8 +1666,8 @@ void main() {
     await tester.tap(find.byTooltip('暂停自动刷新'));
     await tester.pump();
     expect(progress, findsNothing);
-    await tester.tap(find.byTooltip('开启自动刷新（当前分区）'));
-    await tester.pump();
+    expect(tester.widget<_MachineTerminalIconButton>(find.byType(_MachineTerminalIconButton).first).onPressed, isNull);
+    expect(tester.widgetList<AnimatedPopupMenuButton<dynamic>>(find.byWidgetPredicate((w) => w is AnimatedPopupMenuButton)).every((w) => !w.enabled), isTrue);
     final count = service.calls;
     await tester.pump(const Duration(seconds: 30));
     expect(service.calls, count);
@@ -1639,8 +1681,7 @@ void main() {
     await tester.pump();
     expect(progress, findsOneWidget);
     expect(service.probes, 2);
-    await tester.tap(find.byTooltip('暂停自动刷新'));
-    await tester.pump();
+    expect(find.byTooltip('暂停自动刷新'), findsNothing);
     expect(progress, findsOneWidget);
     service.pending!.completeError(StateError('模拟手动刷新失败'));
     await tester.pumpAndSettle();
@@ -1652,5 +1693,32 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
+}
+''';
+
+const _settingsHarness = '''
+late SettingsController _testSettings;
+class _MemorySettingsStore extends SettingsStore {
+  AppSettingsSnapshot snapshot = AppSettingsSnapshot.defaults();
+  bool fail = false;
+  @override
+  Future<SettingsLoadResult> load() async => SettingsLoadResult(snapshot: snapshot, canPersist: true);
+  @override
+  Future<void> save(AppSettingsSnapshot value) async {
+    if (fail) throw StateError('模拟保存失败');
+    snapshot = value;
+  }
+}
+class _SettingsApp extends StatelessWidget {
+  const _SettingsApp({this.home, this.locale, this.localizationsDelegates, this.supportedLocales = const [Locale('en', 'US')], this.theme, this.builder});
+  final Widget? home;
+  final Locale? locale;
+  final Iterable<LocalizationsDelegate<dynamic>>? localizationsDelegates;
+  final Iterable<Locale> supportedLocales;
+  final ThemeData? theme;
+  final TransitionBuilder? builder;
+  @override
+  Widget build(BuildContext context) => ChangeNotifierProvider<SettingsController>.value(value: _testSettings,
+    child: MaterialApp(home: home, locale: locale, localizationsDelegates: localizationsDelegates, supportedLocales: supportedLocales, theme: theme, builder: builder));
 }
 ''';

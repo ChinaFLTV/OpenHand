@@ -87,7 +87,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   String? _shellLabel;
   int _tab = 0, _sort = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
-  int _workers = machineMaintenanceDefaultWorkers;
+  int get _workers => context.read<SettingsController>().maintenanceWorkers;
+  bool _savingWorkers = false;
   Object? _bodyIdentity;
   Widget? _body;
 
@@ -409,6 +410,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             )!.maintenanceSeconds('$_intervalSeconds'),
                             tooltip: maintenanceLabel(context, '自动刷新间隔'),
                             icon: Icons.timer_outlined,
+                            enabled: !_loading,
                             value: _intervalSeconds,
                             items: {
                               3: AppLocalizations.of(
@@ -441,16 +443,28 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               context,
                             )!.maintenanceWorkersHelp,
                             icon: Icons.account_tree_outlined,
-                            enabled: !_loading,
+                            enabled: !_loading && !_savingWorkers,
                             value: _workers,
                             items: {
-                              for (final count in const [1, 2, 4, 8])
+                              for (final count
+                                  in AppSettingsSnapshot
+                                      .maintenanceWorkerOptions)
                                 count: AppLocalizations.of(
                                   context,
                                 )!.maintenanceWorkers('$count'),
                             },
-                            onSelected: (value) =>
-                                setState(() => _workers = value),
+                            onSelected: (value) async {
+                              setState(() => _savingWorkers = true);
+                              try {
+                                await context
+                                    .read<SettingsController>()
+                                    .updateMaintenanceWorkers(value);
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _savingWorkers = false);
+                                }
+                              }
+                            },
                           ),
                         ],
                       ),
@@ -474,10 +488,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               context,
                               _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
                             ),
-                            onPressed: () {
-                              setState(() => _automatic = !_automatic);
-                              _schedule();
-                            },
+                            onPressed: _loading && !_automatic
+                                ? null
+                                : () {
+                                    setState(() => _automatic = !_automatic);
+                                    _schedule();
+                                  },
                           ),
                           _MachineTerminalIconButton(
                             icon: Icons.refresh_rounded,
@@ -3578,34 +3594,38 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
             child: Text(maintenanceLabel(context, item.value)),
           ),
       ],
-      child: Container(
-        height: _maintenanceControlHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: cs.surface.withValues(alpha: .72),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: .55)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 16, color: cs.onSurfaceVariant),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              maintenanceLabel(context, label),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+      child: AnimatedOpacity(
+        opacity: enabled ? 1 : .42,
+        duration: openHandMotionDuration(context, kOpenHandMotion140),
+        child: Container(
+          height: _maintenanceControlHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: .72),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: .55)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                maintenanceLabel(context, label),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Icon(
-              Icons.expand_more_rounded,
-              size: 16,
-              color: cs.onSurfaceVariant,
-            ),
-          ],
+              const SizedBox(width: 6),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );
