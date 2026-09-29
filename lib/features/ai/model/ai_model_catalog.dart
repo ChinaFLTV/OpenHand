@@ -552,6 +552,114 @@ class AiModelCatalog {
     'pricing_scope': '标准服务、普通上下文；长上下文及服务等级另计',
   };
 
+  static const _solSourceMetadata = <String, Object?>{
+    ..._gpt6SourceMetadata,
+    'input_modalities': ['text', 'image'],
+    'output_modalities': ['text'],
+    'unsupported_modalities': ['audio', 'video'],
+    'endpoints': ['/v1/responses', '/v1/chat/completions', '/v1/batch'],
+    'features': [
+      'streaming',
+      'structured_outputs',
+      'function_calling',
+      'file_search',
+      'image_input',
+      'web_search',
+      'prompt_caching',
+    ],
+    'responses_tools': [
+      'web_search',
+      'file_search',
+      'image_generation',
+      'code_interpreter',
+      'hosted_shell',
+      'apply_patch',
+      'skills',
+      'computer_use',
+      'mcp',
+      'tool_search',
+    ],
+    'sampling_requires_reasoning_effort': 'none',
+    'long_context_threshold_input_tokens': 272000,
+    'long_context_billing_scope': 'full_request',
+    'unsupported_endpoints': [
+      '/v1/live/sessions',
+      '/v1/realtime',
+      '/v1/realtime/translations',
+      '/v1/realtime/transcription_sessions',
+      '/v1/assistants',
+      '/v1/fine-tuning',
+      '/v1/embeddings',
+      '/v1/images/generations',
+      '/v1/images/edits',
+      '/v1/videos',
+      '/v1/audio/speech',
+      '/v1/audio/transcriptions',
+      '/v1/audio/translations',
+      '/v1/moderations',
+      '/v1/completions',
+    ],
+    'prompt_cache_options': {'ttl': '30m'},
+    'service_price_multipliers': {'fast': 2, 'batch': 0.5, 'flex': 0.5},
+    'regional_processing_price_multiplier': 1.1,
+    'data_residency': ['US', 'EU'],
+    'fast_mode_eu': false,
+    'standard_rate_limits': {
+      'tier_1': {'rpm': 500, 'tpm': 500000},
+      'tier_2': {'rpm': 5000, 'tpm': 1000000},
+      'tier_3': {'rpm': 5000, 'tpm': 2000000},
+      'tier_4': {'rpm': 10000, 'tpm': 4000000},
+      'tier_5': {'rpm': 15000, 'tpm': 40000000},
+    },
+    'migration_source':
+        'https://developers.openai.com/api/docs/guides/latest-model',
+  };
+
+  static const _claude55SourceMetadata = <String, Object?>{
+    'verified_at': '2026-09-30',
+    'training_cutoff': '2026-06',
+    'pricing_currency': 'USD',
+    'input_modalities': ['text', 'image'],
+    'output_modalities': ['text'],
+    'endpoint': '/v1/messages',
+    'dated_snapshot_suffix': false,
+    'forced_tool_choice': false,
+    'tool_choice_types': ['auto', 'none'],
+    'sampling_parameters_require_defaults': ['temperature', 'top_p', 'top_k'],
+    'minimum_cacheable_tokens': 512,
+    'cache_write_ttl': '5m',
+    'batch_price_multiplier': 0.5,
+    'batch_max_output_tokens': 300000,
+    'batch_output_beta': 'output-300k-2026-03-24',
+    'thinking_display_default': 'omitted',
+    'thinking_display_types': ['omitted', 'summarized', 'updates'],
+    'thinking_updates_beta': 'thinking-display-updates-2026-08-18',
+    'thinking_binding_beta': 'thinking-binding-controls-2026-08-01',
+    'thinking_replay': '保留原始签名、内容与顺序；不能从摘要重建思考块',
+    'computer_use_toolset': {
+      'claude_api': 'computer_toolset_20260801',
+      'google_cloud': 'computer_toolset_20260801',
+      'amazon_bedrock': 'computer_20251124',
+    },
+    'features': [
+      'vision',
+      'pdf',
+      'files_api',
+      'streaming',
+      'tool_use',
+      'prompt_caching',
+      'batch',
+      'compaction',
+    ],
+    'inline_tools_beta': 'inline-tools-2026-09-15',
+    'compaction_beta': 'compact-2026-09-04',
+  };
+
+  static const _visionTextArchitecture = AiModelArchitectureMetadata(
+    inputModalities: ['text', 'image'],
+    outputModalities: ['text'],
+  );
+
   /// 模型目录条目的简写构造器。
   static AiModelProfile _p({
     required String name,
@@ -575,6 +683,7 @@ class AiModelCatalog {
     double? outputUsdPer1M,
     double? cacheReadUsdPer1M,
     double? cacheWriteUsdPer1M,
+    AiModelArchitectureMetadata? architecture,
     String? canonicalSlug,
     String? knowledgeCutoff,
     String? sourceUrl,
@@ -645,6 +754,7 @@ class AiModelCatalog {
       outputUsdPer1M: outputUsdPer1M,
       cacheReadUsdPer1M: cacheReadUsdPer1M,
       cacheWriteUsdPer1M: cacheWriteUsdPer1M,
+      architecture: architecture,
       canonicalSlug: canonicalSlug,
       knowledgeCutoff: knowledgeCutoff,
       sourceMetadata: sourceMetadata,
@@ -1155,6 +1265,7 @@ class AiModelCatalog {
     if (matchesVersion(id, 'gpt-6.1-sol')) {
       return _p(
         name: 'GPT-6.1 Sol',
+        architecture: _visionTextArchitecture,
         desc: '面向复杂编程、计算机操作与专业任务的推理模型；工具调用使用 Responses API。',
         multimodal: true,
         supportsAttachments: true,
@@ -1173,8 +1284,13 @@ class AiModelCatalog {
         knowledgeCutoff: '2026-04-30',
         sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6.1-sol',
         supportedParameters: _gpt6Parameters,
+        defaultParameters: const {
+          'reasoning': {'effort': 'medium'},
+        },
         sourceMetadata: const {
-          ..._gpt6SourceMetadata,
+          ..._solSourceMetadata,
+          'snapshots': ['gpt-6.1-sol'],
+          'unsupported_features': ['fine_tuning', 'predicted_outputs'],
           'reasoning': {'mandatory': true},
           'tool_calling_api': 'responses',
         },
@@ -1183,6 +1299,7 @@ class AiModelCatalog {
     if (matchesVersion(id, 'gpt-6-sol')) {
       return _p(
         name: 'GPT-6 Sol',
+        architecture: _visionTextArchitecture,
         desc: '面向复杂编程与智能体工作流的 OpenAI 推理模型。',
         multimodal: true,
         supportsAttachments: true,
@@ -1200,8 +1317,28 @@ class AiModelCatalog {
         canonicalSlug: 'gpt-6-sol',
         sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-sol',
         knowledgeCutoff: '2026-04-20',
-        supportedParameters: _gpt6Parameters,
-        sourceMetadata: _gpt6SourceMetadata,
+        supportedParameters: const [
+          ..._gpt6Parameters,
+          'temperature',
+          'top_p',
+          'logprobs',
+          'top_logprobs',
+        ],
+        defaultParameters: const {
+          'reasoning': {'effort': 'medium'},
+        },
+        sourceMetadata: const {
+          ..._solSourceMetadata,
+          'snapshots': ['gpt-6-sol'],
+          'chat_tools_require_reasoning_effort': 'none',
+          'batch_queue_tokens_by_tier': [
+            1500000,
+            3000000,
+            100000000,
+            200000000,
+            15000000000,
+          ],
+        },
       );
     }
     if (matchesVersion(id, 'gpt-6-luna')) {
@@ -1594,6 +1731,7 @@ class AiModelCatalog {
         matchesVersion(id, 'claude-5-5-sonnet')) {
       return _p(
         name: 'Claude Sonnet 5.5',
+        architecture: _visionTextArchitecture,
         desc: '兼顾速度与智能的视觉模型，支持自适应思考及工具间进度更新。',
         multimodal: true,
         supportsAttachments: true,
@@ -1613,17 +1751,26 @@ class AiModelCatalog {
         sourceUrl:
             'https://platform.claude.com/docs/en/models/sonnet-5-5/overview',
         supportedParameters: _claude51Parameters,
+        defaultParameters: const {
+          'thinking': {'type': 'adaptive'},
+          'output_config': {'effort': 'high'},
+        },
         sourceMetadata: const {
-          'verified_at': '2026-09-30',
+          ..._claude55SourceMetadata,
+          'bedrock_model_id': 'anthropic.claude-sonnet-5-5',
+          'cloud_model_ids': {
+            'google_cloud': 'claude-sonnet-5-5',
+            'microsoft_foundry': 'claude-sonnet-5-5',
+            'claude_platform_aws': 'claude-sonnet-5-5',
+          },
+          'migration_source':
+              'https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5',
           'released_at': '2026-09-28',
           'retirement_not_before': '2027-09-28',
           'thinking_types': ['adaptive', 'between_tools'],
           'between_tools_max_effort': 'high',
-          'forced_tool_choice': false,
+          'between_tools_fields': ['type'],
           'cache_write_1h_usd_per_million': 4,
-          'minimum_cacheable_tokens': 512,
-          'batch_max_output_tokens': 300000,
-          'batch_output_beta': 'output-300k-2026-03-24',
         },
       );
     }
@@ -1632,6 +1779,7 @@ class AiModelCatalog {
         matchesVersion(id, 'claude-5-5-opus')) {
       return _p(
         name: 'Claude Opus 5.5',
+        architecture: _visionTextArchitecture,
         desc: '面向长时程智能体编程与知识工作的 Claude 模型。',
         multimodal: true,
         supportsAttachments: true,
@@ -1650,7 +1798,37 @@ class AiModelCatalog {
         sourceUrl:
             'https://platform.claude.com/docs/en/models/opus-5-5/overview',
         knowledgeCutoff: '2026-06',
-        supportedParameters: _claude51Parameters,
+        supportedParameters: const [..._claude51Parameters, 'speed'],
+        defaultParameters: const {
+          'thinking': {'type': 'adaptive'},
+          'output_config': {'effort': 'medium'},
+        },
+        sourceMetadata: const {
+          ..._claude55SourceMetadata,
+          'released_at': '2026-09-22',
+          'retirement_not_before': '2027-09-22',
+          'bedrock_model_id': 'anthropic.claude-opus-5-5',
+          'cloud_model_ids': {
+            'google_cloud': 'claude-opus-5-5',
+            'microsoft_foundry': 'claude-opus-5-5',
+            'claude_platform_aws': 'claude-opus-5-5',
+          },
+          'reasoning': {'mandatory': true},
+          'thinking_types': ['adaptive'],
+          'cache_write_1h_usd_per_million': 8,
+          'assistant_prefill': false,
+          'priority_tier': false,
+          'fast_mode': {
+            'provider': 'claude_api',
+            'status': 'research_preview',
+            'input_usd_per_million': 8,
+            'output_usd_per_million': 40,
+            'beta': 'fast-mode-2026-02-01',
+            'speed': 'fast',
+          },
+          'migration_source':
+              'https://platform.claude.com/docs/en/models/opus-5-5/migration-guide',
+        },
       );
     }
     if (matchesVersion(id, 'claude-fable-5-1') ||

@@ -48,3 +48,31 @@
 ## 验证
 
 目录同步一致性检查通过。模型元数据及请求体 29 项、宽窄屏与多语言编辑器 23 项、公共动画 18 项、请求缓存 25 项，共 95 项回归通过；修改文件静态分析无问题。提交前 `scripts/build_web.sh` 重建及其类型、运行时、交互和架构检查通过。未执行消耗额度的真实模型推理请求。
+
+## 四个重点模型的补充核验
+
+本节针对 GPT-6 Sol、GPT-6.1 Sol、Claude Opus 5.5、Claude Sonnet 5.5 的官方直连档案；网关目录继续保留网关原始规格和价格。
+
+| 模型 | 上下文 / 最大输入 / 最大输出 | 标准输入 / 输出 / 缓存读取 / 缓存写入（美元/百万词元） | 默认推理 |
+| --- | --- | --- | --- |
+| [GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) | 1,050,000 / 922,000 / 128,000 | 2 / 10 / 0.2 / 2.5 | medium，允许 none |
+| [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) | 1,050,000 / 922,000 / 128,000 | 2 / 10 / 0.1 / 2.5 | medium，不允许 none 或 minimal |
+| [Claude Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/overview) | 1,000,000 / 未单列 / 128,000 | 4 / 20 / 0.2 / 5（5 分钟写入） | medium，自适应思考常开 |
+| [Claude Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) | 1,000,000 / 未单列 / 128,000 | 2 / 10 / 0.2 / 2.5（5 分钟写入） | high，自适应或工具间思考 |
+
+- 两个 Sol 补充输入输出模态、支持与不支持的端点、Responses 工具、服务等级和区域价格倍率、缓存字段、标准速率限制。超过 272,000 输入词元时，整次请求的输入及缓存价格乘 2，输出乘 1.5。仅 Sol 的公开页面列有批处理队列容量，不将其复制给 Sol 6.1。
+- 两个 Claude 补充发布及最早退役时间、云平台标识、缓存最小长度、1 小时缓存写入价格、批处理输出上限与必要 beta 标识、思考展示和签名约束。Opus 的 Fast 模式价格及限制独立记录，不替换标准价格。
+- beta、专用工具和云平台字段是服务商能力元数据，不表示应用已自动开通权限或实现所有专用传输。未公开的独立思考上限、架构参数规模等继续留空。
+
+### 请求与交互修复
+
+依据 [OpenAI 迁移指南](https://developers.openai.com/api/docs/guides/latest-model)，合并 GPT-6 请求清理逻辑：推理模式移除不兼容采样及 logprobs 参数，Sol 的 none 模式保留采样能力；原生 Chat Completions 工具调用仍受模型约束。
+
+依据 [Opus 5.5 迁移指南](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) 和 [Sonnet 5.5 变更说明](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5)：
+
+- 两者自适应思考默认请求可读摘要，避免界面长时间缺少进度；不自动启用 beta。
+- Opus 清理不兼容采样参数；Sonnet 的 between_tools 只保留 type，清除 display、block_binding 等不允许的附加字段，并限制最大推理强度为 high。
+- Claude 工具续写不再把展示摘要重建为缺少签名的 thinking 块。现有链路没有持久化原始签名思考块，因此不宣称已实现原生签名思考的完整重放；参见 [思考保留规则](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking)。
+- 编辑器沿用现有分区、按需展开和全局进退场动画，补充四个模型在宽窄屏下的完整保存回归，未修改内置 Prompt。
+
+本次补充验证：元数据与请求体 33 项（含目录快照比对）、编辑器 31 项、缓存 25 项、公共动画 18 项，共 107 项通过；四个修改的 Dart 文件静态分析通过，Web 重建及附带检查通过。缓存首次运行遇到其他工作中维护页面的临时语法错误，该文件更新后重跑通过。本次没有修改该维护页面，也未执行付费模型实测。

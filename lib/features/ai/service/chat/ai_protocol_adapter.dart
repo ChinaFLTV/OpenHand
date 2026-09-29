@@ -219,24 +219,6 @@ abstract final class AiThinkingRequestPolicy {
       body[_reasoningEffortField] =
           const {'low', 'high', 'max'}.contains(effort) ? effort : 'max';
     }
-    if (AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol')) {
-      if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
-          body.containsKey('messages') &&
-          body['tools'] is List &&
-          (body['tools'] as List).isNotEmpty) {
-        throw UnsupportedError('GPT-6.1 Sol 的工具调用需要 Responses API，请启用该接口。');
-      }
-      if (const {'none', 'minimal'}.contains(body[_reasoningEffortField])) {
-        body[_reasoningEffortField] = 'low';
-      }
-      if (body[_reasoningField] is Map) {
-        final reasoning = stringKeyedMapFromValue(body[_reasoningField]);
-        if (const {'none', 'minimal'}.contains(reasoning['effort'])) {
-          reasoning['effort'] = 'low';
-        }
-        body[_reasoningField] = reasoning;
-      }
-    }
     if (model.protocolType == AiProtocolType.minimax &&
         AiModelCatalog.matchesVersion(modelId, 'minimax-m3.1-flash-preview')) {
       body[_thinkingField] = <String, Object?>{'type': 'adaptive'};
@@ -264,70 +246,75 @@ abstract final class AiThinkingRequestPolicy {
         }
       }
     }
-    if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
-        AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro')) {
+    final mandatoryGpt6 =
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro');
+    if (mandatoryGpt6 ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6-luna')) {
+      final invalidEfforts = mandatoryGpt6
+          ? const {'none', 'minimal'}
+          : const {'minimal'};
+      if (invalidEfforts.contains(body[_reasoningEffortField])) {
+        body[_reasoningEffortField] = 'low';
+      }
+      if (body[_reasoningField] is Map) {
+        final reasoning = stringKeyedMapFromValue(body[_reasoningField]);
+        if (invalidEfforts.contains(reasoning['effort'])) {
+          reasoning['effort'] = 'low';
+        }
+        body[_reasoningField] = reasoning;
+      }
+      final effort = body.containsKey('messages')
+          ? body[_reasoningEffortField]
+          : stringKeyedMapFromValue(body[_reasoningField])['effort'];
+      final reasoningEnabled = mandatoryGpt6 || effort != 'none';
       if (Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
           body.containsKey('messages') &&
           body['tools'] is List &&
-          (body['tools'] as List).isNotEmpty) {
-        throw UnsupportedError('GPT-6 Astra 的官方工具调用需要 Responses API，请启用该接口。');
+          (body['tools'] as List).isNotEmpty &&
+          reasoningEnabled) {
+        throw UnsupportedError('该 GPT-6 模型的推理工具调用需要 Responses API，请启用该接口。');
       }
-      if (const {'none', 'minimal'}.contains(body['reasoning_effort'])) {
-        body['reasoning_effort'] = 'low';
-      }
-      if (body['reasoning'] is Map) {
-        final reasoning = stringKeyedMapFromValue(body['reasoning']);
-        if (const {'none', 'minimal'}.contains(reasoning['effort'])) {
-          reasoning['effort'] = 'low';
+      body.remove(AiPromptCacheRetentionPolicy.bodyField);
+      if (reasoningEnabled) {
+        for (final field in const {
+          'temperature',
+          'top_p',
+          'top_logprobs',
+          'logprobs',
+        }) {
+          body.remove(field);
         }
-        body['reasoning'] = reasoning;
-      }
-      for (final field in const <String>{
-        'temperature',
-        'top_p',
-        'top_logprobs',
-        'logprobs',
-        AiPromptCacheRetentionPolicy.bodyField,
-      }) {
-        body.remove(field);
-      }
-      final include = body['include'];
-      if (include is List) {
-        final filtered = include
-            .where(
-              (item) =>
-                  lowercaseStringFromValue(item) !=
-                  'message.output_text.logprobs',
-            )
-            .toList(growable: false);
-        if (filtered.isEmpty) {
-          body.remove('include');
-        } else {
-          body['include'] = filtered;
+        final include = body['include'];
+        if (include is List) {
+          final filtered = include
+              .where(
+                (item) =>
+                    lowercaseStringFromValue(item) !=
+                    'message.output_text.logprobs',
+              )
+              .toList(growable: false);
+          if (filtered.isEmpty) {
+            body.remove('include');
+          } else {
+            body['include'] = filtered;
+          }
         }
       }
-    }
-
-    if ((AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
-            AiModelCatalog.matchesVersion(modelId, 'gpt-6-luna')) &&
-        Uri.tryParse(model.normalizedBaseUrl)?.host == 'api.openai.com' &&
-        body.containsKey('messages') &&
-        body['tools'] is List &&
-        (body['tools'] as List).isNotEmpty &&
-        body['reasoning_effort'] != 'none') {
-      throw UnsupportedError(
-        'GPT-6 Sol/Luna 的 Chat Completions 工具调用需要将推理强度设为 none，或改用 Responses API。',
-      );
     }
 
     final sonnet55 =
         AiModelCatalog.matchesVersion(modelId, 'claude-sonnet-5-5') ||
         AiModelCatalog.matchesVersion(modelId, 'claude-5-5-sonnet');
-    if (sonnet55 ||
-        AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
-        AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1') ||
+    final opus55 =
         AiModelCatalog.matchesVersion(modelId, 'claude-opus-5-5') ||
-        AiModelCatalog.matchesVersion(modelId, 'claude-5-5-opus')) {
+        AiModelCatalog.matchesVersion(modelId, 'claude-5-5-opus');
+    if (sonnet55 ||
+        opus55 ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||
+        AiModelCatalog.matchesVersion(modelId, 'claude-mythos-5-1')) {
       final thinking = body[_thinkingField];
       if (thinking is Map) {
         body[_thinkingField] = <String, Object?>{
@@ -340,6 +327,9 @@ abstract final class AiThinkingRequestPolicy {
         };
         if (sonnet55 &&
             (body[_thinkingField] as Map)['type'] == 'between_tools') {
+          body[_thinkingField] = const <String, Object?>{
+            'type': 'between_tools',
+          };
           final config = stringKeyedMapFromValue(body[_outputConfigField]);
           if (const {'xhigh', 'max'}.contains(config['effort'])) {
             body[_outputConfigField] = <String, Object?>{
@@ -366,7 +356,10 @@ abstract final class AiThinkingRequestPolicy {
       }
     }
 
-    if (modelId.contains('claude-sonnet-5') || modelId.contains('sonnet-5')) {
+    if (opus55 ||
+        sonnet55 ||
+        modelId.contains('claude-sonnet-5') ||
+        modelId.contains('sonnet-5')) {
       for (final field in const <String>{'temperature', 'top_p', 'top_k'}) {
         body.remove(field);
       }
@@ -455,6 +448,14 @@ abstract final class AiThinkingRequestPolicy {
         AiModelCatalog.matchesVersion(model.modelId, 'claude-5-5-sonnet')) {
       return <String, Object?>{
         'type': model.resolvedThinkingEnabled ? 'adaptive' : 'between_tools',
+        if (model.resolvedThinkingEnabled) 'display': 'summarized',
+      };
+    }
+    if (AiModelCatalog.matchesVersion(model.modelId, 'claude-opus-5-5') ||
+        AiModelCatalog.matchesVersion(model.modelId, 'claude-5-5-opus')) {
+      return const <String, Object?>{
+        'type': 'adaptive',
+        'display': 'summarized',
       };
     }
     // Fable 5 / Mythos 5 省略 thinking 时自动使用自适应思考。
@@ -3386,13 +3387,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
         // 助手工具调用转换为 tool_use 内容块。
         final contentBlocks = <Map<String, Object?>>[];
-        final reasoning = nullIfBlank(turn.reasoningContent);
-        if (reasoning != null) {
-          contentBlocks.add(<String, Object?>{
-            'type': 'thinking',
-            'thinking': reasoning,
-          });
-        }
+        // 展示摘要没有原始签名，不能重建为 Claude 思考块。
         final text = turn.content.trim();
         if (text.isNotEmpty) {
           contentBlocks.add(<String, Object?>{'type': 'text', 'text': text});

@@ -181,6 +181,29 @@ void main() {
     });
   }
 
+  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+    for (final size in [const Size(1100, 900), const Size(390, 844)]) {
+      testWidgets('重点模型 $id 在 $size 下展示并保存完整元数据', (tester) async {
+        final protocol = id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai;
+        final original = AiModelCatalog.lookup(id, protocol)!;
+        _ModelProfileEditorResult? saved;
+        await _openEditor(tester, size: size, id: id, protocol: protocol, onResult: (value) => saved = value);
+        expect(tester.takeException(), isNull);
+        await _captureEditor(tester, _editor, '$id-${size.width.toInt()}');
+        final state = tester.state<_ModelProfileEditorDialogState>(_editor);
+        state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(find.byType(OpenHandJsonTreeView), findsNothing);
+        await tester.tap(find.text('确定'));
+        await tester.pumpAndSettle();
+        expect(saved?.profile.sourceMetadata, original.sourceMetadata);
+        expect(saved?.profile.defaultParameters, original.defaultParameters);
+        expect(saved?.profile.architecture?.toJson(), original.architecture?.toJson());
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('更换模型标识不会保存原模型来源和架构', (tester) async {
     _ModelProfileEditorResult? saved;
     await _openEditor(tester, id: 'deepseek/deepseek-v4.1-flash', protocol: AiProtocolType.openai, onResult: (value) => saved = value);

@@ -156,7 +156,7 @@ void main() {
     const id = 'claude-sonnet-5-5';
     final config = model(id, profiles: {id: const AiModelProfile(thinkingEnabled: false)}).copyWith(protocolType: AiProtocolType.claude);
     expect(AiThinkingRequestPolicy.claudeThinkingFor(model: config, maxTokens: 8192), {'type': 'between_tools'});
-    final body = <String, Object?>{'thinking': {'type': 'disabled', 'budget_tokens': 1024}, 'output_config': {'effort': 'max'}, 'temperature': 0.5, 'tool_choice': {'type': 'any'}};
+    final body = <String, Object?>{'thinking': {'type': 'disabled', 'budget_tokens': 1024, 'display': 'summarized', 'block_binding': {'prefix_mismatch_behavior': 'drop_block'}}, 'output_config': {'effort': 'max'}, 'temperature': 0.5, 'tool_choice': {'type': 'any'}};
     AiThinkingRequestPolicy.normalizeModelRequestBody(body, config);
     expect(body['thinking'], {'type': 'between_tools'});
     expect(body['output_config'], {'effort': 'high'});
@@ -170,6 +170,69 @@ void main() {
     expect(body['reasoning_effort'], 'low');
     expect(body['reasoning'], {'effort': 'low'});
     expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody({'messages': [], 'tools': [{}]}, config), throwsUnsupportedError);
+  });
+  test('四个重点模型的结构化元数据和默认参数完整往返', () {
+    for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+      final profile = AiModelCatalog.lookup(id, id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai)!;
+      final restored = AiModelProfile.fromJson(Map<String, Object?>.from(jsonDecode(jsonEncode(profile.toJson())) as Map));
+      expect(restored.sourceMetadata, profile.sourceMetadata);
+      expect(restored.defaultParameters, profile.defaultParameters);
+      expect(restored.architecture!.inputModalities, ['text', 'image']);
+      expect(restored.architecture!.outputModalities, ['text']);
+      expect(restored.maxThinkingLength, isNull);
+      expect(restored.sourceMetadata['verified_at'], '2026-09-30');
+    }
+    final opus = AiModelCatalog.lookup('claude-opus-5-5', AiProtocolType.claude)!;
+    expect(opus.requiresThinking, isTrue);
+    expect(opus.sourceMetadata['released_at'], '2026-09-22');
+    expect(opus.sourceMetadata['cache_write_1h_usd_per_million'], 8);
+    final sol = AiModelCatalog.lookup('gpt-6.1-sol', AiProtocolType.openai)!;
+    expect(sol.sourceMetadata['max_input_tokens'], 922000);
+    expect(sol.sourceMetadata.containsKey('batch_queue_tokens_by_tier'), isFalse);
+  });
+  test('Sol 推理请求移除采样参数，非推理请求保留采样能力', () {
+    for (final id in ['gpt-6-sol', 'gpt-6.1-sol']) {
+      for (final responses in [false, true]) {
+        final body = <String, Object?>{
+          if (responses) 'input': [] else 'messages': [],
+          if (responses) 'reasoning': {'effort': 'medium'} else 'reasoning_effort': 'medium',
+          'temperature': 0.8, 'top_p': 0.9, 'top_logprobs': 2, 'logprobs': true,
+          'include': ['message.output_text.logprobs', 'reasoning.encrypted_content'],
+        };
+        AiThinkingRequestPolicy.normalizeModelRequestBody(body, model(id));
+        for (final field in ['temperature', 'top_p', 'top_logprobs', 'logprobs']) {
+          expect(body.containsKey(field), isFalse);
+        }
+        expect(body['include'], ['reasoning.encrypted_content']);
+      }
+    }
+    final body = <String, Object?>{'messages': [], 'reasoning_effort': 'none', 'temperature': 0.8, 'logprobs': true};
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, model('gpt-6-sol'));
+    expect(body['temperature'], 0.8);
+    expect(body['logprobs'], isTrue);
+  });
+  test('Claude 5.5 默认显示思考摘要且不发送旧采样参数', () {
+    for (final id in ['claude-opus-5-5', 'claude-sonnet-5-5', 'anthropic.claude-opus-5-5']) {
+      final config = model(id).copyWith(protocolType: AiProtocolType.claude);
+      expect(AiThinkingRequestPolicy.claudeThinkingFor(model: config, maxTokens: 8192), {'type': 'adaptive', 'display': 'summarized'});
+      final body = <String, Object?>{'temperature': 0.7, 'top_p': 0.8, 'top_k': 5, 'output_config': {'effort': 'medium'}};
+      AiThinkingRequestPolicy.normalizeModelRequestBody(body, config);
+      expect(body, {'output_config': {'effort': 'medium'}});
+    }
+  });
+  test('Claude 工具续写不把展示摘要伪装为无签名思考块', () async {
+    final body = await const ClaudeProtocolAdapter().buildBody(
+      model('claude-opus-5-5').copyWith(protocolType: AiProtocolType.claude),
+      const [
+        AiChatTurn(role: AiChatRole.user, content: '读取项目'),
+        AiChatTurn(role: AiChatRole.assistant, content: '开始读取', reasoningContent: '展示摘要',
+          toolCalls: [AiToolCall(id: 'read-1', name: 'Read', arguments: '{}')]),
+        AiChatTurn(role: AiChatRole.tool, content: '读取成功', toolCallId: 'read-1'),
+      ],
+    );
+    final blocks = ((body['messages'] as List)[1] as Map)['content'] as List;
+    expect(blocks.map((item) => (item as Map)['type']), ['text', 'tool_use']);
+    expect(body['thinking'], {'type': 'adaptive', 'display': 'summarized'});
   });
   test('来源字段完整往返，未知上限与默认档位保持未配置', () {
     final raw = <String, Object?>{
