@@ -371,6 +371,35 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('浅深主题卡片四角描边不被内容背景覆盖', (tester) async {
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)
+          .copyWith(outlineVariant: const Color(0xffff00ff));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(colorScheme: scheme),
+        home: const Scaffold(body: Center(child: RepaintBoundary(key: ValueKey('圆角描边'),
+          child: SizedBox(width: 240, child: _MaintenanceCard(title: '基本信息', child: SizedBox(height: 80))),
+        )))));
+      await tester.pumpAndSettle();
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('圆角描边')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 4);
+        final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+        for (final point in [Offset(15, 15), Offset(image.width - 16, 15),
+          Offset(15, image.height - 16), Offset(image.width - 16, image.height - 16)]) {
+          final index = (point.dy.toInt() * image.width + point.dx.toInt()) * 4;
+          expect(data.getUint8(index) - data.getUint8(index + 1), greaterThan(70));
+          expect(data.getUint8(index + 2) - data.getUint8(index + 1), greaterThan(70));
+        }
+        image.dispose();
+      });
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('长列表卡片高度有界且可滚动到底部', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 900));
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Center(child: SizedBox(width: 600,

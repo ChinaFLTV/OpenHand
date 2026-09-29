@@ -1368,8 +1368,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           Expanded(
             child: Container(
               clipBehavior: Clip.antiAlias,
+              padding: const EdgeInsets.all(1),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              foregroundDecoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Theme.of(
@@ -2410,8 +2414,12 @@ class _MaintenanceCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.all(1),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: .65)),
       ),
