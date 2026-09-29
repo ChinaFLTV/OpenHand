@@ -1344,6 +1344,25 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('容器连接错误显示简洁提示并保留完整可选诊断', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(520, 700));
+    const raw = 'failed to connect to the docker API at unix:///tmp/docker.sock: connect: no such file or directory';
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: 'containers', text: raw)))));
+    await tester.pumpAndSettle();
+    expect(find.text('容器服务暂不可用'), findsOneWidget);
+    expect(find.textContaining('扩展指标'), findsNothing);
+    await tester.tap(find.text('原始诊断信息'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandConsoleText), findsOneWidget);
+    expect(tester.widget<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).text, raw);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('长字段保留字号，自定义单元格有全文提示且文本不误缩写', (tester) async {
     await tester.binding.setSurfaceSize(const Size(600, 700));
     final long = List.filled(30, 'abcdef0123456789').join(' ');

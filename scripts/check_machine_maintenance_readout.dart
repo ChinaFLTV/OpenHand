@@ -9,6 +9,31 @@ void main() {
 
   MachineMaintenanceReadout parse(String text, String section) =>
       MachineMaintenanceReadout.parse(text, section);
+  const dockerError =
+      'failed to connect to the docker API at unix:///tmp/docker.sock: connect: no such file or directory';
+  check(
+    parse(dockerError, 'containers').issue == 'connection',
+    '容器连接失败应显示诊断状态',
+  );
+  check(parse(dockerError, 'containers').rows.isEmpty, '错误信息不能被拆成指标');
+  check(parse(dockerError, 'logs').issue == null, '日志正文不能被错误状态替换');
+  check(
+    parse('permission denied: /tmp/socket', 'containers').issue == 'permission',
+    '权限错误识别失败',
+  );
+  check(
+    parse('context deadline exceeded', 'containers').issue == 'timeout',
+    '超时识别失败',
+  );
+  check(
+    parse('sh: docker: command not found', 'containers').issue == 'missing',
+    '缺失工具识别失败',
+  );
+  check(
+    parse('State: running\nErrors: 0', 'status').issue == null,
+    '正常状态被误判为错误',
+  );
+  check(parse('docker: 27.0', 'status').issue == null, '正常工具版本不应误判为异常');
   final startup = parse(
     '/Library/LaunchAgents:\ncom.example.agent.plist\n/Library/LaunchDaemons:\ncom.example.daemon.plist\n/Users/test/Library/LaunchAgents:\nMy Agent.plist',
     'startup',
@@ -112,9 +137,8 @@ void main() {
   check(mac.rows.first.last == '/Applications/My App', 'macOS 启动时间列错位');
   check(mac.rows.last.length == mac.headers.length, '缺失列应安全保留');
   check(
-    parse('Permission denied', 'status').rows.single.last ==
-        'Permission denied',
-    '异常信息丢失',
+    parse('Permission denied', 'status').issue == 'permission',
+    '权限异常未进入诊断展示',
   );
   final process = parse(
     'PID PPID USER STAT STARTED COMMAND\n42 1 user S Tue Sep 29 16:00:00 2026 /Applications/My App',

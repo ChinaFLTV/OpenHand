@@ -873,7 +873,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       builder: (context) => buildOpenHandDialog(
         maxHeight: MediaQuery.sizeOf(context).height * .7,
         child: SizedBox(
-          width: math.min(MediaQuery.sizeOf(context).width * .86, 900),
+          width: math.min(
+            MediaQuery.sizeOf(context).width * .86,
+            machineMaintenanceCollectionIssue(
+                      text,
+                      title == '最近日志' ? 'logs' : '',
+                    ) ==
+                    null
+                ? 900
+                : 660,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2938,10 +2947,11 @@ IconData _maintenanceFieldIcon(String key) => switch (key) {
 };
 
 String _maintenanceOutputStatus(String text) =>
-    RegExp(
-      'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
-      caseSensitive: false,
-    ).hasMatch(text)
+    machineMaintenanceCollectionIssue(text, '') != null ||
+        RegExp(
+          'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
+          caseSensitive: false,
+        ).hasMatch(text)
     ? '部分不可用 · 查看原因'
     : '已采集 · 查看详情';
 
@@ -4562,6 +4572,88 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
 
   @override
   Widget build(BuildContext context) {
+    if (_data.issue case final issue?) {
+      final cs = Theme.of(context).colorScheme;
+      final title = switch (issue) {
+        'permission' => '当前账户无权读取',
+        'timeout' => '采集响应超时',
+        'connection' =>
+          widget.section == 'containers' ? '容器服务暂不可用' : '暂时无法连接服务',
+        'missing' => '缺少采集所需工具',
+        _ => '当前数据暂不可用',
+      };
+      final message = switch (issue) {
+        'permission' => '请检查当前账户的访问权限后重试。',
+        'timeout' => '请检查目标服务的运行状态和连接，稍后重新采集。',
+        'connection' =>
+          widget.section == 'containers'
+              ? '请确认 Docker 或 Podman 已启动，并检查当前连接地址与运行环境。'
+              : '请确认目标服务已启动，并检查连接地址。',
+        'missing' => '请确认目标机器已安装对应工具，且命令可在当前终端使用。',
+        _ => '请展开诊断信息查看原因，处理后重新采集。',
+      };
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: .055),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MaintenanceIconBadge(
+                  icon: issue == 'permission'
+                      ? Icons.lock_outline_rounded
+                      : Icons.info_outline_rounded,
+                  color: OpenHandStatusColors.warning,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        message,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ExpansionTile(
+            title: const Text('原始诊断信息'),
+            leading: const Icon(Icons.terminal_rounded),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            children: [
+              OpenHandConsoleText(
+                title: '采集输出',
+                text: widget.text,
+                maxHeight: 240,
+              ),
+            ],
+          ),
+        ],
+      );
+    }
     if (_data.rows.isEmpty) {
       return _MaintenanceEmptyHint(
         message: maintenanceLabel(context, '暂无可用数据'),

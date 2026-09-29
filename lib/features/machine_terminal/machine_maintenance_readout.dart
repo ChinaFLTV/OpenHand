@@ -1,12 +1,48 @@
+/// 仅识别采集输出开头的明确错误，日志正文和正常指标不参与错误推断。
+String? machineMaintenanceCollectionIssue(String output, String section) {
+  if (section == 'logs' || section == 'command') return null;
+  final first = output.trimLeft().split('\n').first.trim();
+  final failure = RegExp(
+    r'^(?:failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|未安装|缺少|权限不足|无法连接|(?:docker|podman|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|nft|iptables)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
+    caseSensitive: false,
+  );
+  if (!failure.hasMatch(first)) return null;
+  if (RegExp(
+    'permission denied|not permitted|access.*denied|权限不足|拒绝访问',
+    caseSensitive: false,
+  ).hasMatch(first)) {
+    return 'permission';
+  }
+  if (RegExp(
+    'timed out|timeout|deadline exceeded|超时',
+    caseSensitive: false,
+  ).hasMatch(first)) {
+    return 'timeout';
+  }
+  if (RegExp('connect|docker api|无法连接', caseSensitive: false).hasMatch(first)) {
+    return 'connection';
+  }
+  if (RegExp(
+    'command not found|not found|not recognized|未安装|缺少',
+    caseSensitive: false,
+  ).hasMatch(first)) {
+    return 'missing';
+  }
+  return 'unavailable';
+}
+
 /// 命令展示模型保留字段顺序、重复字段和完整值，不执行或改写采样内容。
 class MachineMaintenanceReadout {
   const MachineMaintenanceReadout(
     this.headers,
     this.rows, {
     this.fields = false,
+    this.issue,
   });
 
   factory MachineMaintenanceReadout.parse(String output, String section) {
+    final issue = machineMaintenanceCollectionIssue(output, section);
+    if (issue != null) return MachineMaintenanceReadout([], [], issue: issue);
     final lines = output
         .replaceAll('\r', '')
         .split('\n')
@@ -404,4 +440,5 @@ class MachineMaintenanceReadout {
   final List<String> headers;
   final List<List<String>> rows;
   final bool fields;
+  final String? issue;
 }
