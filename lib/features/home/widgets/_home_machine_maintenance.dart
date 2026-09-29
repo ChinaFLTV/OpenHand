@@ -4079,38 +4079,26 @@ class _MachineMaintenanceDetailsState
                         runSpacing: 7,
                         children: [
                           for (final action in widget.actions.entries)
-                            Tooltip(
-                              message: maintenanceLabel(context, action.key),
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(
-                                    0,
-                                    _maintenanceControlHeight,
-                                  ),
-                                  maximumSize: const Size(
-                                    180,
-                                    _maintenanceControlHeight,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.standard,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                            Semantics(
+                              button: true,
+                              enabled: !_busy,
+                              child: _MachineTerminalIconButton(
+                                icon: switch (action.key) {
+                                  '终止进程' => Icons.stop_circle_outlined,
+                                  '暂停进程' => Icons.pause_rounded,
+                                  '恢复进程' => Icons.play_arrow_rounded,
+                                  '启动服务' => Icons.play_circle_outline_rounded,
+                                  '停止服务' => Icons.stop_rounded,
+                                  '重启服务' => Icons.restart_alt_rounded,
+                                  '启用开机启动' ||
+                                  '自动启动' => Icons.event_available_outlined,
+                                  '禁用开机启动' => Icons.event_busy_outlined,
+                                  '手动启动' => Icons.touch_app_outlined,
+                                  '禁用服务' => Icons.block_rounded,
+                                  _ => Icons.settings_outlined,
+                                },
+                                tooltip: maintenanceLabel(context, action.key),
                                 onPressed: _busy ? null : () => _act(action),
-                                child: Text(
-                                  maintenanceLabel(context, action.key),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
                               ),
                             ),
                         ],

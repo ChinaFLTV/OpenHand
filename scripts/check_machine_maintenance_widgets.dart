@@ -773,7 +773,7 @@ void main() {
       await tester.tap(find.text('测试进程'));
             await tester.pumpAndSettle();
             expect(find.text('进程 42 · 测试进程'), findsOneWidget);
-            expect(find.text('终止进程'), findsOneWidget);
+            expect(find.byTooltip('终止进程'), findsOneWidget);
             await tester.tap(find.byTooltip('关闭').last);
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
@@ -806,8 +806,8 @@ void main() {
       await tester.ensureVisible(find.text('测试进程'));
       await tester.tap(find.text('测试进程'));
       await tester.pumpAndSettle();
-      expect(find.text('终止进程'), findsOneWidget);
-      expect(find.text('暂停进程'), target.\$1 == 'Darwin' ? findsOneWidget : findsNothing);
+      expect(find.byTooltip('终止进程'), findsOneWidget);
+      expect(find.byTooltip('暂停进程'), target.\$1 == 'Darwin' ? findsOneWidget : findsNothing);
       await tester.tap(find.byTooltip('关闭').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('系统服务'));
@@ -816,7 +816,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('nginx.service').first);
       await tester.pumpAndSettle();
-      expect(find.text('启动服务'), findsOneWidget);
+      expect(find.byTooltip('启动服务'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
@@ -922,6 +922,7 @@ void main() {
     for (final width in [1100.0, 580.0]) {
       for (final actions in [
         {'终止进程': 'stop', '暂停进程': 'pause', '恢复进程': 'resume'},
+        {'启用开机启动': 'enable', '禁用开机启动': 'disable'},
         {'启动服务': 'start', '停止服务': 'stop', '重启服务': 'restart', '自动启动': 'auto', '手动启动': 'manual', '禁用服务': 'disable'},
       ]) {
         await tester.binding.setSurfaceSize(Size(width, 850));
@@ -940,13 +941,14 @@ void main() {
         final refreshRect = tester.getRect(refresh);
         final progressRect = tester.getRect(progress);
         for (final label in actions.keys) {
-          final button = find.widgetWithText(OutlinedButton, label);
+          final button = find.byWidgetPredicate((widget) => widget is _MachineTerminalIconButton && widget.tooltip == label);
           final rect = tester.getRect(button);
-          expect(rect.height, 34);
+          expect(rect.size, const Size(34, 34));
           expect(rect.right, lessThan(refreshRect.left));
           expect(rect.bottom, lessThan(headerRect.bottom));
-          expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+          expect(tester.widget<_MachineTerminalIconButton>(button).onPressed, isNull);
         }
+        expect(find.byType(OutlinedButton), findsNothing);
         expect(progressRect.top, greaterThan(headerRect.bottom));
         expect(progressRect.left, greaterThan(headerRect.left));
         expect(tester.takeException(), isNull);
@@ -955,7 +957,7 @@ void main() {
         expect(tester.getRect(header), headerRect);
         expect(find.byType(LinearProgressIndicator), findsNothing);
         for (final label in actions.keys) {
-          expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, label)).onPressed, isNotNull);
+          expect(tester.widget<_MachineTerminalIconButton>(find.byWidgetPredicate((widget) => widget is _MachineTerminalIconButton && widget.tooltip == label)).onPressed, isNotNull);
         }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
