@@ -47,7 +47,6 @@ const _maintenanceSectionLabels = {
   'limits': '资源限制',
   'cgroup': '控制组',
   'descriptors': '打开的文件描述符',
-  'capabilities': '环境能力',
   'blocks': '块设备与 RAID',
   'cgroup_limits': '控制组资源限制 · 容器与主机视图可能不同',
   'kernel': '内核资源参数',
@@ -110,7 +109,6 @@ IconData _maintenanceSectionIcon(String? section) => switch (section) {
   'interfaces' => Icons.lan_outlined,
   'pressure' || 'sensors' => Icons.monitor_heart_outlined,
   'kernel' || 'cgroup_limits' => Icons.tune_rounded,
-  'capabilities' => Icons.verified_outlined,
   _ => Icons.analytics_outlined,
 };
 
@@ -1294,7 +1292,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           'inodes',
           'sensors',
           'cgroup_limits',
-          'capabilities',
         ])
           if (data.text(section).isNotEmpty)
             Padding(
@@ -2789,19 +2786,6 @@ String _maintenanceReadoutValue(
   return maintenanceDetailValue(context, value);
 }
 
-String _maintenanceToolLabel(BuildContext context, String name) {
-  final l10n = AppLocalizations.of(context)!;
-  return switch (name) {
-    'sysctl' => l10n.maintenanceToolSysctl,
-    'top' => l10n.maintenanceToolTop,
-    'vm_stat' => l10n.maintenanceToolVmStat,
-    'ioreg' => l10n.maintenanceToolIoreg,
-    'netstat' => l10n.maintenanceToolNetstat,
-    'launchctl' => l10n.maintenanceToolLaunchctl,
-    _ => name,
-  };
-}
-
 IconData _maintenanceFieldIcon(String key) => switch (key) {
   'Path' || 'NAME' || '路径' || 'Program' || 'COMMAND' => Icons.route_outlined,
   'Process' || '进程' => Icons.memory_rounded,
@@ -2862,28 +2846,6 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
         for (var t = 0; t < metrics.tables.length; t++)
           if (metrics.tables[t].rows.isEmpty)
             _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据'))
-          else if (section == 'capabilities')
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final row in metrics.tables[t].rows)
-                  Tooltip(
-                    message: maintenanceMetricLabel(context, row.first, '类型'),
-                    child: Chip(
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      avatar: Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      label: Text(_maintenanceToolLabel(context, row.last)),
-                    ),
-                  ),
-              ],
-            )
           else if (metrics.tables[t].headers.contains('数值') ||
               section == 'pressure')
             _MaintenanceMetricTiles(

@@ -837,14 +837,13 @@ void main() {
         final fixed = MachineMaintenanceSnapshot({'platform': 'Linux',
           'memory': 'MemTotal: 31641540 kB\\nMemFree: 1226252 kB\\nMemAvailable: 18519936 kB\\nBuffers: 364560 kB\\nCached: 8512236 kB\\nSwapTotal: 8388608 kB\\nSwapFree: 7340032 kB\\nActive: 4256032 kB\\nInactive: 2460928 kB\\nSlab: 503360 kB',
           'pressure': '/proc/pressure/cpu\\nsome avg10=12.5 avg60=3.2 avg300=0.5 total=1200\\n/proc/pressure/memory\\nsome avg10=2.1 avg60=1.2 avg300=0.3 total=2100\\n/proc/pressure/io\\nfull avg10=5.4 avg60=2.3 avg300=1.2 total=3300',
-          'capabilities': '可用工具: ps awk sed vmstat iostat',
         });
         await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
           home: Scaffold(body: RepaintBoundary(key: const ValueKey('固定指标预览'), child: ListView(padding: const EdgeInsets.all(24), children: [
-            for (final section in ['memory', 'pressure', 'capabilities'])
+            for (final section in ['memory', 'pressure'])
               Padding(padding: const EdgeInsets.only(bottom: 12), child: _MaintenanceCard(title: _maintenanceSectionLabels[section] ?? section, scrollBody: false,
                 child: _MaintenanceMetricContent(data: fixed, section: section))),
           ])))));
@@ -931,7 +930,6 @@ void main() {
       'memory': ['MemTotal: 31641540 kB', 'MemAvailable: 18519936 kB',
         ...List.generate(45, (i) => 'metric\$i: \${i + 1} kB')].join('\\n'),
       'pressure': '/proc/pressure/cpu\\nsome avg10=12.5 avg60=3.2 avg300=0.5 total=1200',
-      'capabilities': '可用工具: ps awk sed',
     });
     for (final width in [360.0, 1280.0]) {
       await tester.binding.setSurfaceSize(Size(width, 1000));
@@ -942,7 +940,7 @@ void main() {
           theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
           home: Scaffold(body: RepaintBoundary(key: const ValueKey('固定指标预览'), child: SingleChildScrollView(
             child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-              for (final section in ['pressure', 'capabilities', 'memory'])
+              for (final section in ['pressure', 'memory'])
                 _MaintenanceCard(title: section, scrollBody: false,
                   child: _MaintenanceMetricContent(data: data, section: section)),
             ])))))));
@@ -951,7 +949,6 @@ void main() {
         expect(find.text('30.2 GB'), findsOneWidget);
         expect(find.text('扩展指标：metric44'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
-        expect(find.byType(Chip), findsNWidgets(3));
         expect(tester.takeException(), isNull);
 
       }
