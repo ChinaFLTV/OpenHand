@@ -939,6 +939,7 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
     bool startIfNeeded = true,
     bool recordHistory = true,
+    bool usePosixShell = false,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
@@ -976,6 +977,7 @@ class MachineTerminalService extends ChangeNotifier {
       endMarker: '${token}_END',
       timeout: effectiveTimeout,
       recordHistory: recordHistory,
+      usePosixShell: usePosixShell,
       onOutput: onOutput,
     );
     _scheduleMetadataPersist(terminal.sessionId);
@@ -2390,6 +2392,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     bool recordHistory = true,
+    bool usePosixShell = false,
     MachineTerminalCommandOutputCallback? onOutput,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
@@ -2414,6 +2417,7 @@ class MachineTerminalSession {
             endMarker: endMarker,
             timeout: timeout,
             recordHistory: recordHistory,
+            usePosixShell: usePosixShell,
             onOutput: onOutput,
           ),
         ).whenComplete(() {
@@ -2431,6 +2435,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     required bool recordHistory,
+    required bool usePosixShell,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -2450,11 +2455,12 @@ class MachineTerminalSession {
     final end = '__${endMarker}__';
     final startOffset = _output.endOffset;
     try {
-      await _disableEchoForCommand();
+      await _disableEchoForCommand(usePosixShell: usePosixShell);
       final payload = _commandPayload(
         command: command,
         beginMarker: beginMarker,
         endMarker: endMarker,
+        usePosixShell: usePosixShell,
       );
       await _writePtyPaced(payload);
       final parsed = await _waitForCommandOutput(
@@ -2642,8 +2648,8 @@ class MachineTerminalSession {
     _onChanged();
   }
 
-  Future<void> _disableEchoForCommand() async {
-    if (Platform.isWindows) return;
+  Future<void> _disableEchoForCommand({bool usePosixShell = false}) async {
+    if (Platform.isWindows && !usePosixShell) return;
     final marker =
         '__OPENHAND_ECHO_READY_${DateTime.now().microsecondsSinceEpoch}__';
     final startOffset = _output.endOffset;
@@ -3057,8 +3063,9 @@ String _commandPayload({
   required String command,
   required String beginMarker,
   required String endMarker,
+  bool usePosixShell = false,
 }) {
-  if (Platform.isWindows) {
+  if (Platform.isWindows && !usePosixShell) {
     return 'set "__OPENHAND_BEGIN=$beginMarker"\r\n'
         'set "__OPENHAND_END=$endMarker"\r\n'
         'echo __%__OPENHAND_BEGIN%__\r\n'

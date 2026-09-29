@@ -202,6 +202,13 @@ class _MachineExpertTerminalPanelState
             onFiles: () => _showFileManagerDialog(activeSnapshot.terminalId),
             onClear: () => _control('clear', activeSnapshot.terminalId),
             onHistory: _showHistoryDialog,
+            onMaintenance: () => showAnimatedDialog<void>(
+              context: context,
+              builder: (_) => _MachineMaintenanceDialog(
+                sessionId: widget.sessionId,
+                terminalId: activeSnapshot.terminalId,
+              ),
+            ),
           ),
           kOpenHandGap10,
           _MachineTerminalTabs(
@@ -452,6 +459,7 @@ class _MachineTerminalHeader extends StatelessWidget {
     required this.onFiles,
     required this.onClear,
     required this.onHistory,
+    required this.onMaintenance,
   });
 
   final MachineTerminalSnapshot snapshot;
@@ -465,6 +473,7 @@ class _MachineTerminalHeader extends StatelessWidget {
   final VoidCallback onFiles;
   final VoidCallback onClear;
   final VoidCallback onHistory;
+  final VoidCallback onMaintenance;
 
   @override
   Widget build(BuildContext context) {
@@ -639,6 +648,11 @@ class _MachineTerminalHeader extends StatelessWidget {
                 en: 'Execution History',
               ),
               onPressed: onHistory,
+            ),
+            _MachineTerminalIconButton(
+              icon: Icons.monitor_heart_outlined,
+              tooltip: '服务器运维',
+              onPressed: canStop ? onMaintenance : null,
             ),
           ],
         ),
