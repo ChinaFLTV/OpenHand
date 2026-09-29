@@ -3,6 +3,7 @@ part of '../openhand_home_page.dart';
 const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断'];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
+  'disks': '磁盘 IO',
   'processor': '处理器型号',
   'load': '系统负载 · 1 / 5 / 15 分钟',
   'pressure': '资源压力 · CPU / 内存 / IO',
@@ -132,7 +133,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       if (_requestedShell != MachineTerminalCommandShell.automatic &&
           (_requestedShell == MachineTerminalCommandShell.posix) !=
               (target.platform != 'Windows')) {
-        throw StateError('所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。');
+        throw StateError(
+          maintenanceLabel(context, '所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。'),
+        );
       }
       if (_platformName != null && _platformName != target.platform) {
         _snapshots.clear();
@@ -267,9 +270,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               LayoutBuilder(
                 builder: (_, constraints) => _MachineTerminalDialogHeader(
                   icon: Icons.dns_rounded,
-                  title: '服务器运维中心',
+                  title: maintenanceLabel(context, '服务器运维中心'),
                   subtitle:
-                      '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? '正在识别目标系统'}',
+                      '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? maintenanceLabel(context, '正在识别目标系统')}',
                   onClose: () => Navigator.of(context).pop(),
                   trailingActions: [
                     SizedBox(
@@ -296,7 +299,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   'PowerShell',
                                 _ => 'CMD',
                               },
-                              tooltip: '终端 Shell',
+                              tooltip: maintenanceLabel(context, '终端 Shell'),
                               enabled: !_loading,
                               value: _requestedShell,
                               items: const {
@@ -315,15 +318,25 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             ),
                             const SizedBox(width: 8),
                             _MaintenanceToolbarMenu<int>(
-                              label: '$_intervalSeconds 秒',
-                              tooltip: '自动刷新间隔',
+                              label: AppLocalizations.of(
+                                context,
+                              )!.maintenanceSeconds('$_intervalSeconds'),
+                              tooltip: maintenanceLabel(context, '自动刷新间隔'),
                               icon: Icons.timer_outlined,
                               value: _intervalSeconds,
-                              items: const {
-                                5: '5 秒',
-                                10: '10 秒',
-                                30: '30 秒',
-                                60: '60 秒',
+                              items: {
+                                5: AppLocalizations.of(
+                                  context,
+                                )!.maintenanceSeconds('5'),
+                                10: AppLocalizations.of(
+                                  context,
+                                )!.maintenanceSeconds('10'),
+                                30: AppLocalizations.of(
+                                  context,
+                                )!.maintenanceSeconds('30'),
+                                60: AppLocalizations.of(
+                                  context,
+                                )!.maintenanceSeconds('60'),
                               },
                               onSelected: (value) {
                                 setState(() => _intervalSeconds = value);
@@ -343,7 +356,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                status,
+                                maintenanceLabel(context, status),
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: _error != null ? cs.error : cs.primary,
                                 ),
@@ -351,9 +364,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             ),
                             const SizedBox(width: 10),
                             Text(
-                              _updated == null
-                                  ? '等待首次采样'
-                                  : '更新于 ${_updated!.toLocal().toString().substring(11, 19)}',
+                              maintenanceLabel(
+                                context,
+                                _updated == null
+                                    ? '等待首次采样'
+                                    : AppLocalizations.of(
+                                        context,
+                                      )!.maintenanceUpdated(
+                                        _updated!
+                                            .toLocal()
+                                            .toString()
+                                            .substring(11, 19),
+                                      ),
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
@@ -366,7 +389,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       icon: _automatic
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
-                      tooltip: _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
+                      tooltip: maintenanceLabel(
+                        context,
+                        _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
+                      ),
                       onPressed: () {
                         setState(() => _automatic = !_automatic);
                         _schedule();
@@ -374,7 +400,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ),
                     _MachineTerminalIconButton(
                       icon: Icons.refresh_rounded,
-                      tooltip: '刷新当前分区',
+                      tooltip: maintenanceLabel(context, '刷新当前分区'),
                       onPressed: _loading ? null : _refresh,
                     ),
                   ],
@@ -428,7 +454,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               size: 18,
                             ),
                             label: Text(
-                              _maintenanceTabs[index],
+                              maintenanceLabel(
+                                context,
+                                _maintenanceTabs[index],
+                              ),
                               style: TextStyle(
                                 fontWeight: selected
                                     ? FontWeight.w800
@@ -470,7 +499,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   child: _MaintenanceNotice(
                     message: _error == null
                         ? data.text('notice')
-                        : '采集失败，已暂停自动重试；当前保留上次数据。$_error',
+                        : AppLocalizations.of(
+                            context,
+                          )!.maintenanceCollectionErrorDetail(_error!),
                     error: _error != null,
                   ),
                 ),
@@ -514,7 +545,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '当前终端 · 辅助命令不持久化 · 速率需两次采样',
+                        maintenanceLabel(context, '当前终端 · 辅助命令不持久化 · 速率需两次采样'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -536,7 +567,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       padding: const EdgeInsets.all(18),
       children: [
         _MaintenanceCard(
-          title: _loading ? '正在连接当前终端' : '机器状态暂不可用',
+          title: maintenanceLabel(context, _loading ? '正在连接当前终端' : '机器状态暂不可用'),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Column(
@@ -548,14 +579,20 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  _loading ? '识别系统并读取运行状态' : '未能完成本次采集',
+                  maintenanceLabel(
+                    context,
+                    _loading ? '识别系统并读取运行状态' : '未能完成本次采集',
+                  ),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  _loading
-                      ? '数据就绪后将显示资源、进程、服务与网络状态。'
-                      : '请确认终端已连接并处于命令提示符，再重新采集。',
+                  maintenanceLabel(
+                    context,
+                    _loading
+                        ? '数据就绪后将显示资源、进程、服务与网络状态。'
+                        : '请确认终端已连接并处于命令提示符，再重新采集。',
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 if (_error != null) ...[
@@ -565,7 +602,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   FilledButton.icon(
                     onPressed: _loading ? null : _refresh,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('重新采集'),
+                    label: Text(maintenanceLabel(context, '重新采集')),
                   ),
                 ],
               ],
@@ -605,8 +642,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             children: [
               _MachineTerminalDialogHeader(
                 icon: Icons.article_outlined,
-                title: title,
-                subtitle: '当前采样 · 完整原始内容',
+                title: maintenanceLabel(context, title),
+                subtitle: maintenanceLabel(context, '当前采样 · 完整原始内容'),
                 onClose: () => Navigator.of(context).pop(),
               ),
               Expanded(
@@ -654,6 +691,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         .where((key) => RegExp(r'^cpu\d+$').hasMatch(key))
         .toList();
     final facts = _maintenanceFacts(data);
+    if (data.uptime != null) {
+      facts['运行时间'] = AppLocalizations.of(context)!.maintenanceDuration(
+        '${(data.uptime! / 86400).floor()}',
+        '${(data.uptime! / 3600).floor() % 24}',
+      );
+    }
     final volumes = data
         .text('filesystems')
         .split('\n')
@@ -668,9 +711,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         .toList();
     final warnings = <String>[
       if (cpu != null && cpu >= .85)
-        'CPU 使用率较高：${(cpu * 100).toStringAsFixed(0)}%',
+        AppLocalizations.of(
+          context,
+        )!.maintenanceCpuAlert((cpu * 100).toStringAsFixed(0)),
       if (memoryUsage != null && memoryUsage >= .85)
-        '内存使用率较高：${(memoryUsage * 100).toStringAsFixed(0)}%',
+        AppLocalizations.of(
+          context,
+        )!.maintenanceMemoryAlert((memoryUsage * 100).toStringAsFixed(0)),
     ];
     final visibleVolumes = volumes.where((v) {
       final mount = v.skip(5).join(' ');
@@ -681,7 +728,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }).toList();
     final left = <Widget>[
       _MaintenanceCard(
-        title: '资源使用',
+        title: maintenanceLabel(context, '资源使用'),
         icon: Icons.memory_rounded,
         child: Column(
           children: [
@@ -714,7 +761,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ),
       _MaintenanceCard(
-        title: '采样状态',
+        title: maintenanceLabel(context, '采样状态'),
         icon: Icons.sensors_rounded,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -726,14 +773,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             const SizedBox(height: 10),
             _MaintenanceFacts(
               values: {
-                '刷新方式': _automatic ? '自动 · $_intervalSeconds 秒' : '手动刷新',
+                '刷新方式': _automatic
+                    ? AppLocalizations.of(
+                        context,
+                      )!.maintenanceAutoInterval('$_intervalSeconds')
+                    : maintenanceLabel(context, '手动刷新'),
                 '趋势样本': '${_cpuHistory.length} / 60',
                 '目标平台': facts['操作系统']!,
               },
             ),
             const SizedBox(height: 8),
             Text(
-              '速率根据连续采样计算；不可用字段不作推断。',
+              maintenanceLabel(context, '速率根据连续采样计算；不可用字段不作推断。'),
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
           ],
@@ -741,7 +792,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
       if (cores.isNotEmpty)
         _MaintenanceCard(
-          title: '每核负载',
+          title: maintenanceLabel(context, '每核负载'),
           icon: Icons.grid_view_rounded,
           child: Wrap(
             spacing: 6,
@@ -759,7 +810,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     ];
     final center = <Widget>[
       _MaintenanceCard(
-        title: '基本信息',
+        title: maintenanceLabel(context, '基本信息'),
         icon: Icons.info_outline_rounded,
         onOpen: () => _showCollected('系统原始信息', data.text('system')),
         child: _MaintenanceFacts(
@@ -773,11 +824,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ),
       _MaintenanceCard(
-        title: '存储空间',
+        title: maintenanceLabel(context, '存储空间'),
         icon: Icons.storage_rounded,
         onOpen: () => _showCollected('文件系统', data.text('filesystems')),
         child: visibleVolumes.isEmpty
-            ? const Text('暂无可读的文件系统', style: TextStyle(fontSize: 12))
+            ? Text(
+                maintenanceLabel(context, '暂无可读的文件系统'),
+                style: const TextStyle(fontSize: 12),
+              )
             : Column(
                 children: [
                   for (final v in visibleVolumes)
@@ -833,7 +887,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ),
       ),
       _MaintenanceCard(
-        title: '网络吞吐',
+        title: maintenanceLabel(context, '网络吞吐'),
         icon: Icons.swap_vert_rounded,
         onOpen: () => _showCollected('网卡详情', data.text('interfaces')),
         child: _rateTable(
@@ -847,14 +901,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     ];
     final right = <Widget>[
       _MaintenanceCard(
-        title: 'CPU 实时趋势',
+        title: maintenanceLabel(context, 'CPU 实时趋势'),
         icon: Icons.show_chart_rounded,
         child: SizedBox(
           height: 94,
           child: _cpuHistory.length < 2
               ? Center(
                   child: Text(
-                    _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
+                    maintenanceLabel(
+                      context,
+                      _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
+                    ),
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 )
@@ -867,7 +924,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ),
       _MaintenanceCard(
-        title: '运维操作',
+        title: maintenanceLabel(context, '运维操作'),
         icon: Icons.tune_rounded,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -888,20 +945,27 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                   onPressed: _loading ? null : () => _selectSection(action.$1),
                   icon: Icon(action.$2, size: 16),
-                  label: Text(action.$3, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    maintenanceLabel(context, action.$3),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ),
           ],
         ),
       ),
       _MaintenanceCard(
-        title: '资源提醒',
+        title: maintenanceLabel(context, '资源提醒'),
         icon: Icons.notifications_none_rounded,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _MaintenanceStatus(
-              label: warnings.isEmpty ? '暂无阈值提醒' : '${warnings.length} 项需关注',
+              label: warnings.isEmpty
+                  ? '暂无阈值提醒'
+                  : AppLocalizations.of(
+                      context,
+                    )!.maintenanceAlertCount('${warnings.length}'),
               color: warnings.isEmpty ? cs.primary : cs.error,
             ),
             const SizedBox(height: 10),
@@ -914,7 +978,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
               ),
             Text(
-              '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。',
+              maintenanceLabel(
+                context,
+                '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。',
+              ),
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
           ],
@@ -931,7 +998,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               'CPU 使用率',
               cpu == null ? '—' : '${(cpu * 100).toStringAsFixed(1)}%',
-              '${facts['逻辑处理器']} 个逻辑处理器',
+              AppLocalizations.of(
+                context,
+              )!.maintenanceCpuCount(facts['逻辑处理器']!),
               Icons.memory_rounded,
               cs.primary,
               cpu,
@@ -955,7 +1024,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   : formatByteSize(swap - freeSwap),
               swap == 0
                   ? '未配置交换空间'
-                  : '总量 ${swap == null ? '—' : formatByteSize(swap)}',
+                  : AppLocalizations.of(context)!.maintenanceTotal(
+                      swap == null ? '—' : formatByteSize(swap),
+                    ),
               Icons.swap_horiz_rounded,
               cs.secondary,
               swap != null && swap > 0 && freeSwap != null
@@ -1002,7 +1073,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           },
         ),
         _MaintenanceCard(
-          title: '更多系统指标',
+          title: maintenanceLabel(context, '更多系统指标'),
           icon: Icons.dashboard_customize_outlined,
           child: Wrap(
             spacing: 8,
@@ -1030,7 +1101,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       data.text(key),
                     ),
                     child: Text(
-                      _maintenanceSectionLabels[key] ?? key,
+                      maintenanceLabel(
+                        context,
+                        _maintenanceSectionLabels[key] ?? key,
+                      ),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -1039,7 +1113,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
-          title: '磁盘 IO',
+          title: maintenanceLabel(context, '磁盘 IO'),
           icon: Icons.speed_rounded,
           child: _rateTable(
             data,
@@ -1087,7 +1161,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  maintenanceLabel(context, title),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -1104,7 +1178,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  subtitle,
+                  maintenanceLabel(context, subtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1138,11 +1212,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     List<int> multipliers,
   ) {
     final keys = data.counters(section, colon: section == 'network').keys;
-    if (keys.isEmpty) return const Text('当前环境未提供可用计数器。');
+    if (keys.isEmpty) return Text(maintenanceLabel(context, '当前环境未提供可用计数器。'));
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columns: headings.map((name) => DataColumn(label: Text(name))).toList(),
+        columns: headings
+            .map(
+              (name) =>
+                  DataColumn(label: Text(maintenanceLabel(context, name))),
+            )
+            .toList(),
         rows: keys
             .map(
               (key) => DataRow(
@@ -1243,10 +1322,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     onChanged: (_) => setState(() {
                       _page = 0;
                     }),
-                    decoration: const InputDecoration(
-                      hintText: '搜索 PID 或进程名',
-                      prefixIcon: Icon(Icons.search_rounded),
-                      border: OutlineInputBorder(
+                    decoration: InputDecoration(
+                      hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
                     ),
@@ -1262,10 +1341,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('CPU 降序')),
-                      DropdownMenuItem(value: 1, child: Text('内存降序')),
-                      DropdownMenuItem(value: 2, child: Text('PID 升序')),
+                    items: [
+                      DropdownMenuItem(
+                        value: 0,
+                        child: Text(maintenanceLabel(context, 'CPU 降序')),
+                      ),
+                      DropdownMenuItem(
+                        value: 1,
+                        child: Text(maintenanceLabel(context, '内存降序')),
+                      ),
+                      DropdownMenuItem(
+                        value: 2,
+                        child: Text(maintenanceLabel(context, 'PID 升序')),
+                      ),
                     ],
                     onChanged: (value) => setState(() {
                       _sort = value!;
@@ -1274,7 +1362,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
                 Text(
-                  '匹配 ${rows.length} 项 · 总数 ${countLine?.split('\t').last ?? '未知'}',
+                  maintenanceLabel(
+                    context,
+                    AppLocalizations.of(context)!.maintenanceMatched(
+                      '${rows.length}',
+                      countLine?.split('\t').last ??
+                          maintenanceLabel(context, '未知'),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1301,13 +1396,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ),
                       child: DataTable(
                         showCheckboxColumn: false,
-                        columns: const [
-                          DataColumn(label: Text('PID')),
-                          DataColumn(label: Text('进程')),
-                          DataColumn(label: Text('状态')),
-                          DataColumn(label: Text('CPU / 单核')),
-                          DataColumn(label: Text('驻留内存')),
-                          DataColumn(label: Text('线程')),
+                        columns: [
+                          const DataColumn(label: Text('PID')),
+                          DataColumn(
+                            label: Text(maintenanceLabel(context, '进程')),
+                          ),
+                          DataColumn(
+                            label: Text(maintenanceLabel(context, '状态')),
+                          ),
+                          DataColumn(
+                            label: Text(maintenanceLabel(context, 'CPU / 单核')),
+                          ),
+                          DataColumn(
+                            label: Text(maintenanceLabel(context, '驻留内存')),
+                          ),
+                          DataColumn(
+                            label: Text(maintenanceLabel(context, '线程')),
+                          ),
                         ],
                         rows: rows
                             .skip(currentPage * 40)
@@ -1318,7 +1423,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                     !_platform!.canInspectProcess(p)
                                     ? null
                                     : (_) => _details(
-                                        '进程 ${p.pid} · ${p.name}',
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.maintenanceProcessTitle(
+                                          '${p.pid}',
+                                          p.name,
+                                        ),
                                         _platform!.process(p),
                                         actions: {
                                           for (final action
@@ -1372,11 +1482,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   ),
                                   DataCell(
                                     Text(
-                                      pageSize == null || p.residentPages < 0
-                                          ? '不可用'
-                                          : formatByteSize(
-                                              p.residentPages * pageSize,
-                                            ),
+                                      maintenanceLabel(
+                                        context,
+                                        pageSize == null || p.residentPages < 0
+                                            ? '不可用'
+                                            : formatByteSize(
+                                                p.residentPages * pageSize,
+                                              ),
+                                      ),
                                     ),
                                   ),
                                   DataCell(
@@ -1416,7 +1529,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             _refresh();
                           }
                         : null,
-                    child: const Text('上一批进程'),
+                    child: Text(maintenanceLabel(context, '上一批进程')),
                   ),
                   TextButton(
                     onPressed:
@@ -1434,7 +1547,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             _refresh();
                           }
                         : null,
-                    child: const Text('下一批进程'),
+                    child: Text(maintenanceLabel(context, '下一批进程')),
                   ),
                 ],
               ),
@@ -1554,15 +1667,20 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             isDense: true,
-            hintText: '筛选服务',
-            prefixIcon: Icon(Icons.search_rounded, size: 18),
+            hintText: maintenanceLabel(context, '筛选服务'),
+            prefixIcon: const Icon(Icons.search_rounded, size: 18),
           ),
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
-          title: '服务列表 · ${filtered.length} 项',
+          title: maintenanceLabel(
+            context,
+            AppLocalizations.of(
+              context,
+            )!.maintenanceServiceCount('${filtered.length}'),
+          ),
           icon: Icons.view_list_outlined,
           maxHeight: 420,
           child: SizedBox(
@@ -1597,7 +1715,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     title: Tooltip(
                       message: line,
                       child: Text(
-                        name,
+                        maintenanceLabel(context, name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1653,7 +1771,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     data.text(name),
                   ),
                   icon: const Icon(Icons.article_outlined, size: 16),
-                  label: Text(_maintenanceSectionLabels[name]!),
+                  label: Text(
+                    maintenanceLabel(context, _maintenanceSectionLabels[name]!),
+                  ),
                 ),
           ],
         ),
@@ -1668,14 +1788,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       r'(?:nameserver(?:\[\d+\])?\s*:?\s*|DNS Servers[^:]*:\s*)([a-fA-F0-9:.]+)',
     ).allMatches(data.text('dns')).map((m) => m[1]!).toSet().toList();
     final primary = _MaintenanceCard(
-      title: '连接与监听端口',
+      title: maintenanceLabel(context, '连接与监听端口'),
       icon: Icons.hub_outlined,
       onOpen: () => _showCollected('连接与监听端口', data.text('sockets')),
       maxHeight: 470,
       child: connections.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.all(18),
-              child: Text('未解析到 TCP / UDP 连接，可查看原始数据。'),
+          ? Padding(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                maintenanceLabel(context, '未解析到 TCP / UDP 连接，可查看原始数据。'),
+              ),
             )
           : LayoutBuilder(
               builder: (_, constraints) => SingleChildScrollView(
@@ -1683,24 +1805,35 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('协议')),
-                      DataColumn(label: Text('本地地址')),
-                      DataColumn(label: Text('远端地址')),
-                      DataColumn(label: Text('状态')),
+                    columns: [
+                      DataColumn(label: Text(maintenanceLabel(context, '协议'))),
+                      DataColumn(
+                        label: Text(maintenanceLabel(context, '本地地址')),
+                      ),
+                      DataColumn(
+                        label: Text(maintenanceLabel(context, '远端地址')),
+                      ),
+                      DataColumn(label: Text(maintenanceLabel(context, '状态'))),
                     ],
                     rows: [
                       for (final row in connections)
                         DataRow(
                           cells: [
-                            for (final cell in row)
+                            for (var index = 0; index < row.length; index++)
                               DataCell(
                                 Tooltip(
-                                  message: cell,
+                                  message: index == 3
+                                      ? maintenanceLabel(context, row[index])
+                                      : row[index],
                                   child: SizedBox(
-                                    width: cell == row.first ? 46 : 150,
+                                    width: index == 0 ? 46 : 150,
                                     child: Text(
-                                      cell,
+                                      index == 3
+                                          ? maintenanceLabel(
+                                              context,
+                                              row[index],
+                                            )
+                                          : row[index],
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -1719,20 +1852,26 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _MaintenanceCard(
-          title: 'DNS 服务器',
+          title: maintenanceLabel(context, 'DNS 服务器'),
           icon: Icons.language_rounded,
           onOpen: () => _showCollected('DNS 配置', data.text('dns')),
           child: dns.isEmpty
-              ? const Text('暂无可解析的服务器地址', style: TextStyle(fontSize: 12))
+              ? Text(
+                  maintenanceLabel(context, '暂无可解析的服务器地址'),
+                  style: const TextStyle(fontSize: 12),
+                )
               : _MaintenanceFacts(
                   values: {
-                    for (var i = 0; i < dns.length; i++) '服务器 ${i + 1}': dns[i],
+                    for (var i = 0; i < dns.length; i++)
+                      AppLocalizations.of(
+                        context,
+                      )!.maintenanceServerNumber('${i + 1}'): dns[i],
                   },
                 ),
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
-          title: '诊断项目',
+          title: maintenanceLabel(context, '诊断项目'),
           maxHeight: 360,
           icon: Icons.fact_check_outlined,
           child: Column(
@@ -1750,16 +1889,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     color: cs.primary,
                   ),
                   title: Text(
-                    _maintenanceSectionLabels[name] ?? name,
+                    maintenanceLabel(
+                      context,
+                      _maintenanceSectionLabels[name] ?? name,
+                    ),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   subtitle: Text(
-                    data.text(name).trim().isEmpty
-                        ? '暂无数据'
-                        : _maintenanceOutputStatus(data.text(name)),
+                    maintenanceLabel(
+                      context,
+                      data.text(name).trim().isEmpty
+                          ? '暂无数据'
+                          : _maintenanceOutputStatus(data.text(name)),
+                    ),
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
                   trailing: const Icon(Icons.chevron_right, size: 16),
@@ -1960,7 +2105,7 @@ class _MaintenanceFacts extends StatelessWidget {
               SizedBox(
                 width: 78,
                 child: Text(
-                  entry.key,
+                  maintenanceLabel(context, entry.key),
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1972,7 +2117,9 @@ class _MaintenanceFacts extends StatelessWidget {
                 child: Tooltip(
                   message: entry.value,
                   child: Text(
-                    entry.value.isEmpty ? '未提供' : entry.value,
+                    entry.value.isEmpty || entry.value == '未提供'
+                        ? maintenanceLabel(context, '未提供')
+                        : entry.value,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2009,7 +2156,7 @@ class _MaintenanceStatus extends StatelessWidget {
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              label,
+              maintenanceLabel(context, label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -2041,7 +2188,10 @@ class _MaintenanceUsage extends StatelessWidget {
       children: [
         SizedBox(
           width: 52,
-          child: Text(label, style: const TextStyle(fontSize: 12)),
+          child: Text(
+            maintenanceLabel(context, label),
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
         Expanded(
           child: LinearProgressIndicator(
@@ -2113,7 +2263,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return AnimatedPopupMenuButton<T>(
-      tooltip: tooltip,
+      tooltip: maintenanceLabel(context, tooltip),
       enabled: enabled,
       initialValue: value,
       position: PopupMenuPosition.under,
@@ -2121,7 +2271,10 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
       onSelected: onSelected,
       itemBuilder: (_) => [
         for (final item in items.entries)
-          PopupMenuItem(value: item.key, child: Text(item.value)),
+          PopupMenuItem(
+            value: item.key,
+            child: Text(maintenanceLabel(context, item.value)),
+          ),
       ],
       child: Container(
         height: 34,
@@ -2139,7 +2292,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
               const SizedBox(width: 6),
             ],
             Text(
-              label,
+              maintenanceLabel(context, label),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: enabled ? cs.onSurface : cs.onSurfaceVariant,
               ),
@@ -2201,22 +2354,51 @@ class _MaintenanceNotice extends StatelessWidget {
   }
 }
 
-class _MaintenanceReadout extends StatelessWidget {
+class _MaintenanceReadout extends StatefulWidget {
   const _MaintenanceReadout({required this.text});
   final String text;
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: SelectableText(
-      text.isEmpty ? '暂无可用数据' : text,
-      style: TextStyle(
-        fontFamily: 'monospace',
-        fontSize: 12,
-        height: 1.65,
-        color: Theme.of(context).colorScheme.onSurface,
-      ),
-    ),
-  );
+  State<_MaintenanceReadout> createState() => _MaintenanceReadoutState();
+}
+
+class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
+  bool _original = false;
+  @override
+  Widget build(BuildContext context) {
+    final localized = maintenanceLocalizedOutput(context, widget.text);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (localized != widget.text)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextButton.icon(
+              icon: Icon(_original ? Icons.translate : Icons.code, size: 16),
+              label: Text(
+                maintenanceLabel(context, _original ? '本地化字段' : '原始输出'),
+              ),
+              onPressed: () => setState(() => _original = !_original),
+            ),
+          ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SelectableText(
+            widget.text.isEmpty
+                ? maintenanceLabel(context, '暂无可用数据')
+                : _original
+                ? widget.text
+                : localized,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              height: 1.65,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _MaintenanceCard extends StatelessWidget {
@@ -2255,7 +2437,7 @@ class _MaintenanceCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    title,
+                    maintenanceLabel(context, title),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
@@ -2264,7 +2446,7 @@ class _MaintenanceCard extends StatelessWidget {
                 ),
                 if (onOpen != null)
                   Tooltip(
-                    message: '查看详情',
+                    message: maintenanceLabel(context, '查看详情'),
                     child: InkWell(
                       onTap: onOpen,
                       borderRadius: BorderRadius.circular(6),
@@ -2402,10 +2584,16 @@ class _MachineMaintenanceDetailsState
   Future<void> _act(MapEntry<String, String> action) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: action.key,
-      confirmLabel: '确认执行',
+      title: maintenanceLabel(context, action.key),
+      confirmLabel: maintenanceLabel(context, '确认执行'),
       destructive: true,
-      message: '目标：${widget.title}\n将使用当前终端权限执行“${action.key}”，可能影响正在运行的任务。',
+      message: maintenanceLabel(
+        context,
+        AppLocalizations.of(context)!.maintenanceConfirmAction(
+          widget.title,
+          maintenanceLabel(context, action.key),
+        ),
+      ),
     );
     if (confirmed != true || !mounted) return;
     setState(() {
@@ -2417,7 +2605,7 @@ class _MachineMaintenanceDetailsState
       await widget.execute(action.value);
       if (mounted) {
         setState(() {
-          _result = '${action.key}已执行，点击刷新查看最新状态。';
+          _result = action.key;
         });
       }
     } catch (error) {
@@ -2450,12 +2638,12 @@ class _MachineMaintenanceDetailsState
             _MachineTerminalDialogHeader(
               icon: Icons.analytics_outlined,
               title: widget.title,
-              subtitle: '实时详情 · 部分字段需要更高权限',
+              subtitle: maintenanceLabel(context, '实时详情 · 部分字段需要更高权限'),
               onClose: () => Navigator.of(context).pop(),
               trailingActions: [
                 _MachineTerminalIconButton(
                   icon: Icons.refresh_rounded,
-                  tooltip: '刷新详情',
+                  tooltip: maintenanceLabel(context, '刷新详情'),
                   onPressed: _busy ? null : _load,
                 ),
               ],
@@ -2470,7 +2658,7 @@ class _MachineMaintenanceDetailsState
                       .map(
                         (action) => OutlinedButton(
                           onPressed: _busy ? null : () => _act(action),
-                          child: Text(action.key),
+                          child: Text(maintenanceLabel(context, action.key)),
                         ),
                       )
                       .toList(),
@@ -2481,13 +2669,24 @@ class _MachineMaintenanceDetailsState
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: _MaintenanceNotice(
-                  message: _error ?? _result!,
+                  message:
+                      _error ??
+                      AppLocalizations.of(context)!.maintenanceActionDone(
+                        maintenanceLabel(context, _result!),
+                      ),
                   error: _error != null,
                 ),
               ),
             Expanded(
               child: _data == null
-                  ? Center(child: Text(_busy ? '正在读取详情…' : '读取失败，请重试。'))
+                  ? Center(
+                      child: Text(
+                        maintenanceLabel(
+                          context,
+                          _busy ? '正在读取详情…' : '读取失败，请重试。',
+                        ),
+                      ),
+                    )
                   : ListView(
                       padding: const EdgeInsets.all(18),
                       children: [

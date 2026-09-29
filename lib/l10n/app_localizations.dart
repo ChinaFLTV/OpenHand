@@ -19710,6 +19710,1500 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'配置响应、实时语音和视频等操作的提供商专用扩展参数。'**
   String get mdlEdOperationExtrasHint;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器运维中心'**
+  String get maintenanceCenter;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器运维'**
+  String get maintenanceEntry;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'运行总览'**
+  String get maintenanceOverview;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程管理'**
+  String get maintenanceProcesses;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统服务'**
+  String get maintenanceServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网络与诊断'**
+  String get maintenanceNetworkDiagnostics;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统与内核'**
+  String get maintenanceSystemKernel;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'处理器型号'**
+  String get maintenanceProcessorModel;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统负载 · 1 / 5 / 15 分钟'**
+  String get maintenanceLoadIntervals;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'资源压力 · CPU / 内存 / IO'**
+  String get maintenancePressure;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'文件系统容量 · KiB'**
+  String get maintenanceFilesystemCapacity;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'文件系统 inode'**
+  String get maintenanceInodes;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'交换空间'**
+  String get maintenanceSwapSpace;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网卡链路与硬件'**
+  String get maintenanceInterfaces;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'温度传感器'**
+  String get maintenanceSensors;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存详情'**
+  String get maintenanceMemoryDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存统计口径'**
+  String get maintenanceMemoryBasis;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存与分页性能计数器'**
+  String get maintenanceMemoryCounters;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'虚拟内存计数器'**
+  String get maintenanceVmCounters;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'开机启动状态'**
+  String get maintenanceStartup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统定时器'**
+  String get maintenanceTimers;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'连接与监听端口'**
+  String get maintenanceSockets;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'地址与路由'**
+  String get maintenanceRoutes;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'DNS 配置'**
+  String get maintenanceDns;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'最近日志'**
+  String get maintenanceLogs;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'登录用户'**
+  String get maintenanceUsers;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前用户计划任务'**
+  String get maintenanceCron;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'防火墙规则'**
+  String get maintenanceFirewall;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'容器状态'**
+  String get maintenanceContainers;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'状态详情'**
+  String get maintenanceStatusDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动命令'**
+  String get maintenanceCommand;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'可执行文件与工作目录'**
+  String get maintenancePaths;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程 IO 计数器'**
+  String get maintenanceProcessIo;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'资源限制'**
+  String get maintenanceLimits;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'控制组'**
+  String get maintenanceCgroup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'打开的文件描述符'**
+  String get maintenanceDescriptors;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'环境能力'**
+  String get maintenanceCapabilities;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'块设备与 RAID'**
+  String get maintenanceBlocks;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'控制组资源限制 · 容器与主机视图可能不同'**
+  String get maintenanceCgroupLimits;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内核资源参数'**
+  String get maintenanceKernel;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网卡累计计数 · 字节、包、错误与丢包'**
+  String get maintenanceNetworkCounters;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'采集中'**
+  String get maintenanceCollecting;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'采集异常'**
+  String get maintenanceCollectionError;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'自动刷新'**
+  String get maintenanceAutoRefresh;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'手动刷新'**
+  String get maintenanceManualRefresh;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'正在识别目标系统'**
+  String get maintenanceDetecting;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'自动识别 Shell'**
+  String get maintenanceAutoShell;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'终端 Shell'**
+  String get maintenanceShell;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'自动刷新间隔'**
+  String get maintenanceInterval;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'等待首次采样'**
+  String get maintenanceFirstSample;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停自动刷新'**
+  String get maintenancePauseRefresh;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'开启自动刷新（当前分区）'**
+  String get maintenanceStartRefresh;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新当前分区'**
+  String get maintenanceRefreshSection;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前终端 · 辅助命令不持久化 · 速率需两次采样'**
+  String get maintenanceFooter;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'正在连接当前终端'**
+  String get maintenanceConnecting;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'机器状态暂不可用'**
+  String get maintenanceUnavailableHost;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'识别系统并读取运行状态'**
+  String get maintenanceIdentifying;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未能完成本次采集'**
+  String get maintenanceCollectionFailed;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'数据就绪后将显示资源、进程、服务与网络状态。'**
+  String get maintenanceLoadingHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'请确认终端已连接并处于命令提示符，再重新采集。'**
+  String get maintenanceRetryHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'重新采集'**
+  String get maintenanceRetry;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存'**
+  String get maintenanceMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘'**
+  String get maintenanceDisk;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网络'**
+  String get maintenanceNetwork;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'等待目标机器数据'**
+  String get maintenanceWaitingData;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前采样 · 完整原始内容'**
+  String get maintenanceRawSample;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'资源使用'**
+  String get maintenanceResourceUse;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时间'**
+  String get maintenanceUptime;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'负载均衡'**
+  String get maintenanceLoad;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'处理器'**
+  String get maintenanceProcessor;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'采样状态'**
+  String get maintenanceSampleStatus;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'数据可能过期'**
+  String get maintenanceStale;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'采集成功'**
+  String get maintenanceCollected;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新方式'**
+  String get maintenanceRefreshMode;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'趋势样本'**
+  String get maintenanceTrendSamples;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'目标平台'**
+  String get maintenanceTargetPlatform;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'速率根据连续采样计算；不可用字段不作推断。'**
+  String get maintenanceRateHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'每核负载'**
+  String get maintenancePerCore;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'基本信息'**
+  String get maintenanceBasicInfo;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统原始信息'**
+  String get maintenanceRawSystem;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'主机名'**
+  String get maintenanceHost;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'操作系统'**
+  String get maintenanceOs;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统版本'**
+  String get maintenanceOsVersion;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内核版本'**
+  String get maintenanceKernelVersion;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'逻辑处理器'**
+  String get maintenanceLogicalCpus;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'存储空间'**
+  String get maintenanceStorage;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'文件系统'**
+  String get maintenanceFilesystem;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可读的文件系统'**
+  String get maintenanceNoFilesystem;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网络吞吐'**
+  String get maintenanceThroughput;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网卡详情'**
+  String get maintenanceInterfaceDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网卡'**
+  String get maintenanceInterface;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'接收 / 秒'**
+  String get maintenanceReceiveRate;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'发送 / 秒'**
+  String get maintenanceSendRate;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 实时趋势'**
+  String get maintenanceCpuTrend;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'正在积累样本…'**
+  String get maintenanceAccumulating;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'开启自动刷新后显示趋势'**
+  String get maintenanceTrendHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'运维操作'**
+  String get maintenanceOperations;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'查看进程'**
+  String get maintenanceViewProcesses;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'管理系统服务'**
+  String get maintenanceManageServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网络诊断'**
+  String get maintenanceNetworkAction;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'资源提醒'**
+  String get maintenanceAlerts;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无阈值提醒'**
+  String get maintenanceNoAlerts;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。'**
+  String get maintenanceAlertHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 使用率'**
+  String get maintenanceCpuUsage;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存使用率'**
+  String get maintenanceMemoryUsage;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无数据'**
+  String get maintenanceNoData;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'SWAP 使用量'**
+  String get maintenanceSwapUsage;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置交换空间'**
+  String get maintenanceNoSwap;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'更多系统指标'**
+  String get maintenanceMoreMetrics;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘 IO'**
+  String get maintenanceDiskIo;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'设备'**
+  String get maintenanceDevice;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'读取 / 秒'**
+  String get maintenanceReadRate;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'写入 / 秒'**
+  String get maintenanceWriteRate;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'读 IOPS'**
+  String get maintenanceReadIops;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'写 IOPS'**
+  String get maintenanceWriteIops;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前环境未提供可用计数器。'**
+  String get maintenanceNoCounters;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索 PID 或进程名'**
+  String get maintenanceSearchProcess;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 降序'**
+  String get maintenanceSortCpu;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存降序'**
+  String get maintenanceSortMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'PID 升序'**
+  String get maintenanceSortPid;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程'**
+  String get maintenanceProcess;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get maintenanceStatus;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU / 单核'**
+  String get maintenanceCpuPerCore;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'驻留内存'**
+  String get maintenanceResidentMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'线程'**
+  String get maintenanceThreads;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'不可用'**
+  String get maintenanceUnavailable;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'上一批进程'**
+  String get maintenancePreviousBatch;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'下一批进程'**
+  String get maintenanceNextBatch;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'运行中'**
+  String get maintenanceRunning;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未运行'**
+  String get maintenanceStopped;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get maintenanceUnknown;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'异常'**
+  String get maintenanceFailed;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'待检查'**
+  String get maintenanceUnchecked;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已发现服务'**
+  String get maintenanceDiscoveredServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前可见服务'**
+  String get maintenanceVisibleServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'异常服务'**
+  String get maintenanceFailedServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'仅统计明确报告失败的条目'**
+  String get maintenanceFailedServiceHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选服务'**
+  String get maintenanceSearchService;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未解析到 TCP / UDP 连接，可查看原始数据。'**
+  String get maintenanceNoConnections;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'协议'**
+  String get maintenanceProtocol;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'本地地址'**
+  String get maintenanceLocalAddress;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'远端地址'**
+  String get maintenanceRemoteAddress;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'DNS 服务器'**
+  String get maintenanceDnsServers;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可解析的服务器地址'**
+  String get maintenanceNoDns;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断项目'**
+  String get maintenanceDiagnosticItems;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已解析连接'**
+  String get maintenanceParsedConnections;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'当前采样中的 TCP / UDP'**
+  String get maintenanceConnectionHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'解析自当前系统配置'**
+  String get maintenanceDnsHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'路由、日志、任务与安全'**
+  String get maintenanceDiagnosticHelp;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未提供'**
+  String get maintenanceNotProvided;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'运行'**
+  String get maintenanceProcessRunning;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'休眠'**
+  String get maintenanceSleeping;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲'**
+  String get maintenanceIdle;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get maintenanceSuspended;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'僵尸'**
+  String get maintenanceZombie;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'IO 等待'**
+  String get maintenanceIoWait;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'部分不可用 · 查看原因'**
+  String get maintenancePartial;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已采集 · 查看详情'**
+  String get maintenanceViewCollected;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可用数据'**
+  String get maintenanceNoAvailableData;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'查看详情'**
+  String get maintenanceViewDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'确认执行'**
+  String get maintenanceConfirm;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'实时详情 · 部分字段需要更高权限'**
+  String get maintenanceDetailSubtitle;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新详情'**
+  String get maintenanceRefreshDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取详情…'**
+  String get maintenanceLoadingDetails;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'读取失败，请重试。'**
+  String get maintenanceDetailsFailed;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'终止进程'**
+  String get maintenanceTerminate;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停进程'**
+  String get maintenanceSuspend;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复进程'**
+  String get maintenanceResume;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动服务'**
+  String get maintenanceStartService;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'停止服务'**
+  String get maintenanceStopService;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'重启服务'**
+  String get maintenanceRestartService;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启用开机启动'**
+  String get maintenanceEnableStartup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用开机启动'**
+  String get maintenanceDisableStartup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'自动启动'**
+  String get maintenanceAutomaticStartup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'手动启动'**
+  String get maintenanceManualStartup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用服务'**
+  String get maintenanceDisableService;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。'**
+  String get maintenanceShellMismatch;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{value} 秒'**
+  String maintenanceSeconds(String value);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'更新于 {time}'**
+  String maintenanceUpdated(String time);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'采集失败，已暂停自动重试；当前保留上次数据。{error}'**
+  String maintenanceCollectionErrorDetail(String error);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 使用率较高：{value}%'**
+  String maintenanceCpuAlert(String value);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存使用率较高：{value}%'**
+  String maintenanceMemoryAlert(String value);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'自动 · {value} 秒'**
+  String maintenanceAutoInterval(String value);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项需关注'**
+  String maintenanceAlertCount(String count);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个逻辑处理器'**
+  String maintenanceCpuCount(String count);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'总量 {value}'**
+  String maintenanceTotal(String value);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'匹配 {count} 项 · 总数 {total}'**
+  String maintenanceMatched(String count, String total);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程 {pid} · {name}'**
+  String maintenanceProcessTitle(String pid, String name);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'服务列表 · {count} 项'**
+  String maintenanceServiceCount(String count);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器 {count}'**
+  String maintenanceServerNumber(String count);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{days} 天 {hours} 小时'**
+  String maintenanceDuration(String days, String hours);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'目标：{target}\n将使用当前终端权限执行“{action}”，可能影响正在运行的任务。'**
+  String maintenanceConfirmAction(String target, String action);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}已执行，点击刷新查看最新状态。'**
+  String maintenanceActionDone(String action);
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已建立连接'**
+  String get maintenanceEstablished;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'监听中'**
+  String get maintenanceListening;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'等待关闭'**
+  String get maintenanceCloseWait;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭中'**
+  String get maintenanceClosing;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'时间等待'**
+  String get maintenanceTimeWait;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已请求连接'**
+  String get maintenanceSynSent;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已收到连接请求'**
+  String get maintenanceSynReceived;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已关闭'**
+  String get maintenanceClosed;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'等待最后确认'**
+  String get maintenanceLastAck;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭中 · 等待确认'**
+  String get maintenanceFinWait1;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭中 · 等待对端'**
+  String get maintenanceFinWait2;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未连接'**
+  String get maintenanceUnconnected;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动中'**
+  String get maintenanceServiceStarting;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'停止中'**
+  String get maintenanceServiceStopping;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'产品名称'**
+  String get maintenanceProductName;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'产品版本'**
+  String get maintenanceProductVersion;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'构建版本'**
+  String get maintenanceBuildVersion;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'路由表'**
+  String get maintenanceRoutingTables;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'DNS 配置'**
+  String get maintenanceDnsConfiguration;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'活动互联网连接'**
+  String get maintenanceActiveInternet;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'活动多路径互联网连接'**
+  String get maintenanceActiveMultipath;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'活动本地（UNIX）套接字'**
+  String get maintenanceActiveUnix;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'名称服务器'**
+  String get maintenanceNameserver;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'解析器'**
+  String get maintenanceResolver;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'接口索引'**
+  String get maintenanceIfIndex;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'标志'**
+  String get maintenanceFlags;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'可达性'**
+  String get maintenanceReach;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'本地化字段'**
+  String get maintenanceLocalizedFields;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'原始输出'**
+  String get maintenanceOriginalOutput;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'目的地址'**
+  String get maintenanceDestination;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网关'**
+  String get maintenanceGateway;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'过期时间'**
+  String get maintenanceExpires;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'接收队列'**
+  String get maintenanceReceiveQueue;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'发送队列'**
+  String get maintenanceSendQueue;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'地址'**
+  String get maintenanceAddress;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get maintenanceType;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get maintenanceName;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get maintenanceDescription;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'父进程 ID'**
+  String get maintenanceParentPid;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'用户 ID'**
+  String get maintenanceUserId;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'组 ID'**
+  String get maintenanceGroupId;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'优先级'**
+  String get maintenancePriority;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'虚拟内存'**
+  String get maintenanceVirtualMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动方式'**
+  String get maintenanceStartMode;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'退出代码'**
+  String get maintenanceExitCode;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'路径'**
+  String get maintenancePath;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'架构'**
+  String get maintenanceArchitecture;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'可用内存'**
+  String get maintenanceAvailableMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲内存'**
+  String get maintenanceFreeMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内存总量'**
+  String get maintenanceTotalMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存内存'**
+  String get maintenanceCachedMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'缓冲区内存'**
+  String get maintenanceBufferMemory;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'读取字节'**
+  String get maintenanceBytesRead;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'写入字节'**
+  String get maintenanceBytesWritten;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'接收字节'**
+  String get maintenanceReceiveBytes;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'发送字节'**
+  String get maintenanceSendBytes;
 }
 
 class _AppLocalizationsDelegate

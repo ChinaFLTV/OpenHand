@@ -38,6 +38,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:openhand/features/machine_terminal/index.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
@@ -146,7 +147,7 @@ void main() {
       });
       for (final brightness in [Brightness.light, Brightness.dark]) {
         await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-          child: MaterialApp(theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
+          child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, theme: ThemeData(fontFamily: '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff526914), brightness: brightness)),
             home: const MediaQuery(data: MediaQueryData(size: Size(1440, 1000)), child: Scaffold(body: RepaintBoundary(key: ValueKey('实机预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '本机终端')))))));
         await tester.pumpAndSettle();
         for (var index = 0; index < _maintenanceTabs.length; index++) {
@@ -178,6 +179,54 @@ void main() {
     expect(_maintenanceConnections(windows).single, ['TCP', '[::1]:80', '[::]:0', 'LISTENING']);
   });
 
+  testWidgets('六种语言切换覆盖标签、状态与原始数据边界', (tester) async {
+    final service = _MaintenanceFixture();
+    for (final width in [1180.0, 580.0]) {
+    await tester.binding.setSurfaceSize(Size(width, 900));
+    for (final locale in [const Locale('zh'), const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'), const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')]) {
+      final l10n = lookupAppLocalizations(locale);
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: MaterialApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.maintenanceCenter), findsOneWidget);
+      await tester.ensureVisible(find.text(l10n.maintenanceOverview));
+      await tester.tap(find.text(l10n.maintenanceOverview));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.maintenanceBasicInfo), findsOneWidget);
+      expect(find.text('测试服务器'), findsWidgets);
+      final context = tester.element(find.byType(_MachineMaintenanceDialog));
+      expect(maintenanceLabel(context, 'LISTENING'), l10n.maintenanceListening);
+      expect(maintenanceLabel(context, 'Running'), l10n.maintenanceRunning);
+      expect(maintenanceLabel(context, 'ProductVersion'), l10n.maintenanceProductVersion);
+      const raw = 'ProductVersion: 27.0.1\\nnameserver[0] : 2001:db8::1\\nCommandLine: /bin/Name --host=State\\nlog: ProductVersion: original';
+      final translated = maintenanceLocalizedOutput(context, raw);
+      expect(translated, contains(l10n.maintenanceProductVersion));
+      expect(translated, contains('2001:db8::1'));
+      expect(translated, contains('/bin/Name --host=State'));
+      expect(translated, contains('log: ProductVersion: original'));
+      for (final label in [l10n.maintenanceProcesses, l10n.maintenanceServices, l10n.maintenanceNetworkDiagnostics]) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      expect(tester.takeException(), isNull);
+    }
+    }
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: _MaintenanceReadout(text: 'ProductVersion: 27.0.1'))));
+    await tester.pumpAndSettle();
+    expect(find.text('产品版本: 27.0.1'), findsOneWidget);
+    await tester.tap(find.text('原始输出'));
+    await tester.pumpAndSettle();
+    expect(find.text('ProductVersion: 27.0.1'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('运维分区适配浅深主题、大字体与窄窗口', (tester) async {
     final service = _MaintenanceFixture();
     final font = Platform.environment['MAINTENANCE_FONT'];
@@ -196,13 +245,14 @@ void main() {
       for (final brightness in [Brightness.light, Brightness.dark]) {
         await tester.binding.setSurfaceSize(Size(width, 900));
         await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-          child: MaterialApp(theme: ThemeData(fontFamily: font == null ? null : '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)),
+          child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, theme: ThemeData(fontFamily: font == null ? null : '运维预览字体', colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)),
             home: MediaQuery(data: MediaQueryData(size: Size(width, 900), textScaler: TextScaler.linear(width == 580 ? 1.5 : 1)),
               child: const Scaffold(body: RepaintBoundary(key: ValueKey('运维预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))))));
         await tester.pumpAndSettle();
         for (final label in ['进程管理', '系统服务', '网络与诊断', '运行总览']) {
           await tester.ensureVisible(find.text(label));
-          await tester.tap(find.text(label));
+          await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           if (label == '进程管理') {
@@ -212,7 +262,7 @@ void main() {
             await tester.pumpAndSettle();
             expect(find.text('进程 42 · 测试进程'), findsOneWidget);
             expect(find.text('终止进程'), findsOneWidget);
-            await tester.tap(find.byTooltip('Close').last);
+            await tester.tap(find.byTooltip('关闭').last);
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
           }
@@ -237,7 +287,7 @@ void main() {
     for (final target in [('Darwin', false), ('Windows', false), ('Windows', true)]) {
       final service = _MaintenanceFixture()..platform = target.\$1..powershell = target.\$2;
       await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-        child: const MaterialApp(home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+        child: const MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
       await tester.pumpAndSettle();
       await tester.tap(find.text('进程管理'));
       await tester.pumpAndSettle();
@@ -246,7 +296,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('终止进程'), findsOneWidget);
       expect(find.text('暂停进程'), target.\$1 == 'Darwin' ? findsOneWidget : findsNothing);
-      await tester.tap(find.byTooltip('Close').last);
+      await tester.tap(find.byTooltip('关闭').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('系统服务'));
       await tester.pumpAndSettle();
@@ -263,7 +313,7 @@ void main() {
     final service = _MaintenanceFixture()..fail = true;
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-      child: const MaterialApp(home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      child: const MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
     await tester.pumpAndSettle();
     expect(find.text('机器状态暂不可用'), findsOneWidget);
     expect(find.text('重新采集'), findsOneWidget);
@@ -283,7 +333,7 @@ void main() {
 
   testWidgets('长列表卡片高度有界且可滚动到底部', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 900));
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: SizedBox(width: 600,
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Center(child: SizedBox(width: 600,
       child: _MaintenanceCard(title: '长列表', child: Column(children: List.generate(200, (index) => Text('列表条目 \$index')))),
     )))));
     await tester.pumpAndSettle();
@@ -300,7 +350,7 @@ void main() {
     final service = _MaintenanceFixture();
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-      child: const MaterialApp(home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      child: const MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
     await tester.pumpAndSettle();
     expect(service.calls, 1);
     await tester.tap(find.byTooltip('开启自动刷新（当前分区）'));

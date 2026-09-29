@@ -10860,4 +10860,785 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mdlEdOperationExtrasHint => '応答、リアルタイム音声、動画の操作に使うプロバイダー固有の追加設定です。';
+
+  @override
+  String get maintenanceCenter => 'サーバー運用センター';
+
+  @override
+  String get maintenanceEntry => 'サーバー運用';
+
+  @override
+  String get maintenanceOverview => '概要';
+
+  @override
+  String get maintenanceProcesses => 'プロセス';
+
+  @override
+  String get maintenanceServices => 'サービス';
+
+  @override
+  String get maintenanceNetworkDiagnostics => 'ネットワークと診断';
+
+  @override
+  String get maintenanceSystemKernel => 'システムとカーネル';
+
+  @override
+  String get maintenanceProcessorModel => 'プロセッサーモデル';
+
+  @override
+  String get maintenanceLoadIntervals => 'システム負荷 · 1 / 5 / 15 分';
+
+  @override
+  String get maintenancePressure => 'リソース負荷 · CPU / メモリ / I/O';
+
+  @override
+  String get maintenanceFilesystemCapacity => 'ファイルシステム容量 · KiB';
+
+  @override
+  String get maintenanceInodes => 'ファイルシステムの inode';
+
+  @override
+  String get maintenanceSwapSpace => 'スワップ領域';
+
+  @override
+  String get maintenanceInterfaces => 'ネットワーク接続とハードウェア';
+
+  @override
+  String get maintenanceSensors => '温度センサー';
+
+  @override
+  String get maintenanceMemoryDetails => 'メモリ詳細';
+
+  @override
+  String get maintenanceMemoryBasis => 'メモリ集計方法';
+
+  @override
+  String get maintenanceMemoryCounters => 'メモリとページングのカウンター';
+
+  @override
+  String get maintenanceVmCounters => '仮想メモリカウンター';
+
+  @override
+  String get maintenanceStartup => '自動起動状態';
+
+  @override
+  String get maintenanceTimers => 'システムタイマー';
+
+  @override
+  String get maintenanceSockets => '接続と待受ポート';
+
+  @override
+  String get maintenanceRoutes => 'アドレスと経路';
+
+  @override
+  String get maintenanceDns => 'DNS 設定';
+
+  @override
+  String get maintenanceLogs => '最近のログ';
+
+  @override
+  String get maintenanceUsers => 'ログインユーザー';
+
+  @override
+  String get maintenanceCron => '現在のユーザーのスケジュール';
+
+  @override
+  String get maintenanceFirewall => 'ファイアウォール規則';
+
+  @override
+  String get maintenanceContainers => 'コンテナー状態';
+
+  @override
+  String get maintenanceStatusDetails => '状態詳細';
+
+  @override
+  String get maintenanceCommand => '起動コマンド';
+
+  @override
+  String get maintenancePaths => '実行ファイルと作業ディレクトリ';
+
+  @override
+  String get maintenanceProcessIo => 'プロセス I/O カウンター';
+
+  @override
+  String get maintenanceLimits => 'リソース制限';
+
+  @override
+  String get maintenanceCgroup => '制御グループ';
+
+  @override
+  String get maintenanceDescriptors => '開いているファイル記述子';
+
+  @override
+  String get maintenanceCapabilities => '環境の対応機能';
+
+  @override
+  String get maintenanceBlocks => 'ブロックデバイスと RAID';
+
+  @override
+  String get maintenanceCgroupLimits => '制御グループ制限 · コンテナーとホストの表示は異なる場合があります';
+
+  @override
+  String get maintenanceKernel => 'カーネルのリソース設定';
+
+  @override
+  String get maintenanceNetworkCounters => 'ネットワーク累計 · バイト、パケット、エラー、損失';
+
+  @override
+  String get maintenanceCollecting => '収集中';
+
+  @override
+  String get maintenanceCollectionError => '収集エラー';
+
+  @override
+  String get maintenanceAutoRefresh => '自動更新';
+
+  @override
+  String get maintenanceManualRefresh => '手動更新';
+
+  @override
+  String get maintenanceDetecting => '接続先を識別中';
+
+  @override
+  String get maintenanceAutoShell => 'シェルを自動識別';
+
+  @override
+  String get maintenanceShell => '端末のシェル';
+
+  @override
+  String get maintenanceInterval => '自動更新間隔';
+
+  @override
+  String get maintenanceFirstSample => '初回サンプルを待機中';
+
+  @override
+  String get maintenancePauseRefresh => '自動更新を一時停止';
+
+  @override
+  String get maintenanceStartRefresh => '自動更新を有効化（現在の区分）';
+
+  @override
+  String get maintenanceRefreshSection => '現在の区分を更新';
+
+  @override
+  String get maintenanceFooter => '現在の端末 · 補助コマンドは保存されません · 速度には2回の測定が必要';
+
+  @override
+  String get maintenanceConnecting => '端末に接続中';
+
+  @override
+  String get maintenanceUnavailableHost => 'マシン状態を取得できません';
+
+  @override
+  String get maintenanceIdentifying => 'システムの識別と状態の読み取り';
+
+  @override
+  String get maintenanceCollectionFailed => '収集を完了できませんでした';
+
+  @override
+  String get maintenanceLoadingHelp => '収集後にリソース、プロセス、サービス、ネットワーク状態を表示します。';
+
+  @override
+  String get maintenanceRetryHelp => '端末の接続とコマンドプロンプトを確認して再試行してください。';
+
+  @override
+  String get maintenanceRetry => '再収集';
+
+  @override
+  String get maintenanceMemory => 'メモリ';
+
+  @override
+  String get maintenanceDisk => 'ディスク';
+
+  @override
+  String get maintenanceNetwork => 'ネットワーク';
+
+  @override
+  String get maintenanceWaitingData => '接続先のデータを待機中';
+
+  @override
+  String get maintenanceRawSample => '現在のサンプル · 完全な元の出力';
+
+  @override
+  String get maintenanceResourceUse => 'リソース使用量';
+
+  @override
+  String get maintenanceUptime => '稼働時間';
+
+  @override
+  String get maintenanceLoad => 'システム負荷';
+
+  @override
+  String get maintenanceProcessor => 'プロセッサー';
+
+  @override
+  String get maintenanceSampleStatus => 'サンプリング状態';
+
+  @override
+  String get maintenanceStale => 'データが古い可能性があります';
+
+  @override
+  String get maintenanceCollected => '収集成功';
+
+  @override
+  String get maintenanceRefreshMode => '更新方法';
+
+  @override
+  String get maintenanceTrendSamples => 'トレンドサンプル';
+
+  @override
+  String get maintenanceTargetPlatform => '接続先プラットフォーム';
+
+  @override
+  String get maintenanceRateHelp => '速度は連続する測定から計算します。取得できない値は推測しません。';
+
+  @override
+  String get maintenancePerCore => 'コア別負荷';
+
+  @override
+  String get maintenanceBasicInfo => '基本情報';
+
+  @override
+  String get maintenanceRawSystem => 'システムの元の情報';
+
+  @override
+  String get maintenanceHost => 'ホスト名';
+
+  @override
+  String get maintenanceOs => 'OS';
+
+  @override
+  String get maintenanceOsVersion => 'システムバージョン';
+
+  @override
+  String get maintenanceKernelVersion => 'カーネルバージョン';
+
+  @override
+  String get maintenanceLogicalCpus => '論理プロセッサー';
+
+  @override
+  String get maintenanceStorage => 'ストレージ';
+
+  @override
+  String get maintenanceFilesystem => 'ファイルシステム';
+
+  @override
+  String get maintenanceNoFilesystem => '読み取り可能なファイルシステムがありません';
+
+  @override
+  String get maintenanceThroughput => 'ネットワーク転送量';
+
+  @override
+  String get maintenanceInterfaceDetails => 'ネットワークインターフェース詳細';
+
+  @override
+  String get maintenanceInterface => 'インターフェース';
+
+  @override
+  String get maintenanceReceiveRate => '受信 / 秒';
+
+  @override
+  String get maintenanceSendRate => '送信 / 秒';
+
+  @override
+  String get maintenanceCpuTrend => 'CPU リアルタイム推移';
+
+  @override
+  String get maintenanceAccumulating => 'サンプルを収集中…';
+
+  @override
+  String get maintenanceTrendHelp => '自動更新を有効にすると推移を表示します';
+
+  @override
+  String get maintenanceOperations => '運用操作';
+
+  @override
+  String get maintenanceViewProcesses => 'プロセスを表示';
+
+  @override
+  String get maintenanceManageServices => 'サービスを管理';
+
+  @override
+  String get maintenanceNetworkAction => 'ネットワーク診断';
+
+  @override
+  String get maintenanceAlerts => 'リソース通知';
+
+  @override
+  String get maintenanceNoAlerts => 'しきい値の通知はありません';
+
+  @override
+  String get maintenanceAlertHelp =>
+      'CPU とメモリの通知しきい値は85%です。ディスクの全情報は詳細で確認できます。';
+
+  @override
+  String get maintenanceCpuUsage => 'CPU 使用率';
+
+  @override
+  String get maintenanceMemoryUsage => 'メモリ使用率';
+
+  @override
+  String get maintenanceNoData => 'データなし';
+
+  @override
+  String get maintenanceSwapUsage => 'スワップ使用量';
+
+  @override
+  String get maintenanceNoSwap => 'スワップ未設定';
+
+  @override
+  String get maintenanceMoreMetrics => 'その他のシステム指標';
+
+  @override
+  String get maintenanceDiskIo => 'ディスク I/O';
+
+  @override
+  String get maintenanceDevice => 'デバイス';
+
+  @override
+  String get maintenanceReadRate => '読み取り / 秒';
+
+  @override
+  String get maintenanceWriteRate => '書き込み / 秒';
+
+  @override
+  String get maintenanceReadIops => '読み取り IOPS';
+
+  @override
+  String get maintenanceWriteIops => '書き込み IOPS';
+
+  @override
+  String get maintenanceNoCounters => 'この環境ではカウンターを取得できません。';
+
+  @override
+  String get maintenanceSearchProcess => 'PID またはプロセス名を検索';
+
+  @override
+  String get maintenanceSortCpu => 'CPU 降順';
+
+  @override
+  String get maintenanceSortMemory => 'メモリ降順';
+
+  @override
+  String get maintenanceSortPid => 'PID 昇順';
+
+  @override
+  String get maintenanceProcess => 'プロセス';
+
+  @override
+  String get maintenanceStatus => '状態';
+
+  @override
+  String get maintenanceCpuPerCore => 'CPU / コア';
+
+  @override
+  String get maintenanceResidentMemory => '常駐メモリ';
+
+  @override
+  String get maintenanceThreads => 'スレッド';
+
+  @override
+  String get maintenanceUnavailable => '利用不可';
+
+  @override
+  String get maintenancePreviousBatch => '前のバッチ';
+
+  @override
+  String get maintenanceNextBatch => '次のバッチ';
+
+  @override
+  String get maintenanceRunning => '実行中';
+
+  @override
+  String get maintenanceStopped => '停止中';
+
+  @override
+  String get maintenanceUnknown => '不明';
+
+  @override
+  String get maintenanceFailed => '異常';
+
+  @override
+  String get maintenanceUnchecked => '未確認';
+
+  @override
+  String get maintenanceDiscoveredServices => '検出済みサービス';
+
+  @override
+  String get maintenanceVisibleServices => '現在表示可能なサービス';
+
+  @override
+  String get maintenanceFailedServices => '異常なサービス';
+
+  @override
+  String get maintenanceFailedServiceHelp => '明示的に失敗が報告された項目のみ集計';
+
+  @override
+  String get maintenanceSearchService => 'サービスを絞り込み';
+
+  @override
+  String get maintenanceNoConnections => 'TCP/UDP 接続を解析できませんでした。元のデータを確認できます。';
+
+  @override
+  String get maintenanceProtocol => 'プロトコル';
+
+  @override
+  String get maintenanceLocalAddress => 'ローカルアドレス';
+
+  @override
+  String get maintenanceRemoteAddress => 'リモートアドレス';
+
+  @override
+  String get maintenanceDnsServers => 'DNS サーバー';
+
+  @override
+  String get maintenanceNoDns => '解析可能なサーバーアドレスがありません';
+
+  @override
+  String get maintenanceDiagnosticItems => '診断項目';
+
+  @override
+  String get maintenanceParsedConnections => '解析済み接続';
+
+  @override
+  String get maintenanceConnectionHelp => '現在のサンプルの TCP / UDP';
+
+  @override
+  String get maintenanceDnsHelp => '現在のシステム設定から解析';
+
+  @override
+  String get maintenanceDiagnosticHelp => '経路、ログ、タスク、セキュリティ';
+
+  @override
+  String get maintenanceNotProvided => '未提供';
+
+  @override
+  String get maintenanceProcessRunning => '実行';
+
+  @override
+  String get maintenanceSleeping => 'スリープ';
+
+  @override
+  String get maintenanceIdle => 'アイドル';
+
+  @override
+  String get maintenanceSuspended => '一時停止';
+
+  @override
+  String get maintenanceZombie => 'ゾンビ';
+
+  @override
+  String get maintenanceIoWait => 'I/O 待機';
+
+  @override
+  String get maintenancePartial => '一部利用不可 · 理由を表示';
+
+  @override
+  String get maintenanceViewCollected => '収集済み · 詳細を表示';
+
+  @override
+  String get maintenanceNoAvailableData => '利用可能なデータなし';
+
+  @override
+  String get maintenanceViewDetails => '詳細を表示';
+
+  @override
+  String get maintenanceConfirm => '実行を確認';
+
+  @override
+  String get maintenanceDetailSubtitle => 'リアルタイム詳細 · 一部の項目には追加権限が必要';
+
+  @override
+  String get maintenanceRefreshDetails => '詳細を更新';
+
+  @override
+  String get maintenanceLoadingDetails => '詳細を読み込み中…';
+
+  @override
+  String get maintenanceDetailsFailed => '読み込めませんでした。再試行してください。';
+
+  @override
+  String get maintenanceTerminate => 'プロセスを終了';
+
+  @override
+  String get maintenanceSuspend => 'プロセスを一時停止';
+
+  @override
+  String get maintenanceResume => 'プロセスを再開';
+
+  @override
+  String get maintenanceStartService => 'サービスを開始';
+
+  @override
+  String get maintenanceStopService => 'サービスを停止';
+
+  @override
+  String get maintenanceRestartService => 'サービスを再起動';
+
+  @override
+  String get maintenanceEnableStartup => '自動起動を有効化';
+
+  @override
+  String get maintenanceDisableStartup => '自動起動を無効化';
+
+  @override
+  String get maintenanceAutomaticStartup => '自動起動';
+
+  @override
+  String get maintenanceManualStartup => '手動起動';
+
+  @override
+  String get maintenanceDisableService => 'サービスを無効化';
+
+  @override
+  String get maintenanceShellMismatch =>
+      '選択したシェルが接続先と一致しません。自動識別または実際のシェルを選択してください。';
+
+  @override
+  String maintenanceSeconds(String value) {
+    return '$value 秒';
+  }
+
+  @override
+  String maintenanceUpdated(String time) {
+    return '更新 $time';
+  }
+
+  @override
+  String maintenanceCollectionErrorDetail(String error) {
+    return '収集失敗。自動再試行を停止し、前回のデータを保持します。$error';
+  }
+
+  @override
+  String maintenanceCpuAlert(String value) {
+    return 'CPU 使用率が高い値です：$value%';
+  }
+
+  @override
+  String maintenanceMemoryAlert(String value) {
+    return 'メモリ使用率が高い値です：$value%';
+  }
+
+  @override
+  String maintenanceAutoInterval(String value) {
+    return '自動 · $value 秒';
+  }
+
+  @override
+  String maintenanceAlertCount(String count) {
+    return '$count 件の注意事項';
+  }
+
+  @override
+  String maintenanceCpuCount(String count) {
+    return '$count 個の論理プロセッサー';
+  }
+
+  @override
+  String maintenanceTotal(String value) {
+    return '合計 $value';
+  }
+
+  @override
+  String maintenanceMatched(String count, String total) {
+    return '一致 $count 件 · 合計 $total';
+  }
+
+  @override
+  String maintenanceProcessTitle(String pid, String name) {
+    return 'プロセス $pid · $name';
+  }
+
+  @override
+  String maintenanceServiceCount(String count) {
+    return 'サービス一覧 · $count 件';
+  }
+
+  @override
+  String maintenanceServerNumber(String count) {
+    return 'サーバー $count';
+  }
+
+  @override
+  String maintenanceDuration(String days, String hours) {
+    return '$days 日 $hours 時間';
+  }
+
+  @override
+  String maintenanceConfirmAction(String target, String action) {
+    return '対象：$target\n現在の端末権限で「$action」を実行します。実行中のタスクに影響する可能性があります。';
+  }
+
+  @override
+  String maintenanceActionDone(String action) {
+    return '「$action」を実行しました。更新すると最新状態を確認できます。';
+  }
+
+  @override
+  String get maintenanceEstablished => '接続済み';
+
+  @override
+  String get maintenanceListening => '待受中';
+
+  @override
+  String get maintenanceCloseWait => '切断待機';
+
+  @override
+  String get maintenanceClosing => '切断中';
+
+  @override
+  String get maintenanceTimeWait => '時間待機';
+
+  @override
+  String get maintenanceSynSent => '接続要求済み';
+
+  @override
+  String get maintenanceSynReceived => '接続要求受信';
+
+  @override
+  String get maintenanceClosed => '切断済み';
+
+  @override
+  String get maintenanceLastAck => '最終応答待機';
+
+  @override
+  String get maintenanceFinWait1 => '切断中 · 応答待機';
+
+  @override
+  String get maintenanceFinWait2 => '切断中 · 相手側待機';
+
+  @override
+  String get maintenanceUnconnected => '未接続';
+
+  @override
+  String get maintenanceServiceStarting => '起動中';
+
+  @override
+  String get maintenanceServiceStopping => '停止処理中';
+
+  @override
+  String get maintenanceProductName => '製品名';
+
+  @override
+  String get maintenanceProductVersion => '製品バージョン';
+
+  @override
+  String get maintenanceBuildVersion => 'ビルドバージョン';
+
+  @override
+  String get maintenanceRoutingTables => '経路テーブル';
+
+  @override
+  String get maintenanceDnsConfiguration => 'DNS 設定';
+
+  @override
+  String get maintenanceActiveInternet => 'アクティブなインターネット接続';
+
+  @override
+  String get maintenanceActiveMultipath => 'アクティブなマルチパス接続';
+
+  @override
+  String get maintenanceActiveUnix => 'アクティブなローカル UNIX ソケット';
+
+  @override
+  String get maintenanceNameserver => 'ネームサーバー';
+
+  @override
+  String get maintenanceResolver => 'リゾルバー';
+
+  @override
+  String get maintenanceIfIndex => 'インターフェース番号';
+
+  @override
+  String get maintenanceFlags => 'フラグ';
+
+  @override
+  String get maintenanceReach => '到達可能性';
+
+  @override
+  String get maintenanceLocalizedFields => '翻訳済みフィールド';
+
+  @override
+  String get maintenanceOriginalOutput => '元の出力';
+
+  @override
+  String get maintenanceDestination => '宛先';
+
+  @override
+  String get maintenanceGateway => 'ゲートウェイ';
+
+  @override
+  String get maintenanceExpires => '有効期限';
+
+  @override
+  String get maintenanceReceiveQueue => '受信キュー';
+
+  @override
+  String get maintenanceSendQueue => '送信キュー';
+
+  @override
+  String get maintenanceAddress => 'アドレス';
+
+  @override
+  String get maintenanceType => '種類';
+
+  @override
+  String get maintenanceName => '名前';
+
+  @override
+  String get maintenanceDescription => '説明';
+
+  @override
+  String get maintenanceParentPid => '親プロセス ID';
+
+  @override
+  String get maintenanceUserId => 'ユーザー ID';
+
+  @override
+  String get maintenanceGroupId => 'グループ ID';
+
+  @override
+  String get maintenancePriority => '優先度';
+
+  @override
+  String get maintenanceVirtualMemory => '仮想メモリ';
+
+  @override
+  String get maintenanceStartMode => '起動モード';
+
+  @override
+  String get maintenanceExitCode => '終了コード';
+
+  @override
+  String get maintenancePath => 'パス';
+
+  @override
+  String get maintenanceArchitecture => 'アーキテクチャ';
+
+  @override
+  String get maintenanceAvailableMemory => '使用可能メモリ';
+
+  @override
+  String get maintenanceFreeMemory => '空きメモリ';
+
+  @override
+  String get maintenanceTotalMemory => '総メモリ';
+
+  @override
+  String get maintenanceCachedMemory => 'キャッシュメモリ';
+
+  @override
+  String get maintenanceBufferMemory => 'バッファメモリ';
+
+  @override
+  String get maintenanceBytesRead => '読み取りバイト数';
+
+  @override
+  String get maintenanceBytesWritten => '書き込みバイト数';
+
+  @override
+  String get maintenanceReceiveBytes => '受信バイト数';
+
+  @override
+  String get maintenanceSendBytes => '送信バイト数';
 }

@@ -10739,6 +10739,786 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mdlEdOperationExtrasHint => '配置响应、实时语音和视频等操作的提供商专用扩展参数。';
+
+  @override
+  String get maintenanceCenter => '服务器运维中心';
+
+  @override
+  String get maintenanceEntry => '服务器运维';
+
+  @override
+  String get maintenanceOverview => '运行总览';
+
+  @override
+  String get maintenanceProcesses => '进程管理';
+
+  @override
+  String get maintenanceServices => '系统服务';
+
+  @override
+  String get maintenanceNetworkDiagnostics => '网络与诊断';
+
+  @override
+  String get maintenanceSystemKernel => '系统与内核';
+
+  @override
+  String get maintenanceProcessorModel => '处理器型号';
+
+  @override
+  String get maintenanceLoadIntervals => '系统负载 · 1 / 5 / 15 分钟';
+
+  @override
+  String get maintenancePressure => '资源压力 · CPU / 内存 / IO';
+
+  @override
+  String get maintenanceFilesystemCapacity => '文件系统容量 · KiB';
+
+  @override
+  String get maintenanceInodes => '文件系统 inode';
+
+  @override
+  String get maintenanceSwapSpace => '交换空间';
+
+  @override
+  String get maintenanceInterfaces => '网卡链路与硬件';
+
+  @override
+  String get maintenanceSensors => '温度传感器';
+
+  @override
+  String get maintenanceMemoryDetails => '内存详情';
+
+  @override
+  String get maintenanceMemoryBasis => '内存统计口径';
+
+  @override
+  String get maintenanceMemoryCounters => '内存与分页性能计数器';
+
+  @override
+  String get maintenanceVmCounters => '虚拟内存计数器';
+
+  @override
+  String get maintenanceStartup => '开机启动状态';
+
+  @override
+  String get maintenanceTimers => '系统定时器';
+
+  @override
+  String get maintenanceSockets => '连接与监听端口';
+
+  @override
+  String get maintenanceRoutes => '地址与路由';
+
+  @override
+  String get maintenanceDns => 'DNS 配置';
+
+  @override
+  String get maintenanceLogs => '最近日志';
+
+  @override
+  String get maintenanceUsers => '登录用户';
+
+  @override
+  String get maintenanceCron => '当前用户计划任务';
+
+  @override
+  String get maintenanceFirewall => '防火墙规则';
+
+  @override
+  String get maintenanceContainers => '容器状态';
+
+  @override
+  String get maintenanceStatusDetails => '状态详情';
+
+  @override
+  String get maintenanceCommand => '启动命令';
+
+  @override
+  String get maintenancePaths => '可执行文件与工作目录';
+
+  @override
+  String get maintenanceProcessIo => '进程 IO 计数器';
+
+  @override
+  String get maintenanceLimits => '资源限制';
+
+  @override
+  String get maintenanceCgroup => '控制组';
+
+  @override
+  String get maintenanceDescriptors => '打开的文件描述符';
+
+  @override
+  String get maintenanceCapabilities => '环境能力';
+
+  @override
+  String get maintenanceBlocks => '块设备与 RAID';
+
+  @override
+  String get maintenanceCgroupLimits => '控制组资源限制 · 容器与主机视图可能不同';
+
+  @override
+  String get maintenanceKernel => '内核资源参数';
+
+  @override
+  String get maintenanceNetworkCounters => '网卡累计计数 · 字节、包、错误与丢包';
+
+  @override
+  String get maintenanceCollecting => '采集中';
+
+  @override
+  String get maintenanceCollectionError => '采集异常';
+
+  @override
+  String get maintenanceAutoRefresh => '自动刷新';
+
+  @override
+  String get maintenanceManualRefresh => '手动刷新';
+
+  @override
+  String get maintenanceDetecting => '正在识别目标系统';
+
+  @override
+  String get maintenanceAutoShell => '自动识别 Shell';
+
+  @override
+  String get maintenanceShell => '终端 Shell';
+
+  @override
+  String get maintenanceInterval => '自动刷新间隔';
+
+  @override
+  String get maintenanceFirstSample => '等待首次采样';
+
+  @override
+  String get maintenancePauseRefresh => '暂停自动刷新';
+
+  @override
+  String get maintenanceStartRefresh => '开启自动刷新（当前分区）';
+
+  @override
+  String get maintenanceRefreshSection => '刷新当前分区';
+
+  @override
+  String get maintenanceFooter => '当前终端 · 辅助命令不持久化 · 速率需两次采样';
+
+  @override
+  String get maintenanceConnecting => '正在连接当前终端';
+
+  @override
+  String get maintenanceUnavailableHost => '机器状态暂不可用';
+
+  @override
+  String get maintenanceIdentifying => '识别系统并读取运行状态';
+
+  @override
+  String get maintenanceCollectionFailed => '未能完成本次采集';
+
+  @override
+  String get maintenanceLoadingHelp => '数据就绪后将显示资源、进程、服务与网络状态。';
+
+  @override
+  String get maintenanceRetryHelp => '请确认终端已连接并处于命令提示符，再重新采集。';
+
+  @override
+  String get maintenanceRetry => '重新采集';
+
+  @override
+  String get maintenanceMemory => '内存';
+
+  @override
+  String get maintenanceDisk => '磁盘';
+
+  @override
+  String get maintenanceNetwork => '网络';
+
+  @override
+  String get maintenanceWaitingData => '等待目标机器数据';
+
+  @override
+  String get maintenanceRawSample => '当前采样 · 完整原始内容';
+
+  @override
+  String get maintenanceResourceUse => '资源使用';
+
+  @override
+  String get maintenanceUptime => '运行时间';
+
+  @override
+  String get maintenanceLoad => '负载均衡';
+
+  @override
+  String get maintenanceProcessor => '处理器';
+
+  @override
+  String get maintenanceSampleStatus => '采样状态';
+
+  @override
+  String get maintenanceStale => '数据可能过期';
+
+  @override
+  String get maintenanceCollected => '采集成功';
+
+  @override
+  String get maintenanceRefreshMode => '刷新方式';
+
+  @override
+  String get maintenanceTrendSamples => '趋势样本';
+
+  @override
+  String get maintenanceTargetPlatform => '目标平台';
+
+  @override
+  String get maintenanceRateHelp => '速率根据连续采样计算；不可用字段不作推断。';
+
+  @override
+  String get maintenancePerCore => '每核负载';
+
+  @override
+  String get maintenanceBasicInfo => '基本信息';
+
+  @override
+  String get maintenanceRawSystem => '系统原始信息';
+
+  @override
+  String get maintenanceHost => '主机名';
+
+  @override
+  String get maintenanceOs => '操作系统';
+
+  @override
+  String get maintenanceOsVersion => '系统版本';
+
+  @override
+  String get maintenanceKernelVersion => '内核版本';
+
+  @override
+  String get maintenanceLogicalCpus => '逻辑处理器';
+
+  @override
+  String get maintenanceStorage => '存储空间';
+
+  @override
+  String get maintenanceFilesystem => '文件系统';
+
+  @override
+  String get maintenanceNoFilesystem => '暂无可读的文件系统';
+
+  @override
+  String get maintenanceThroughput => '网络吞吐';
+
+  @override
+  String get maintenanceInterfaceDetails => '网卡详情';
+
+  @override
+  String get maintenanceInterface => '网卡';
+
+  @override
+  String get maintenanceReceiveRate => '接收 / 秒';
+
+  @override
+  String get maintenanceSendRate => '发送 / 秒';
+
+  @override
+  String get maintenanceCpuTrend => 'CPU 实时趋势';
+
+  @override
+  String get maintenanceAccumulating => '正在积累样本…';
+
+  @override
+  String get maintenanceTrendHelp => '开启自动刷新后显示趋势';
+
+  @override
+  String get maintenanceOperations => '运维操作';
+
+  @override
+  String get maintenanceViewProcesses => '查看进程';
+
+  @override
+  String get maintenanceManageServices => '管理系统服务';
+
+  @override
+  String get maintenanceNetworkAction => '网络诊断';
+
+  @override
+  String get maintenanceAlerts => '资源提醒';
+
+  @override
+  String get maintenanceNoAlerts => '暂无阈值提醒';
+
+  @override
+  String get maintenanceAlertHelp => '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。';
+
+  @override
+  String get maintenanceCpuUsage => 'CPU 使用率';
+
+  @override
+  String get maintenanceMemoryUsage => '内存使用率';
+
+  @override
+  String get maintenanceNoData => '暂无数据';
+
+  @override
+  String get maintenanceSwapUsage => 'SWAP 使用量';
+
+  @override
+  String get maintenanceNoSwap => '未配置交换空间';
+
+  @override
+  String get maintenanceMoreMetrics => '更多系统指标';
+
+  @override
+  String get maintenanceDiskIo => '磁盘 IO';
+
+  @override
+  String get maintenanceDevice => '设备';
+
+  @override
+  String get maintenanceReadRate => '读取 / 秒';
+
+  @override
+  String get maintenanceWriteRate => '写入 / 秒';
+
+  @override
+  String get maintenanceReadIops => '读 IOPS';
+
+  @override
+  String get maintenanceWriteIops => '写 IOPS';
+
+  @override
+  String get maintenanceNoCounters => '当前环境未提供可用计数器。';
+
+  @override
+  String get maintenanceSearchProcess => '搜索 PID 或进程名';
+
+  @override
+  String get maintenanceSortCpu => 'CPU 降序';
+
+  @override
+  String get maintenanceSortMemory => '内存降序';
+
+  @override
+  String get maintenanceSortPid => 'PID 升序';
+
+  @override
+  String get maintenanceProcess => '进程';
+
+  @override
+  String get maintenanceStatus => '状态';
+
+  @override
+  String get maintenanceCpuPerCore => 'CPU / 单核';
+
+  @override
+  String get maintenanceResidentMemory => '驻留内存';
+
+  @override
+  String get maintenanceThreads => '线程';
+
+  @override
+  String get maintenanceUnavailable => '不可用';
+
+  @override
+  String get maintenancePreviousBatch => '上一批进程';
+
+  @override
+  String get maintenanceNextBatch => '下一批进程';
+
+  @override
+  String get maintenanceRunning => '运行中';
+
+  @override
+  String get maintenanceStopped => '未运行';
+
+  @override
+  String get maintenanceUnknown => '未知';
+
+  @override
+  String get maintenanceFailed => '异常';
+
+  @override
+  String get maintenanceUnchecked => '待检查';
+
+  @override
+  String get maintenanceDiscoveredServices => '已发现服务';
+
+  @override
+  String get maintenanceVisibleServices => '当前可见服务';
+
+  @override
+  String get maintenanceFailedServices => '异常服务';
+
+  @override
+  String get maintenanceFailedServiceHelp => '仅统计明确报告失败的条目';
+
+  @override
+  String get maintenanceSearchService => '筛选服务';
+
+  @override
+  String get maintenanceNoConnections => '未解析到 TCP / UDP 连接，可查看原始数据。';
+
+  @override
+  String get maintenanceProtocol => '协议';
+
+  @override
+  String get maintenanceLocalAddress => '本地地址';
+
+  @override
+  String get maintenanceRemoteAddress => '远端地址';
+
+  @override
+  String get maintenanceDnsServers => 'DNS 服务器';
+
+  @override
+  String get maintenanceNoDns => '暂无可解析的服务器地址';
+
+  @override
+  String get maintenanceDiagnosticItems => '诊断项目';
+
+  @override
+  String get maintenanceParsedConnections => '已解析连接';
+
+  @override
+  String get maintenanceConnectionHelp => '当前采样中的 TCP / UDP';
+
+  @override
+  String get maintenanceDnsHelp => '解析自当前系统配置';
+
+  @override
+  String get maintenanceDiagnosticHelp => '路由、日志、任务与安全';
+
+  @override
+  String get maintenanceNotProvided => '未提供';
+
+  @override
+  String get maintenanceProcessRunning => '运行';
+
+  @override
+  String get maintenanceSleeping => '休眠';
+
+  @override
+  String get maintenanceIdle => '空闲';
+
+  @override
+  String get maintenanceSuspended => '暂停';
+
+  @override
+  String get maintenanceZombie => '僵尸';
+
+  @override
+  String get maintenanceIoWait => 'IO 等待';
+
+  @override
+  String get maintenancePartial => '部分不可用 · 查看原因';
+
+  @override
+  String get maintenanceViewCollected => '已采集 · 查看详情';
+
+  @override
+  String get maintenanceNoAvailableData => '暂无可用数据';
+
+  @override
+  String get maintenanceViewDetails => '查看详情';
+
+  @override
+  String get maintenanceConfirm => '确认执行';
+
+  @override
+  String get maintenanceDetailSubtitle => '实时详情 · 部分字段需要更高权限';
+
+  @override
+  String get maintenanceRefreshDetails => '刷新详情';
+
+  @override
+  String get maintenanceLoadingDetails => '正在读取详情…';
+
+  @override
+  String get maintenanceDetailsFailed => '读取失败，请重试。';
+
+  @override
+  String get maintenanceTerminate => '终止进程';
+
+  @override
+  String get maintenanceSuspend => '暂停进程';
+
+  @override
+  String get maintenanceResume => '恢复进程';
+
+  @override
+  String get maintenanceStartService => '启动服务';
+
+  @override
+  String get maintenanceStopService => '停止服务';
+
+  @override
+  String get maintenanceRestartService => '重启服务';
+
+  @override
+  String get maintenanceEnableStartup => '启用开机启动';
+
+  @override
+  String get maintenanceDisableStartup => '禁用开机启动';
+
+  @override
+  String get maintenanceAutomaticStartup => '自动启动';
+
+  @override
+  String get maintenanceManualStartup => '手动启动';
+
+  @override
+  String get maintenanceDisableService => '禁用服务';
+
+  @override
+  String get maintenanceShellMismatch =>
+      '所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。';
+
+  @override
+  String maintenanceSeconds(String value) {
+    return '$value 秒';
+  }
+
+  @override
+  String maintenanceUpdated(String time) {
+    return '更新于 $time';
+  }
+
+  @override
+  String maintenanceCollectionErrorDetail(String error) {
+    return '采集失败，已暂停自动重试；当前保留上次数据。$error';
+  }
+
+  @override
+  String maintenanceCpuAlert(String value) {
+    return 'CPU 使用率较高：$value%';
+  }
+
+  @override
+  String maintenanceMemoryAlert(String value) {
+    return '内存使用率较高：$value%';
+  }
+
+  @override
+  String maintenanceAutoInterval(String value) {
+    return '自动 · $value 秒';
+  }
+
+  @override
+  String maintenanceAlertCount(String count) {
+    return '$count 项需关注';
+  }
+
+  @override
+  String maintenanceCpuCount(String count) {
+    return '$count 个逻辑处理器';
+  }
+
+  @override
+  String maintenanceTotal(String value) {
+    return '总量 $value';
+  }
+
+  @override
+  String maintenanceMatched(String count, String total) {
+    return '匹配 $count 项 · 总数 $total';
+  }
+
+  @override
+  String maintenanceProcessTitle(String pid, String name) {
+    return '进程 $pid · $name';
+  }
+
+  @override
+  String maintenanceServiceCount(String count) {
+    return '服务列表 · $count 项';
+  }
+
+  @override
+  String maintenanceServerNumber(String count) {
+    return '服务器 $count';
+  }
+
+  @override
+  String maintenanceDuration(String days, String hours) {
+    return '$days 天 $hours 小时';
+  }
+
+  @override
+  String maintenanceConfirmAction(String target, String action) {
+    return '目标：$target\n将使用当前终端权限执行“$action”，可能影响正在运行的任务。';
+  }
+
+  @override
+  String maintenanceActionDone(String action) {
+    return '$action已执行，点击刷新查看最新状态。';
+  }
+
+  @override
+  String get maintenanceEstablished => '已建立连接';
+
+  @override
+  String get maintenanceListening => '监听中';
+
+  @override
+  String get maintenanceCloseWait => '等待关闭';
+
+  @override
+  String get maintenanceClosing => '关闭中';
+
+  @override
+  String get maintenanceTimeWait => '时间等待';
+
+  @override
+  String get maintenanceSynSent => '已请求连接';
+
+  @override
+  String get maintenanceSynReceived => '已收到连接请求';
+
+  @override
+  String get maintenanceClosed => '已关闭';
+
+  @override
+  String get maintenanceLastAck => '等待最后确认';
+
+  @override
+  String get maintenanceFinWait1 => '关闭中 · 等待确认';
+
+  @override
+  String get maintenanceFinWait2 => '关闭中 · 等待对端';
+
+  @override
+  String get maintenanceUnconnected => '未连接';
+
+  @override
+  String get maintenanceServiceStarting => '启动中';
+
+  @override
+  String get maintenanceServiceStopping => '停止中';
+
+  @override
+  String get maintenanceProductName => '产品名称';
+
+  @override
+  String get maintenanceProductVersion => '产品版本';
+
+  @override
+  String get maintenanceBuildVersion => '构建版本';
+
+  @override
+  String get maintenanceRoutingTables => '路由表';
+
+  @override
+  String get maintenanceDnsConfiguration => 'DNS 配置';
+
+  @override
+  String get maintenanceActiveInternet => '活动互联网连接';
+
+  @override
+  String get maintenanceActiveMultipath => '活动多路径互联网连接';
+
+  @override
+  String get maintenanceActiveUnix => '活动本地（UNIX）套接字';
+
+  @override
+  String get maintenanceNameserver => '名称服务器';
+
+  @override
+  String get maintenanceResolver => '解析器';
+
+  @override
+  String get maintenanceIfIndex => '接口索引';
+
+  @override
+  String get maintenanceFlags => '标志';
+
+  @override
+  String get maintenanceReach => '可达性';
+
+  @override
+  String get maintenanceLocalizedFields => '本地化字段';
+
+  @override
+  String get maintenanceOriginalOutput => '原始输出';
+
+  @override
+  String get maintenanceDestination => '目的地址';
+
+  @override
+  String get maintenanceGateway => '网关';
+
+  @override
+  String get maintenanceExpires => '过期时间';
+
+  @override
+  String get maintenanceReceiveQueue => '接收队列';
+
+  @override
+  String get maintenanceSendQueue => '发送队列';
+
+  @override
+  String get maintenanceAddress => '地址';
+
+  @override
+  String get maintenanceType => '类型';
+
+  @override
+  String get maintenanceName => '名称';
+
+  @override
+  String get maintenanceDescription => '描述';
+
+  @override
+  String get maintenanceParentPid => '父进程 ID';
+
+  @override
+  String get maintenanceUserId => '用户 ID';
+
+  @override
+  String get maintenanceGroupId => '组 ID';
+
+  @override
+  String get maintenancePriority => '优先级';
+
+  @override
+  String get maintenanceVirtualMemory => '虚拟内存';
+
+  @override
+  String get maintenanceStartMode => '启动方式';
+
+  @override
+  String get maintenanceExitCode => '退出代码';
+
+  @override
+  String get maintenancePath => '路径';
+
+  @override
+  String get maintenanceArchitecture => '架构';
+
+  @override
+  String get maintenanceAvailableMemory => '可用内存';
+
+  @override
+  String get maintenanceFreeMemory => '空闲内存';
+
+  @override
+  String get maintenanceTotalMemory => '内存总量';
+
+  @override
+  String get maintenanceCachedMemory => '缓存内存';
+
+  @override
+  String get maintenanceBufferMemory => '缓冲区内存';
+
+  @override
+  String get maintenanceBytesRead => '读取字节';
+
+  @override
+  String get maintenanceBytesWritten => '写入字节';
+
+  @override
+  String get maintenanceReceiveBytes => '接收字节';
+
+  @override
+  String get maintenanceSendBytes => '发送字节';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -21458,4 +22238,784 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mdlEdOperationExtrasHint => '設定回應、即時語音及影片等操作的供應商專用擴充參數。';
+
+  @override
+  String get maintenanceCenter => '伺服器維運中心';
+
+  @override
+  String get maintenanceEntry => '伺服器維運';
+
+  @override
+  String get maintenanceOverview => '執行總覽';
+
+  @override
+  String get maintenanceProcesses => '程序管理';
+
+  @override
+  String get maintenanceServices => '系統服務';
+
+  @override
+  String get maintenanceNetworkDiagnostics => '網路與診斷';
+
+  @override
+  String get maintenanceSystemKernel => '系統與核心';
+
+  @override
+  String get maintenanceProcessorModel => '處理器型號';
+
+  @override
+  String get maintenanceLoadIntervals => '系統負載 · 1 / 5 / 15 分鐘';
+
+  @override
+  String get maintenancePressure => '資源壓力 · CPU / 記憶體 / IO';
+
+  @override
+  String get maintenanceFilesystemCapacity => '檔案系統容量 · KiB';
+
+  @override
+  String get maintenanceInodes => '檔案系統 inode';
+
+  @override
+  String get maintenanceSwapSpace => '交換空間';
+
+  @override
+  String get maintenanceInterfaces => '網路介面連線與硬體';
+
+  @override
+  String get maintenanceSensors => '溫度感測器';
+
+  @override
+  String get maintenanceMemoryDetails => '記憶體詳情';
+
+  @override
+  String get maintenanceMemoryBasis => '記憶體統計方式';
+
+  @override
+  String get maintenanceMemoryCounters => '記憶體與分頁效能計數器';
+
+  @override
+  String get maintenanceVmCounters => '虛擬記憶體計數器';
+
+  @override
+  String get maintenanceStartup => '開機啟動狀態';
+
+  @override
+  String get maintenanceTimers => '系統計時器';
+
+  @override
+  String get maintenanceSockets => '連線與監聽連接埠';
+
+  @override
+  String get maintenanceRoutes => '位址與路由';
+
+  @override
+  String get maintenanceDns => 'DNS 設定';
+
+  @override
+  String get maintenanceLogs => '最近日誌';
+
+  @override
+  String get maintenanceUsers => '登入使用者';
+
+  @override
+  String get maintenanceCron => '目前使用者排程工作';
+
+  @override
+  String get maintenanceFirewall => '防火牆規則';
+
+  @override
+  String get maintenanceContainers => '容器狀態';
+
+  @override
+  String get maintenanceStatusDetails => '狀態詳情';
+
+  @override
+  String get maintenanceCommand => '啟動命令';
+
+  @override
+  String get maintenancePaths => '執行檔與工作目錄';
+
+  @override
+  String get maintenanceProcessIo => '程序 IO 計數器';
+
+  @override
+  String get maintenanceLimits => '資源限制';
+
+  @override
+  String get maintenanceCgroup => '控制群組';
+
+  @override
+  String get maintenanceDescriptors => '開啟的檔案描述符';
+
+  @override
+  String get maintenanceCapabilities => '環境能力';
+
+  @override
+  String get maintenanceBlocks => '區塊裝置與 RAID';
+
+  @override
+  String get maintenanceCgroupLimits => '控制群組資源限制 · 容器與主機檢視可能不同';
+
+  @override
+  String get maintenanceKernel => '核心資源參數';
+
+  @override
+  String get maintenanceNetworkCounters => '網路介面累計 · 位元組、封包、錯誤與遺失';
+
+  @override
+  String get maintenanceCollecting => '採集中';
+
+  @override
+  String get maintenanceCollectionError => '採集異常';
+
+  @override
+  String get maintenanceAutoRefresh => '自動重新整理';
+
+  @override
+  String get maintenanceManualRefresh => '手動重新整理';
+
+  @override
+  String get maintenanceDetecting => '正在識別目標系統';
+
+  @override
+  String get maintenanceAutoShell => '自動識別 Shell';
+
+  @override
+  String get maintenanceShell => '終端 Shell';
+
+  @override
+  String get maintenanceInterval => '自動重新整理間隔';
+
+  @override
+  String get maintenanceFirstSample => '等待首次採樣';
+
+  @override
+  String get maintenancePauseRefresh => '暫停自動重新整理';
+
+  @override
+  String get maintenanceStartRefresh => '啟用自動重新整理（目前區域）';
+
+  @override
+  String get maintenanceRefreshSection => '重新整理目前區域';
+
+  @override
+  String get maintenanceFooter => '目前終端 · 輔助命令不儲存 · 速率需兩次採樣';
+
+  @override
+  String get maintenanceConnecting => '正在連線目前終端';
+
+  @override
+  String get maintenanceUnavailableHost => '機器狀態暫不可用';
+
+  @override
+  String get maintenanceIdentifying => '識別系統並讀取執行狀態';
+
+  @override
+  String get maintenanceCollectionFailed => '無法完成本次採集';
+
+  @override
+  String get maintenanceLoadingHelp => '資料就緒後將顯示資源、程序、服務與網路狀態。';
+
+  @override
+  String get maintenanceRetryHelp => '請確認終端已連線並處於命令提示字元，再重新採集。';
+
+  @override
+  String get maintenanceRetry => '重新採集';
+
+  @override
+  String get maintenanceMemory => '記憶體';
+
+  @override
+  String get maintenanceDisk => '磁碟';
+
+  @override
+  String get maintenanceNetwork => '網路';
+
+  @override
+  String get maintenanceWaitingData => '等待目標機器資料';
+
+  @override
+  String get maintenanceRawSample => '目前採樣 · 完整原始內容';
+
+  @override
+  String get maintenanceResourceUse => '資源使用';
+
+  @override
+  String get maintenanceUptime => '執行時間';
+
+  @override
+  String get maintenanceLoad => '系統負載';
+
+  @override
+  String get maintenanceProcessor => '處理器';
+
+  @override
+  String get maintenanceSampleStatus => '採樣狀態';
+
+  @override
+  String get maintenanceStale => '資料可能過期';
+
+  @override
+  String get maintenanceCollected => '採集成功';
+
+  @override
+  String get maintenanceRefreshMode => '重新整理方式';
+
+  @override
+  String get maintenanceTrendSamples => '趨勢樣本';
+
+  @override
+  String get maintenanceTargetPlatform => '目標平台';
+
+  @override
+  String get maintenanceRateHelp => '速率依連續採樣計算；不可用欄位不作推測。';
+
+  @override
+  String get maintenancePerCore => '每核心負載';
+
+  @override
+  String get maintenanceBasicInfo => '基本資訊';
+
+  @override
+  String get maintenanceRawSystem => '系統原始資訊';
+
+  @override
+  String get maintenanceHost => '主機名稱';
+
+  @override
+  String get maintenanceOs => '作業系統';
+
+  @override
+  String get maintenanceOsVersion => '系統版本';
+
+  @override
+  String get maintenanceKernelVersion => '核心版本';
+
+  @override
+  String get maintenanceLogicalCpus => '邏輯處理器';
+
+  @override
+  String get maintenanceStorage => '儲存空間';
+
+  @override
+  String get maintenanceFilesystem => '檔案系統';
+
+  @override
+  String get maintenanceNoFilesystem => '沒有可讀取的檔案系統';
+
+  @override
+  String get maintenanceThroughput => '網路吞吐量';
+
+  @override
+  String get maintenanceInterfaceDetails => '網路介面詳情';
+
+  @override
+  String get maintenanceInterface => '網路介面';
+
+  @override
+  String get maintenanceReceiveRate => '接收 / 秒';
+
+  @override
+  String get maintenanceSendRate => '傳送 / 秒';
+
+  @override
+  String get maintenanceCpuTrend => 'CPU 即時趨勢';
+
+  @override
+  String get maintenanceAccumulating => '正在累積樣本…';
+
+  @override
+  String get maintenanceTrendHelp => '啟用自動重新整理後顯示趨勢';
+
+  @override
+  String get maintenanceOperations => '維運操作';
+
+  @override
+  String get maintenanceViewProcesses => '檢視程序';
+
+  @override
+  String get maintenanceManageServices => '管理系統服務';
+
+  @override
+  String get maintenanceNetworkAction => '網路診斷';
+
+  @override
+  String get maintenanceAlerts => '資源提醒';
+
+  @override
+  String get maintenanceNoAlerts => '沒有閾值提醒';
+
+  @override
+  String get maintenanceAlertHelp => '依目前 CPU 與記憶體採樣，提醒閾值為 85%；完整磁碟資訊可在詳情查看。';
+
+  @override
+  String get maintenanceCpuUsage => 'CPU 使用率';
+
+  @override
+  String get maintenanceMemoryUsage => '記憶體使用率';
+
+  @override
+  String get maintenanceNoData => '暫無資料';
+
+  @override
+  String get maintenanceSwapUsage => '交換空間使用量';
+
+  @override
+  String get maintenanceNoSwap => '未設定交換空間';
+
+  @override
+  String get maintenanceMoreMetrics => '更多系統指標';
+
+  @override
+  String get maintenanceDiskIo => '磁碟 IO';
+
+  @override
+  String get maintenanceDevice => '裝置';
+
+  @override
+  String get maintenanceReadRate => '讀取 / 秒';
+
+  @override
+  String get maintenanceWriteRate => '寫入 / 秒';
+
+  @override
+  String get maintenanceReadIops => '讀取 IOPS';
+
+  @override
+  String get maintenanceWriteIops => '寫入 IOPS';
+
+  @override
+  String get maintenanceNoCounters => '目前環境未提供可用計數器。';
+
+  @override
+  String get maintenanceSearchProcess => '搜尋 PID 或程序名稱';
+
+  @override
+  String get maintenanceSortCpu => 'CPU 遞減';
+
+  @override
+  String get maintenanceSortMemory => '記憶體遞減';
+
+  @override
+  String get maintenanceSortPid => 'PID 遞增';
+
+  @override
+  String get maintenanceProcess => '程序';
+
+  @override
+  String get maintenanceStatus => '狀態';
+
+  @override
+  String get maintenanceCpuPerCore => 'CPU / 單核心';
+
+  @override
+  String get maintenanceResidentMemory => '常駐記憶體';
+
+  @override
+  String get maintenanceThreads => '執行緒';
+
+  @override
+  String get maintenanceUnavailable => '不可用';
+
+  @override
+  String get maintenancePreviousBatch => '上一批程序';
+
+  @override
+  String get maintenanceNextBatch => '下一批程序';
+
+  @override
+  String get maintenanceRunning => '執行中';
+
+  @override
+  String get maintenanceStopped => '未執行';
+
+  @override
+  String get maintenanceUnknown => '未知';
+
+  @override
+  String get maintenanceFailed => '異常';
+
+  @override
+  String get maintenanceUnchecked => '待檢查';
+
+  @override
+  String get maintenanceDiscoveredServices => '已發現服務';
+
+  @override
+  String get maintenanceVisibleServices => '目前可見服務';
+
+  @override
+  String get maintenanceFailedServices => '異常服務';
+
+  @override
+  String get maintenanceFailedServiceHelp => '僅統計明確回報失敗的項目';
+
+  @override
+  String get maintenanceSearchService => '篩選服務';
+
+  @override
+  String get maintenanceNoConnections => '未解析到 TCP / UDP 連線，可查看原始資料。';
+
+  @override
+  String get maintenanceProtocol => '協定';
+
+  @override
+  String get maintenanceLocalAddress => '本機位址';
+
+  @override
+  String get maintenanceRemoteAddress => '遠端位址';
+
+  @override
+  String get maintenanceDnsServers => 'DNS 伺服器';
+
+  @override
+  String get maintenanceNoDns => '沒有可解析的伺服器位址';
+
+  @override
+  String get maintenanceDiagnosticItems => '診斷項目';
+
+  @override
+  String get maintenanceParsedConnections => '已解析連線';
+
+  @override
+  String get maintenanceConnectionHelp => '目前採樣中的 TCP / UDP';
+
+  @override
+  String get maintenanceDnsHelp => '解析自目前系統設定';
+
+  @override
+  String get maintenanceDiagnosticHelp => '路由、日誌、工作與安全';
+
+  @override
+  String get maintenanceNotProvided => '未提供';
+
+  @override
+  String get maintenanceProcessRunning => '執行';
+
+  @override
+  String get maintenanceSleeping => '休眠';
+
+  @override
+  String get maintenanceIdle => '閒置';
+
+  @override
+  String get maintenanceSuspended => '暫停';
+
+  @override
+  String get maintenanceZombie => '殭屍';
+
+  @override
+  String get maintenanceIoWait => 'IO 等待';
+
+  @override
+  String get maintenancePartial => '部分不可用 · 查看原因';
+
+  @override
+  String get maintenanceViewCollected => '已採集 · 查看詳情';
+
+  @override
+  String get maintenanceNoAvailableData => '暫無可用資料';
+
+  @override
+  String get maintenanceViewDetails => '查看詳情';
+
+  @override
+  String get maintenanceConfirm => '確認執行';
+
+  @override
+  String get maintenanceDetailSubtitle => '即時詳情 · 部分欄位需要更高權限';
+
+  @override
+  String get maintenanceRefreshDetails => '重新整理詳情';
+
+  @override
+  String get maintenanceLoadingDetails => '正在讀取詳情…';
+
+  @override
+  String get maintenanceDetailsFailed => '讀取失敗，請重試。';
+
+  @override
+  String get maintenanceTerminate => '終止程序';
+
+  @override
+  String get maintenanceSuspend => '暫停程序';
+
+  @override
+  String get maintenanceResume => '繼續程序';
+
+  @override
+  String get maintenanceStartService => '啟動服務';
+
+  @override
+  String get maintenanceStopService => '停止服務';
+
+  @override
+  String get maintenanceRestartService => '重新啟動服務';
+
+  @override
+  String get maintenanceEnableStartup => '啟用開機啟動';
+
+  @override
+  String get maintenanceDisableStartup => '停用開機啟動';
+
+  @override
+  String get maintenanceAutomaticStartup => '自動啟動';
+
+  @override
+  String get maintenanceManualStartup => '手動啟動';
+
+  @override
+  String get maintenanceDisableService => '停用服務';
+
+  @override
+  String get maintenanceShellMismatch =>
+      '所選 Shell 與目標系統不符，請改為自動識別或實際使用的 Shell。';
+
+  @override
+  String maintenanceSeconds(String value) {
+    return '$value 秒';
+  }
+
+  @override
+  String maintenanceUpdated(String time) {
+    return '更新於 $time';
+  }
+
+  @override
+  String maintenanceCollectionErrorDetail(String error) {
+    return '採集失敗，已暫停自動重試；保留上次資料。$error';
+  }
+
+  @override
+  String maintenanceCpuAlert(String value) {
+    return 'CPU 使用率較高：$value%';
+  }
+
+  @override
+  String maintenanceMemoryAlert(String value) {
+    return '記憶體使用率較高：$value%';
+  }
+
+  @override
+  String maintenanceAutoInterval(String value) {
+    return '自動 · $value 秒';
+  }
+
+  @override
+  String maintenanceAlertCount(String count) {
+    return '$count 項需關注';
+  }
+
+  @override
+  String maintenanceCpuCount(String count) {
+    return '$count 個邏輯處理器';
+  }
+
+  @override
+  String maintenanceTotal(String value) {
+    return '總量 $value';
+  }
+
+  @override
+  String maintenanceMatched(String count, String total) {
+    return '符合 $count 項 · 總數 $total';
+  }
+
+  @override
+  String maintenanceProcessTitle(String pid, String name) {
+    return '程序 $pid · $name';
+  }
+
+  @override
+  String maintenanceServiceCount(String count) {
+    return '服務清單 · $count 項';
+  }
+
+  @override
+  String maintenanceServerNumber(String count) {
+    return '伺服器 $count';
+  }
+
+  @override
+  String maintenanceDuration(String days, String hours) {
+    return '$days 天 $hours 小時';
+  }
+
+  @override
+  String maintenanceConfirmAction(String target, String action) {
+    return '目標：$target\n將以目前終端權限執行「$action」，可能影響執行中的工作。';
+  }
+
+  @override
+  String maintenanceActionDone(String action) {
+    return '已執行「$action」，請重新整理以查看最新狀態。';
+  }
+
+  @override
+  String get maintenanceEstablished => '已建立連線';
+
+  @override
+  String get maintenanceListening => '監聽中';
+
+  @override
+  String get maintenanceCloseWait => '等待關閉';
+
+  @override
+  String get maintenanceClosing => '關閉中';
+
+  @override
+  String get maintenanceTimeWait => '時間等待';
+
+  @override
+  String get maintenanceSynSent => '已請求連線';
+
+  @override
+  String get maintenanceSynReceived => '已收到連線請求';
+
+  @override
+  String get maintenanceClosed => '已關閉';
+
+  @override
+  String get maintenanceLastAck => '等待最後確認';
+
+  @override
+  String get maintenanceFinWait1 => '關閉中 · 等待確認';
+
+  @override
+  String get maintenanceFinWait2 => '關閉中 · 等待對端';
+
+  @override
+  String get maintenanceUnconnected => '未連線';
+
+  @override
+  String get maintenanceServiceStarting => '啟動中';
+
+  @override
+  String get maintenanceServiceStopping => '停止中';
+
+  @override
+  String get maintenanceProductName => '產品名稱';
+
+  @override
+  String get maintenanceProductVersion => '產品版本';
+
+  @override
+  String get maintenanceBuildVersion => '組建版本';
+
+  @override
+  String get maintenanceRoutingTables => '路由表';
+
+  @override
+  String get maintenanceDnsConfiguration => 'DNS 設定';
+
+  @override
+  String get maintenanceActiveInternet => '作用中網際網路連線';
+
+  @override
+  String get maintenanceActiveMultipath => '作用中多路徑網際網路連線';
+
+  @override
+  String get maintenanceActiveUnix => '作用中本機（UNIX）通訊端';
+
+  @override
+  String get maintenanceNameserver => '名稱伺服器';
+
+  @override
+  String get maintenanceResolver => '解析器';
+
+  @override
+  String get maintenanceIfIndex => '介面索引';
+
+  @override
+  String get maintenanceFlags => '旗標';
+
+  @override
+  String get maintenanceReach => '可達性';
+
+  @override
+  String get maintenanceLocalizedFields => '本地化欄位';
+
+  @override
+  String get maintenanceOriginalOutput => '原始輸出';
+
+  @override
+  String get maintenanceDestination => '目的位址';
+
+  @override
+  String get maintenanceGateway => '閘道';
+
+  @override
+  String get maintenanceExpires => '到期時間';
+
+  @override
+  String get maintenanceReceiveQueue => '接收佇列';
+
+  @override
+  String get maintenanceSendQueue => '傳送佇列';
+
+  @override
+  String get maintenanceAddress => '位址';
+
+  @override
+  String get maintenanceType => '類型';
+
+  @override
+  String get maintenanceName => '名稱';
+
+  @override
+  String get maintenanceDescription => '描述';
+
+  @override
+  String get maintenanceParentPid => '父程序 ID';
+
+  @override
+  String get maintenanceUserId => '使用者 ID';
+
+  @override
+  String get maintenanceGroupId => '群組 ID';
+
+  @override
+  String get maintenancePriority => '優先順序';
+
+  @override
+  String get maintenanceVirtualMemory => '虛擬記憶體';
+
+  @override
+  String get maintenanceStartMode => '啟動方式';
+
+  @override
+  String get maintenanceExitCode => '結束代碼';
+
+  @override
+  String get maintenancePath => '路徑';
+
+  @override
+  String get maintenanceArchitecture => '架構';
+
+  @override
+  String get maintenanceAvailableMemory => '可用記憶體';
+
+  @override
+  String get maintenanceFreeMemory => '可用記憶體';
+
+  @override
+  String get maintenanceTotalMemory => '記憶體總量';
+
+  @override
+  String get maintenanceCachedMemory => '快取記憶體';
+
+  @override
+  String get maintenanceBufferMemory => '緩衝區記憶體';
+
+  @override
+  String get maintenanceBytesRead => '讀取位元組';
+
+  @override
+  String get maintenanceBytesWritten => '寫入位元組';
+
+  @override
+  String get maintenanceReceiveBytes => '接收位元組';
+
+  @override
+  String get maintenanceSendBytes => '傳送位元組';
 }

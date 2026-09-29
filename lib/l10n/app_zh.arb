@@ -8254,5 +8254,1093 @@
   "mdlEdChoice": "选择",
   "mdlEdScore": "评分",
   "mdlEdDecisionExtrasHint": "在 decisions 中配置请求头和查询参数；正文仅包含模型、待评估内容和问题。",
-  "mdlEdOperationExtrasHint": "配置响应、实时语音和视频等操作的提供商专用扩展参数。"
+  "mdlEdOperationExtrasHint": "配置响应、实时语音和视频等操作的提供商专用扩展参数。",
+  "maintenanceCenter": "服务器运维中心",
+  "@maintenanceCenter": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceEntry": "服务器运维",
+  "@maintenanceEntry": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOverview": "运行总览",
+  "@maintenanceOverview": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcesses": "进程管理",
+  "@maintenanceProcesses": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceServices": "系统服务",
+  "@maintenanceServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNetworkDiagnostics": "网络与诊断",
+  "@maintenanceNetworkDiagnostics": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSystemKernel": "系统与内核",
+  "@maintenanceSystemKernel": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcessorModel": "处理器型号",
+  "@maintenanceProcessorModel": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLoadIntervals": "系统负载 · 1 / 5 / 15 分钟",
+  "@maintenanceLoadIntervals": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePressure": "资源压力 · CPU / 内存 / IO",
+  "@maintenancePressure": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFilesystemCapacity": "文件系统容量 · KiB",
+  "@maintenanceFilesystemCapacity": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceInodes": "文件系统 inode",
+  "@maintenanceInodes": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSwapSpace": "交换空间",
+  "@maintenanceSwapSpace": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceInterfaces": "网卡链路与硬件",
+  "@maintenanceInterfaces": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSensors": "温度传感器",
+  "@maintenanceSensors": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMemoryDetails": "内存详情",
+  "@maintenanceMemoryDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMemoryBasis": "内存统计口径",
+  "@maintenanceMemoryBasis": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMemoryCounters": "内存与分页性能计数器",
+  "@maintenanceMemoryCounters": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceVmCounters": "虚拟内存计数器",
+  "@maintenanceVmCounters": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStartup": "开机启动状态",
+  "@maintenanceStartup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTimers": "系统定时器",
+  "@maintenanceTimers": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSockets": "连接与监听端口",
+  "@maintenanceSockets": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRoutes": "地址与路由",
+  "@maintenanceRoutes": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDns": "DNS 配置",
+  "@maintenanceDns": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLogs": "最近日志",
+  "@maintenanceLogs": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUsers": "登录用户",
+  "@maintenanceUsers": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCron": "当前用户计划任务",
+  "@maintenanceCron": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFirewall": "防火墙规则",
+  "@maintenanceFirewall": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceContainers": "容器状态",
+  "@maintenanceContainers": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStatusDetails": "状态详情",
+  "@maintenanceStatusDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCommand": "启动命令",
+  "@maintenanceCommand": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePaths": "可执行文件与工作目录",
+  "@maintenancePaths": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcessIo": "进程 IO 计数器",
+  "@maintenanceProcessIo": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLimits": "资源限制",
+  "@maintenanceLimits": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCgroup": "控制组",
+  "@maintenanceCgroup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDescriptors": "打开的文件描述符",
+  "@maintenanceDescriptors": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCapabilities": "环境能力",
+  "@maintenanceCapabilities": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBlocks": "块设备与 RAID",
+  "@maintenanceBlocks": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCgroupLimits": "控制组资源限制 · 容器与主机视图可能不同",
+  "@maintenanceCgroupLimits": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceKernel": "内核资源参数",
+  "@maintenanceKernel": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNetworkCounters": "网卡累计计数 · 字节、包、错误与丢包",
+  "@maintenanceNetworkCounters": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCollecting": "采集中",
+  "@maintenanceCollecting": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCollectionError": "采集异常",
+  "@maintenanceCollectionError": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAutoRefresh": "自动刷新",
+  "@maintenanceAutoRefresh": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceManualRefresh": "手动刷新",
+  "@maintenanceManualRefresh": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDetecting": "正在识别目标系统",
+  "@maintenanceDetecting": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAutoShell": "自动识别 Shell",
+  "@maintenanceAutoShell": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceShell": "终端 Shell",
+  "@maintenanceShell": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceInterval": "自动刷新间隔",
+  "@maintenanceInterval": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFirstSample": "等待首次采样",
+  "@maintenanceFirstSample": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePauseRefresh": "暂停自动刷新",
+  "@maintenancePauseRefresh": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStartRefresh": "开启自动刷新（当前分区）",
+  "@maintenanceStartRefresh": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRefreshSection": "刷新当前分区",
+  "@maintenanceRefreshSection": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFooter": "当前终端 · 辅助命令不持久化 · 速率需两次采样",
+  "@maintenanceFooter": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceConnecting": "正在连接当前终端",
+  "@maintenanceConnecting": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUnavailableHost": "机器状态暂不可用",
+  "@maintenanceUnavailableHost": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceIdentifying": "识别系统并读取运行状态",
+  "@maintenanceIdentifying": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCollectionFailed": "未能完成本次采集",
+  "@maintenanceCollectionFailed": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLoadingHelp": "数据就绪后将显示资源、进程、服务与网络状态。",
+  "@maintenanceLoadingHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRetryHelp": "请确认终端已连接并处于命令提示符，再重新采集。",
+  "@maintenanceRetryHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRetry": "重新采集",
+  "@maintenanceRetry": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMemory": "内存",
+  "@maintenanceMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDisk": "磁盘",
+  "@maintenanceDisk": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNetwork": "网络",
+  "@maintenanceNetwork": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceWaitingData": "等待目标机器数据",
+  "@maintenanceWaitingData": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRawSample": "当前采样 · 完整原始内容",
+  "@maintenanceRawSample": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceResourceUse": "资源使用",
+  "@maintenanceResourceUse": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUptime": "运行时间",
+  "@maintenanceUptime": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLoad": "负载均衡",
+  "@maintenanceLoad": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcessor": "处理器",
+  "@maintenanceProcessor": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSampleStatus": "采样状态",
+  "@maintenanceSampleStatus": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStale": "数据可能过期",
+  "@maintenanceStale": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCollected": "采集成功",
+  "@maintenanceCollected": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRefreshMode": "刷新方式",
+  "@maintenanceRefreshMode": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTrendSamples": "趋势样本",
+  "@maintenanceTrendSamples": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTargetPlatform": "目标平台",
+  "@maintenanceTargetPlatform": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRateHelp": "速率根据连续采样计算；不可用字段不作推断。",
+  "@maintenanceRateHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePerCore": "每核负载",
+  "@maintenancePerCore": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBasicInfo": "基本信息",
+  "@maintenanceBasicInfo": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRawSystem": "系统原始信息",
+  "@maintenanceRawSystem": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceHost": "主机名",
+  "@maintenanceHost": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOs": "操作系统",
+  "@maintenanceOs": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOsVersion": "系统版本",
+  "@maintenanceOsVersion": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceKernelVersion": "内核版本",
+  "@maintenanceKernelVersion": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLogicalCpus": "逻辑处理器",
+  "@maintenanceLogicalCpus": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStorage": "存储空间",
+  "@maintenanceStorage": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFilesystem": "文件系统",
+  "@maintenanceFilesystem": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoFilesystem": "暂无可读的文件系统",
+  "@maintenanceNoFilesystem": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceThroughput": "网络吞吐",
+  "@maintenanceThroughput": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceInterfaceDetails": "网卡详情",
+  "@maintenanceInterfaceDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceInterface": "网卡",
+  "@maintenanceInterface": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReceiveRate": "接收 / 秒",
+  "@maintenanceReceiveRate": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSendRate": "发送 / 秒",
+  "@maintenanceSendRate": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCpuTrend": "CPU 实时趋势",
+  "@maintenanceCpuTrend": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAccumulating": "正在积累样本…",
+  "@maintenanceAccumulating": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTrendHelp": "开启自动刷新后显示趋势",
+  "@maintenanceTrendHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOperations": "运维操作",
+  "@maintenanceOperations": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceViewProcesses": "查看进程",
+  "@maintenanceViewProcesses": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceManageServices": "管理系统服务",
+  "@maintenanceManageServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNetworkAction": "网络诊断",
+  "@maintenanceNetworkAction": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAlerts": "资源提醒",
+  "@maintenanceAlerts": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoAlerts": "暂无阈值提醒",
+  "@maintenanceNoAlerts": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAlertHelp": "依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。",
+  "@maintenanceAlertHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCpuUsage": "CPU 使用率",
+  "@maintenanceCpuUsage": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMemoryUsage": "内存使用率",
+  "@maintenanceMemoryUsage": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoData": "暂无数据",
+  "@maintenanceNoData": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSwapUsage": "SWAP 使用量",
+  "@maintenanceSwapUsage": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoSwap": "未配置交换空间",
+  "@maintenanceNoSwap": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMoreMetrics": "更多系统指标",
+  "@maintenanceMoreMetrics": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDiskIo": "磁盘 IO",
+  "@maintenanceDiskIo": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDevice": "设备",
+  "@maintenanceDevice": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReadRate": "读取 / 秒",
+  "@maintenanceReadRate": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceWriteRate": "写入 / 秒",
+  "@maintenanceWriteRate": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReadIops": "读 IOPS",
+  "@maintenanceReadIops": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceWriteIops": "写 IOPS",
+  "@maintenanceWriteIops": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoCounters": "当前环境未提供可用计数器。",
+  "@maintenanceNoCounters": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSearchProcess": "搜索 PID 或进程名",
+  "@maintenanceSearchProcess": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSortCpu": "CPU 降序",
+  "@maintenanceSortCpu": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSortMemory": "内存降序",
+  "@maintenanceSortMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSortPid": "PID 升序",
+  "@maintenanceSortPid": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcess": "进程",
+  "@maintenanceProcess": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStatus": "状态",
+  "@maintenanceStatus": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCpuPerCore": "CPU / 单核",
+  "@maintenanceCpuPerCore": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceResidentMemory": "驻留内存",
+  "@maintenanceResidentMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceThreads": "线程",
+  "@maintenanceThreads": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUnavailable": "不可用",
+  "@maintenanceUnavailable": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePreviousBatch": "上一批进程",
+  "@maintenancePreviousBatch": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNextBatch": "下一批进程",
+  "@maintenanceNextBatch": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRunning": "运行中",
+  "@maintenanceRunning": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStopped": "未运行",
+  "@maintenanceStopped": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUnknown": "未知",
+  "@maintenanceUnknown": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFailed": "异常",
+  "@maintenanceFailed": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUnchecked": "待检查",
+  "@maintenanceUnchecked": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDiscoveredServices": "已发现服务",
+  "@maintenanceDiscoveredServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceVisibleServices": "当前可见服务",
+  "@maintenanceVisibleServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFailedServices": "异常服务",
+  "@maintenanceFailedServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFailedServiceHelp": "仅统计明确报告失败的条目",
+  "@maintenanceFailedServiceHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSearchService": "筛选服务",
+  "@maintenanceSearchService": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoConnections": "未解析到 TCP / UDP 连接，可查看原始数据。",
+  "@maintenanceNoConnections": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProtocol": "协议",
+  "@maintenanceProtocol": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLocalAddress": "本地地址",
+  "@maintenanceLocalAddress": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRemoteAddress": "远端地址",
+  "@maintenanceRemoteAddress": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDnsServers": "DNS 服务器",
+  "@maintenanceDnsServers": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoDns": "暂无可解析的服务器地址",
+  "@maintenanceNoDns": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDiagnosticItems": "诊断项目",
+  "@maintenanceDiagnosticItems": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceParsedConnections": "已解析连接",
+  "@maintenanceParsedConnections": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceConnectionHelp": "当前采样中的 TCP / UDP",
+  "@maintenanceConnectionHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDnsHelp": "解析自当前系统配置",
+  "@maintenanceDnsHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDiagnosticHelp": "路由、日志、任务与安全",
+  "@maintenanceDiagnosticHelp": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNotProvided": "未提供",
+  "@maintenanceNotProvided": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcessRunning": "运行",
+  "@maintenanceProcessRunning": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSleeping": "休眠",
+  "@maintenanceSleeping": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceIdle": "空闲",
+  "@maintenanceIdle": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSuspended": "暂停",
+  "@maintenanceSuspended": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceZombie": "僵尸",
+  "@maintenanceZombie": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceIoWait": "IO 等待",
+  "@maintenanceIoWait": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePartial": "部分不可用 · 查看原因",
+  "@maintenancePartial": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceViewCollected": "已采集 · 查看详情",
+  "@maintenanceViewCollected": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNoAvailableData": "暂无可用数据",
+  "@maintenanceNoAvailableData": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceViewDetails": "查看详情",
+  "@maintenanceViewDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceConfirm": "确认执行",
+  "@maintenanceConfirm": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDetailSubtitle": "实时详情 · 部分字段需要更高权限",
+  "@maintenanceDetailSubtitle": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRefreshDetails": "刷新详情",
+  "@maintenanceRefreshDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLoadingDetails": "正在读取详情…",
+  "@maintenanceLoadingDetails": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDetailsFailed": "读取失败，请重试。",
+  "@maintenanceDetailsFailed": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTerminate": "终止进程",
+  "@maintenanceTerminate": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSuspend": "暂停进程",
+  "@maintenanceSuspend": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceResume": "恢复进程",
+  "@maintenanceResume": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStartService": "启动服务",
+  "@maintenanceStartService": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStopService": "停止服务",
+  "@maintenanceStopService": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRestartService": "重启服务",
+  "@maintenanceRestartService": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceEnableStartup": "启用开机启动",
+  "@maintenanceEnableStartup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDisableStartup": "禁用开机启动",
+  "@maintenanceDisableStartup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAutomaticStartup": "自动启动",
+  "@maintenanceAutomaticStartup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceManualStartup": "手动启动",
+  "@maintenanceManualStartup": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDisableService": "禁用服务",
+  "@maintenanceDisableService": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceShellMismatch": "所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。",
+  "@maintenanceShellMismatch": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSeconds": "{value} 秒",
+  "@maintenanceSeconds": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceUpdated": "更新于 {time}",
+  "@maintenanceUpdated": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceCollectionErrorDetail": "采集失败，已暂停自动重试；当前保留上次数据。{error}",
+  "@maintenanceCollectionErrorDetail": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceCpuAlert": "CPU 使用率较高：{value}%",
+  "@maintenanceCpuAlert": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceMemoryAlert": "内存使用率较高：{value}%",
+  "@maintenanceMemoryAlert": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceAutoInterval": "自动 · {value} 秒",
+  "@maintenanceAutoInterval": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceAlertCount": "{count} 项需关注",
+  "@maintenanceAlertCount": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceCpuCount": "{count} 个逻辑处理器",
+  "@maintenanceCpuCount": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTotal": "总量 {value}",
+  "@maintenanceTotal": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceMatched": "匹配 {count} 项 · 总数 {total}",
+  "@maintenanceMatched": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceProcessTitle": "进程 {pid} · {name}",
+  "@maintenanceProcessTitle": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "pid": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceServiceCount": "服务列表 · {count} 项",
+  "@maintenanceServiceCount": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceServerNumber": "服务器 {count}",
+  "@maintenanceServerNumber": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceDuration": "{days} 天 {hours} 小时",
+  "@maintenanceDuration": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceConfirmAction": "目标：{target}\n将使用当前终端权限执行“{action}”，可能影响正在运行的任务。",
+  "@maintenanceConfirmAction": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "target": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceActionDone": "{action}已执行，点击刷新查看最新状态。",
+  "@maintenanceActionDone": {
+    "description": "服务器运维界面文案",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceEstablished": "已建立连接",
+  "@maintenanceEstablished": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceListening": "监听中",
+  "@maintenanceListening": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCloseWait": "等待关闭",
+  "@maintenanceCloseWait": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceClosing": "关闭中",
+  "@maintenanceClosing": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTimeWait": "时间等待",
+  "@maintenanceTimeWait": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSynSent": "已请求连接",
+  "@maintenanceSynSent": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSynReceived": "已收到连接请求",
+  "@maintenanceSynReceived": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceClosed": "已关闭",
+  "@maintenanceClosed": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLastAck": "等待最后确认",
+  "@maintenanceLastAck": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFinWait1": "关闭中 · 等待确认",
+  "@maintenanceFinWait1": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFinWait2": "关闭中 · 等待对端",
+  "@maintenanceFinWait2": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUnconnected": "未连接",
+  "@maintenanceUnconnected": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceServiceStarting": "启动中",
+  "@maintenanceServiceStarting": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceServiceStopping": "停止中",
+  "@maintenanceServiceStopping": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProductName": "产品名称",
+  "@maintenanceProductName": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProductVersion": "产品版本",
+  "@maintenanceProductVersion": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBuildVersion": "构建版本",
+  "@maintenanceBuildVersion": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRoutingTables": "路由表",
+  "@maintenanceRoutingTables": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDnsConfiguration": "DNS 配置",
+  "@maintenanceDnsConfiguration": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceActiveInternet": "活动互联网连接",
+  "@maintenanceActiveInternet": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceActiveMultipath": "活动多路径互联网连接",
+  "@maintenanceActiveMultipath": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceActiveUnix": "活动本地（UNIX）套接字",
+  "@maintenanceActiveUnix": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceNameserver": "名称服务器",
+  "@maintenanceNameserver": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceResolver": "解析器",
+  "@maintenanceResolver": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceIfIndex": "接口索引",
+  "@maintenanceIfIndex": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFlags": "标志",
+  "@maintenanceFlags": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReach": "可达性",
+  "@maintenanceReach": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLocalizedFields": "本地化字段",
+  "@maintenanceLocalizedFields": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOriginalOutput": "原始输出",
+  "@maintenanceOriginalOutput": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDestination": "目的地址",
+  "@maintenanceDestination": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGateway": "网关",
+  "@maintenanceGateway": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceExpires": "过期时间",
+  "@maintenanceExpires": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReceiveQueue": "接收队列",
+  "@maintenanceReceiveQueue": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSendQueue": "发送队列",
+  "@maintenanceSendQueue": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAddress": "地址",
+  "@maintenanceAddress": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceType": "类型",
+  "@maintenanceType": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceName": "名称",
+  "@maintenanceName": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDescription": "描述",
+  "@maintenanceDescription": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceParentPid": "父进程 ID",
+  "@maintenanceParentPid": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceUserId": "用户 ID",
+  "@maintenanceUserId": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGroupId": "组 ID",
+  "@maintenanceGroupId": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePriority": "优先级",
+  "@maintenancePriority": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceVirtualMemory": "虚拟内存",
+  "@maintenanceVirtualMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceStartMode": "启动方式",
+  "@maintenanceStartMode": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceExitCode": "退出代码",
+  "@maintenanceExitCode": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePath": "路径",
+  "@maintenancePath": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceArchitecture": "架构",
+  "@maintenanceArchitecture": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceAvailableMemory": "可用内存",
+  "@maintenanceAvailableMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceFreeMemory": "空闲内存",
+  "@maintenanceFreeMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceTotalMemory": "内存总量",
+  "@maintenanceTotalMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCachedMemory": "缓存内存",
+  "@maintenanceCachedMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBufferMemory": "缓冲区内存",
+  "@maintenanceBufferMemory": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBytesRead": "读取字节",
+  "@maintenanceBytesRead": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceBytesWritten": "写入字节",
+  "@maintenanceBytesWritten": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceReceiveBytes": "接收字节",
+  "@maintenanceReceiveBytes": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSendBytes": "发送字节",
+  "@maintenanceSendBytes": {
+    "description": "服务器运维界面文案"
+  }
 }

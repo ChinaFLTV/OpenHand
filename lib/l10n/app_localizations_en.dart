@@ -11101,4 +11101,796 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get mdlEdOperationExtrasHint =>
       'Provider-specific parameters for response, realtime audio and video operations.';
+
+  @override
+  String get maintenanceCenter => 'Server operations';
+
+  @override
+  String get maintenanceEntry => 'Server operations';
+
+  @override
+  String get maintenanceOverview => 'Overview';
+
+  @override
+  String get maintenanceProcesses => 'Processes';
+
+  @override
+  String get maintenanceServices => 'Services';
+
+  @override
+  String get maintenanceNetworkDiagnostics => 'Network & diagnostics';
+
+  @override
+  String get maintenanceSystemKernel => 'System & kernel';
+
+  @override
+  String get maintenanceProcessorModel => 'Processor model';
+
+  @override
+  String get maintenanceLoadIntervals => 'System load · 1 / 5 / 15 min';
+
+  @override
+  String get maintenancePressure => 'Resource pressure · CPU / memory / I/O';
+
+  @override
+  String get maintenanceFilesystemCapacity => 'Filesystem capacity · KiB';
+
+  @override
+  String get maintenanceInodes => 'Filesystem inodes';
+
+  @override
+  String get maintenanceSwapSpace => 'Swap space';
+
+  @override
+  String get maintenanceInterfaces => 'Network links & hardware';
+
+  @override
+  String get maintenanceSensors => 'Temperature sensors';
+
+  @override
+  String get maintenanceMemoryDetails => 'Memory details';
+
+  @override
+  String get maintenanceMemoryBasis => 'Memory measurement basis';
+
+  @override
+  String get maintenanceMemoryCounters => 'Memory & paging counters';
+
+  @override
+  String get maintenanceVmCounters => 'Virtual memory counters';
+
+  @override
+  String get maintenanceStartup => 'Startup status';
+
+  @override
+  String get maintenanceTimers => 'System timers';
+
+  @override
+  String get maintenanceSockets => 'Connections & listening ports';
+
+  @override
+  String get maintenanceRoutes => 'Addresses & routes';
+
+  @override
+  String get maintenanceDns => 'DNS configuration';
+
+  @override
+  String get maintenanceLogs => 'Recent logs';
+
+  @override
+  String get maintenanceUsers => 'Signed-in users';
+
+  @override
+  String get maintenanceCron => 'Current user’s scheduled tasks';
+
+  @override
+  String get maintenanceFirewall => 'Firewall rules';
+
+  @override
+  String get maintenanceContainers => 'Container status';
+
+  @override
+  String get maintenanceStatusDetails => 'Status details';
+
+  @override
+  String get maintenanceCommand => 'Startup command';
+
+  @override
+  String get maintenancePaths => 'Executable & working directory';
+
+  @override
+  String get maintenanceProcessIo => 'Process I/O counters';
+
+  @override
+  String get maintenanceLimits => 'Resource limits';
+
+  @override
+  String get maintenanceCgroup => 'Control groups';
+
+  @override
+  String get maintenanceDescriptors => 'Open file descriptors';
+
+  @override
+  String get maintenanceCapabilities => 'Environment capabilities';
+
+  @override
+  String get maintenanceBlocks => 'Block devices & RAID';
+
+  @override
+  String get maintenanceCgroupLimits =>
+      'Control-group limits · container and host views may differ';
+
+  @override
+  String get maintenanceKernel => 'Kernel resource parameters';
+
+  @override
+  String get maintenanceNetworkCounters =>
+      'Network totals · bytes, packets, errors and drops';
+
+  @override
+  String get maintenanceCollecting => 'Collecting';
+
+  @override
+  String get maintenanceCollectionError => 'Collection error';
+
+  @override
+  String get maintenanceAutoRefresh => 'Auto refresh';
+
+  @override
+  String get maintenanceManualRefresh => 'Manual refresh';
+
+  @override
+  String get maintenanceDetecting => 'Detecting target system';
+
+  @override
+  String get maintenanceAutoShell => 'Detect shell automatically';
+
+  @override
+  String get maintenanceShell => 'Terminal shell';
+
+  @override
+  String get maintenanceInterval => 'Auto-refresh interval';
+
+  @override
+  String get maintenanceFirstSample => 'Waiting for first sample';
+
+  @override
+  String get maintenancePauseRefresh => 'Pause auto refresh';
+
+  @override
+  String get maintenanceStartRefresh => 'Enable auto refresh (current section)';
+
+  @override
+  String get maintenanceRefreshSection => 'Refresh current section';
+
+  @override
+  String get maintenanceFooter =>
+      'Current terminal · helper commands are not saved · rates need two samples';
+
+  @override
+  String get maintenanceConnecting => 'Connecting to the terminal';
+
+  @override
+  String get maintenanceUnavailableHost => 'Machine status unavailable';
+
+  @override
+  String get maintenanceIdentifying => 'Identifying system and reading status';
+
+  @override
+  String get maintenanceCollectionFailed => 'Collection could not be completed';
+
+  @override
+  String get maintenanceLoadingHelp =>
+      'Resources, processes, services and network status appear when ready.';
+
+  @override
+  String get maintenanceRetryHelp =>
+      'Check that the terminal is connected and at a command prompt, then retry.';
+
+  @override
+  String get maintenanceRetry => 'Collect again';
+
+  @override
+  String get maintenanceMemory => 'Memory';
+
+  @override
+  String get maintenanceDisk => 'Disk';
+
+  @override
+  String get maintenanceNetwork => 'Network';
+
+  @override
+  String get maintenanceWaitingData => 'Waiting for target data';
+
+  @override
+  String get maintenanceRawSample => 'Current sample · full raw output';
+
+  @override
+  String get maintenanceResourceUse => 'Resource usage';
+
+  @override
+  String get maintenanceUptime => 'Uptime';
+
+  @override
+  String get maintenanceLoad => 'System load';
+
+  @override
+  String get maintenanceProcessor => 'Processor';
+
+  @override
+  String get maintenanceSampleStatus => 'Sampling status';
+
+  @override
+  String get maintenanceStale => 'Data may be outdated';
+
+  @override
+  String get maintenanceCollected => 'Collection succeeded';
+
+  @override
+  String get maintenanceRefreshMode => 'Refresh mode';
+
+  @override
+  String get maintenanceTrendSamples => 'Trend samples';
+
+  @override
+  String get maintenanceTargetPlatform => 'Target platform';
+
+  @override
+  String get maintenanceRateHelp =>
+      'Rates use consecutive samples; unavailable fields are not inferred.';
+
+  @override
+  String get maintenancePerCore => 'Per-core load';
+
+  @override
+  String get maintenanceBasicInfo => 'Basic information';
+
+  @override
+  String get maintenanceRawSystem => 'Raw system information';
+
+  @override
+  String get maintenanceHost => 'Hostname';
+
+  @override
+  String get maintenanceOs => 'Operating system';
+
+  @override
+  String get maintenanceOsVersion => 'System version';
+
+  @override
+  String get maintenanceKernelVersion => 'Kernel version';
+
+  @override
+  String get maintenanceLogicalCpus => 'Logical processors';
+
+  @override
+  String get maintenanceStorage => 'Storage';
+
+  @override
+  String get maintenanceFilesystem => 'Filesystem';
+
+  @override
+  String get maintenanceNoFilesystem => 'No readable filesystem';
+
+  @override
+  String get maintenanceThroughput => 'Network throughput';
+
+  @override
+  String get maintenanceInterfaceDetails => 'Network interface details';
+
+  @override
+  String get maintenanceInterface => 'Interface';
+
+  @override
+  String get maintenanceReceiveRate => 'Received / s';
+
+  @override
+  String get maintenanceSendRate => 'Sent / s';
+
+  @override
+  String get maintenanceCpuTrend => 'CPU live trend';
+
+  @override
+  String get maintenanceAccumulating => 'Collecting samples…';
+
+  @override
+  String get maintenanceTrendHelp => 'Enable auto refresh to display the trend';
+
+  @override
+  String get maintenanceOperations => 'Operations';
+
+  @override
+  String get maintenanceViewProcesses => 'View processes';
+
+  @override
+  String get maintenanceManageServices => 'Manage services';
+
+  @override
+  String get maintenanceNetworkAction => 'Network diagnostics';
+
+  @override
+  String get maintenanceAlerts => 'Resource alerts';
+
+  @override
+  String get maintenanceNoAlerts => 'No threshold alerts';
+
+  @override
+  String get maintenanceAlertHelp =>
+      'CPU and memory alerts use an 85% threshold. Full disk information is available in details.';
+
+  @override
+  String get maintenanceCpuUsage => 'CPU usage';
+
+  @override
+  String get maintenanceMemoryUsage => 'Memory usage';
+
+  @override
+  String get maintenanceNoData => 'No data';
+
+  @override
+  String get maintenanceSwapUsage => 'Swap usage';
+
+  @override
+  String get maintenanceNoSwap => 'Swap is not configured';
+
+  @override
+  String get maintenanceMoreMetrics => 'More system metrics';
+
+  @override
+  String get maintenanceDiskIo => 'Disk I/O';
+
+  @override
+  String get maintenanceDevice => 'Device';
+
+  @override
+  String get maintenanceReadRate => 'Read / s';
+
+  @override
+  String get maintenanceWriteRate => 'Write / s';
+
+  @override
+  String get maintenanceReadIops => 'Read IOPS';
+
+  @override
+  String get maintenanceWriteIops => 'Write IOPS';
+
+  @override
+  String get maintenanceNoCounters =>
+      'No counters are available in this environment.';
+
+  @override
+  String get maintenanceSearchProcess => 'Search PID or process name';
+
+  @override
+  String get maintenanceSortCpu => 'CPU descending';
+
+  @override
+  String get maintenanceSortMemory => 'Memory descending';
+
+  @override
+  String get maintenanceSortPid => 'PID ascending';
+
+  @override
+  String get maintenanceProcess => 'Process';
+
+  @override
+  String get maintenanceStatus => 'Status';
+
+  @override
+  String get maintenanceCpuPerCore => 'CPU / core';
+
+  @override
+  String get maintenanceResidentMemory => 'Resident memory';
+
+  @override
+  String get maintenanceThreads => 'Threads';
+
+  @override
+  String get maintenanceUnavailable => 'Unavailable';
+
+  @override
+  String get maintenancePreviousBatch => 'Previous batch';
+
+  @override
+  String get maintenanceNextBatch => 'Next batch';
+
+  @override
+  String get maintenanceRunning => 'Running';
+
+  @override
+  String get maintenanceStopped => 'Not running';
+
+  @override
+  String get maintenanceUnknown => 'Unknown';
+
+  @override
+  String get maintenanceFailed => 'Failed';
+
+  @override
+  String get maintenanceUnchecked => 'Not checked';
+
+  @override
+  String get maintenanceDiscoveredServices => 'Discovered services';
+
+  @override
+  String get maintenanceVisibleServices => 'Currently visible services';
+
+  @override
+  String get maintenanceFailedServices => 'Failed services';
+
+  @override
+  String get maintenanceFailedServiceHelp =>
+      'Only explicitly reported failures are counted';
+
+  @override
+  String get maintenanceSearchService => 'Filter services';
+
+  @override
+  String get maintenanceNoConnections =>
+      'No TCP/UDP connections parsed. View raw data for details.';
+
+  @override
+  String get maintenanceProtocol => 'Protocol';
+
+  @override
+  String get maintenanceLocalAddress => 'Local address';
+
+  @override
+  String get maintenanceRemoteAddress => 'Remote address';
+
+  @override
+  String get maintenanceDnsServers => 'DNS servers';
+
+  @override
+  String get maintenanceNoDns => 'No server addresses could be parsed';
+
+  @override
+  String get maintenanceDiagnosticItems => 'Diagnostic checks';
+
+  @override
+  String get maintenanceParsedConnections => 'Parsed connections';
+
+  @override
+  String get maintenanceConnectionHelp => 'TCP / UDP in the current sample';
+
+  @override
+  String get maintenanceDnsHelp => 'Parsed from current system configuration';
+
+  @override
+  String get maintenanceDiagnosticHelp => 'Routes, logs, tasks and security';
+
+  @override
+  String get maintenanceNotProvided => 'Not provided';
+
+  @override
+  String get maintenanceProcessRunning => 'Running';
+
+  @override
+  String get maintenanceSleeping => 'Sleeping';
+
+  @override
+  String get maintenanceIdle => 'Idle';
+
+  @override
+  String get maintenanceSuspended => 'Suspended';
+
+  @override
+  String get maintenanceZombie => 'Zombie';
+
+  @override
+  String get maintenanceIoWait => 'I/O wait';
+
+  @override
+  String get maintenancePartial => 'Partially unavailable · view reason';
+
+  @override
+  String get maintenanceViewCollected => 'Collected · view details';
+
+  @override
+  String get maintenanceNoAvailableData => 'No available data';
+
+  @override
+  String get maintenanceViewDetails => 'View details';
+
+  @override
+  String get maintenanceConfirm => 'Confirm execution';
+
+  @override
+  String get maintenanceDetailSubtitle =>
+      'Live details · some fields require higher privileges';
+
+  @override
+  String get maintenanceRefreshDetails => 'Refresh details';
+
+  @override
+  String get maintenanceLoadingDetails => 'Loading details…';
+
+  @override
+  String get maintenanceDetailsFailed => 'Could not load. Please retry.';
+
+  @override
+  String get maintenanceTerminate => 'Terminate process';
+
+  @override
+  String get maintenanceSuspend => 'Suspend process';
+
+  @override
+  String get maintenanceResume => 'Resume process';
+
+  @override
+  String get maintenanceStartService => 'Start service';
+
+  @override
+  String get maintenanceStopService => 'Stop service';
+
+  @override
+  String get maintenanceRestartService => 'Restart service';
+
+  @override
+  String get maintenanceEnableStartup => 'Enable at startup';
+
+  @override
+  String get maintenanceDisableStartup => 'Disable at startup';
+
+  @override
+  String get maintenanceAutomaticStartup => 'Automatic startup';
+
+  @override
+  String get maintenanceManualStartup => 'Manual startup';
+
+  @override
+  String get maintenanceDisableService => 'Disable service';
+
+  @override
+  String get maintenanceShellMismatch =>
+      'The selected shell does not match the target. Use automatic detection or the actual shell.';
+
+  @override
+  String maintenanceSeconds(String value) {
+    return '$value s';
+  }
+
+  @override
+  String maintenanceUpdated(String time) {
+    return 'Updated $time';
+  }
+
+  @override
+  String maintenanceCollectionErrorDetail(String error) {
+    return 'Collection failed; automatic retries paused. Previous data retained. $error';
+  }
+
+  @override
+  String maintenanceCpuAlert(String value) {
+    return 'High CPU usage: $value%';
+  }
+
+  @override
+  String maintenanceMemoryAlert(String value) {
+    return 'High memory usage: $value%';
+  }
+
+  @override
+  String maintenanceAutoInterval(String value) {
+    return 'Automatic · $value s';
+  }
+
+  @override
+  String maintenanceAlertCount(String count) {
+    return '$count items need attention';
+  }
+
+  @override
+  String maintenanceCpuCount(String count) {
+    return '$count logical processors';
+  }
+
+  @override
+  String maintenanceTotal(String value) {
+    return 'Total $value';
+  }
+
+  @override
+  String maintenanceMatched(String count, String total) {
+    return '$count matches · $total total';
+  }
+
+  @override
+  String maintenanceProcessTitle(String pid, String name) {
+    return 'Process $pid · $name';
+  }
+
+  @override
+  String maintenanceServiceCount(String count) {
+    return 'Services · $count';
+  }
+
+  @override
+  String maintenanceServerNumber(String count) {
+    return 'Server $count';
+  }
+
+  @override
+  String maintenanceDuration(String days, String hours) {
+    return '$days d $hours h';
+  }
+
+  @override
+  String maintenanceConfirmAction(String target, String action) {
+    return 'Target: $target\nRun “$action” with current terminal privileges? Running tasks may be affected.';
+  }
+
+  @override
+  String maintenanceActionDone(String action) {
+    return '$action executed. Refresh to see the latest status.';
+  }
+
+  @override
+  String get maintenanceEstablished => 'Established';
+
+  @override
+  String get maintenanceListening => 'Listening';
+
+  @override
+  String get maintenanceCloseWait => 'Waiting to close';
+
+  @override
+  String get maintenanceClosing => 'Closing';
+
+  @override
+  String get maintenanceTimeWait => 'Time wait';
+
+  @override
+  String get maintenanceSynSent => 'Connection requested';
+
+  @override
+  String get maintenanceSynReceived => 'Connection request received';
+
+  @override
+  String get maintenanceClosed => 'Closed';
+
+  @override
+  String get maintenanceLastAck => 'Waiting for final acknowledgement';
+
+  @override
+  String get maintenanceFinWait1 => 'Closing · waiting for acknowledgement';
+
+  @override
+  String get maintenanceFinWait2 => 'Closing · waiting for peer';
+
+  @override
+  String get maintenanceUnconnected => 'Unconnected';
+
+  @override
+  String get maintenanceServiceStarting => 'Starting';
+
+  @override
+  String get maintenanceServiceStopping => 'Stopping';
+
+  @override
+  String get maintenanceProductName => 'Product name';
+
+  @override
+  String get maintenanceProductVersion => 'Product version';
+
+  @override
+  String get maintenanceBuildVersion => 'Build version';
+
+  @override
+  String get maintenanceRoutingTables => 'Routing tables';
+
+  @override
+  String get maintenanceDnsConfiguration => 'DNS configuration';
+
+  @override
+  String get maintenanceActiveInternet => 'Active Internet connections';
+
+  @override
+  String get maintenanceActiveMultipath =>
+      'Active multipath Internet connections';
+
+  @override
+  String get maintenanceActiveUnix => 'Active local (UNIX) sockets';
+
+  @override
+  String get maintenanceNameserver => 'Name server';
+
+  @override
+  String get maintenanceResolver => 'Resolver';
+
+  @override
+  String get maintenanceIfIndex => 'Interface index';
+
+  @override
+  String get maintenanceFlags => 'Flags';
+
+  @override
+  String get maintenanceReach => 'Reachability';
+
+  @override
+  String get maintenanceLocalizedFields => 'Localized fields';
+
+  @override
+  String get maintenanceOriginalOutput => 'Original output';
+
+  @override
+  String get maintenanceDestination => 'Destination';
+
+  @override
+  String get maintenanceGateway => 'Gateway';
+
+  @override
+  String get maintenanceExpires => 'Expires';
+
+  @override
+  String get maintenanceReceiveQueue => 'Receive queue';
+
+  @override
+  String get maintenanceSendQueue => 'Send queue';
+
+  @override
+  String get maintenanceAddress => 'Address';
+
+  @override
+  String get maintenanceType => 'Type';
+
+  @override
+  String get maintenanceName => 'Name';
+
+  @override
+  String get maintenanceDescription => 'Description';
+
+  @override
+  String get maintenanceParentPid => 'Parent process ID';
+
+  @override
+  String get maintenanceUserId => 'User ID';
+
+  @override
+  String get maintenanceGroupId => 'Group ID';
+
+  @override
+  String get maintenancePriority => 'Priority';
+
+  @override
+  String get maintenanceVirtualMemory => 'Virtual memory';
+
+  @override
+  String get maintenanceStartMode => 'Start mode';
+
+  @override
+  String get maintenanceExitCode => 'Exit code';
+
+  @override
+  String get maintenancePath => 'Path';
+
+  @override
+  String get maintenanceArchitecture => 'Architecture';
+
+  @override
+  String get maintenanceAvailableMemory => 'Available memory';
+
+  @override
+  String get maintenanceFreeMemory => 'Free memory';
+
+  @override
+  String get maintenanceTotalMemory => 'Total memory';
+
+  @override
+  String get maintenanceCachedMemory => 'Cached memory';
+
+  @override
+  String get maintenanceBufferMemory => 'Buffer memory';
+
+  @override
+  String get maintenanceBytesRead => 'Bytes read';
+
+  @override
+  String get maintenanceBytesWritten => 'Bytes written';
+
+  @override
+  String get maintenanceReceiveBytes => 'Received bytes';
+
+  @override
+  String get maintenanceSendBytes => 'Sent bytes';
 }

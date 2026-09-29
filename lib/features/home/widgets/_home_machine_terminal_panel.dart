@@ -651,7 +651,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.monitor_heart_outlined,
-              tooltip: '服务器运维',
+              tooltip: maintenanceLabel(context, '服务器运维'),
               onPressed: canStop ? onMaintenance : null,
             ),
           ],
