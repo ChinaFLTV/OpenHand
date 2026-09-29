@@ -8631,5 +8631,14 @@
   "maintenanceExited": "終了",
   "maintenanceStatic": "静的",
   "maintenanceMasked": "マスク済み",
-  "maintenanceTrendGesture": "ピンチで拡大縮小 · ドラッグで移動 · ダブルクリックでリセット"
+  "maintenanceTrendGesture": "ピンチで拡大縮小 · ドラッグで移動 · ダブルクリックでリセット",
+  "maintenanceMemoryShare": "メモリ配分",
+  "maintenanceUsed": "使用中",
+  "maintenanceAvailable": "利用可能",
+  "maintenanceCpuRank": "CPU · サンプル内の上位6プロセス",
+  "maintenanceMemoryRank": "常駐メモリ · サンプル内の上位6プロセス",
+  "maintenanceServiceShare": "サービス状態の分布",
+  "maintenanceConnectionShare": "接続状態の分布",
+  "maintenanceConnectionGraph": "エンドポイント接続",
+  "maintenanceGraphScope": "サンプル内の最大6組。線上の数字は接続数です。待受ポートは下の明細に表示します。"
 }

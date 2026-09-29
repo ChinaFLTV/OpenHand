@@ -8636,5 +8636,14 @@
   "maintenanceExited": "Exited",
   "maintenanceStatic": "Static",
   "maintenanceMasked": "Masked",
-  "maintenanceTrendGesture": "Pinch to zoom · Drag to pan · Double-click to reset"
+  "maintenanceTrendGesture": "Pinch to zoom · Drag to pan · Double-click to reset",
+  "maintenanceMemoryShare": "Memory allocation",
+  "maintenanceUsed": "Used",
+  "maintenanceAvailable": "Available",
+  "maintenanceCpuRank": "CPU · Top 6 sampled processes",
+  "maintenanceMemoryRank": "Resident memory · Top 6 sampled processes",
+  "maintenanceServiceShare": "Service states",
+  "maintenanceConnectionShare": "Connection states",
+  "maintenanceConnectionGraph": "Endpoint connections",
+  "maintenanceGraphScope": "Up to 6 sampled endpoint pairs; numbers show connections. Listening sockets are listed below."
 }

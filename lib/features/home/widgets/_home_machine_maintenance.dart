@@ -790,18 +790,25 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         icon: Icons.memory_rounded,
         child: Column(
           children: [
-            _MaintenanceUsage(label: 'CPU', value: cpu, color: cs.primary),
-            _MaintenanceUsage(
-              label: '内存',
-              value: memoryUsage,
-              color: cs.tertiary,
-            ),
-            _MaintenanceUsage(
-              label: 'SWAP',
-              value: swap != null && swap > 0 && freeSwap != null
-                  ? (swap - freeSwap) / swap
-                  : null,
-              color: cs.secondary,
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              alignment: WrapAlignment.center,
+              children: [
+                _MaintenanceGauge(label: 'CPU', value: cpu, color: cs.primary),
+                _MaintenanceGauge(
+                  label: maintenanceLabel(context, '内存'),
+                  value: memoryUsage,
+                  color: cs.tertiary,
+                ),
+                _MaintenanceGauge(
+                  label: 'SWAP',
+                  value: swap != null && swap > 0 && freeSwap != null
+                      ? (swap - freeSwap) / swap
+                      : null,
+                  color: cs.secondary,
+                ),
+              ],
             ),
             const Divider(height: 18),
             _MaintenanceFacts(
@@ -938,6 +945,30 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
     ];
     final right = <Widget>[
+      if (total != null && total > 0 && available != null)
+        _MaintenanceCard(
+          title: AppLocalizations.of(context)!.maintenanceMemoryShare,
+          icon: Icons.donut_large_rounded,
+          child: _MaintenanceVisual(
+            donut: true,
+            centerLabel: formatByteSize(total),
+            segments: [
+              OpenHandChartSegment(
+                label: AppLocalizations.of(context)!.maintenanceUsed,
+                value: (total - available).clamp(0, total),
+                color: cs.primary,
+                valueLabel: formatByteSize((total - available).clamp(0, total)),
+              ),
+              OpenHandChartSegment(
+                label: AppLocalizations.of(context)!.maintenanceAvailable,
+                value: available.clamp(0, total),
+                color: cs.tertiary,
+                valueLabel: formatByteSize(available.clamp(0, total)),
+              ),
+            ],
+          ),
+        ),
+
       _MaintenanceCard(
         title: maintenanceLabel(context, 'CPU 实时趋势'),
         icon: Icons.show_chart_rounded,
@@ -1219,30 +1250,66 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   ) {
     final keys = data.counters(section, colon: section == 'network').keys;
     if (keys.isEmpty) return Text(maintenanceLabel(context, '当前环境未提供可用计数器。'));
-    return _MaintenanceTable(
-      headers: headings,
-      rows: [
-        for (final key in keys)
-          OpenHandOperationalRankRow(
-            value: 0,
-            rowKey: key,
-            cells: [
-              data.text('platform') == 'Windows'
-                  ? Uri.decodeComponent(key)
-                  : key,
-              for (var i = 0; i < indexes.length; i++)
-                _maintenanceRateLabel(
-                  data.rate(
-                    _previous[0],
-                    section,
-                    key,
-                    indexes[i],
-                    multiplier: multipliers[i],
-                  ),
-                  bytes: i < 2,
-                ),
-            ],
+    final cs = Theme.of(context).colorScheme;
+    final samples = <OpenHandChartSegment>[];
+    for (final key in keys) {
+      for (var i = 0; i < 2; i++) {
+        final value = data.rate(
+          _previous[0],
+          section,
+          key,
+          indexes[i],
+          multiplier: multipliers[i],
+        );
+        if (value != null && value.isFinite && value >= 0) {
+          samples.add(
+            OpenHandChartSegment(
+              label:
+                  '${data.text('platform') == 'Windows' ? Uri.decodeComponent(key) : key} · ${maintenanceLabel(context, headings[i + 1])}',
+              value: value,
+              color: i == 0 ? cs.primary : cs.tertiary,
+              valueLabel: _maintenanceRateLabel(value, bytes: true),
+            ),
+          );
+        }
+      }
+    }
+    samples.sort((a, b) => b.value.compareTo(a.value));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (samples.isNotEmpty) ...[
+          _MaintenanceVisual(
+            segments: samples.take(_maintenanceChartLimit).toList(),
           ),
+          const SizedBox(height: 12),
+        ],
+        _MaintenanceTable(
+          headers: headings,
+          rows: [
+            for (final key in keys)
+              OpenHandOperationalRankRow(
+                value: 0,
+                rowKey: key,
+                cells: [
+                  data.text('platform') == 'Windows'
+                      ? Uri.decodeComponent(key)
+                      : key,
+                  for (var i = 0; i < indexes.length; i++)
+                    _maintenanceRateLabel(
+                      data.rate(
+                        _previous[0],
+                        section,
+                        key,
+                        indexes[i],
+                        multiplier: multipliers[i],
+                      ),
+                      bytes: i < 2,
+                    ),
+                ],
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -1282,6 +1349,47 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         2 => a.pid.compareTo(b.pid),
         _ => (cpu(b) ?? -1).compareTo(cpu(a) ?? -1),
       },
+    );
+    final cs = Theme.of(context).colorScheme;
+    final cpuRank = rows.where((p) => cpu(p) != null).toList()
+      ..sort((a, b) => cpu(b)!.compareTo(cpu(a)!));
+    final memoryRank = rows.where((p) => p.residentPages >= 0).toList()
+      ..sort((a, b) => b.residentPages.compareTo(a.residentPages));
+    final charts = _MaintenanceGrid(
+      minWidth: 300,
+      children: [
+        _MaintenanceCard(
+          title: AppLocalizations.of(context)!.maintenanceCpuRank,
+          icon: Icons.bar_chart_rounded,
+          child: _MaintenanceVisual(
+            segments: [
+              for (final p in cpuRank.take(_maintenanceChartLimit))
+                OpenHandChartSegment(
+                  label: '${p.pid} · ${p.name.split('/').last}',
+                  value: cpu(p)!,
+                  valueLabel: '${cpu(p)!.toStringAsFixed(1)}%',
+                  color: cs.primary,
+                ),
+            ],
+          ),
+        ),
+        _MaintenanceCard(
+          title: AppLocalizations.of(context)!.maintenanceMemoryRank,
+          icon: Icons.stacked_bar_chart_rounded,
+          child: _MaintenanceVisual(
+            segments: [
+              if (pageSize != null && pageSize > 0)
+                for (final p in memoryRank.take(_maintenanceChartLimit))
+                  OpenHandChartSegment(
+                    label: '${p.pid} · ${p.name.split('/').last}',
+                    value: p.residentPages * pageSize,
+                    valueLabel: formatByteSize(p.residentPages * pageSize),
+                    color: cs.tertiary,
+                  ),
+            ],
+          ),
+        ),
+      ],
     );
     final countLine = data
         .text('processes')
@@ -1381,94 +1489,101 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           Expanded(
             child: LayoutBuilder(
               builder: (_, constraints) => SingleChildScrollView(
-                child: _MaintenanceTable(
-                  key: ValueKey((_search.text, _sort, _processOffset)),
-                  limitToViewport: false,
-                  maxBodyHeight: math.max(
-                    100,
-                    constraints.maxHeight -
-                        (constraints.maxWidth < 720 ? 148 : 96),
-                  ),
-                  headers: const [
-                    'PID',
-                    '进程',
-                    '状态',
-                    'CPU / 单核',
-                    '驻留内存',
-                    '线程',
-                    '父进程 ID',
-                    '优先级',
-                    '虚拟内存',
-                    '累计 CPU 时间',
-                  ],
-                  rows: [
-                    for (final p in rows)
-                      OpenHandOperationalRankRow(
-                        value: 0,
-                        rowKey: (p.pid, p.startToken),
-                        data: p,
-                        cells: [
-                          '${p.pid}',
-                          p.name.split('/').last.split('\\').last,
-                          maintenanceLabel(
-                            context,
-                            _maintenanceProcessState(p.state),
-                          ),
-                          cpu(p) == null
-                              ? '—'
-                              : '${cpu(p)!.toStringAsFixed(1)}%',
-                          pageSize == null || p.residentPages < 0
-                              ? maintenanceLabel(context, '不可用')
-                              : formatByteSize(p.residentPages * pageSize),
-                          p.threads < 0 ? '—' : '${p.threads}',
-                          '${p.parent}',
-                          '${p.nice}',
-                          p.virtualBytes < 0
-                              ? '—'
-                              : formatByteSize(p.virtualBytes),
-                          ticksPerSecond == null ||
-                                  ticksPerSecond <= 0 ||
-                                  p.ticks < 0
-                              ? '—'
-                              : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
-                        ],
-                        cellWidgets: [
-                          null,
-                          Tooltip(
-                            message: p.name,
-                            child: Text(
-                              p.name.split('/').last.split('\\').last,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          _MaintenanceStatus(
-                            label: _maintenanceProcessState(p.state),
-                            color: p.state.startsWith('Z')
-                                ? Theme.of(context).colorScheme.error
-                                : Theme.of(context).colorScheme.primary,
-                          ),
-                        ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    charts,
+                    const SizedBox(height: 12),
+                    _MaintenanceTable(
+                      key: ValueKey((_search.text, _sort, _processOffset)),
+                      limitToViewport: false,
+                      maxBodyHeight: math.max(
+                        100,
+                        constraints.maxHeight -
+                            (constraints.maxWidth < 720 ? 148 : 96),
                       ),
-                  ],
-                  onRowTap: (row) {
-                    final p = row.data! as MachineMaintenanceProcess;
-                    if (!_platform!.canInspectProcess(p)) return;
-                    _details(
-                      AppLocalizations.of(
-                        context,
-                      )!.maintenanceProcessTitle('${p.pid}', p.name),
-                      _platform!.process(p),
-                      actions: {
-                        for (final action
-                            in _platform!.processActions(p).entries)
-                          action.key: _platform!.process(
-                            p,
-                            action: action.value,
+                      headers: const [
+                        'PID',
+                        '进程',
+                        '状态',
+                        'CPU / 单核',
+                        '驻留内存',
+                        '线程',
+                        '父进程 ID',
+                        '优先级',
+                        '虚拟内存',
+                        '累计 CPU 时间',
+                      ],
+                      rows: [
+                        for (final p in rows)
+                          OpenHandOperationalRankRow(
+                            value: 0,
+                            rowKey: (p.pid, p.startToken),
+                            data: p,
+                            cells: [
+                              '${p.pid}',
+                              p.name.split('/').last.split('\\').last,
+                              maintenanceLabel(
+                                context,
+                                _maintenanceProcessState(p.state),
+                              ),
+                              cpu(p) == null
+                                  ? '—'
+                                  : '${cpu(p)!.toStringAsFixed(1)}%',
+                              pageSize == null || p.residentPages < 0
+                                  ? maintenanceLabel(context, '不可用')
+                                  : formatByteSize(p.residentPages * pageSize),
+                              p.threads < 0 ? '—' : '${p.threads}',
+                              '${p.parent}',
+                              '${p.nice}',
+                              p.virtualBytes < 0
+                                  ? '—'
+                                  : formatByteSize(p.virtualBytes),
+                              ticksPerSecond == null ||
+                                      ticksPerSecond <= 0 ||
+                                      p.ticks < 0
+                                  ? '—'
+                                  : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
+                            ],
+                            cellWidgets: [
+                              null,
+                              Tooltip(
+                                message: p.name,
+                                child: Text(
+                                  p.name.split('/').last.split('\\').last,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              _MaintenanceStatus(
+                                label: _maintenanceProcessState(p.state),
+                                color: p.state.startsWith('Z')
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                            ],
                           ),
+                      ],
+                      onRowTap: (row) {
+                        final p = row.data! as MachineMaintenanceProcess;
+                        if (!_platform!.canInspectProcess(p)) return;
+                        _details(
+                          AppLocalizations.of(
+                            context,
+                          )!.maintenanceProcessTitle('${p.pid}', p.name),
+                          _platform!.process(p),
+                          actions: {
+                            for (final action
+                                in _platform!.processActions(p).entries)
+                              action.key: _platform!.process(
+                                p,
+                                action: action.value,
+                              ),
+                          },
+                        );
                       },
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1637,6 +1752,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return '待检查';
     }
 
+    final distribution = <String, int>{};
+    for (final line in rows) {
+      final label = maintenanceLabel(context, state(line));
+      distribution[label] = (distribution[label] ?? 0) + 1;
+    }
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
@@ -1669,6 +1789,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
           ],
         ),
+
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -1792,6 +1913,27 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             },
           ),
         ),
+        const SizedBox(height: 12),
+        _MaintenanceCard(
+          title: AppLocalizations.of(context)!.maintenanceServiceShare,
+          icon: Icons.pie_chart_outline_rounded,
+          child: _MaintenanceVisual(
+            donut: true,
+            segments: [
+              for (final entry in distribution.entries)
+                OpenHandChartSegment(
+                  label: entry.key,
+                  value: entry.value,
+                  color: entry.key == maintenanceLabel(context, '异常')
+                      ? cs.error
+                      : entry.key == maintenanceLabel(context, '运行中')
+                      ? cs.primary
+                      : cs.secondary,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -1799,6 +1941,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   Widget _sections(MachineMaintenanceSnapshot data, List<String> names) {
     final cs = Theme.of(context).colorScheme;
     final connections = _maintenanceConnections(data);
+    final states = <String, int>{};
+    for (final row in connections) {
+      final label = maintenanceLabel(context, row[3]);
+      states[label] = (states[label] ?? 0) + 1;
+    }
     final dns = RegExp(
       r'(?:nameserver(?:\[\d+\])?\s*:?\s*|DNS Servers[^:]*:\s*)([a-fA-F0-9:.]+)',
     ).allMatches(data.text('dns')).map((m) => m[1]!).toSet().toList();
@@ -1934,6 +2081,37 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
         const SizedBox(height: 12),
+        _MaintenanceGrid(
+          minWidth: 340,
+          children: [
+            _MaintenanceCard(
+              title: AppLocalizations.of(context)!.maintenanceConnectionShare,
+              icon: Icons.donut_small_rounded,
+              child: _MaintenanceVisual(
+                donut: true,
+                segments: [
+                  for (final entry in states.entries)
+                    OpenHandChartSegment(
+                      label: entry.key,
+                      value: entry.value,
+                      color: [
+                        cs.primary,
+                        cs.tertiary,
+                        cs.secondary,
+                        cs.error,
+                      ][states.keys.toList().indexOf(entry.key) % 4],
+                    ),
+                ],
+              ),
+            ),
+            _MaintenanceCard(
+              title: AppLocalizations.of(context)!.maintenanceConnectionGraph,
+              icon: Icons.account_tree_outlined,
+              child: _MaintenanceConnectionGraph(rows: connections),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         LayoutBuilder(
           builder: (_, constraints) => constraints.maxWidth < 850
               ? Column(
@@ -1947,6 +2125,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     Expanded(flex: 3, child: secondary),
                   ],
                 ),
+        ),
+        const SizedBox(height: 12),
+        _MaintenanceCard(
+          title: maintenanceLabel(context, '最近日志'),
+          icon: Icons.receipt_long_outlined,
+          onOpen: () => _showCollected('最近日志', data.text('logs')),
+          child: _MaintenanceLogTimeline(
+            rows: MachineMaintenanceReadout.parse(
+              data.text('logs'),
+              'logs',
+            ).rows,
+          ),
         ),
       ],
     );
@@ -2844,6 +3034,9 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
   @override
   Widget build(BuildContext context) {
     if (_data.rows.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    if (widget.section == 'logs') {
+      return _MaintenanceLogTimeline(rows: _data.rows);
+    }
     if (!_data.fields) {
       return _MaintenanceTable(
         headers: _data.headers
@@ -2994,6 +3187,435 @@ class _MaintenanceCard extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+const _maintenanceChartLimit = 6;
+
+class _MaintenanceGauge extends StatelessWidget {
+  const _MaintenanceGauge({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final double? value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: (value ?? 0).clamp(0, 1)),
+      duration: motion.disablesAnimation
+          ? Duration.zero
+          : motion.entranceDuration,
+      curve: motion.curve.curve,
+      builder: (_, current, _) => OpenHandOperationalMeter(
+        label: label,
+        value: current,
+        color: color,
+        gaugeSize: 92,
+        unavailable: value == null,
+        valueLabel: value == null
+            ? '—'
+            : '${(current.clamp(0, 1) * 100).toStringAsFixed(1)}%',
+      ),
+    );
+  }
+}
+
+class _MaintenanceSeriesTween extends Tween<Map<String, double>> {
+  _MaintenanceSeriesTween({required Map<String, double> end}) : super(end: end);
+  @override
+  Map<String, double> lerp(double t) => {
+    for (final entry in end!.entries)
+      entry.key: math.max(
+        0,
+        (begin?[entry.key] ?? 0) + (entry.value - (begin?[entry.key] ?? 0)) * t,
+      ),
+  };
+}
+
+class _MaintenanceVisual extends StatefulWidget {
+  const _MaintenanceVisual({
+    required this.segments,
+    this.donut = false,
+    this.centerLabel,
+  });
+  final List<OpenHandChartSegment> segments;
+  final bool donut;
+  final String? centerLabel;
+
+  @override
+  State<_MaintenanceVisual> createState() => _MaintenanceVisualState();
+}
+
+class _MaintenanceVisualState extends State<_MaintenanceVisual> {
+  Map<String, double> _target = {};
+  List<OpenHandChartSegment> get segments => widget.segments;
+  bool get donut => widget.donut;
+
+  @override
+  Widget build(BuildContext context) {
+    if (segments.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final cs = Theme.of(context).colorScheme;
+    final next = {
+      for (final segment in segments) segment.label: segment.safeValue,
+    };
+    if (!mapEquals(_target, next)) _target = next;
+    return TweenAnimationBuilder<Map<String, double>>(
+      tween: _MaintenanceSeriesTween(end: _target),
+      duration: motion.disablesAnimation
+          ? Duration.zero
+          : motion.entranceDuration,
+      curve: motion.curve.curve,
+      builder: (context, values, _) {
+        final maximum = math.max(1.0, values.values.fold<double>(0, math.max));
+        final total = segments.fold<double>(
+          0,
+          (sum, segment) => sum + segment.safeValue,
+        );
+        final legend = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final segment in segments)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Semantics(
+                  label:
+                      '${segment.label}: ${segment.valueLabel ?? segment.value}',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: segment.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Tooltip(
+                              message: segment.label,
+                              child: Text(
+                                segment.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            fit: FlexFit.tight,
+                            child: _MaintenanceValue(
+                              value: segment.valueLabel ?? '${segment.value}',
+                              alignment: Alignment.centerRight,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!donut) ...[
+                        const SizedBox(height: 5),
+                        LinearProgressIndicator(
+                          value: ((values[segment.label] ?? 0) / maximum).clamp(
+                            0,
+                            1,
+                          ),
+                          minHeight: 6,
+                          borderRadius: BorderRadius.circular(4),
+                          color: segment.color,
+                          backgroundColor: segment.color.withValues(alpha: .10),
+                        ),
+                      ] else
+                        Text(
+                          total > 0
+                              ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
+                              : '—',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+        if (!donut) return legend;
+        final chart = Semantics(
+          label: segments
+              .map((s) => '${s.label}: ${s.valueLabel ?? s.value}')
+              .join(', '),
+          child: SizedBox(
+            width: 132,
+            height: 132,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: OpenHandDonutChartPainter(
+                  values: [
+                    for (final segment in segments) values[segment.label] ?? 0,
+                  ],
+                  colors: segments.map((s) => s.color).toList(),
+                  trackColor: cs.surfaceContainerHighest,
+                ),
+                child: Center(
+                  child: _MaintenanceNumber(
+                    raw: total.toStringAsFixed(0),
+                    readable: widget.centerLabel,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        return LayoutBuilder(
+          builder: (_, constraints) => constraints.maxWidth < 340
+              ? Column(children: [chart, const SizedBox(height: 12), legend])
+              : Row(
+                  children: [
+                    chart,
+                    const SizedBox(width: 18),
+                    Expanded(child: legend),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _MaintenanceConnectionGraph extends StatelessWidget {
+  const _MaintenanceConnectionGraph({required this.rows});
+  final List<List<String>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final links = <(String, String), int>{};
+    for (final row in rows) {
+      if (row.length < 4 ||
+          const [
+            '*:*',
+            '*.*',
+            '*:0',
+            '0.0.0.0:*',
+            '0.0.0.0:0',
+            '[::]:0',
+            '[::]:*',
+            '—',
+          ].contains(row[2])) {
+        continue;
+      }
+      final key = (row[1], row[2]);
+      links[key] = (links[key] ?? 0) + 1;
+    }
+    final visible = links.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0
+            ? byCount
+            : a.key.toString().compareTo(b.key.toString());
+      });
+    Widget node(String label, Color color) => Expanded(
+      child: Tooltip(
+        message: label,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: .25)),
+          ),
+          child: _MaintenanceValue(
+            value: label,
+            maxLines: 2,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                maintenanceLabel(context, '本地地址'),
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                maintenanceLabel(context, '远端地址'),
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (visible.isEmpty) Text(maintenanceLabel(context, '暂无可用数据')),
+        for (final entry in visible.take(_maintenanceChartLimit))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                node(entry.key.$1, cs.primary),
+                SizedBox(
+                  width: 48,
+                  height: 38,
+                  child: CustomPaint(
+                    painter: _MaintenanceEdgePainter(cs.outlineVariant),
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: _MaintenanceValue(
+                            value: '${entry.value}',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                node(entry.key.$2, cs.tertiary),
+              ],
+            ),
+          ),
+        Text(
+          AppLocalizations.of(context)!.maintenanceGraphScope,
+          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _MaintenanceEdgePainter extends CustomPainter {
+  const _MaintenanceEdgePainter(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, size.height / 2)
+      ..cubicTo(
+        size.width * .3,
+        2,
+        size.width * .7,
+        size.height - 2,
+        size.width,
+        size.height / 2,
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MaintenanceEdgePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _MaintenanceLogTimeline extends StatelessWidget {
+  const _MaintenanceLogTimeline({required this.rows});
+  final List<List<String>> rows;
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    final cs = Theme.of(context).colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return SizedBox(
+      height: math.min(300, rows.length * 70.0),
+      child: ListView.builder(
+        primary: false,
+        itemCount: rows.length,
+        itemBuilder: (_, index) {
+          final row = rows[index];
+          return Container(
+            margin: const EdgeInsets.only(left: 5),
+            padding: const EdgeInsets.fromLTRB(12, 4, 6, 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: cs.primary.withValues(alpha: .3),
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 12, color: cs.primary),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: _MaintenanceValue(
+                        value: row.first,
+                        style: TextStyle(fontSize: 11, color: cs.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                AnimatedSwitcher(
+                  duration: motion.disablesAnimation
+                      ? Duration.zero
+                      : motion.entranceDuration,
+                  switchInCurve: motion.curve.curve,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, ?current],
+                  ),
+                  child: SelectableText(
+                    row.skip(1).join(' · '),
+                    key: ValueKey(row.join(' · ')),
+                    style: const TextStyle(fontSize: 12, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

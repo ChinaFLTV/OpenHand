@@ -12397,4 +12397,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTrendGesture => 'ピンチで拡大縮小 · ドラッグで移動 · ダブルクリックでリセット';
+
+  @override
+  String get maintenanceMemoryShare => 'メモリ配分';
+
+  @override
+  String get maintenanceUsed => '使用中';
+
+  @override
+  String get maintenanceAvailable => '利用可能';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · サンプル内の上位6プロセス';
+
+  @override
+  String get maintenanceMemoryRank => '常駐メモリ · サンプル内の上位6プロセス';
+
+  @override
+  String get maintenanceServiceShare => 'サービス状態の分布';
+
+  @override
+  String get maintenanceConnectionShare => '接続状態の分布';
+
+  @override
+  String get maintenanceConnectionGraph => 'エンドポイント接続';
+
+  @override
+  String get maintenanceGraphScope =>
+      'サンプル内の最大6組。線上の数字は接続数です。待受ポートは下の明細に表示します。';
 }

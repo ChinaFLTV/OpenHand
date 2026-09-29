@@ -12273,6 +12273,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTrendGesture => '双指缩放 · 拖动平移 · 双击复位';
+
+  @override
+  String get maintenanceMemoryShare => '内存占比';
+
+  @override
+  String get maintenanceUsed => '已用';
+
+  @override
+  String get maintenanceAvailable => '可用';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · 采样进程前 6 项';
+
+  @override
+  String get maintenanceMemoryRank => '驻留内存 · 采样进程前 6 项';
+
+  @override
+  String get maintenanceServiceShare => '服务状态分布';
+
+  @override
+  String get maintenanceConnectionShare => '连接状态分布';
+
+  @override
+  String get maintenanceConnectionGraph => '端点连接关系';
+
+  @override
+  String get maintenanceGraphScope => '展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24526,4 +24553,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTrendGesture => '雙指縮放 · 拖動平移 · 按兩下重設';
+
+  @override
+  String get maintenanceMemoryShare => '記憶體占比';
+
+  @override
+  String get maintenanceUsed => '已用';
+
+  @override
+  String get maintenanceAvailable => '可用';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · 取樣程序前 6 項';
+
+  @override
+  String get maintenanceMemoryRank => '常駐記憶體 · 取樣程序前 6 項';
+
+  @override
+  String get maintenanceServiceShare => '服務狀態分佈';
+
+  @override
+  String get maintenanceConnectionShare => '連線狀態分佈';
+
+  @override
+  String get maintenanceConnectionGraph => '端點連線關係';
+
+  @override
+  String get maintenanceGraphScope => '顯示取樣中前 6 組端點，連線數字為連線數；監聽連接埠見下方明細。';
 }

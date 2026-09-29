@@ -8631,5 +8631,14 @@
   "maintenanceExited": "Terminé",
   "maintenanceStatic": "Statique",
   "maintenanceMasked": "Masqué",
-  "maintenanceTrendGesture": "Pincer pour zoomer · Glisser pour déplacer · Double-clic pour réinitialiser"
+  "maintenanceTrendGesture": "Pincer pour zoomer · Glisser pour déplacer · Double-clic pour réinitialiser",
+  "maintenanceMemoryShare": "Répartition mémoire",
+  "maintenanceUsed": "Utilisée",
+  "maintenanceAvailable": "Disponible",
+  "maintenanceCpuRank": "CPU · 6 processus échantillonnés en tête",
+  "maintenanceMemoryRank": "Mémoire résidente · 6 processus échantillonnés en tête",
+  "maintenanceServiceShare": "Répartition des états des services",
+  "maintenanceConnectionShare": "Répartition des états des connexions",
+  "maintenanceConnectionGraph": "Connexions entre points de terminaison",
+  "maintenanceGraphScope": "6 paires échantillonnées au maximum ; les nombres indiquent les connexions. Les ports en écoute figurent ci-dessous."
 }

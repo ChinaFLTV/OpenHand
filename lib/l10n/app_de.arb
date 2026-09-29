@@ -8631,5 +8631,14 @@
   "maintenanceExited": "Beendet",
   "maintenanceStatic": "Statisch",
   "maintenanceMasked": "Maskiert",
-  "maintenanceTrendGesture": "Zum Zoomen spreizen · Zum Verschieben ziehen · Doppelklick zum Zurücksetzen"
+  "maintenanceTrendGesture": "Zum Zoomen spreizen · Zum Verschieben ziehen · Doppelklick zum Zurücksetzen",
+  "maintenanceMemoryShare": "Speicherbelegung",
+  "maintenanceUsed": "Belegt",
+  "maintenanceAvailable": "Verfügbar",
+  "maintenanceCpuRank": "CPU · Top 6 erfasste Prozesse",
+  "maintenanceMemoryRank": "Residenter Speicher · Top 6 erfasste Prozesse",
+  "maintenanceServiceShare": "Dienststatusverteilung",
+  "maintenanceConnectionShare": "Verbindungsstatusverteilung",
+  "maintenanceConnectionGraph": "Endpunktverbindungen",
+  "maintenanceGraphScope": "Bis zu 6 erfasste Endpunktpaare; Zahlen zeigen Verbindungen. Lauschende Sockets stehen unten."
 }

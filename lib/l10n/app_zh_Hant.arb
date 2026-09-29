@@ -8631,5 +8631,14 @@
   "maintenanceExited": "已結束",
   "maintenanceStatic": "靜態",
   "maintenanceMasked": "已遮罩",
-  "maintenanceTrendGesture": "雙指縮放 · 拖動平移 · 按兩下重設"
+  "maintenanceTrendGesture": "雙指縮放 · 拖動平移 · 按兩下重設",
+  "maintenanceMemoryShare": "記憶體占比",
+  "maintenanceUsed": "已用",
+  "maintenanceAvailable": "可用",
+  "maintenanceCpuRank": "CPU · 取樣程序前 6 項",
+  "maintenanceMemoryRank": "常駐記憶體 · 取樣程序前 6 項",
+  "maintenanceServiceShare": "服務狀態分佈",
+  "maintenanceConnectionShare": "連線狀態分佈",
+  "maintenanceConnectionGraph": "端點連線關係",
+  "maintenanceGraphScope": "顯示取樣中前 6 組端點，連線數字為連線數；監聽連接埠見下方明細。"
 }

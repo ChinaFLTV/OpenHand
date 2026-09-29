@@ -12806,4 +12806,33 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceTrendGesture =>
       'Zum Zoomen spreizen · Zum Verschieben ziehen · Doppelklick zum Zurücksetzen';
+
+  @override
+  String get maintenanceMemoryShare => 'Speicherbelegung';
+
+  @override
+  String get maintenanceUsed => 'Belegt';
+
+  @override
+  String get maintenanceAvailable => 'Verfügbar';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · Top 6 erfasste Prozesse';
+
+  @override
+  String get maintenanceMemoryRank =>
+      'Residenter Speicher · Top 6 erfasste Prozesse';
+
+  @override
+  String get maintenanceServiceShare => 'Dienststatusverteilung';
+
+  @override
+  String get maintenanceConnectionShare => 'Verbindungsstatusverteilung';
+
+  @override
+  String get maintenanceConnectionGraph => 'Endpunktverbindungen';
+
+  @override
+  String get maintenanceGraphScope =>
+      'Bis zu 6 erfasste Endpunktpaare; Zahlen zeigen Verbindungen. Lauschende Sockets stehen unten.';
 }

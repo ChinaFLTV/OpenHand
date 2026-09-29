@@ -12844,4 +12844,35 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceTrendGesture =>
       'Pincer pour zoomer · Glisser pour déplacer · Double-clic pour réinitialiser';
+
+  @override
+  String get maintenanceMemoryShare => 'Répartition mémoire';
+
+  @override
+  String get maintenanceUsed => 'Utilisée';
+
+  @override
+  String get maintenanceAvailable => 'Disponible';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · 6 processus échantillonnés en tête';
+
+  @override
+  String get maintenanceMemoryRank =>
+      'Mémoire résidente · 6 processus échantillonnés en tête';
+
+  @override
+  String get maintenanceServiceShare => 'Répartition des états des services';
+
+  @override
+  String get maintenanceConnectionShare =>
+      'Répartition des états des connexions';
+
+  @override
+  String get maintenanceConnectionGraph =>
+      'Connexions entre points de terminaison';
+
+  @override
+  String get maintenanceGraphScope =>
+      '6 paires échantillonnées au maximum ; les nombres indiquent les connexions. Les ports en écoute figurent ci-dessous.';
 }

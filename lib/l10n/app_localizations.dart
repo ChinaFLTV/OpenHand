@@ -22699,6 +22699,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'双指缩放 · 拖动平移 · 双击复位'**
   String get maintenanceTrendGesture;
+
+  /// No description provided for @maintenanceMemoryShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存占比'**
+  String get maintenanceMemoryShare;
+
+  /// No description provided for @maintenanceUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用'**
+  String get maintenanceUsed;
+
+  /// No description provided for @maintenanceAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用'**
+  String get maintenanceAvailable;
+
+  /// No description provided for @maintenanceCpuRank.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU · 采样进程前 6 项'**
+  String get maintenanceCpuRank;
+
+  /// No description provided for @maintenanceMemoryRank.
+  ///
+  /// In zh, this message translates to:
+  /// **'驻留内存 · 采样进程前 6 项'**
+  String get maintenanceMemoryRank;
+
+  /// No description provided for @maintenanceServiceShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务状态分布'**
+  String get maintenanceServiceShare;
+
+  /// No description provided for @maintenanceConnectionShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接状态分布'**
+  String get maintenanceConnectionShare;
+
+  /// No description provided for @maintenanceConnectionGraph.
+  ///
+  /// In zh, this message translates to:
+  /// **'端点连接关系'**
+  String get maintenanceConnectionGraph;
+
+  /// No description provided for @maintenanceGraphScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。'**
+  String get maintenanceGraphScope;
 }
 
 class _AppLocalizationsDelegate

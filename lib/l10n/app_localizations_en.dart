@@ -12670,4 +12670,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceTrendGesture =>
       'Pinch to zoom · Drag to pan · Double-click to reset';
+
+  @override
+  String get maintenanceMemoryShare => 'Memory allocation';
+
+  @override
+  String get maintenanceUsed => 'Used';
+
+  @override
+  String get maintenanceAvailable => 'Available';
+
+  @override
+  String get maintenanceCpuRank => 'CPU · Top 6 sampled processes';
+
+  @override
+  String get maintenanceMemoryRank =>
+      'Resident memory · Top 6 sampled processes';
+
+  @override
+  String get maintenanceServiceShare => 'Service states';
+
+  @override
+  String get maintenanceConnectionShare => 'Connection states';
+
+  @override
+  String get maintenanceConnectionGraph => 'Endpoint connections';
+
+  @override
+  String get maintenanceGraphScope =>
+      'Up to 6 sampled endpoint pairs; numbers show connections. Listening sockets are listed below.';
 }

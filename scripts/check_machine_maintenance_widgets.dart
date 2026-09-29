@@ -154,6 +154,127 @@ __OH_OPS_end__
 }
 
 void main() {
+  test('图表按指标标识插值，增删和重排不会串值', () {
+    final tween = _MaintenanceSeriesTween(end: {'写入': 40, '接收': 10})
+      ..begin = {'读取': 100, '写入': 20};
+    expect(tween.lerp(.5), {'写入': 30.0, '接收': 5.0});
+    expect(tween.lerp(1).keys, ['写入', '接收']);
+  });
+
+  testWidgets('占比和排行保留零值，未变数据复用动画目标，大字体不溢出', (tester) async {
+    var count = 12;
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: SizedBox(width: 260, child: _MaintenanceVisual(donut: true, segments: [
+            OpenHandChartSegment(label: 'Running', value: count, color: Colors.teal),
+            const OpenHandChartSegment(label: 'Stopped', value: 0, color: Colors.orange),
+          ])));
+      }))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MaintenanceVisualState>(find.byType(_MaintenanceVisual));
+    final target = state._target;
+    update(() {});
+    await tester.pumpAndSettle();
+    expect(identical(state._target, target), isTrue);
+    expect(find.text('0'), findsOneWidget);
+    update(() => count = 24);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(identical(state._target, target), isFalse);
+    await tester.pumpAndSettle();
+    expect(find.text('24'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('端点关系合并连接并排除监听占位地址，日志保留完整消息', (tester) async {
+    await tester.pumpWidget(MaterialApp(locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SizedBox(width: 300, child: Column(children: [
+        const _MaintenanceConnectionGraph(rows: [
+          ['TCP', '127.0.0.1:20', '[::1]:30', 'ESTAB'],
+          ['TCP', '127.0.0.1:20', '[::1]:30', 'ESTAB'],
+          ['TCP', '*:80', '*:*', 'LISTEN'],
+          ['UDP', '*:53', '*.*', 'UNCONN'],
+        ]),
+        _MaintenanceLogTimeline(rows: List.generate(30, (i) => ['12:00:00', '完整日志消息 \$i'])),
+      ])))));
+    await tester.pumpAndSettle();
+    expect(find.text('[::1]:30'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('*:80'), findsNothing);
+    expect(find.text('*:53'), findsNothing);
+    final list = find.descendant(of: find.byType(_MaintenanceLogTimeline), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.text('完整日志消息 29'), 200, scrollable: list);
+    expect(find.text('完整日志消息 29'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+
+  testWidgets('运维可视化组合适配浅深主题并保留空值状态', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(960, 1000));
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      await tester.runAsync(() async {
+        await (FontLoader('运维预览字体')..addFont(File(Platform.environment['MAINTENANCE_FONT']!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+      });
+    }
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      await tester.pumpWidget(MaterialApp(locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] != null ? '运维预览字体' : null,
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)),
+        home: Builder(builder: (context) => Scaffold(body: RepaintBoundary(key: const ValueKey('可视化预览'),
+          child: ColoredBox(color: Theme.of(context).colorScheme.surface,
+            child: Padding(padding: const EdgeInsets.all(16), child: _MaintenanceGrid(minWidth: 380, children: [
+              const _MaintenanceCard(title: 'Resource gauges', child: Wrap(spacing: 20, runSpacing: 12, children: [
+                _MaintenanceGauge(label: 'CPU', value: .63, color: Colors.teal),
+                _MaintenanceGauge(label: 'Memory', value: .42, color: Colors.indigo),
+                _MaintenanceGauge(label: 'Swap', value: null, color: Colors.purple),
+              ])),
+              const _MaintenanceCard(title: 'Memory allocation', child: _MaintenanceVisual(donut: true, centerLabel: '32 GB', segments: [
+                OpenHandChartSegment(label: 'Used', value: 42, valueLabel: '13.4 GB', color: Colors.teal),
+                OpenHandChartSegment(label: 'Available', value: 58, valueLabel: '18.6 GB', color: Colors.indigo),
+              ])),
+              const _MaintenanceCard(title: 'Process resource ranking', child: _MaintenanceVisual(segments: [
+                OpenHandChartSegment(label: '1042 · postgres', value: 74, valueLabel: '74%', color: Colors.teal),
+                OpenHandChartSegment(label: '2501 · nginx', value: 32, valueLabel: '32%', color: Colors.indigo),
+                OpenHandChartSegment(label: '3188 · worker', value: 18, valueLabel: '18%', color: Colors.purple),
+              ])),
+              const _MaintenanceCard(title: 'Endpoint connections', child: _MaintenanceConnectionGraph(rows: [
+                ['TCP', '10.0.0.1:44001', '10.0.0.2:5432', 'ESTAB'],
+                ['TCP', '10.0.0.1:44001', '10.0.0.2:5432', 'ESTAB'],
+                ['TCP', '10.0.0.1:44123', '10.0.0.3:6379', 'ESTAB'],
+              ])),
+              const _MaintenanceCard(title: 'Recent logs', child: _MaintenanceLogTimeline(rows: [
+                ['2026-09-29 17:30:01', 'worker[3188]: Batch completed: 128 records'],
+                ['2026-09-29 17:30:03', 'nginx[2501]: Upstream connection established'],
+              ])),
+            ]))))))));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('—'), findsOneWidget);
+      if (Platform.environment['MAINTENANCE_VISUAL_PREVIEW'] != null) {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('可视化预览')));
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/maintenance-visual-\${brightness.name}.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('趋势按实际时间插值且刷新平滑过渡，减少动画直接完成', (tester) async {
     var reduced = false;
     var points = [(time: 0.0, value: .1), (time: 1000.0, value: .8), (time: 10000.0, value: .2)];
