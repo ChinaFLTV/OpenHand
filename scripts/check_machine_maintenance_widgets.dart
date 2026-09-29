@@ -271,13 +271,67 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('健康字段结构化展示，错误原文默认折叠且宽窄屏无溢出', (tester) async {
+    await tester.runAsync(() async {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+        if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+      }
+    });
+    final service = _MaintenanceFixture();
+    await tester.binding.setSurfaceSize(const Size(1440, 1100));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: MaterialApp(builder: (context, child) => LayoutBuilder(builder: (context, constraints) => MediaQuery(data: MediaQuery.of(context).copyWith(size: constraints.biggest), child: child!)),
+        theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+        locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: RepaintBoundary(key: ValueKey('健康预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    state.setState(() {
+      state._tab = 6;
+      state._snapshots[6] = MachineMaintenanceSnapshot({
+        'platform': 'Darwin',
+        for (final key in machineHealthSections) 'health_\${key}_status': '0',
+        'health_system': 'Kernel: Darwin\\nHostname: example\\nKernelRelease: 27.0.0\\nArchitecture: arm64\\nProductName: macOS\\nProductVersion: 27.0.1',
+        'health_sessions': 'reader console Sep 29 09:41 08:30 608',
+        'health_logins': 'reader ttys000 Tue Sep 29 19:22 still logged in',
+        'health_accounts': '@user\\tuid\\thome\\tshell\\nreader\\t501\\t/Users/reader\\t/bin/zsh',
+        'health_password': '<plist><dict><key>policyContent</key><string>policyAttributePassword matches .{4,}+</string><key>policyIdentifier</key><string>minimumLength</string></dict></plist>',
+        'health_ssh': 'sshd: no hostkeys available -- exiting.',
+        'health_temperature': 'Note: No thermal warning level has been recorded\\nNote: No performance warning level has been recorded\\nNote: No CPU power status has been recorded',
+        'health_power': "Now drawing from 'AC Power'\\n-InternalBattery-0 (id=123) 80%; AC attached; not charging present: true\\nCycleCount: 42",
+        'health_clock': '2026-09-29 20:00:00 CST +0800\\n2026-09-29 12:00:00 UTC',
+        'health_sync': 'You need administrator access to run this tool... exiting!',
+        'health_ntp': 'configured: /etc/ntp.conf\\nNetwork Time Server: time.apple.com',
+      });
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('系统名称'), findsOneWidget);
+    expect(find.textContaining('<plist>'), findsNothing);
+    expect(find.text('You need administrator access to run this tool... exiting!'), findsNothing);
+    expect(tester.takeException(), isNull);
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('健康预览')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/maintenance-health-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
     final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
     var revision = 0;
     Widget host() => MaterialApp(locale: const Locale('zh'),
       localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(body: _MaintenanceLogBrowser(buffers: {'system': buffer},
-        data: MachineMaintenanceSnapshot.parse('__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n主机\$revision\\n__OH_OPS_end__\\n'))));
+        data: MachineMaintenanceSnapshot.parse('__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n主机\$revision\\n__OH_OPS_log_rotation__\\n"/var/log/app.log" 2026-9-29-0:0:0\\n__OH_OPS_log_config__\\n/etc/logrotate.conf\\nweekly\\nrotate 7\\n__OH_OPS_end__\\n'))));
     await tester.binding.setSurfaceSize(const Size(760, 700));
     await tester.pumpWidget(host()); await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -294,6 +348,11 @@ void main() {
     expect(buffer.entries.length, 121);
     await tester.enterText(find.byType(TextField), '新日志'); await tester.pumpAndSettle();
     expect(state._visible.length, 1);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ExpansionTile)); await tester.pumpAndSettle();
+    expect(find.text('/var/log/app.log'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });

@@ -2274,71 +2274,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   final key = machineHealthSections[i];
                   final raw = data.text('health_$key').trim();
                   final status = data.text('health_${key}_status').trim();
-                  final lines = const LineSplitter().convert(raw);
-                  final structured =
-                      status == '0' &&
-                      lines.isNotEmpty &&
-                      lines.first.startsWith('@');
-                  String label(String value) => switch (value) {
-                    'user' => l.maintenanceHealthUser,
-                    'home' => l.maintenanceHealthHome,
-                    'sensor' => l.maintenanceHealthSensor,
-                    'celsius' => '°C',
-                    'uid' => 'UID',
-                    'shell' => 'Shell',
-                    _ => value,
-                  };
+                  final report = MachineHealthReport.parse(
+                    key,
+                    raw,
+                    status,
+                    locale: Localizations.localeOf(context).toLanguageTag(),
+                  );
                   return _MaintenanceCard(
                     title: titles[i],
                     icon: icons[i],
-                    maxHeight: 260,
-                    child: status == '125'
-                        ? Text(l.maintenanceHealthUnsupported)
-                        : status != '0'
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                l.maintenanceHealthUnavailable,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                              if (raw.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                SelectableText(
-                                  raw,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ],
-                          )
-                        : structured
-                        ? _MaintenanceTable(
-                            headers: lines.first
-                                .substring(1)
-                                .split('\t')
-                                .map(label)
-                                .toList(),
-                            rows: [
-                              for (final line in lines.skip(1))
-                                OpenHandOperationalRankRow(
-                                  value: 0,
-                                  cells: line.split('\t'),
-                                ),
-                            ],
-                          )
-                        : raw.isEmpty
-                        ? Text(maintenanceLabel(context, '暂无数据'))
-                        : SelectableText(
-                            raw,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
-                          ),
+                    scrollBody: false,
+                    child: _MaintenanceHealthContent(report: report, raw: raw),
                   );
                 },
               ),
@@ -3827,6 +3773,135 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
   }
 }
 
+class _MaintenanceHealthContent extends StatelessWidget {
+  const _MaintenanceHealthContent({required this.report, required this.raw});
+  final MachineHealthReport report;
+  final String raw;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final issue = switch (report.issue) {
+      'unsupported' => l.maintenanceHealthUnsupported,
+      'empty' => maintenanceLabel(context, '暂无数据'),
+      'pending' => maintenanceHealthLabel(context, 'pending'),
+      'permission' ||
+      'missing' ||
+      'hostkeys' ||
+      'format' => maintenanceHealthLabel(context, report.issue!),
+      null => '',
+      _ => l.maintenanceHealthUnavailable,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (issue.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              issue,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        if (report.data.rows.isNotEmpty && report.data.fields)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 340),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (final row in report.data.rows)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withValues(alpha: .45),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              maintenanceHealthLabel(context, row[0]),
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 3,
+                            child: SelectableText(
+                              maintenanceHealthValue(context, row[1]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        if (report.data.rows.isNotEmpty && !report.data.fields)
+          _MaintenanceTable(
+            maxBodyHeight: 300,
+            headers: report.data.headers
+                .map((s) => maintenanceHealthLabel(context, s))
+                .toList(),
+            rows: [
+              for (var i = 0; i < report.data.rows.length; i++)
+                OpenHandOperationalRankRow(
+                  rowKey: i,
+                  value: 0,
+                  cells: [
+                    for (var c = 0; c < report.data.rows[i].length; c++)
+                      report.data.fields && c == 0
+                          ? maintenanceHealthLabel(
+                              context,
+                              report.data.rows[i][c],
+                            )
+                          : maintenanceHealthValue(
+                              context,
+                              report.data.rows[i][c],
+                            ),
+                  ],
+                ),
+            ],
+          ),
+        if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
+          Material(
+            type: MaterialType.transparency,
+            child: ExpansionTile(
+              title: Text(maintenanceHealthLabel(context, 'diagnostic')),
+              tilePadding: EdgeInsets.zero,
+              children: [
+                SizedBox(
+                  height: 160,
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      raw,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _MaintenanceReadout extends StatefulWidget {
   const _MaintenanceReadout({required this.text, this.section = ''});
   final String text;
@@ -5249,23 +5324,28 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             tilePadding: const EdgeInsets.symmetric(horizontal: 8),
             title: Text(l.maintenanceLogRotation),
             children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 140),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    [
-                      widget.data.sections['log_rotation'] ?? '',
-                      widget.data.sections['log_config'] ?? '',
-                      if ((widget.data.sections['log_storage'] ?? '')
-                          .isNotEmpty)
-                        '${l.maintenanceLogStorage}: ${widget.data.sections['log_storage']} KiB',
-                    ].where((s) => s.isNotEmpty).join('\n\n'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
+              _MaintenanceTable(
+                maxBodyHeight: 160,
+                headers: [
+                  maintenanceLabel(context, '路径'),
+                  maintenanceLabel(context, '名称'),
+                  maintenanceLabel(context, '数值'),
+                ],
+                rows: [
+                  for (final kind in ['rotation', 'config', 'storage'])
+                    for (final row in MachineLogMetadata.parse(
+                      widget.data.text('log_$kind'),
+                      kind,
+                    ))
+                      OpenHandOperationalRankRow(
+                        value: 0,
+                        cells: [
+                          row[0],
+                          maintenanceHealthLabel(context, row[1]),
+                          maintenanceHealthValue(context, row[2]),
+                        ],
+                      ),
+                ],
               ),
             ],
           ),

@@ -23221,6 +23221,837 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'终端响应超时。请确认终端已就绪且处于命令提示符，然后重试。'**
   String get maintenanceCommandTimedOut;
+
+  /// No description provided for @maintenanceHealthParsedInsufficientPermissionsForThisAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限不足，当前账户无法读取'**
+  String get maintenanceHealthParsedInsufficientPermissionsForThisAccount;
+
+  /// No description provided for @maintenanceHealthParsedCollectionToolIsMissingOrUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集工具未安装或不可用'**
+  String get maintenanceHealthParsedCollectionToolIsMissingOrUnavailable;
+
+  /// No description provided for @maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 配置检查失败：主机密钥不可用'**
+  String
+  get maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable;
+
+  /// No description provided for @maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能识别数据格式，请查看采集详情'**
+  String
+  get maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails;
+
+  /// No description provided for @maintenanceHealthParsedNotCollectedYet.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未采集'**
+  String get maintenanceHealthParsedNotCollectedYet;
+
+  /// No description provided for @maintenanceHealthParsedCollectionDetailsAndDiagnostics.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集详情与诊断'**
+  String get maintenanceHealthParsedCollectionDetailsAndDiagnostics;
+
+  /// No description provided for @maintenanceHealthParsedAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户'**
+  String get maintenanceHealthParsedAccount;
+
+  /// No description provided for @maintenanceHealthParsedHomeDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'主目录'**
+  String get maintenanceHealthParsedHomeDirectory;
+
+  /// No description provided for @maintenanceHealthParsedSensor.
+  ///
+  /// In zh, this message translates to:
+  /// **'传感器'**
+  String get maintenanceHealthParsedSensor;
+
+  /// No description provided for @maintenanceHealthParsedLoginTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录时间'**
+  String get maintenanceHealthParsedLoginTime;
+
+  /// No description provided for @maintenanceHealthParsedIdleTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲时间'**
+  String get maintenanceHealthParsedIdleTime;
+
+  /// No description provided for @maintenanceHealthParsedSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源'**
+  String get maintenanceHealthParsedSource;
+
+  /// No description provided for @maintenanceHealthParsedLocalTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地时间'**
+  String get maintenanceHealthParsedLocalTime;
+
+  /// No description provided for @maintenanceHealthParsedTimeZone.
+  ///
+  /// In zh, this message translates to:
+  /// **'时区'**
+  String get maintenanceHealthParsedTimeZone;
+
+  /// No description provided for @maintenanceHealthParsedArchitecture.
+  ///
+  /// In zh, this message translates to:
+  /// **'架构'**
+  String get maintenanceHealthParsedArchitecture;
+
+  /// No description provided for @maintenanceHealthParsedSystemName.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统名称'**
+  String get maintenanceHealthParsedSystemName;
+
+  /// No description provided for @maintenanceHealthParsedSystemVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统版本'**
+  String get maintenanceHealthParsedSystemVersion;
+
+  /// No description provided for @maintenanceHealthParsedBuildVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'构建版本'**
+  String get maintenanceHealthParsedBuildVersion;
+
+  /// No description provided for @maintenanceHealthParsedPowerSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'供电来源'**
+  String get maintenanceHealthParsedPowerSource;
+
+  /// No description provided for @maintenanceHealthParsedBatteryCharge.
+  ///
+  /// In zh, this message translates to:
+  /// **'电量'**
+  String get maintenanceHealthParsedBatteryCharge;
+
+  /// No description provided for @maintenanceHealthParsedThermalWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度告警'**
+  String get maintenanceHealthParsedThermalWarning;
+
+  /// No description provided for @maintenanceHealthParsedPerformanceWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'性能告警'**
+  String get maintenanceHealthParsedPerformanceWarning;
+
+  /// No description provided for @maintenanceHealthParsedCPUPowerStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 电源状态'**
+  String get maintenanceHealthParsedCPUPowerStatus;
+
+  /// No description provided for @maintenanceHealthParsedPolicyIdentifier.
+  ///
+  /// In zh, this message translates to:
+  /// **'策略标识'**
+  String get maintenanceHealthParsedPolicyIdentifier;
+
+  /// No description provided for @maintenanceHealthParsedPolicyExpression.
+  ///
+  /// In zh, this message translates to:
+  /// **'策略表达式'**
+  String get maintenanceHealthParsedPolicyExpression;
+
+  /// No description provided for @maintenanceHealthParsedPasswordStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码状态'**
+  String get maintenanceHealthParsedPasswordStatus;
+
+  /// No description provided for @maintenanceHealthParsedLastChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近修改'**
+  String get maintenanceHealthParsedLastChange;
+
+  /// No description provided for @maintenanceHealthParsedMinimumAgeDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'最短使用天数'**
+  String get maintenanceHealthParsedMinimumAgeDays;
+
+  /// No description provided for @maintenanceHealthParsedMaximumAgeDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'最长使用天数'**
+  String get maintenanceHealthParsedMaximumAgeDays;
+
+  /// No description provided for @maintenanceHealthParsedExpiryWarningDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'到期预警天数'**
+  String get maintenanceHealthParsedExpiryWarningDays;
+
+  /// No description provided for @maintenanceHealthParsedInactivityDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'失效天数'**
+  String get maintenanceHealthParsedInactivityDays;
+
+  /// No description provided for @maintenanceHealthParsedListeningPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听端口'**
+  String get maintenanceHealthParsedListeningPort;
+
+  /// No description provided for @maintenanceHealthParsedListeningAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听地址'**
+  String get maintenanceHealthParsedListeningAddress;
+
+  /// No description provided for @maintenanceHealthParsedRootLoginPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许 root 登录'**
+  String get maintenanceHealthParsedRootLoginPolicy;
+
+  /// No description provided for @maintenanceHealthParsedPasswordAuthentication.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码认证'**
+  String get maintenanceHealthParsedPasswordAuthentication;
+
+  /// No description provided for @maintenanceHealthParsedPublicKeyAuthentication.
+  ///
+  /// In zh, this message translates to:
+  /// **'公钥认证'**
+  String get maintenanceHealthParsedPublicKeyAuthentication;
+
+  /// No description provided for @maintenanceHealthParsedInteractiveAuthentication.
+  ///
+  /// In zh, this message translates to:
+  /// **'交互式认证'**
+  String get maintenanceHealthParsedInteractiveAuthentication;
+
+  /// No description provided for @maintenanceHealthParsedAllowEmptyPasswords.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许空密码'**
+  String get maintenanceHealthParsedAllowEmptyPasswords;
+
+  /// No description provided for @maintenanceHealthParsedMaximumAuthenticationAttempts.
+  ///
+  /// In zh, this message translates to:
+  /// **'认证尝试上限'**
+  String get maintenanceHealthParsedMaximumAuthenticationAttempts;
+
+  /// No description provided for @maintenanceHealthParsedMaximumSessions.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话数量上限'**
+  String get maintenanceHealthParsedMaximumSessions;
+
+  /// No description provided for @maintenanceHealthParsedLoginGraceTimeS.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录宽限时间（秒）'**
+  String get maintenanceHealthParsedLoginGraceTimeS;
+
+  /// No description provided for @maintenanceHealthParsedKeepaliveIntervalS.
+  ///
+  /// In zh, this message translates to:
+  /// **'保活间隔（秒）'**
+  String get maintenanceHealthParsedKeepaliveIntervalS;
+
+  /// No description provided for @maintenanceHealthParsedMaximumMissedKeepalives.
+  ///
+  /// In zh, this message translates to:
+  /// **'保活失败上限'**
+  String get maintenanceHealthParsedMaximumMissedKeepalives;
+
+  /// No description provided for @maintenanceHealthParsedAuthenticationMethods.
+  ///
+  /// In zh, this message translates to:
+  /// **'认证方式'**
+  String get maintenanceHealthParsedAuthenticationMethods;
+
+  /// No description provided for @maintenanceHealthParsedClockSynchronized.
+  ///
+  /// In zh, this message translates to:
+  /// **'时钟已同步'**
+  String get maintenanceHealthParsedClockSynchronized;
+
+  /// No description provided for @maintenanceHealthParsedNetworkTimeEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用网络对时'**
+  String get maintenanceHealthParsedNetworkTimeEnabled;
+
+  /// No description provided for @maintenanceHealthParsedRTCUsesLocalTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'硬件时钟使用本地时间'**
+  String get maintenanceHealthParsedRTCUsesLocalTime;
+
+  /// No description provided for @maintenanceHealthParsedNetworkTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络对时'**
+  String get maintenanceHealthParsedNetworkTime;
+
+  /// No description provided for @maintenanceHealthParsedTimeServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'对时服务器'**
+  String get maintenanceHealthParsedTimeServer;
+
+  /// No description provided for @maintenanceHealthParsedPollingInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮询间隔'**
+  String get maintenanceHealthParsedPollingInterval;
+
+  /// No description provided for @maintenanceHealthParsedReachRegisterOctal.
+  ///
+  /// In zh, this message translates to:
+  /// **'可达寄存器（八进制）'**
+  String get maintenanceHealthParsedReachRegisterOctal;
+
+  /// No description provided for @maintenanceHealthParsedStratum.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间层级'**
+  String get maintenanceHealthParsedStratum;
+
+  /// No description provided for @maintenanceHealthParsedClockOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'时钟偏差'**
+  String get maintenanceHealthParsedClockOffset;
+
+  /// No description provided for @maintenanceHealthParsedLastReceived.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近接收'**
+  String get maintenanceHealthParsedLastReceived;
+
+  /// No description provided for @maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置值（不代表当前已同步）'**
+  String
+  get maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization;
+
+  /// No description provided for @maintenanceHealthParsedNoWarningRecorded.
+  ///
+  /// In zh, this message translates to:
+  /// **'无告警记录'**
+  String get maintenanceHealthParsedNoWarningRecorded;
+
+  /// No description provided for @maintenanceHealthParsedNotRecorded.
+  ///
+  /// In zh, this message translates to:
+  /// **'未记录'**
+  String get maintenanceHealthParsedNotRecorded;
+
+  /// No description provided for @maintenanceHealthParsedACPower.
+  ///
+  /// In zh, this message translates to:
+  /// **'外接电源'**
+  String get maintenanceHealthParsedACPower;
+
+  /// No description provided for @maintenanceHealthParsedBatteryPower.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池供电'**
+  String get maintenanceHealthParsedBatteryPower;
+
+  /// No description provided for @maintenanceHealthParsedACConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接外接电源'**
+  String get maintenanceHealthParsedACConnected;
+
+  /// No description provided for @maintenanceHealthParsedNotCharging.
+  ///
+  /// In zh, this message translates to:
+  /// **'未充电'**
+  String get maintenanceHealthParsedNotCharging;
+
+  /// No description provided for @maintenanceHealthParsedCharging.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在充电'**
+  String get maintenanceHealthParsedCharging;
+
+  /// No description provided for @maintenanceHealthParsedDischarging.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在放电'**
+  String get maintenanceHealthParsedDischarging;
+
+  /// No description provided for @maintenanceHealthParsedCharged.
+  ///
+  /// In zh, this message translates to:
+  /// **'已充满'**
+  String get maintenanceHealthParsedCharged;
+
+  /// No description provided for @maintenanceHealthParsedStillLoggedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'仍在登录'**
+  String get maintenanceHealthParsedStillLoggedIn;
+
+  /// No description provided for @maintenanceHealthParsedYes.
+  ///
+  /// In zh, this message translates to:
+  /// **'是'**
+  String get maintenanceHealthParsedYes;
+
+  /// No description provided for @maintenanceHealthParsedNo.
+  ///
+  /// In zh, this message translates to:
+  /// **'否'**
+  String get maintenanceHealthParsedNo;
+
+  /// No description provided for @maintenanceHealthParsedArchitectureField.
+  ///
+  /// In zh, this message translates to:
+  /// **'架构'**
+  String get maintenanceHealthParsedArchitectureField;
+
+  /// No description provided for @maintenanceHealthParsedKernelName.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核名称'**
+  String get maintenanceHealthParsedKernelName;
+
+  /// No description provided for @maintenanceHealthParsedKernelVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核版本'**
+  String get maintenanceHealthParsedKernelVersion;
+
+  /// No description provided for @maintenanceHealthParsedHostname.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机名'**
+  String get maintenanceHealthParsedHostname;
+
+  /// No description provided for @maintenanceHealthParsedBatteryPresent.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池存在'**
+  String get maintenanceHealthParsedBatteryPresent;
+
+  /// No description provided for @maintenanceHealthParsedMinimumCharacters.
+  ///
+  /// In zh, this message translates to:
+  /// **'最少字符数'**
+  String get maintenanceHealthParsedMinimumCharacters;
+
+  /// No description provided for @maintenanceHealthParsedBatteryCycles.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池循环次数'**
+  String get maintenanceHealthParsedBatteryCycles;
+
+  /// No description provided for @maintenanceHealthParsedDesignCapacityMAh.
+  ///
+  /// In zh, this message translates to:
+  /// **'设计容量（mAh）'**
+  String get maintenanceHealthParsedDesignCapacityMAh;
+
+  /// No description provided for @maintenanceHealthParsedVoltageMV.
+  ///
+  /// In zh, this message translates to:
+  /// **'电压（mV）'**
+  String get maintenanceHealthParsedVoltageMV;
+
+  /// No description provided for @maintenanceHealthParsedLogonSessionID.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录会话 ID'**
+  String get maintenanceHealthParsedLogonSessionID;
+
+  /// No description provided for @maintenanceHealthParsedLogonTypeCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录类型代码'**
+  String get maintenanceHealthParsedLogonTypeCode;
+
+  /// No description provided for @maintenanceHealthParsedStartTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间'**
+  String get maintenanceHealthParsedStartTime;
+
+  /// No description provided for @maintenanceHealthParsedLastBootTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近启动时间'**
+  String get maintenanceHealthParsedLastBootTime;
+
+  /// No description provided for @maintenanceHealthParsedAccountDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户禁用'**
+  String get maintenanceHealthParsedAccountDisabled;
+
+  /// No description provided for @maintenanceHealthParsedAccountLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户锁定'**
+  String get maintenanceHealthParsedAccountLocked;
+
+  /// No description provided for @maintenanceHealthParsedPasswordRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'要求密码'**
+  String get maintenanceHealthParsedPasswordRequired;
+
+  /// No description provided for @maintenanceHealthParsedPasswordExpires.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码会过期'**
+  String get maintenanceHealthParsedPasswordExpires;
+
+  /// No description provided for @maintenanceHealthParsedBatteryStatusCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池状态代码'**
+  String get maintenanceHealthParsedBatteryStatusCode;
+
+  /// No description provided for @maintenanceHealthParsedRemainingCharge.
+  ///
+  /// In zh, this message translates to:
+  /// **'剩余电量（%）'**
+  String get maintenanceHealthParsedRemainingCharge;
+
+  /// No description provided for @maintenanceHealthParsedEstimatedRuntimeMin.
+  ///
+  /// In zh, this message translates to:
+  /// **'预计续航（分钟）'**
+  String get maintenanceHealthParsedEstimatedRuntimeMin;
+
+  /// No description provided for @maintenanceHealthParsedLocalDateAndTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地日期时间'**
+  String get maintenanceHealthParsedLocalDateAndTime;
+
+  /// No description provided for @maintenanceHealthParsedUTCOffsetMin.
+  ///
+  /// In zh, this message translates to:
+  /// **'UTC 偏移（分钟）'**
+  String get maintenanceHealthParsedUTCOffsetMin;
+
+  /// No description provided for @maintenanceHealthParsedStandardTimeZone.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准时区名称'**
+  String get maintenanceHealthParsedStandardTimeZone;
+
+  /// No description provided for @maintenanceHealthParsedDaylightTimeZone.
+  ///
+  /// In zh, this message translates to:
+  /// **'夏令时名称'**
+  String get maintenanceHealthParsedDaylightTimeZone;
+
+  /// No description provided for @maintenanceHealthParsedUTCCorrectionMin.
+  ///
+  /// In zh, this message translates to:
+  /// **'UTC 修正（分钟）'**
+  String get maintenanceHealthParsedUTCCorrectionMin;
+
+  /// No description provided for @maintenanceHealthParsedLastPasswordChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近密码修改'**
+  String get maintenanceHealthParsedLastPasswordChange;
+
+  /// No description provided for @maintenanceHealthParsedPasswordExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码到期时间'**
+  String get maintenanceHealthParsedPasswordExpiry;
+
+  /// No description provided for @maintenanceHealthParsedPasswordInactivityDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码失效时间'**
+  String get maintenanceHealthParsedPasswordInactivityDate;
+
+  /// No description provided for @maintenanceHealthParsedAccountExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户到期时间'**
+  String get maintenanceHealthParsedAccountExpiry;
+
+  /// No description provided for @maintenanceHealthParsedMinimumPasswordAgeDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码最短使用天数'**
+  String get maintenanceHealthParsedMinimumPasswordAgeDays;
+
+  /// No description provided for @maintenanceHealthParsedMaximumPasswordAgeDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码最长使用天数'**
+  String get maintenanceHealthParsedMaximumPasswordAgeDays;
+
+  /// No description provided for @maintenanceHealthParsedPasswordExpiryWarningDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码到期预警天数'**
+  String get maintenanceHealthParsedPasswordExpiryWarningDays;
+
+  /// No description provided for @maintenanceHealthParsedReferenceClockID.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考时钟 ID'**
+  String get maintenanceHealthParsedReferenceClockID;
+
+  /// No description provided for @maintenanceHealthParsedReferenceTimeUTC.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考时间（UTC）'**
+  String get maintenanceHealthParsedReferenceTimeUTC;
+
+  /// No description provided for @maintenanceHealthParsedSystemClockOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统时钟偏差'**
+  String get maintenanceHealthParsedSystemClockOffset;
+
+  /// No description provided for @maintenanceHealthParsedLastOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近偏差'**
+  String get maintenanceHealthParsedLastOffset;
+
+  /// No description provided for @maintenanceHealthParsedRMSOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'均方根偏差'**
+  String get maintenanceHealthParsedRMSOffset;
+
+  /// No description provided for @maintenanceHealthParsedFrequencyError.
+  ///
+  /// In zh, this message translates to:
+  /// **'频率偏差'**
+  String get maintenanceHealthParsedFrequencyError;
+
+  /// No description provided for @maintenanceHealthParsedResidualFrequency.
+  ///
+  /// In zh, this message translates to:
+  /// **'残余频率偏差'**
+  String get maintenanceHealthParsedResidualFrequency;
+
+  /// No description provided for @maintenanceHealthParsedFrequencySkew.
+  ///
+  /// In zh, this message translates to:
+  /// **'频率误差界限'**
+  String get maintenanceHealthParsedFrequencySkew;
+
+  /// No description provided for @maintenanceHealthParsedRootDelay.
+  ///
+  /// In zh, this message translates to:
+  /// **'根时延'**
+  String get maintenanceHealthParsedRootDelay;
+
+  /// No description provided for @maintenanceHealthParsedRootDispersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'根离散度'**
+  String get maintenanceHealthParsedRootDispersion;
+
+  /// No description provided for @maintenanceHealthParsedUpdateInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新间隔'**
+  String get maintenanceHealthParsedUpdateInterval;
+
+  /// No description provided for @maintenanceHealthParsedLeapStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'闰秒状态'**
+  String get maintenanceHealthParsedLeapStatus;
+
+  /// No description provided for @maintenanceHealthParsedLastRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近轮转'**
+  String get maintenanceHealthParsedLastRotation;
+
+  /// No description provided for @maintenanceHealthParsedRetainedCopies.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留份数'**
+  String get maintenanceHealthParsedRetainedCopies;
+
+  /// No description provided for @maintenanceHealthParsedSizeThreshold.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小阈值'**
+  String get maintenanceHealthParsedSizeThreshold;
+
+  /// No description provided for @maintenanceHealthParsedRotationSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转时间规则'**
+  String get maintenanceHealthParsedRotationSchedule;
+
+  /// No description provided for @maintenanceHealthParsedDailyRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日轮转'**
+  String get maintenanceHealthParsedDailyRotation;
+
+  /// No description provided for @maintenanceHealthParsedWeeklyRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周轮转'**
+  String get maintenanceHealthParsedWeeklyRotation;
+
+  /// No description provided for @maintenanceHealthParsedMonthlyRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月轮转'**
+  String get maintenanceHealthParsedMonthlyRotation;
+
+  /// No description provided for @maintenanceHealthParsedRetainedCopiesField.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留份数'**
+  String get maintenanceHealthParsedRetainedCopiesField;
+
+  /// No description provided for @maintenanceHealthParsedCompressArchives.
+  ///
+  /// In zh, this message translates to:
+  /// **'压缩归档'**
+  String get maintenanceHealthParsedCompressArchives;
+
+  /// No description provided for @maintenanceHealthParsedDelayCompression.
+  ///
+  /// In zh, this message translates to:
+  /// **'延后压缩'**
+  String get maintenanceHealthParsedDelayCompression;
+
+  /// No description provided for @maintenanceHealthParsedAllowMissingLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许日志缺失'**
+  String get maintenanceHealthParsedAllowMissingLogs;
+
+  /// No description provided for @maintenanceHealthParsedSkipEmptyLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'空日志不轮转'**
+  String get maintenanceHealthParsedSkipEmptyLogs;
+
+  /// No description provided for @maintenanceHealthParsedNewLogModeAndOwner.
+  ///
+  /// In zh, this message translates to:
+  /// **'新日志权限与属主'**
+  String get maintenanceHealthParsedNewLogModeAndOwner;
+
+  /// No description provided for @maintenanceHealthParsedPostRotationScript.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转后脚本'**
+  String get maintenanceHealthParsedPostRotationScript;
+
+  /// No description provided for @maintenanceHealthParsedSharedRotationScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享轮转脚本'**
+  String get maintenanceHealthParsedSharedRotationScripts;
+
+  /// No description provided for @maintenanceHealthParsedIncludedRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'包含规则目录'**
+  String get maintenanceHealthParsedIncludedRules;
+
+  /// No description provided for @maintenanceHealthParsedSizeThresholdField.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小阈值'**
+  String get maintenanceHealthParsedSizeThresholdField;
+
+  /// No description provided for @maintenanceHealthParsedPAMAuthentication.
+  ///
+  /// In zh, this message translates to:
+  /// **'PAM 认证'**
+  String get maintenanceHealthParsedPAMAuthentication;
+
+  /// No description provided for @maintenanceHealthParsedAllowedUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许用户'**
+  String get maintenanceHealthParsedAllowedUsers;
+
+  /// No description provided for @maintenanceHealthParsedDeniedUsers.
+  ///
+  /// In zh, this message translates to:
+  /// **'拒绝用户'**
+  String get maintenanceHealthParsedDeniedUsers;
+
+  /// No description provided for @maintenanceHealthParsedAllowedGroups.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许用户组'**
+  String get maintenanceHealthParsedAllowedGroups;
+
+  /// No description provided for @maintenanceHealthParsedDeniedGroups.
+  ///
+  /// In zh, this message translates to:
+  /// **'拒绝用户组'**
+  String get maintenanceHealthParsedDeniedGroups;
+
+  /// No description provided for @maintenanceHealthParsedPasswordSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已设置密码'**
+  String get maintenanceHealthParsedPasswordSet;
+
+  /// No description provided for @maintenanceHealthParsedPasswordLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码已锁定'**
+  String get maintenanceHealthParsedPasswordLocked;
+
+  /// No description provided for @maintenanceHealthParsedPasswordEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置密码'**
+  String get maintenanceHealthParsedPasswordEmpty;
+
+  /// No description provided for @maintenanceHealthParsedNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'永不'**
+  String get maintenanceHealthParsedNever;
+
+  /// No description provided for @maintenanceHealthParsedConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置'**
+  String get maintenanceHealthParsedConfigured;
 }
 
 class _AppLocalizationsDelegate

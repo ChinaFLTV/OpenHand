@@ -22,6 +22,7 @@ fi
 section log_security
 if [ -r /var/log/auth.log ]; then tail -n 100 /var/log/auth.log
 elif [ -r /var/log/secure ]; then tail -n 100 /var/log/secure
+elif command -v journalctl >/dev/null 2>&1; then bounded journalctl SYSLOG_FACILITY=4 SYSLOG_FACILITY=10 -n 100 --no-pager -o json 2>&1 | log_limit
 else printf '__OH_LOG_UNAVAILABLE__\n'; fi
 section log_rotation
 for f in /var/lib/logrotate/status /var/lib/logrotate/logrotate.status /var/lib/logrotate.status; do
@@ -43,8 +44,7 @@ section log_system
 section log_kernel
 /sbin/dmesg 2>&1 | tail -n 120 | log_limit
 section log_security
-if [ -r /var/log/system.log ]; then tail -n 100 /var/log/system.log | log_limit
-else printf '__OH_LOG_UNAVAILABLE__\n'; fi
+/usr/bin/log show --last 5m --style ndjson --predicate '(process == "sshd") OR (process == "login") OR (process == "authorizationhost")' 2>&1 | tail -n 100 | log_limit
 section log_rotation
 ls -lT /var/log/*.gz /var/log/*.bz2 /var/log/*.0 2>/dev/null | head -c 16000
 section log_config
@@ -56,9 +56,9 @@ du -sk /var/log 2>/dev/null
 section end
 ''';
 
-const machineLogsWindowsCollection = '''
+const machineLogsWindowsCollection = r'''
 emit("log_system", command('wevtutil qe System /rd:true /c:10 /f:xml /e:Events', 18000));
-emit("log_kernel", command('wevtutil qe Application /rd:true /c:10 /f:xml /e:Events', 18000));
+emit("log_kernel", command("wevtutil qe System /q:\"*[System[Provider[@Name='Microsoft-Windows-Kernel-General'] or Provider[@Name='Microsoft-Windows-Kernel-Power'] or Provider[@Name='Microsoft-Windows-Kernel-Boot']]]\" /rd:true /c:10 /f:xml /e:Events", 18000));
 emit("log_security", command('wevtutil qe Security /rd:true /c:10 /f:xml /e:Events', 18000));
 emit("log_rotation", command('wevtutil gli System', 6000));
 emit("log_config", command('wevtutil gl System', 6000));
@@ -230,5 +230,89 @@ class MachineLogBuffer {
       return 1;
     }
     return 2;
+  }
+}
+
+/// 轮转状态与规则独立解析，脚本正文不作为日志事件展示。
+class MachineLogMetadata {
+  static List<List<String>> parse(String text, String kind) {
+    final rows = <List<String>>[];
+    var source = '';
+    var target = '';
+    var script = false;
+    for (final raw in const LineSplitter().convert(text)) {
+      final line = raw.trim();
+      if (line.isEmpty ||
+          line.startsWith('#') ||
+          line.startsWith('logrotate state')) {
+        continue;
+      }
+      if (kind == 'storage') {
+        final m = RegExp(r'^(\d+)\s+(.+)$').firstMatch(line);
+        if (m != null) rows.add([m[2]!, 'KiB', m[1]!]);
+        continue;
+      }
+      if (line.startsWith('/') && !line.contains(RegExp(r'\s'))) {
+        source = line;
+        continue;
+      }
+      if (kind == 'rotation') {
+        final state = RegExp(r'^"(.+)"\s+(.+)$').firstMatch(line);
+        if (state != null) {
+          rows.add([state[1]!, '最近轮转', state[2]!]);
+          continue;
+        }
+        final archive = RegExp(
+          r'^\S+\s+\d+\s+\S+\s+\S+\s+(\d+)\s+(\w+\s+\d+\s+[\d:]+\s+\d+)\s+(.+)$',
+        ).firstMatch(line);
+        if (archive != null) {
+          rows.add([archive[3]!, '字节', archive[1]!]);
+          rows.add([archive[3]!, '修改时间', archive[2]!]);
+          continue;
+        }
+      }
+      if (kind == 'config') {
+        if (line == 'endscript') {
+          script = false;
+          continue;
+        }
+        if (RegExp(
+          r'^(postrotate|prerotate|firstaction|lastaction|preremove)\b',
+        ).hasMatch(line)) {
+          rows.add([target.isEmpty ? source : target, line, '已配置']);
+          script = true;
+          continue;
+        }
+        if (script) continue;
+        if (line.contains('{')) {
+          target = line.split('{').first.trim();
+          continue;
+        }
+        if (line == '}') {
+          target = '';
+          continue;
+        }
+        final parts = line.split(RegExp(r'\s+'));
+        if (parts.first.startsWith('/') && parts.length >= 6) {
+          final owner = parts[1].contains(':');
+          final names = owner
+              ? ['名称', '属主', '权限', '保留份数', '大小阈值', '轮转时间', '选项', 'PID 文件', '信号']
+              : ['名称', '权限', '保留份数', '大小阈值', '轮转时间', '选项', 'PID 文件', '信号'];
+          for (var i = 1; i < parts.length && i < names.length; i++) {
+            rows.add([parts.first, names[i], parts[i]]);
+          }
+          continue;
+        }
+        rows.add([
+          target.isEmpty ? source : target,
+          parts.first,
+          parts.skip(1).join(' ').isEmpty ? '已配置' : parts.skip(1).join(' '),
+        ]);
+        continue;
+      }
+      final field = RegExp(r'^([^:]+):\s*(.*)$').firstMatch(line);
+      if (field != null) rows.add([source, field[1]!, field[2]!]);
+    }
+    return rows;
   }
 }

@@ -12534,6 +12534,429 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceCommandTimedOut => '终端响应超时。请确认终端已就绪且处于命令提示符，然后重试。';
+
+  @override
+  String get maintenanceHealthParsedInsufficientPermissionsForThisAccount =>
+      '权限不足，当前账户无法读取';
+
+  @override
+  String get maintenanceHealthParsedCollectionToolIsMissingOrUnavailable =>
+      '采集工具未安装或不可用';
+
+  @override
+  String
+  get maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable =>
+      'SSH 配置检查失败：主机密钥不可用';
+
+  @override
+  String
+  get maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails =>
+      '未能识别数据格式，请查看采集详情';
+
+  @override
+  String get maintenanceHealthParsedNotCollectedYet => '尚未采集';
+
+  @override
+  String get maintenanceHealthParsedCollectionDetailsAndDiagnostics =>
+      '采集详情与诊断';
+
+  @override
+  String get maintenanceHealthParsedAccount => '账户';
+
+  @override
+  String get maintenanceHealthParsedHomeDirectory => '主目录';
+
+  @override
+  String get maintenanceHealthParsedSensor => '传感器';
+
+  @override
+  String get maintenanceHealthParsedLoginTime => '登录时间';
+
+  @override
+  String get maintenanceHealthParsedIdleTime => '空闲时间';
+
+  @override
+  String get maintenanceHealthParsedSource => '来源';
+
+  @override
+  String get maintenanceHealthParsedLocalTime => '本地时间';
+
+  @override
+  String get maintenanceHealthParsedTimeZone => '时区';
+
+  @override
+  String get maintenanceHealthParsedArchitecture => '架构';
+
+  @override
+  String get maintenanceHealthParsedSystemName => '系统名称';
+
+  @override
+  String get maintenanceHealthParsedSystemVersion => '系统版本';
+
+  @override
+  String get maintenanceHealthParsedBuildVersion => '构建版本';
+
+  @override
+  String get maintenanceHealthParsedPowerSource => '供电来源';
+
+  @override
+  String get maintenanceHealthParsedBatteryCharge => '电量';
+
+  @override
+  String get maintenanceHealthParsedThermalWarning => '温度告警';
+
+  @override
+  String get maintenanceHealthParsedPerformanceWarning => '性能告警';
+
+  @override
+  String get maintenanceHealthParsedCPUPowerStatus => 'CPU 电源状态';
+
+  @override
+  String get maintenanceHealthParsedPolicyIdentifier => '策略标识';
+
+  @override
+  String get maintenanceHealthParsedPolicyExpression => '策略表达式';
+
+  @override
+  String get maintenanceHealthParsedPasswordStatus => '密码状态';
+
+  @override
+  String get maintenanceHealthParsedLastChange => '最近修改';
+
+  @override
+  String get maintenanceHealthParsedMinimumAgeDays => '最短使用天数';
+
+  @override
+  String get maintenanceHealthParsedMaximumAgeDays => '最长使用天数';
+
+  @override
+  String get maintenanceHealthParsedExpiryWarningDays => '到期预警天数';
+
+  @override
+  String get maintenanceHealthParsedInactivityDays => '失效天数';
+
+  @override
+  String get maintenanceHealthParsedListeningPort => '监听端口';
+
+  @override
+  String get maintenanceHealthParsedListeningAddress => '监听地址';
+
+  @override
+  String get maintenanceHealthParsedRootLoginPolicy => '允许 root 登录';
+
+  @override
+  String get maintenanceHealthParsedPasswordAuthentication => '密码认证';
+
+  @override
+  String get maintenanceHealthParsedPublicKeyAuthentication => '公钥认证';
+
+  @override
+  String get maintenanceHealthParsedInteractiveAuthentication => '交互式认证';
+
+  @override
+  String get maintenanceHealthParsedAllowEmptyPasswords => '允许空密码';
+
+  @override
+  String get maintenanceHealthParsedMaximumAuthenticationAttempts => '认证尝试上限';
+
+  @override
+  String get maintenanceHealthParsedMaximumSessions => '会话数量上限';
+
+  @override
+  String get maintenanceHealthParsedLoginGraceTimeS => '登录宽限时间（秒）';
+
+  @override
+  String get maintenanceHealthParsedKeepaliveIntervalS => '保活间隔（秒）';
+
+  @override
+  String get maintenanceHealthParsedMaximumMissedKeepalives => '保活失败上限';
+
+  @override
+  String get maintenanceHealthParsedAuthenticationMethods => '认证方式';
+
+  @override
+  String get maintenanceHealthParsedClockSynchronized => '时钟已同步';
+
+  @override
+  String get maintenanceHealthParsedNetworkTimeEnabled => '启用网络对时';
+
+  @override
+  String get maintenanceHealthParsedRTCUsesLocalTime => '硬件时钟使用本地时间';
+
+  @override
+  String get maintenanceHealthParsedNetworkTime => '网络对时';
+
+  @override
+  String get maintenanceHealthParsedTimeServer => '对时服务器';
+
+  @override
+  String get maintenanceHealthParsedPollingInterval => '轮询间隔';
+
+  @override
+  String get maintenanceHealthParsedReachRegisterOctal => '可达寄存器（八进制）';
+
+  @override
+  String get maintenanceHealthParsedStratum => '时间层级';
+
+  @override
+  String get maintenanceHealthParsedClockOffset => '时钟偏差';
+
+  @override
+  String get maintenanceHealthParsedLastReceived => '最近接收';
+
+  @override
+  String
+  get maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization =>
+      '配置值（不代表当前已同步）';
+
+  @override
+  String get maintenanceHealthParsedNoWarningRecorded => '无告警记录';
+
+  @override
+  String get maintenanceHealthParsedNotRecorded => '未记录';
+
+  @override
+  String get maintenanceHealthParsedACPower => '外接电源';
+
+  @override
+  String get maintenanceHealthParsedBatteryPower => '电池供电';
+
+  @override
+  String get maintenanceHealthParsedACConnected => '已连接外接电源';
+
+  @override
+  String get maintenanceHealthParsedNotCharging => '未充电';
+
+  @override
+  String get maintenanceHealthParsedCharging => '正在充电';
+
+  @override
+  String get maintenanceHealthParsedDischarging => '正在放电';
+
+  @override
+  String get maintenanceHealthParsedCharged => '已充满';
+
+  @override
+  String get maintenanceHealthParsedStillLoggedIn => '仍在登录';
+
+  @override
+  String get maintenanceHealthParsedYes => '是';
+
+  @override
+  String get maintenanceHealthParsedNo => '否';
+
+  @override
+  String get maintenanceHealthParsedArchitectureField => '架构';
+
+  @override
+  String get maintenanceHealthParsedKernelName => '内核名称';
+
+  @override
+  String get maintenanceHealthParsedKernelVersion => '内核版本';
+
+  @override
+  String get maintenanceHealthParsedHostname => '主机名';
+
+  @override
+  String get maintenanceHealthParsedBatteryPresent => '电池存在';
+
+  @override
+  String get maintenanceHealthParsedMinimumCharacters => '最少字符数';
+
+  @override
+  String get maintenanceHealthParsedBatteryCycles => '电池循环次数';
+
+  @override
+  String get maintenanceHealthParsedDesignCapacityMAh => '设计容量（mAh）';
+
+  @override
+  String get maintenanceHealthParsedVoltageMV => '电压（mV）';
+
+  @override
+  String get maintenanceHealthParsedLogonSessionID => '登录会话 ID';
+
+  @override
+  String get maintenanceHealthParsedLogonTypeCode => '登录类型代码';
+
+  @override
+  String get maintenanceHealthParsedStartTime => '开始时间';
+
+  @override
+  String get maintenanceHealthParsedLastBootTime => '最近启动时间';
+
+  @override
+  String get maintenanceHealthParsedAccountDisabled => '账户禁用';
+
+  @override
+  String get maintenanceHealthParsedAccountLocked => '账户锁定';
+
+  @override
+  String get maintenanceHealthParsedPasswordRequired => '要求密码';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpires => '密码会过期';
+
+  @override
+  String get maintenanceHealthParsedBatteryStatusCode => '电池状态代码';
+
+  @override
+  String get maintenanceHealthParsedRemainingCharge => '剩余电量（%）';
+
+  @override
+  String get maintenanceHealthParsedEstimatedRuntimeMin => '预计续航（分钟）';
+
+  @override
+  String get maintenanceHealthParsedLocalDateAndTime => '本地日期时间';
+
+  @override
+  String get maintenanceHealthParsedUTCOffsetMin => 'UTC 偏移（分钟）';
+
+  @override
+  String get maintenanceHealthParsedStandardTimeZone => '标准时区名称';
+
+  @override
+  String get maintenanceHealthParsedDaylightTimeZone => '夏令时名称';
+
+  @override
+  String get maintenanceHealthParsedUTCCorrectionMin => 'UTC 修正（分钟）';
+
+  @override
+  String get maintenanceHealthParsedLastPasswordChange => '最近密码修改';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiry => '密码到期时间';
+
+  @override
+  String get maintenanceHealthParsedPasswordInactivityDate => '密码失效时间';
+
+  @override
+  String get maintenanceHealthParsedAccountExpiry => '账户到期时间';
+
+  @override
+  String get maintenanceHealthParsedMinimumPasswordAgeDays => '密码最短使用天数';
+
+  @override
+  String get maintenanceHealthParsedMaximumPasswordAgeDays => '密码最长使用天数';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiryWarningDays => '密码到期预警天数';
+
+  @override
+  String get maintenanceHealthParsedReferenceClockID => '参考时钟 ID';
+
+  @override
+  String get maintenanceHealthParsedReferenceTimeUTC => '参考时间（UTC）';
+
+  @override
+  String get maintenanceHealthParsedSystemClockOffset => '系统时钟偏差';
+
+  @override
+  String get maintenanceHealthParsedLastOffset => '最近偏差';
+
+  @override
+  String get maintenanceHealthParsedRMSOffset => '均方根偏差';
+
+  @override
+  String get maintenanceHealthParsedFrequencyError => '频率偏差';
+
+  @override
+  String get maintenanceHealthParsedResidualFrequency => '残余频率偏差';
+
+  @override
+  String get maintenanceHealthParsedFrequencySkew => '频率误差界限';
+
+  @override
+  String get maintenanceHealthParsedRootDelay => '根时延';
+
+  @override
+  String get maintenanceHealthParsedRootDispersion => '根离散度';
+
+  @override
+  String get maintenanceHealthParsedUpdateInterval => '更新间隔';
+
+  @override
+  String get maintenanceHealthParsedLeapStatus => '闰秒状态';
+
+  @override
+  String get maintenanceHealthParsedLastRotation => '最近轮转';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopies => '保留份数';
+
+  @override
+  String get maintenanceHealthParsedSizeThreshold => '大小阈值';
+
+  @override
+  String get maintenanceHealthParsedRotationSchedule => '轮转时间规则';
+
+  @override
+  String get maintenanceHealthParsedDailyRotation => '每日轮转';
+
+  @override
+  String get maintenanceHealthParsedWeeklyRotation => '每周轮转';
+
+  @override
+  String get maintenanceHealthParsedMonthlyRotation => '每月轮转';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopiesField => '保留份数';
+
+  @override
+  String get maintenanceHealthParsedCompressArchives => '压缩归档';
+
+  @override
+  String get maintenanceHealthParsedDelayCompression => '延后压缩';
+
+  @override
+  String get maintenanceHealthParsedAllowMissingLogs => '允许日志缺失';
+
+  @override
+  String get maintenanceHealthParsedSkipEmptyLogs => '空日志不轮转';
+
+  @override
+  String get maintenanceHealthParsedNewLogModeAndOwner => '新日志权限与属主';
+
+  @override
+  String get maintenanceHealthParsedPostRotationScript => '轮转后脚本';
+
+  @override
+  String get maintenanceHealthParsedSharedRotationScripts => '共享轮转脚本';
+
+  @override
+  String get maintenanceHealthParsedIncludedRules => '包含规则目录';
+
+  @override
+  String get maintenanceHealthParsedSizeThresholdField => '大小阈值';
+
+  @override
+  String get maintenanceHealthParsedPAMAuthentication => 'PAM 认证';
+
+  @override
+  String get maintenanceHealthParsedAllowedUsers => '允许用户';
+
+  @override
+  String get maintenanceHealthParsedDeniedUsers => '拒绝用户';
+
+  @override
+  String get maintenanceHealthParsedAllowedGroups => '允许用户组';
+
+  @override
+  String get maintenanceHealthParsedDeniedGroups => '拒绝用户组';
+
+  @override
+  String get maintenanceHealthParsedPasswordSet => '已设置密码';
+
+  @override
+  String get maintenanceHealthParsedPasswordLocked => '密码已锁定';
+
+  @override
+  String get maintenanceHealthParsedPasswordEmpty => '未设置密码';
+
+  @override
+  String get maintenanceHealthParsedNever => '永不';
+
+  @override
+  String get maintenanceHealthParsedConfigured => '已配置';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -25048,4 +25471,427 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceCommandTimedOut => '終端回應逾時。請確認終端已就緒且處於命令提示字元，然後重試。';
+
+  @override
+  String get maintenanceHealthParsedInsufficientPermissionsForThisAccount =>
+      '權限不足，当前賬戶無法讀取';
+
+  @override
+  String get maintenanceHealthParsedCollectionToolIsMissingOrUnavailable =>
+      '採集工具未安裝或不可用';
+
+  @override
+  String
+  get maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable =>
+      'SSH 配置檢查失敗：主機密鑰不可用';
+
+  @override
+  String
+  get maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails =>
+      '未能識别數據格式，請查看採集詳情';
+
+  @override
+  String get maintenanceHealthParsedNotCollectedYet => '尚未採集';
+
+  @override
+  String get maintenanceHealthParsedCollectionDetailsAndDiagnostics =>
+      '採集詳情與诊斷';
+
+  @override
+  String get maintenanceHealthParsedAccount => '賬戶';
+
+  @override
+  String get maintenanceHealthParsedHomeDirectory => '主目錄';
+
+  @override
+  String get maintenanceHealthParsedSensor => '传感器';
+
+  @override
+  String get maintenanceHealthParsedLoginTime => '登錄時間';
+
+  @override
+  String get maintenanceHealthParsedIdleTime => '空閒時間';
+
+  @override
+  String get maintenanceHealthParsedSource => '來源';
+
+  @override
+  String get maintenanceHealthParsedLocalTime => '本地時間';
+
+  @override
+  String get maintenanceHealthParsedTimeZone => '時区';
+
+  @override
+  String get maintenanceHealthParsedArchitecture => '架構';
+
+  @override
+  String get maintenanceHealthParsedSystemName => '系統名稱';
+
+  @override
+  String get maintenanceHealthParsedSystemVersion => '系統版本';
+
+  @override
+  String get maintenanceHealthParsedBuildVersion => '構建版本';
+
+  @override
+  String get maintenanceHealthParsedPowerSource => '供電來源';
+
+  @override
+  String get maintenanceHealthParsedBatteryCharge => '電量';
+
+  @override
+  String get maintenanceHealthParsedThermalWarning => '温度告警';
+
+  @override
+  String get maintenanceHealthParsedPerformanceWarning => '性能告警';
+
+  @override
+  String get maintenanceHealthParsedCPUPowerStatus => 'CPU 電源状態';
+
+  @override
+  String get maintenanceHealthParsedPolicyIdentifier => '策略標識';
+
+  @override
+  String get maintenanceHealthParsedPolicyExpression => '策略表達式';
+
+  @override
+  String get maintenanceHealthParsedPasswordStatus => '密碼状態';
+
+  @override
+  String get maintenanceHealthParsedLastChange => '最近修改';
+
+  @override
+  String get maintenanceHealthParsedMinimumAgeDays => '最短使用天數';
+
+  @override
+  String get maintenanceHealthParsedMaximumAgeDays => '最長使用天數';
+
+  @override
+  String get maintenanceHealthParsedExpiryWarningDays => '到期预警天數';
+
+  @override
+  String get maintenanceHealthParsedInactivityDays => '失效天數';
+
+  @override
+  String get maintenanceHealthParsedListeningPort => '監听端口';
+
+  @override
+  String get maintenanceHealthParsedListeningAddress => '監听地址';
+
+  @override
+  String get maintenanceHealthParsedRootLoginPolicy => '允許 root 登錄';
+
+  @override
+  String get maintenanceHealthParsedPasswordAuthentication => '密碼認證';
+
+  @override
+  String get maintenanceHealthParsedPublicKeyAuthentication => '公鑰認證';
+
+  @override
+  String get maintenanceHealthParsedInteractiveAuthentication => '交互式認證';
+
+  @override
+  String get maintenanceHealthParsedAllowEmptyPasswords => '允許空密碼';
+
+  @override
+  String get maintenanceHealthParsedMaximumAuthenticationAttempts => '認證尝試上限';
+
+  @override
+  String get maintenanceHealthParsedMaximumSessions => '会話數量上限';
+
+  @override
+  String get maintenanceHealthParsedLoginGraceTimeS => '登錄寬限時間（秒）';
+
+  @override
+  String get maintenanceHealthParsedKeepaliveIntervalS => '保活間隔（秒）';
+
+  @override
+  String get maintenanceHealthParsedMaximumMissedKeepalives => '保活失敗上限';
+
+  @override
+  String get maintenanceHealthParsedAuthenticationMethods => '認證方式';
+
+  @override
+  String get maintenanceHealthParsedClockSynchronized => '時鐘已同步';
+
+  @override
+  String get maintenanceHealthParsedNetworkTimeEnabled => '啟用網络对時';
+
+  @override
+  String get maintenanceHealthParsedRTCUsesLocalTime => '硬件時鐘使用本地時間';
+
+  @override
+  String get maintenanceHealthParsedNetworkTime => '網络对時';
+
+  @override
+  String get maintenanceHealthParsedTimeServer => '对時服务器';
+
+  @override
+  String get maintenanceHealthParsedPollingInterval => '輪詢間隔';
+
+  @override
+  String get maintenanceHealthParsedReachRegisterOctal => '可達寄存器（八进制）';
+
+  @override
+  String get maintenanceHealthParsedStratum => '時間层級';
+
+  @override
+  String get maintenanceHealthParsedClockOffset => '時鐘偏差';
+
+  @override
+  String get maintenanceHealthParsedLastReceived => '最近接收';
+
+  @override
+  String
+  get maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization =>
+      '配置值（不代表当前已同步）';
+
+  @override
+  String get maintenanceHealthParsedNoWarningRecorded => '無告警记錄';
+
+  @override
+  String get maintenanceHealthParsedNotRecorded => '未记錄';
+
+  @override
+  String get maintenanceHealthParsedACPower => '外接電源';
+
+  @override
+  String get maintenanceHealthParsedBatteryPower => '電池供電';
+
+  @override
+  String get maintenanceHealthParsedACConnected => '已连接外接電源';
+
+  @override
+  String get maintenanceHealthParsedNotCharging => '未充電';
+
+  @override
+  String get maintenanceHealthParsedCharging => '正在充電';
+
+  @override
+  String get maintenanceHealthParsedDischarging => '正在放電';
+
+  @override
+  String get maintenanceHealthParsedCharged => '已充满';
+
+  @override
+  String get maintenanceHealthParsedStillLoggedIn => '仍在登錄';
+
+  @override
+  String get maintenanceHealthParsedYes => '是';
+
+  @override
+  String get maintenanceHealthParsedNo => '否';
+
+  @override
+  String get maintenanceHealthParsedArchitectureField => '架構';
+
+  @override
+  String get maintenanceHealthParsedKernelName => '內核名稱';
+
+  @override
+  String get maintenanceHealthParsedKernelVersion => '內核版本';
+
+  @override
+  String get maintenanceHealthParsedHostname => '主機名';
+
+  @override
+  String get maintenanceHealthParsedBatteryPresent => '電池存在';
+
+  @override
+  String get maintenanceHealthParsedMinimumCharacters => '最少字符數';
+
+  @override
+  String get maintenanceHealthParsedBatteryCycles => '電池循环次數';
+
+  @override
+  String get maintenanceHealthParsedDesignCapacityMAh => '設计容量（mAh）';
+
+  @override
+  String get maintenanceHealthParsedVoltageMV => '電壓（mV）';
+
+  @override
+  String get maintenanceHealthParsedLogonSessionID => '登錄会話 ID';
+
+  @override
+  String get maintenanceHealthParsedLogonTypeCode => '登錄類型代碼';
+
+  @override
+  String get maintenanceHealthParsedStartTime => '開始時間';
+
+  @override
+  String get maintenanceHealthParsedLastBootTime => '最近啟动時間';
+
+  @override
+  String get maintenanceHealthParsedAccountDisabled => '賬戶禁用';
+
+  @override
+  String get maintenanceHealthParsedAccountLocked => '賬戶鎖定';
+
+  @override
+  String get maintenanceHealthParsedPasswordRequired => '要求密碼';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpires => '密碼会過期';
+
+  @override
+  String get maintenanceHealthParsedBatteryStatusCode => '電池状態代碼';
+
+  @override
+  String get maintenanceHealthParsedRemainingCharge => '剩餘電量（%）';
+
+  @override
+  String get maintenanceHealthParsedEstimatedRuntimeMin => '预计续航（分鐘）';
+
+  @override
+  String get maintenanceHealthParsedLocalDateAndTime => '本地日期時間';
+
+  @override
+  String get maintenanceHealthParsedUTCOffsetMin => 'UTC 偏移（分鐘）';
+
+  @override
+  String get maintenanceHealthParsedStandardTimeZone => '標准時区名稱';
+
+  @override
+  String get maintenanceHealthParsedDaylightTimeZone => '夏令時名稱';
+
+  @override
+  String get maintenanceHealthParsedUTCCorrectionMin => 'UTC 修正（分鐘）';
+
+  @override
+  String get maintenanceHealthParsedLastPasswordChange => '最近密碼修改';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiry => '密碼到期時間';
+
+  @override
+  String get maintenanceHealthParsedPasswordInactivityDate => '密碼失效時間';
+
+  @override
+  String get maintenanceHealthParsedAccountExpiry => '賬戶到期時間';
+
+  @override
+  String get maintenanceHealthParsedMinimumPasswordAgeDays => '密碼最短使用天數';
+
+  @override
+  String get maintenanceHealthParsedMaximumPasswordAgeDays => '密碼最長使用天數';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiryWarningDays => '密碼到期预警天數';
+
+  @override
+  String get maintenanceHealthParsedReferenceClockID => '參考時鐘 ID';
+
+  @override
+  String get maintenanceHealthParsedReferenceTimeUTC => '參考時間（UTC）';
+
+  @override
+  String get maintenanceHealthParsedSystemClockOffset => '系統時鐘偏差';
+
+  @override
+  String get maintenanceHealthParsedLastOffset => '最近偏差';
+
+  @override
+  String get maintenanceHealthParsedRMSOffset => '均方根偏差';
+
+  @override
+  String get maintenanceHealthParsedFrequencyError => '頻率偏差';
+
+  @override
+  String get maintenanceHealthParsedResidualFrequency => '残餘頻率偏差';
+
+  @override
+  String get maintenanceHealthParsedFrequencySkew => '頻率誤差界限';
+
+  @override
+  String get maintenanceHealthParsedRootDelay => '根時延';
+
+  @override
+  String get maintenanceHealthParsedRootDispersion => '根離散度';
+
+  @override
+  String get maintenanceHealthParsedUpdateInterval => '更新間隔';
+
+  @override
+  String get maintenanceHealthParsedLeapStatus => '閏秒状態';
+
+  @override
+  String get maintenanceHealthParsedLastRotation => '最近輪轉';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopies => '保留份數';
+
+  @override
+  String get maintenanceHealthParsedSizeThreshold => '大小閾值';
+
+  @override
+  String get maintenanceHealthParsedRotationSchedule => '輪轉時間規則';
+
+  @override
+  String get maintenanceHealthParsedDailyRotation => '每日輪轉';
+
+  @override
+  String get maintenanceHealthParsedWeeklyRotation => '每周輪轉';
+
+  @override
+  String get maintenanceHealthParsedMonthlyRotation => '每月輪轉';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopiesField => '保留份數';
+
+  @override
+  String get maintenanceHealthParsedCompressArchives => '壓縮歸档';
+
+  @override
+  String get maintenanceHealthParsedDelayCompression => '延後壓縮';
+
+  @override
+  String get maintenanceHealthParsedAllowMissingLogs => '允許日誌缺失';
+
+  @override
+  String get maintenanceHealthParsedSkipEmptyLogs => '空日誌不輪轉';
+
+  @override
+  String get maintenanceHealthParsedNewLogModeAndOwner => '新日誌權限與屬主';
+
+  @override
+  String get maintenanceHealthParsedPostRotationScript => '輪轉後腳本';
+
+  @override
+  String get maintenanceHealthParsedSharedRotationScripts => '共享輪轉腳本';
+
+  @override
+  String get maintenanceHealthParsedIncludedRules => '包含規則目錄';
+
+  @override
+  String get maintenanceHealthParsedSizeThresholdField => '大小閾值';
+
+  @override
+  String get maintenanceHealthParsedPAMAuthentication => 'PAM 認證';
+
+  @override
+  String get maintenanceHealthParsedAllowedUsers => '允許用戶';
+
+  @override
+  String get maintenanceHealthParsedDeniedUsers => '拒絕用戶';
+
+  @override
+  String get maintenanceHealthParsedAllowedGroups => '允許用戶組';
+
+  @override
+  String get maintenanceHealthParsedDeniedGroups => '拒絕用戶組';
+
+  @override
+  String get maintenanceHealthParsedPasswordSet => '已設定密碼';
+
+  @override
+  String get maintenanceHealthParsedPasswordLocked => '密碼已鎖定';
+
+  @override
+  String get maintenanceHealthParsedPasswordEmpty => '未設定密碼';
+
+  @override
+  String get maintenanceHealthParsedNever => '永不';
+
+  @override
+  String get maintenanceHealthParsedConfigured => '已設定';
 }

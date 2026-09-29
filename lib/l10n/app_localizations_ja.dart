@@ -12660,4 +12660,427 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceCommandTimedOut =>
       '端末の応答がタイムアウトしました。端末が起動し、コマンド入力待ちになっていることを確認して再試行してください。';
+
+  @override
+  String get maintenanceHealthParsedInsufficientPermissionsForThisAccount =>
+      'このアカウントには読み取り権限がありません';
+
+  @override
+  String get maintenanceHealthParsedCollectionToolIsMissingOrUnavailable =>
+      '収集ツールが未インストールまたは利用不可';
+
+  @override
+  String
+  get maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable =>
+      'SSH設定の確認失敗：ホスト鍵を利用できません';
+
+  @override
+  String
+  get maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails =>
+      'データ形式を認識できません。収集詳細を確認してください';
+
+  @override
+  String get maintenanceHealthParsedNotCollectedYet => '未収集';
+
+  @override
+  String get maintenanceHealthParsedCollectionDetailsAndDiagnostics =>
+      '収集詳細と診断';
+
+  @override
+  String get maintenanceHealthParsedAccount => 'アカウント';
+
+  @override
+  String get maintenanceHealthParsedHomeDirectory => 'ホームディレクトリ';
+
+  @override
+  String get maintenanceHealthParsedSensor => 'センサー';
+
+  @override
+  String get maintenanceHealthParsedLoginTime => 'ログイン時刻';
+
+  @override
+  String get maintenanceHealthParsedIdleTime => 'アイドル時間';
+
+  @override
+  String get maintenanceHealthParsedSource => '接続元';
+
+  @override
+  String get maintenanceHealthParsedLocalTime => '現地時刻';
+
+  @override
+  String get maintenanceHealthParsedTimeZone => 'タイムゾーン';
+
+  @override
+  String get maintenanceHealthParsedArchitecture => 'アーキテクチャ';
+
+  @override
+  String get maintenanceHealthParsedSystemName => 'システム名';
+
+  @override
+  String get maintenanceHealthParsedSystemVersion => 'システムバージョン';
+
+  @override
+  String get maintenanceHealthParsedBuildVersion => 'ビルドバージョン';
+
+  @override
+  String get maintenanceHealthParsedPowerSource => '電源';
+
+  @override
+  String get maintenanceHealthParsedBatteryCharge => 'バッテリー残量';
+
+  @override
+  String get maintenanceHealthParsedThermalWarning => '温度警告';
+
+  @override
+  String get maintenanceHealthParsedPerformanceWarning => '性能警告';
+
+  @override
+  String get maintenanceHealthParsedCPUPowerStatus => 'CPU電源状態';
+
+  @override
+  String get maintenanceHealthParsedPolicyIdentifier => 'ポリシーID';
+
+  @override
+  String get maintenanceHealthParsedPolicyExpression => 'ポリシー式';
+
+  @override
+  String get maintenanceHealthParsedPasswordStatus => 'パスワード状態';
+
+  @override
+  String get maintenanceHealthParsedLastChange => '最終変更';
+
+  @override
+  String get maintenanceHealthParsedMinimumAgeDays => '最短有効日数';
+
+  @override
+  String get maintenanceHealthParsedMaximumAgeDays => '最長有効日数';
+
+  @override
+  String get maintenanceHealthParsedExpiryWarningDays => '期限警告日数';
+
+  @override
+  String get maintenanceHealthParsedInactivityDays => '失効日数';
+
+  @override
+  String get maintenanceHealthParsedListeningPort => '待受ポート';
+
+  @override
+  String get maintenanceHealthParsedListeningAddress => '待受アドレス';
+
+  @override
+  String get maintenanceHealthParsedRootLoginPolicy => 'rootログイン';
+
+  @override
+  String get maintenanceHealthParsedPasswordAuthentication => 'パスワード認証';
+
+  @override
+  String get maintenanceHealthParsedPublicKeyAuthentication => '公開鍵認証';
+
+  @override
+  String get maintenanceHealthParsedInteractiveAuthentication => '対話型認証';
+
+  @override
+  String get maintenanceHealthParsedAllowEmptyPasswords => '空パスワード許可';
+
+  @override
+  String get maintenanceHealthParsedMaximumAuthenticationAttempts => '認証試行上限';
+
+  @override
+  String get maintenanceHealthParsedMaximumSessions => 'セッション数上限';
+
+  @override
+  String get maintenanceHealthParsedLoginGraceTimeS => 'ログイン猶予時間（秒）';
+
+  @override
+  String get maintenanceHealthParsedKeepaliveIntervalS => '生存確認間隔（秒）';
+
+  @override
+  String get maintenanceHealthParsedMaximumMissedKeepalives => '生存確認失敗上限';
+
+  @override
+  String get maintenanceHealthParsedAuthenticationMethods => '認証方式';
+
+  @override
+  String get maintenanceHealthParsedClockSynchronized => '時刻同期済み';
+
+  @override
+  String get maintenanceHealthParsedNetworkTimeEnabled => 'ネットワーク時刻有効';
+
+  @override
+  String get maintenanceHealthParsedRTCUsesLocalTime => 'RTCに現地時刻を使用';
+
+  @override
+  String get maintenanceHealthParsedNetworkTime => 'ネットワーク時刻';
+
+  @override
+  String get maintenanceHealthParsedTimeServer => '時刻サーバー';
+
+  @override
+  String get maintenanceHealthParsedPollingInterval => 'ポーリング間隔';
+
+  @override
+  String get maintenanceHealthParsedReachRegisterOctal => '到達レジスタ（8進数）';
+
+  @override
+  String get maintenanceHealthParsedStratum => '階層';
+
+  @override
+  String get maintenanceHealthParsedClockOffset => '時刻オフセット';
+
+  @override
+  String get maintenanceHealthParsedLastReceived => '最終受信';
+
+  @override
+  String
+  get maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization =>
+      '設定値（同期済みを意味しません）';
+
+  @override
+  String get maintenanceHealthParsedNoWarningRecorded => '警告記録なし';
+
+  @override
+  String get maintenanceHealthParsedNotRecorded => '記録なし';
+
+  @override
+  String get maintenanceHealthParsedACPower => '外部電源';
+
+  @override
+  String get maintenanceHealthParsedBatteryPower => 'バッテリー電源';
+
+  @override
+  String get maintenanceHealthParsedACConnected => '外部電源接続済み';
+
+  @override
+  String get maintenanceHealthParsedNotCharging => '充電していません';
+
+  @override
+  String get maintenanceHealthParsedCharging => '充電中';
+
+  @override
+  String get maintenanceHealthParsedDischarging => '放電中';
+
+  @override
+  String get maintenanceHealthParsedCharged => '充電済み';
+
+  @override
+  String get maintenanceHealthParsedStillLoggedIn => 'ログイン中';
+
+  @override
+  String get maintenanceHealthParsedYes => 'はい';
+
+  @override
+  String get maintenanceHealthParsedNo => 'いいえ';
+
+  @override
+  String get maintenanceHealthParsedArchitectureField => 'アーキテクチャ';
+
+  @override
+  String get maintenanceHealthParsedKernelName => 'カーネル名';
+
+  @override
+  String get maintenanceHealthParsedKernelVersion => 'カーネルバージョン';
+
+  @override
+  String get maintenanceHealthParsedHostname => 'ホスト名';
+
+  @override
+  String get maintenanceHealthParsedBatteryPresent => 'バッテリーあり';
+
+  @override
+  String get maintenanceHealthParsedMinimumCharacters => '最小文字数';
+
+  @override
+  String get maintenanceHealthParsedBatteryCycles => '充放電回数';
+
+  @override
+  String get maintenanceHealthParsedDesignCapacityMAh => '設計容量（mAh）';
+
+  @override
+  String get maintenanceHealthParsedVoltageMV => '電圧（mV）';
+
+  @override
+  String get maintenanceHealthParsedLogonSessionID => 'ログオンセッションID';
+
+  @override
+  String get maintenanceHealthParsedLogonTypeCode => 'ログオン種別コード';
+
+  @override
+  String get maintenanceHealthParsedStartTime => '開始時刻';
+
+  @override
+  String get maintenanceHealthParsedLastBootTime => '最終起動時刻';
+
+  @override
+  String get maintenanceHealthParsedAccountDisabled => 'アカウント無効';
+
+  @override
+  String get maintenanceHealthParsedAccountLocked => 'アカウントロック';
+
+  @override
+  String get maintenanceHealthParsedPasswordRequired => 'パスワード必須';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpires => 'パスワード期限あり';
+
+  @override
+  String get maintenanceHealthParsedBatteryStatusCode => 'バッテリー状態コード';
+
+  @override
+  String get maintenanceHealthParsedRemainingCharge => '残量（%）';
+
+  @override
+  String get maintenanceHealthParsedEstimatedRuntimeMin => '予測稼働時間（分）';
+
+  @override
+  String get maintenanceHealthParsedLocalDateAndTime => '現地日時';
+
+  @override
+  String get maintenanceHealthParsedUTCOffsetMin => 'UTCオフセット（分）';
+
+  @override
+  String get maintenanceHealthParsedStandardTimeZone => '標準時間帯';
+
+  @override
+  String get maintenanceHealthParsedDaylightTimeZone => '夏時間帯';
+
+  @override
+  String get maintenanceHealthParsedUTCCorrectionMin => 'UTC補正（分）';
+
+  @override
+  String get maintenanceHealthParsedLastPasswordChange => '最終パスワード変更';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiry => 'パスワード期限';
+
+  @override
+  String get maintenanceHealthParsedPasswordInactivityDate => 'パスワード失効日';
+
+  @override
+  String get maintenanceHealthParsedAccountExpiry => 'アカウント期限';
+
+  @override
+  String get maintenanceHealthParsedMinimumPasswordAgeDays => '最短有効日数';
+
+  @override
+  String get maintenanceHealthParsedMaximumPasswordAgeDays => '最長有効日数';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiryWarningDays => '期限警告日数';
+
+  @override
+  String get maintenanceHealthParsedReferenceClockID => '参照クロックID';
+
+  @override
+  String get maintenanceHealthParsedReferenceTimeUTC => '参照時刻（UTC）';
+
+  @override
+  String get maintenanceHealthParsedSystemClockOffset => 'システム時刻偏差';
+
+  @override
+  String get maintenanceHealthParsedLastOffset => '直近オフセット';
+
+  @override
+  String get maintenanceHealthParsedRMSOffset => 'RMSオフセット';
+
+  @override
+  String get maintenanceHealthParsedFrequencyError => '周波数誤差';
+
+  @override
+  String get maintenanceHealthParsedResidualFrequency => '残留周波数';
+
+  @override
+  String get maintenanceHealthParsedFrequencySkew => '周波数偏差';
+
+  @override
+  String get maintenanceHealthParsedRootDelay => 'ルート遅延';
+
+  @override
+  String get maintenanceHealthParsedRootDispersion => 'ルート分散';
+
+  @override
+  String get maintenanceHealthParsedUpdateInterval => '更新間隔';
+
+  @override
+  String get maintenanceHealthParsedLeapStatus => '閏秒状態';
+
+  @override
+  String get maintenanceHealthParsedLastRotation => '最終ローテーション';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopies => '保持数';
+
+  @override
+  String get maintenanceHealthParsedSizeThreshold => 'サイズ閾値';
+
+  @override
+  String get maintenanceHealthParsedRotationSchedule => 'ローテーション時刻';
+
+  @override
+  String get maintenanceHealthParsedDailyRotation => '日次ローテーション';
+
+  @override
+  String get maintenanceHealthParsedWeeklyRotation => '週次ローテーション';
+
+  @override
+  String get maintenanceHealthParsedMonthlyRotation => '月次ローテーション';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopiesField => '保持数';
+
+  @override
+  String get maintenanceHealthParsedCompressArchives => 'アーカイブ圧縮';
+
+  @override
+  String get maintenanceHealthParsedDelayCompression => '圧縮を遅延';
+
+  @override
+  String get maintenanceHealthParsedAllowMissingLogs => 'ログ欠落許可';
+
+  @override
+  String get maintenanceHealthParsedSkipEmptyLogs => '空ログをスキップ';
+
+  @override
+  String get maintenanceHealthParsedNewLogModeAndOwner => '新規ログ権限と所有者';
+
+  @override
+  String get maintenanceHealthParsedPostRotationScript => 'ローテーション後スクリプト';
+
+  @override
+  String get maintenanceHealthParsedSharedRotationScripts => '共有ローテーションスクリプト';
+
+  @override
+  String get maintenanceHealthParsedIncludedRules => '参照ルール';
+
+  @override
+  String get maintenanceHealthParsedSizeThresholdField => 'サイズ閾値';
+
+  @override
+  String get maintenanceHealthParsedPAMAuthentication => 'PAM認証';
+
+  @override
+  String get maintenanceHealthParsedAllowedUsers => '許可ユーザー';
+
+  @override
+  String get maintenanceHealthParsedDeniedUsers => '拒否ユーザー';
+
+  @override
+  String get maintenanceHealthParsedAllowedGroups => '許可グループ';
+
+  @override
+  String get maintenanceHealthParsedDeniedGroups => '拒否グループ';
+
+  @override
+  String get maintenanceHealthParsedPasswordSet => 'パスワード設定済み';
+
+  @override
+  String get maintenanceHealthParsedPasswordLocked => 'パスワードロック済み';
+
+  @override
+  String get maintenanceHealthParsedPasswordEmpty => 'パスワード未設定';
+
+  @override
+  String get maintenanceHealthParsedNever => 'なし';
+
+  @override
+  String get maintenanceHealthParsedConfigured => '設定済み';
 }

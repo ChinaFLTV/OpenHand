@@ -12934,4 +12934,448 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceCommandTimedOut =>
       'The terminal timed out. Check that it is ready and at a command prompt, then retry.';
+
+  @override
+  String get maintenanceHealthParsedInsufficientPermissionsForThisAccount =>
+      'Insufficient permissions for this account';
+
+  @override
+  String get maintenanceHealthParsedCollectionToolIsMissingOrUnavailable =>
+      'Collection tool is missing or unavailable';
+
+  @override
+  String
+  get maintenanceHealthParsedSSHConfigurationCheckFailedHostKeysUnavailable =>
+      'SSH configuration check failed: host keys unavailable';
+
+  @override
+  String
+  get maintenanceHealthParsedUnrecognizedDataFormatInspectCollectionDetails =>
+      'Unrecognized data format; inspect collection details';
+
+  @override
+  String get maintenanceHealthParsedNotCollectedYet => 'Not collected yet';
+
+  @override
+  String get maintenanceHealthParsedCollectionDetailsAndDiagnostics =>
+      'Collection details and diagnostics';
+
+  @override
+  String get maintenanceHealthParsedAccount => 'Account';
+
+  @override
+  String get maintenanceHealthParsedHomeDirectory => 'Home directory';
+
+  @override
+  String get maintenanceHealthParsedSensor => 'Sensor';
+
+  @override
+  String get maintenanceHealthParsedLoginTime => 'Login time';
+
+  @override
+  String get maintenanceHealthParsedIdleTime => 'Idle time';
+
+  @override
+  String get maintenanceHealthParsedSource => 'Source';
+
+  @override
+  String get maintenanceHealthParsedLocalTime => 'Local time';
+
+  @override
+  String get maintenanceHealthParsedTimeZone => 'Time zone';
+
+  @override
+  String get maintenanceHealthParsedArchitecture => 'Architecture';
+
+  @override
+  String get maintenanceHealthParsedSystemName => 'System name';
+
+  @override
+  String get maintenanceHealthParsedSystemVersion => 'System version';
+
+  @override
+  String get maintenanceHealthParsedBuildVersion => 'Build version';
+
+  @override
+  String get maintenanceHealthParsedPowerSource => 'Power source';
+
+  @override
+  String get maintenanceHealthParsedBatteryCharge => 'Battery charge';
+
+  @override
+  String get maintenanceHealthParsedThermalWarning => 'Thermal warning';
+
+  @override
+  String get maintenanceHealthParsedPerformanceWarning => 'Performance warning';
+
+  @override
+  String get maintenanceHealthParsedCPUPowerStatus => 'CPU power status';
+
+  @override
+  String get maintenanceHealthParsedPolicyIdentifier => 'Policy identifier';
+
+  @override
+  String get maintenanceHealthParsedPolicyExpression => 'Policy expression';
+
+  @override
+  String get maintenanceHealthParsedPasswordStatus => 'Password status';
+
+  @override
+  String get maintenanceHealthParsedLastChange => 'Last change';
+
+  @override
+  String get maintenanceHealthParsedMinimumAgeDays => 'Minimum age (days)';
+
+  @override
+  String get maintenanceHealthParsedMaximumAgeDays => 'Maximum age (days)';
+
+  @override
+  String get maintenanceHealthParsedExpiryWarningDays =>
+      'Expiry warning (days)';
+
+  @override
+  String get maintenanceHealthParsedInactivityDays => 'Inactivity (days)';
+
+  @override
+  String get maintenanceHealthParsedListeningPort => 'Listening port';
+
+  @override
+  String get maintenanceHealthParsedListeningAddress => 'Listening address';
+
+  @override
+  String get maintenanceHealthParsedRootLoginPolicy => 'Root login policy';
+
+  @override
+  String get maintenanceHealthParsedPasswordAuthentication =>
+      'Password authentication';
+
+  @override
+  String get maintenanceHealthParsedPublicKeyAuthentication =>
+      'Public key authentication';
+
+  @override
+  String get maintenanceHealthParsedInteractiveAuthentication =>
+      'Interactive authentication';
+
+  @override
+  String get maintenanceHealthParsedAllowEmptyPasswords =>
+      'Allow empty passwords';
+
+  @override
+  String get maintenanceHealthParsedMaximumAuthenticationAttempts =>
+      'Maximum authentication attempts';
+
+  @override
+  String get maintenanceHealthParsedMaximumSessions => 'Maximum sessions';
+
+  @override
+  String get maintenanceHealthParsedLoginGraceTimeS => 'Login grace time (s)';
+
+  @override
+  String get maintenanceHealthParsedKeepaliveIntervalS =>
+      'Keepalive interval (s)';
+
+  @override
+  String get maintenanceHealthParsedMaximumMissedKeepalives =>
+      'Maximum missed keepalives';
+
+  @override
+  String get maintenanceHealthParsedAuthenticationMethods =>
+      'Authentication methods';
+
+  @override
+  String get maintenanceHealthParsedClockSynchronized => 'Clock synchronized';
+
+  @override
+  String get maintenanceHealthParsedNetworkTimeEnabled =>
+      'Network time enabled';
+
+  @override
+  String get maintenanceHealthParsedRTCUsesLocalTime => 'RTC uses local time';
+
+  @override
+  String get maintenanceHealthParsedNetworkTime => 'Network time';
+
+  @override
+  String get maintenanceHealthParsedTimeServer => 'Time server';
+
+  @override
+  String get maintenanceHealthParsedPollingInterval => 'Polling interval';
+
+  @override
+  String get maintenanceHealthParsedReachRegisterOctal =>
+      'Reach register (octal)';
+
+  @override
+  String get maintenanceHealthParsedStratum => 'Stratum';
+
+  @override
+  String get maintenanceHealthParsedClockOffset => 'Clock offset';
+
+  @override
+  String get maintenanceHealthParsedLastReceived => 'Last received';
+
+  @override
+  String
+  get maintenanceHealthParsedConfiguredValueDoesNotConfirmSynchronization =>
+      'Configured value (does not confirm synchronization)';
+
+  @override
+  String get maintenanceHealthParsedNoWarningRecorded => 'No warning recorded';
+
+  @override
+  String get maintenanceHealthParsedNotRecorded => 'Not recorded';
+
+  @override
+  String get maintenanceHealthParsedACPower => 'AC power';
+
+  @override
+  String get maintenanceHealthParsedBatteryPower => 'Battery power';
+
+  @override
+  String get maintenanceHealthParsedACConnected => 'AC connected';
+
+  @override
+  String get maintenanceHealthParsedNotCharging => 'Not charging';
+
+  @override
+  String get maintenanceHealthParsedCharging => 'Charging';
+
+  @override
+  String get maintenanceHealthParsedDischarging => 'Discharging';
+
+  @override
+  String get maintenanceHealthParsedCharged => 'Charged';
+
+  @override
+  String get maintenanceHealthParsedStillLoggedIn => 'Still logged in';
+
+  @override
+  String get maintenanceHealthParsedYes => 'Yes';
+
+  @override
+  String get maintenanceHealthParsedNo => 'No';
+
+  @override
+  String get maintenanceHealthParsedArchitectureField => 'Architecture';
+
+  @override
+  String get maintenanceHealthParsedKernelName => 'Kernel name';
+
+  @override
+  String get maintenanceHealthParsedKernelVersion => 'Kernel version';
+
+  @override
+  String get maintenanceHealthParsedHostname => 'Hostname';
+
+  @override
+  String get maintenanceHealthParsedBatteryPresent => 'Battery present';
+
+  @override
+  String get maintenanceHealthParsedMinimumCharacters => 'Minimum characters';
+
+  @override
+  String get maintenanceHealthParsedBatteryCycles => 'Battery cycles';
+
+  @override
+  String get maintenanceHealthParsedDesignCapacityMAh =>
+      'Design capacity (mAh)';
+
+  @override
+  String get maintenanceHealthParsedVoltageMV => 'Voltage (mV)';
+
+  @override
+  String get maintenanceHealthParsedLogonSessionID => 'Logon session ID';
+
+  @override
+  String get maintenanceHealthParsedLogonTypeCode => 'Logon type code';
+
+  @override
+  String get maintenanceHealthParsedStartTime => 'Start time';
+
+  @override
+  String get maintenanceHealthParsedLastBootTime => 'Last boot time';
+
+  @override
+  String get maintenanceHealthParsedAccountDisabled => 'Account disabled';
+
+  @override
+  String get maintenanceHealthParsedAccountLocked => 'Account locked';
+
+  @override
+  String get maintenanceHealthParsedPasswordRequired => 'Password required';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpires => 'Password expires';
+
+  @override
+  String get maintenanceHealthParsedBatteryStatusCode => 'Battery status code';
+
+  @override
+  String get maintenanceHealthParsedRemainingCharge => 'Remaining charge (%)';
+
+  @override
+  String get maintenanceHealthParsedEstimatedRuntimeMin =>
+      'Estimated runtime (min)';
+
+  @override
+  String get maintenanceHealthParsedLocalDateAndTime => 'Local date and time';
+
+  @override
+  String get maintenanceHealthParsedUTCOffsetMin => 'UTC offset (min)';
+
+  @override
+  String get maintenanceHealthParsedStandardTimeZone => 'Standard time zone';
+
+  @override
+  String get maintenanceHealthParsedDaylightTimeZone => 'Daylight time zone';
+
+  @override
+  String get maintenanceHealthParsedUTCCorrectionMin => 'UTC correction (min)';
+
+  @override
+  String get maintenanceHealthParsedLastPasswordChange =>
+      'Last password change';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiry => 'Password expiry';
+
+  @override
+  String get maintenanceHealthParsedPasswordInactivityDate =>
+      'Password inactivity date';
+
+  @override
+  String get maintenanceHealthParsedAccountExpiry => 'Account expiry';
+
+  @override
+  String get maintenanceHealthParsedMinimumPasswordAgeDays =>
+      'Minimum password age (days)';
+
+  @override
+  String get maintenanceHealthParsedMaximumPasswordAgeDays =>
+      'Maximum password age (days)';
+
+  @override
+  String get maintenanceHealthParsedPasswordExpiryWarningDays =>
+      'Password expiry warning (days)';
+
+  @override
+  String get maintenanceHealthParsedReferenceClockID => 'Reference clock ID';
+
+  @override
+  String get maintenanceHealthParsedReferenceTimeUTC => 'Reference time (UTC)';
+
+  @override
+  String get maintenanceHealthParsedSystemClockOffset => 'System clock offset';
+
+  @override
+  String get maintenanceHealthParsedLastOffset => 'Last offset';
+
+  @override
+  String get maintenanceHealthParsedRMSOffset => 'RMS offset';
+
+  @override
+  String get maintenanceHealthParsedFrequencyError => 'Frequency error';
+
+  @override
+  String get maintenanceHealthParsedResidualFrequency => 'Residual frequency';
+
+  @override
+  String get maintenanceHealthParsedFrequencySkew => 'Frequency skew';
+
+  @override
+  String get maintenanceHealthParsedRootDelay => 'Root delay';
+
+  @override
+  String get maintenanceHealthParsedRootDispersion => 'Root dispersion';
+
+  @override
+  String get maintenanceHealthParsedUpdateInterval => 'Update interval';
+
+  @override
+  String get maintenanceHealthParsedLeapStatus => 'Leap status';
+
+  @override
+  String get maintenanceHealthParsedLastRotation => 'Last rotation';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopies => 'Retained copies';
+
+  @override
+  String get maintenanceHealthParsedSizeThreshold => 'Size threshold';
+
+  @override
+  String get maintenanceHealthParsedRotationSchedule => 'Rotation schedule';
+
+  @override
+  String get maintenanceHealthParsedDailyRotation => 'Daily rotation';
+
+  @override
+  String get maintenanceHealthParsedWeeklyRotation => 'Weekly rotation';
+
+  @override
+  String get maintenanceHealthParsedMonthlyRotation => 'Monthly rotation';
+
+  @override
+  String get maintenanceHealthParsedRetainedCopiesField => 'Retained copies';
+
+  @override
+  String get maintenanceHealthParsedCompressArchives => 'Compress archives';
+
+  @override
+  String get maintenanceHealthParsedDelayCompression => 'Delay compression';
+
+  @override
+  String get maintenanceHealthParsedAllowMissingLogs => 'Allow missing logs';
+
+  @override
+  String get maintenanceHealthParsedSkipEmptyLogs => 'Skip empty logs';
+
+  @override
+  String get maintenanceHealthParsedNewLogModeAndOwner =>
+      'New log mode and owner';
+
+  @override
+  String get maintenanceHealthParsedPostRotationScript =>
+      'Post-rotation script';
+
+  @override
+  String get maintenanceHealthParsedSharedRotationScripts =>
+      'Shared rotation scripts';
+
+  @override
+  String get maintenanceHealthParsedIncludedRules => 'Included rules';
+
+  @override
+  String get maintenanceHealthParsedSizeThresholdField => 'Size threshold';
+
+  @override
+  String get maintenanceHealthParsedPAMAuthentication => 'PAM authentication';
+
+  @override
+  String get maintenanceHealthParsedAllowedUsers => 'Allowed users';
+
+  @override
+  String get maintenanceHealthParsedDeniedUsers => 'Denied users';
+
+  @override
+  String get maintenanceHealthParsedAllowedGroups => 'Allowed groups';
+
+  @override
+  String get maintenanceHealthParsedDeniedGroups => 'Denied groups';
+
+  @override
+  String get maintenanceHealthParsedPasswordSet => 'Password set';
+
+  @override
+  String get maintenanceHealthParsedPasswordLocked => 'Password locked';
+
+  @override
+  String get maintenanceHealthParsedPasswordEmpty => 'No password set';
+
+  @override
+  String get maintenanceHealthParsedNever => 'Never';
+
+  @override
+  String get maintenanceHealthParsedConfigured => 'Configured';
 }
