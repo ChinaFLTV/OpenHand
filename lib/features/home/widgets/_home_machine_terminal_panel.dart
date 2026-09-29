@@ -1843,7 +1843,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
   const _MachineTerminalDialogHeader({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle = '',
     required this.onClose,
     this.trailingActions = const <Widget>[],
   });
@@ -1886,16 +1886,18 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                kOpenHandGap3,
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                if (subtitle.isNotEmpty) ...[
+                  kOpenHandGap3,
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

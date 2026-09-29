@@ -651,12 +651,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 style: theme.textTheme.titleSmall,
               ),
               if (failed) ...[
-                const SizedBox(height: 10),
-                Text(
-                  maintenanceLabel(context, '请确认终端已连接并处于命令提示符，再重新采集。'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
-                ),
                 const SizedBox(height: 16),
                 _MaintenanceNotice(message: _error!, error: true),
                 const SizedBox(height: 16),
@@ -696,7 +690,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               _MachineTerminalDialogHeader(
                 icon: Icons.article_outlined,
                 title: maintenanceLabel(context, title),
-                subtitle: maintenanceLabel(context, '已采集 · 查看详情'),
                 onClose: () => Navigator.of(context).pop(),
               ),
               Expanded(
@@ -842,11 +835,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 '趋势样本': '${_cpuHistory.length} / 60',
                 '目标平台': facts['操作系统']!,
               },
-            ),
-            const SizedBox(height: 8),
-            Text(
-              maintenanceLabel(context, '速率根据连续采样计算；不可用字段不作推断。'),
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
           ],
         ),
@@ -997,7 +985,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     )!.maintenanceAlertCount('${warnings.length}'),
               color: warnings.isEmpty ? cs.primary : cs.error,
             ),
-            const SizedBox(height: 10),
+            if (warnings.isNotEmpty) const SizedBox(height: 10),
             for (final warning in warnings.take(6))
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -1006,13 +994,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   style: TextStyle(fontSize: 12, color: cs.error),
                 ),
               ),
-            Text(
-              maintenanceLabel(
-                context,
-                '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。',
-              ),
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-            ),
           ],
         ),
       ),
@@ -1198,16 +1179,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     fontSize: 20,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  maintenanceLabel(context, subtitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    maintenanceLabel(context, subtitle),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 7),
+                ],
+                if (progress != null) const SizedBox(height: 7),
                 if (progress != null)
                   TweenAnimationBuilder<double>(
                     tween: Tween<double>(
@@ -1720,7 +1703,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               '运行中',
               '${rows.where((line) => const ['运行中', 'Running'].contains(state(line))).length}',
-              '当前可见服务',
+              '',
               Icons.play_circle_outline,
               cs.tertiary,
               null,
@@ -1728,7 +1711,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               '异常服务',
               '${rows.where((line) => state(line) == '异常').length}',
-              '仅统计明确报告失败的条目',
+              '',
               Icons.error_outline,
               cs.error,
               null,
@@ -1903,9 +1886,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       child: connections.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(18),
-              child: Text(
-                maintenanceLabel(context, '未解析到 TCP / UDP 连接，可查看原始数据。'),
-              ),
+              child: Text(maintenanceLabel(context, '暂无可用数据')),
             )
           : _MaintenanceTable(
               maxBodyHeight: 360,
@@ -2003,7 +1984,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               '已解析连接',
               '${connections.length}',
-              '当前采样中的 TCP / UDP',
+              '',
               Icons.hub_outlined,
               cs.primary,
               null,
@@ -2011,7 +1992,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               'DNS 服务器',
               '${dns.length}',
-              '解析自当前系统配置',
+              '',
               Icons.language_rounded,
               cs.tertiary,
               null,
@@ -2019,7 +2000,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               '诊断项目',
               '${names.length}',
-              '路由、日志、任务与安全',
+              '',
               Icons.fact_check_outlined,
               cs.secondary,
               null,
@@ -2195,7 +2176,6 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
       section,
       data.text(section),
       data.text('platform'),
-      data.text('memory_note'),
       Theme.of(context),
       Localizations.localeOf(context),
     );
@@ -2205,11 +2185,6 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
     return _content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (section == 'memory' && data.text('memory_note').isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(maintenanceLabel(context, '可用内存包含可回收页，具体统计口径因系统而异。')),
-          ),
         for (var t = 0; t < metrics.tables.length; t++)
           if (metrics.tables[t].rows.isEmpty)
             Text(maintenanceLabel(context, '暂无可用数据'))
@@ -2260,16 +2235,6 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
                   ),
               ],
             ),
-        if (metrics.unparsed > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              maintenanceLabel(context, '部分字段未识别或不可用，已显示可解析的指标。'),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -3460,10 +3425,6 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
               ],
             ),
           ),
-        Text(
-          AppLocalizations.of(context)!.maintenanceGraphScope,
-          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-        ),
       ],
     );
   }
@@ -3667,7 +3628,6 @@ class _MaintenanceTrendState extends State<_MaintenanceTrend>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final hint = AppLocalizations.of(context)!.maintenanceTrendGesture;
     return Column(
       children: [
         Expanded(
@@ -3757,12 +3717,6 @@ class _MaintenanceTrendState extends State<_MaintenanceTrend>
               );
             },
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          hint,
-          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -4011,7 +3965,6 @@ class _MachineMaintenanceDetailsState
               builder: (context, constraints) => _MachineTerminalDialogHeader(
                 icon: Icons.analytics_outlined,
                 title: widget.title,
-                subtitle: maintenanceLabel(context, '实时详情 · 部分字段需要更高权限'),
                 onClose: () => Navigator.of(context).pop(),
                 trailingActions: [
                   if (widget.actions.isNotEmpty)
