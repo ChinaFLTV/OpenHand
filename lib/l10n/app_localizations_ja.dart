@@ -12280,4 +12280,91 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceShowReadableValue => '読みやすい値を表示';
+
+  @override
+  String get maintenanceDetailUser => 'ユーザー';
+
+  @override
+  String get maintenanceDetailTerminal => '端末';
+
+  @override
+  String get maintenanceDetailLoginTime => 'ログイン時刻';
+
+  @override
+  String get maintenanceDetailSource => '接続元';
+
+  @override
+  String get maintenanceDetailTarget => '対象';
+
+  @override
+  String get maintenanceDetailPermissions => '権限';
+
+  @override
+  String get maintenanceDetailSchedule => 'スケジュール';
+
+  @override
+  String get maintenanceDetailTime => '時刻';
+
+  @override
+  String get maintenanceDetailMessage => 'メッセージ';
+
+  @override
+  String get maintenanceDetailImage => 'イメージ';
+
+  @override
+  String get maintenanceDetailCreated => '作成時刻';
+
+  @override
+  String get maintenanceDetailPorts => 'ポート';
+
+  @override
+  String get maintenanceDetailRestartPolicy => '再起動ポリシー';
+
+  @override
+  String get maintenanceDetailNotifyAccess => '通知アクセス';
+
+  @override
+  String get maintenanceDetailRestartDelay => '再起動間隔';
+
+  @override
+  String get maintenanceDetailStartTimeout => '起動タイムアウト';
+
+  @override
+  String get maintenanceDetailStopTimeout => '停止タイムアウト';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => 'ウォッチドッグタイムアウト';
+
+  @override
+  String get maintenanceDetailUmask => '権限マスク';
+
+  @override
+  String get maintenanceDetailTracer => 'トレースプロセス';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => 'ファイル記述子容量';
+
+  @override
+  String get maintenanceDetailSoftLimit => 'ソフトリミット';
+
+  @override
+  String get maintenanceDetailHardLimit => 'ハードリミット';
+
+  @override
+  String get maintenanceDetailEnabled => '有効';
+
+  @override
+  String get maintenanceDetailDisabled => '無効';
+
+  @override
+  String get maintenanceDetailNone => 'なし';
+
+  @override
+  String get maintenanceDetailSearchDomain => '検索ドメイン';
+
+  @override
+  String get maintenanceDetailDomain => 'ドメイン';
+
+  @override
+  String get maintenanceDetailOptions => 'オプション';
 }

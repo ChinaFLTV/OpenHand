@@ -701,14 +701,26 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               _MachineTerminalDialogHeader(
                 icon: Icons.article_outlined,
                 title: maintenanceLabel(context, title),
-                subtitle: maintenanceLabel(context, '当前采样 · 完整原始内容'),
+                subtitle: maintenanceLabel(context, '已采集 · 查看详情'),
                 onClose: () => Navigator.of(context).pop(),
               ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: SingleChildScrollView(
-                    child: _MaintenanceReadout(text: text),
+                    child: _MaintenanceReadout(
+                      text: text,
+                      section:
+                          _maintenanceSectionLabels.entries
+                              .where((entry) => entry.value == title)
+                              .firstOrNull
+                              ?.key ??
+                          (title == '文件系统'
+                              ? 'filesystems'
+                              : title == '网卡详情'
+                              ? 'interfaces'
+                              : 'system'),
+                    ),
                   ),
                 ),
               ),
@@ -1844,7 +1856,7 @@ List<Widget> _sectionWidgets(
     .map(
       (name) => _MaintenanceCard(
         title: _maintenanceSectionLabels[name] ?? name,
-        child: _MaintenanceReadout(text: data.text(name)),
+        child: _MaintenanceReadout(text: data.text(name), section: name),
       ),
     )
     .toList();
@@ -1887,35 +1899,11 @@ Map<String, String> _maintenanceFacts(MachineMaintenanceSnapshot data) {
 }
 
 List<List<String>> _maintenanceConnections(MachineMaintenanceSnapshot data) {
-  final rows = <List<String>>[];
-  for (final line in data.text('sockets').split('\n')) {
-    final fields = line.trim().split(RegExp(r'\s+'));
-    if (fields.length < 4 ||
-        !RegExp(
-          r'^(tcp|udp)(?:4|6|46)?$',
-          caseSensitive: false,
-        ).hasMatch(fields[0])) {
-      continue;
-    }
-    if (data.text('platform') == 'Windows') {
-      rows.add([
-        fields[0].toUpperCase(),
-        fields[1],
-        fields[2],
-        fields[0].toLowerCase() == 'tcp' && fields.length > 4 ? fields[3] : '—',
-      ]);
-    } else if (fields.length >= 5 && int.tryParse(fields[1]) != null) {
-      rows.add([
-        fields[0].toUpperCase(),
-        fields[3],
-        fields[4],
-        fields.length > 5 && fields[0].startsWith('tcp') ? fields[5] : '—',
-      ]);
-    } else if (fields.length >= 6) {
-      rows.add([fields[0].toUpperCase(), fields[4], fields[5], fields[1]]);
-    }
-  }
-  return rows;
+  final readout = MachineMaintenanceReadout.parse(
+    data.text('sockets'),
+    'sockets',
+  );
+  return readout.fields ? [] : readout.rows;
 }
 
 String _maintenanceProcessState(String state) =>
@@ -2724,47 +2712,88 @@ class _MaintenanceNotice extends StatelessWidget {
 }
 
 class _MaintenanceReadout extends StatefulWidget {
-  const _MaintenanceReadout({required this.text});
+  const _MaintenanceReadout({required this.text, this.section = ''});
   final String text;
+  final String section;
   @override
   State<_MaintenanceReadout> createState() => _MaintenanceReadoutState();
 }
 
 class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
-  bool _original = false;
+  late MachineMaintenanceReadout _data;
+  @override
+  void initState() {
+    super.initState();
+    _data = MachineMaintenanceReadout.parse(widget.text, widget.section);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MaintenanceReadout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text || oldWidget.section != widget.section) {
+      _data = MachineMaintenanceReadout.parse(widget.text, widget.section);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final localized = maintenanceLocalizedOutput(context, widget.text);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    if (_data.rows.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    if (!_data.fields) {
+      return _MaintenanceTable(
+        headers: _data.headers
+            .map((label) => maintenanceDetailLabel(context, label))
+            .toList(),
+        rows: [
+          for (var i = 0; i < _data.rows.length; i++)
+            OpenHandOperationalRankRow(
+              rowKey: i,
+              value: 0,
+              cells: [
+                for (var c = 0; c < _data.rows[i].length; c++)
+                  _data.headers[c] == '名称'
+                      ? maintenanceDetailLabel(context, _data.rows[i][c])
+                      : _data.rows[i][c],
+              ],
+            ),
+        ],
+        maxBodyHeight: 480,
+      );
+    }
+    return _MaintenanceGrid(
+      minWidth: 220,
       children: [
-        if (localized != widget.text)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: TextButton.icon(
-              icon: Icon(_original ? Icons.translate : Icons.code, size: 16),
-              label: Text(
-                maintenanceLabel(context, _original ? '本地化字段' : '原始输出'),
+        for (final row in _data.rows)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
               ),
-              onPressed: () => setState(() => _original = !_original),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Tooltip(
+                  message: row.first,
+                  child: Text(
+                    maintenanceDetailLabel(context, row.first),
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (const ['io', 'memory'].contains(widget.section) &&
+                    num.tryParse(row.last.split(' ').first) != null)
+                  _MaintenanceNumber(raw: row.last, maxLines: 3)
+                else
+                  SelectableText(
+                    maintenanceDetailValue(context, row.last),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+              ],
             ),
           ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SelectableText(
-            widget.text.isEmpty
-                ? maintenanceLabel(context, '暂无可用数据')
-                : _original
-                ? widget.text
-                : localized,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              height: 1.65,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
       ],
     );
   }

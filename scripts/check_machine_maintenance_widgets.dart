@@ -468,10 +468,35 @@ void main() {
       supportedLocales: AppLocalizations.supportedLocales,
       home: const Scaffold(body: _MaintenanceReadout(text: 'ProductVersion: 27.0.1'))));
     await tester.pumpAndSettle();
-    expect(find.text('产品版本: 27.0.1'), findsOneWidget);
-    await tester.tap(find.text('原始输出'));
-    await tester.pumpAndSettle();
-    expect(find.text('ProductVersion: 27.0.1'), findsOneWidget);
+    expect(find.text('产品版本'), findsOneWidget);
+    expect(find.text('27.0.1'), findsOneWidget);
+    expect(find.text('原始输出'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('二级详情结构化展示适配窄窗口与六种语言', (tester) async {
+    final fixtures = <String, String>{
+      'users': 'root pts/7 Sep 29 16:27 (host.example)',
+      'dns': '# comment\\nnameserver 2001:db8::1',
+      'status': 'Name: worker\\nRestart=no\\nExecStart=/bin/app --value=a=b',
+      'io': 'read_bytes: 5195840788075',
+      'logs': '-- No entries --',
+      'containers': 'CONTAINER ID  IMAGE         COMMAND          STATUS       PORTS       NAMES\\nabc           app:latest    "sh -c hello"    Up 2 hours               worker',
+    };
+    for (final locale in AppLocalizations.supportedLocales) {
+      await tester.binding.setSurfaceSize(const Size(480, 900));
+      for (final fixture in fixtures.entries) {
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(
+            text: fixture.value, section: fixture.key)))));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('原始输出'), findsNothing);
+      }
+    }
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });

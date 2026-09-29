@@ -12688,4 +12688,91 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceShowReadableValue => 'Lesbaren Wert anzeigen';
+
+  @override
+  String get maintenanceDetailUser => 'Benutzer';
+
+  @override
+  String get maintenanceDetailTerminal => 'Terminal';
+
+  @override
+  String get maintenanceDetailLoginTime => 'Anmeldezeit';
+
+  @override
+  String get maintenanceDetailSource => 'Quelle';
+
+  @override
+  String get maintenanceDetailTarget => 'Ziel';
+
+  @override
+  String get maintenanceDetailPermissions => 'Berechtigungen';
+
+  @override
+  String get maintenanceDetailSchedule => 'Zeitplan';
+
+  @override
+  String get maintenanceDetailTime => 'Zeit';
+
+  @override
+  String get maintenanceDetailMessage => 'Nachricht';
+
+  @override
+  String get maintenanceDetailImage => 'Image';
+
+  @override
+  String get maintenanceDetailCreated => 'Erstellt';
+
+  @override
+  String get maintenanceDetailPorts => 'Ports';
+
+  @override
+  String get maintenanceDetailRestartPolicy => 'Neustartrichtlinie';
+
+  @override
+  String get maintenanceDetailNotifyAccess => 'Benachrichtigungszugriff';
+
+  @override
+  String get maintenanceDetailRestartDelay => 'Neustartverzögerung';
+
+  @override
+  String get maintenanceDetailStartTimeout => 'Startzeitlimit';
+
+  @override
+  String get maintenanceDetailStopTimeout => 'Stoppzeitlimit';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => 'Watchdog-Zeitlimit';
+
+  @override
+  String get maintenanceDetailUmask => 'Berechtigungsmaske';
+
+  @override
+  String get maintenanceDetailTracer => 'Tracing-Prozess';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => 'Dateideskriptorkapazität';
+
+  @override
+  String get maintenanceDetailSoftLimit => 'Weiches Limit';
+
+  @override
+  String get maintenanceDetailHardLimit => 'Hartes Limit';
+
+  @override
+  String get maintenanceDetailEnabled => 'Aktiviert';
+
+  @override
+  String get maintenanceDetailDisabled => 'Deaktiviert';
+
+  @override
+  String get maintenanceDetailNone => 'Keine';
+
+  @override
+  String get maintenanceDetailSearchDomain => 'Suchdomänen';
+
+  @override
+  String get maintenanceDetailDomain => 'Domäne';
+
+  @override
+  String get maintenanceDetailOptions => 'Optionen';
 }

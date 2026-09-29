@@ -12156,6 +12156,93 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceShowReadableValue => '显示易读数值';
+
+  @override
+  String get maintenanceDetailUser => '用户';
+
+  @override
+  String get maintenanceDetailTerminal => '终端';
+
+  @override
+  String get maintenanceDetailLoginTime => '登录时间';
+
+  @override
+  String get maintenanceDetailSource => '来源';
+
+  @override
+  String get maintenanceDetailTarget => '目标';
+
+  @override
+  String get maintenanceDetailPermissions => '权限';
+
+  @override
+  String get maintenanceDetailSchedule => '计划';
+
+  @override
+  String get maintenanceDetailTime => '时间';
+
+  @override
+  String get maintenanceDetailMessage => '消息';
+
+  @override
+  String get maintenanceDetailImage => '镜像';
+
+  @override
+  String get maintenanceDetailCreated => '创建时间';
+
+  @override
+  String get maintenanceDetailPorts => '端口';
+
+  @override
+  String get maintenanceDetailRestartPolicy => '重启策略';
+
+  @override
+  String get maintenanceDetailNotifyAccess => '通知访问';
+
+  @override
+  String get maintenanceDetailRestartDelay => '重启间隔';
+
+  @override
+  String get maintenanceDetailStartTimeout => '启动超时';
+
+  @override
+  String get maintenanceDetailStopTimeout => '停止超时';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => '监控超时';
+
+  @override
+  String get maintenanceDetailUmask => '权限掩码';
+
+  @override
+  String get maintenanceDetailTracer => '跟踪进程';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => '文件描述符上限';
+
+  @override
+  String get maintenanceDetailSoftLimit => '软限制';
+
+  @override
+  String get maintenanceDetailHardLimit => '硬限制';
+
+  @override
+  String get maintenanceDetailEnabled => '启用';
+
+  @override
+  String get maintenanceDetailDisabled => '禁用';
+
+  @override
+  String get maintenanceDetailNone => '无';
+
+  @override
+  String get maintenanceDetailSearchDomain => '域名搜索';
+
+  @override
+  String get maintenanceDetailDomain => '域名';
+
+  @override
+  String get maintenanceDetailOptions => '选项';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24292,4 +24379,91 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceShowReadableValue => '顯示易讀數值';
+
+  @override
+  String get maintenanceDetailUser => '使用者';
+
+  @override
+  String get maintenanceDetailTerminal => '終端';
+
+  @override
+  String get maintenanceDetailLoginTime => '登入時間';
+
+  @override
+  String get maintenanceDetailSource => '來源';
+
+  @override
+  String get maintenanceDetailTarget => '目標';
+
+  @override
+  String get maintenanceDetailPermissions => '權限';
+
+  @override
+  String get maintenanceDetailSchedule => '排程';
+
+  @override
+  String get maintenanceDetailTime => '時間';
+
+  @override
+  String get maintenanceDetailMessage => '訊息';
+
+  @override
+  String get maintenanceDetailImage => '映像';
+
+  @override
+  String get maintenanceDetailCreated => '建立時間';
+
+  @override
+  String get maintenanceDetailPorts => '連接埠';
+
+  @override
+  String get maintenanceDetailRestartPolicy => '重新啟動策略';
+
+  @override
+  String get maintenanceDetailNotifyAccess => '通知存取';
+
+  @override
+  String get maintenanceDetailRestartDelay => '重新啟動間隔';
+
+  @override
+  String get maintenanceDetailStartTimeout => '啟動逾時';
+
+  @override
+  String get maintenanceDetailStopTimeout => '停止逾時';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => '監控逾時';
+
+  @override
+  String get maintenanceDetailUmask => '權限遮罩';
+
+  @override
+  String get maintenanceDetailTracer => '追蹤程序';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => '檔案描述元容量';
+
+  @override
+  String get maintenanceDetailSoftLimit => '軟限制';
+
+  @override
+  String get maintenanceDetailHardLimit => '硬限制';
+
+  @override
+  String get maintenanceDetailEnabled => '啟用';
+
+  @override
+  String get maintenanceDetailDisabled => '停用';
+
+  @override
+  String get maintenanceDetailNone => '無';
+
+  @override
+  String get maintenanceDetailSearchDomain => '搜尋網域';
+
+  @override
+  String get maintenanceDetailDomain => '網域';
+
+  @override
+  String get maintenanceDetailOptions => '選項';
 }

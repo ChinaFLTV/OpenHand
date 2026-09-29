@@ -12726,4 +12726,91 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceShowReadableValue => 'Afficher la valeur simplifiée';
+
+  @override
+  String get maintenanceDetailUser => 'Utilisateur';
+
+  @override
+  String get maintenanceDetailTerminal => 'Terminal';
+
+  @override
+  String get maintenanceDetailLoginTime => 'Heure de connexion';
+
+  @override
+  String get maintenanceDetailSource => 'Source';
+
+  @override
+  String get maintenanceDetailTarget => 'Cible';
+
+  @override
+  String get maintenanceDetailPermissions => 'Autorisations';
+
+  @override
+  String get maintenanceDetailSchedule => 'Planification';
+
+  @override
+  String get maintenanceDetailTime => 'Heure';
+
+  @override
+  String get maintenanceDetailMessage => 'Message';
+
+  @override
+  String get maintenanceDetailImage => 'Image';
+
+  @override
+  String get maintenanceDetailCreated => 'Création';
+
+  @override
+  String get maintenanceDetailPorts => 'Ports';
+
+  @override
+  String get maintenanceDetailRestartPolicy => 'Politique de redémarrage';
+
+  @override
+  String get maintenanceDetailNotifyAccess => 'Accès aux notifications';
+
+  @override
+  String get maintenanceDetailRestartDelay => 'Délai de redémarrage';
+
+  @override
+  String get maintenanceDetailStartTimeout => 'Délai de démarrage';
+
+  @override
+  String get maintenanceDetailStopTimeout => 'Délai d’arrêt';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => 'Délai du watchdog';
+
+  @override
+  String get maintenanceDetailUmask => 'Masque de permissions';
+
+  @override
+  String get maintenanceDetailTracer => 'Processus traceur';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => 'Capacité des descripteurs';
+
+  @override
+  String get maintenanceDetailSoftLimit => 'Limite souple';
+
+  @override
+  String get maintenanceDetailHardLimit => 'Limite stricte';
+
+  @override
+  String get maintenanceDetailEnabled => 'Activé';
+
+  @override
+  String get maintenanceDetailDisabled => 'Désactivé';
+
+  @override
+  String get maintenanceDetailNone => 'Aucun';
+
+  @override
+  String get maintenanceDetailSearchDomain => 'Domaines de recherche';
+
+  @override
+  String get maintenanceDetailDomain => 'Domaine';
+
+  @override
+  String get maintenanceDetailOptions => 'Options';
 }

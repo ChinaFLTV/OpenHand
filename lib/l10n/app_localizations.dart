@@ -22465,6 +22465,180 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'显示易读数值'**
   String get maintenanceShowReadableValue;
+
+  /// No description provided for @maintenanceDetailUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户'**
+  String get maintenanceDetailUser;
+
+  /// No description provided for @maintenanceDetailTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端'**
+  String get maintenanceDetailTerminal;
+
+  /// No description provided for @maintenanceDetailLoginTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录时间'**
+  String get maintenanceDetailLoginTime;
+
+  /// No description provided for @maintenanceDetailSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源'**
+  String get maintenanceDetailSource;
+
+  /// No description provided for @maintenanceDetailTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标'**
+  String get maintenanceDetailTarget;
+
+  /// No description provided for @maintenanceDetailPermissions.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限'**
+  String get maintenanceDetailPermissions;
+
+  /// No description provided for @maintenanceDetailSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'计划'**
+  String get maintenanceDetailSchedule;
+
+  /// No description provided for @maintenanceDetailTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间'**
+  String get maintenanceDetailTime;
+
+  /// No description provided for @maintenanceDetailMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'消息'**
+  String get maintenanceDetailMessage;
+
+  /// No description provided for @maintenanceDetailImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像'**
+  String get maintenanceDetailImage;
+
+  /// No description provided for @maintenanceDetailCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建时间'**
+  String get maintenanceDetailCreated;
+
+  /// No description provided for @maintenanceDetailPorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'端口'**
+  String get maintenanceDetailPorts;
+
+  /// No description provided for @maintenanceDetailRestartPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启策略'**
+  String get maintenanceDetailRestartPolicy;
+
+  /// No description provided for @maintenanceDetailNotifyAccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知访问'**
+  String get maintenanceDetailNotifyAccess;
+
+  /// No description provided for @maintenanceDetailRestartDelay.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启间隔'**
+  String get maintenanceDetailRestartDelay;
+
+  /// No description provided for @maintenanceDetailStartTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动超时'**
+  String get maintenanceDetailStartTimeout;
+
+  /// No description provided for @maintenanceDetailStopTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止超时'**
+  String get maintenanceDetailStopTimeout;
+
+  /// No description provided for @maintenanceDetailWatchdogTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'监控超时'**
+  String get maintenanceDetailWatchdogTimeout;
+
+  /// No description provided for @maintenanceDetailUmask.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限掩码'**
+  String get maintenanceDetailUmask;
+
+  /// No description provided for @maintenanceDetailTracer.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟踪进程'**
+  String get maintenanceDetailTracer;
+
+  /// No description provided for @maintenanceDetailDescriptorLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件描述符上限'**
+  String get maintenanceDetailDescriptorLimit;
+
+  /// No description provided for @maintenanceDetailSoftLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'软限制'**
+  String get maintenanceDetailSoftLimit;
+
+  /// No description provided for @maintenanceDetailHardLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'硬限制'**
+  String get maintenanceDetailHardLimit;
+
+  /// No description provided for @maintenanceDetailEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get maintenanceDetailEnabled;
+
+  /// No description provided for @maintenanceDetailDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用'**
+  String get maintenanceDetailDisabled;
+
+  /// No description provided for @maintenanceDetailNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get maintenanceDetailNone;
+
+  /// No description provided for @maintenanceDetailSearchDomain.
+  ///
+  /// In zh, this message translates to:
+  /// **'域名搜索'**
+  String get maintenanceDetailSearchDomain;
+
+  /// No description provided for @maintenanceDetailDomain.
+  ///
+  /// In zh, this message translates to:
+  /// **'域名'**
+  String get maintenanceDetailDomain;
+
+  /// No description provided for @maintenanceDetailOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'选项'**
+  String get maintenanceDetailOptions;
 }
 
 class _AppLocalizationsDelegate

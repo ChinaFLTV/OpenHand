@@ -12552,4 +12552,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceShowReadableValue => 'Show readable value';
+
+  @override
+  String get maintenanceDetailUser => 'User';
+
+  @override
+  String get maintenanceDetailTerminal => 'Terminal';
+
+  @override
+  String get maintenanceDetailLoginTime => 'Login time';
+
+  @override
+  String get maintenanceDetailSource => 'Source';
+
+  @override
+  String get maintenanceDetailTarget => 'Target';
+
+  @override
+  String get maintenanceDetailPermissions => 'Permissions';
+
+  @override
+  String get maintenanceDetailSchedule => 'Schedule';
+
+  @override
+  String get maintenanceDetailTime => 'Time';
+
+  @override
+  String get maintenanceDetailMessage => 'Message';
+
+  @override
+  String get maintenanceDetailImage => 'Image';
+
+  @override
+  String get maintenanceDetailCreated => 'Created';
+
+  @override
+  String get maintenanceDetailPorts => 'Ports';
+
+  @override
+  String get maintenanceDetailRestartPolicy => 'Restart policy';
+
+  @override
+  String get maintenanceDetailNotifyAccess => 'Notification access';
+
+  @override
+  String get maintenanceDetailRestartDelay => 'Restart delay';
+
+  @override
+  String get maintenanceDetailStartTimeout => 'Start timeout';
+
+  @override
+  String get maintenanceDetailStopTimeout => 'Stop timeout';
+
+  @override
+  String get maintenanceDetailWatchdogTimeout => 'Watchdog timeout';
+
+  @override
+  String get maintenanceDetailUmask => 'Permission mask';
+
+  @override
+  String get maintenanceDetailTracer => 'Tracer process';
+
+  @override
+  String get maintenanceDetailDescriptorLimit => 'File descriptor capacity';
+
+  @override
+  String get maintenanceDetailSoftLimit => 'Soft limit';
+
+  @override
+  String get maintenanceDetailHardLimit => 'Hard limit';
+
+  @override
+  String get maintenanceDetailEnabled => 'Enabled';
+
+  @override
+  String get maintenanceDetailDisabled => 'Disabled';
+
+  @override
+  String get maintenanceDetailNone => 'None';
+
+  @override
+  String get maintenanceDetailSearchDomain => 'Search domains';
+
+  @override
+  String get maintenanceDetailDomain => 'Domain';
+
+  @override
+  String get maintenanceDetailOptions => 'Options';
 }

@@ -712,3 +712,114 @@ String? _maintenanceCounterLabel(
   }
   return null;
 }
+
+String maintenanceDetailLabel(BuildContext context, String field) {
+  final l10n = AppLocalizations.of(context)!;
+  const aliases = {
+    'CONTAINER ID': 'ID',
+    'IMAGE': '镜像',
+    'COMMAND': '启动命令',
+    'CREATED': '创建时间',
+    'STATUS': '状态',
+    'PORTS': '端口',
+    'NAMES': '名称',
+    'Limit': '资源限制',
+    'Soft Limit': '软限制',
+    'Hard Limit': '硬限制',
+    'Units': '单位',
+    'Name': '名称',
+    'Description': '描述',
+    'State': '状态',
+    'ActiveState': '状态',
+    'SubState': '状态详情',
+    'Restart': '重启策略',
+    'NotifyAccess': '通知访问',
+    'RestartUSec': '重启间隔',
+    'TimeoutStartUSec': '启动超时',
+    'TimeoutStopUSec': '停止超时',
+    'WatchdogUSec': '监控超时',
+    'Umask': '权限掩码',
+    'TracerPid': '跟踪进程',
+    'FDSize': '文件描述符上限',
+    'Pid': 'PID',
+    'MainPID': 'PID',
+    'Tgid': 'PID',
+    'PPid': '父进程 ID',
+    'Uid': '用户 ID',
+    'Gid': '组 ID',
+    'Threads': '线程',
+    'VmRSS': '驻留内存',
+    'VmSize': '虚拟内存',
+    'read_bytes': '读取字节',
+    'write_bytes': '写入字节',
+    'rchar': '读取字节',
+    'wchar': '写入字节',
+    'syscr': '累计读取次数',
+    'syscw': '累计写入次数',
+    'LogonId': 'ID',
+    'LogonType': '类型',
+    'StartTime': '登录时间',
+    'UnitFileState': '启动方式',
+    'ExecStart': '启动命令',
+    'FragmentPath': '路径',
+    'search': '域名搜索',
+    'domain': '域名',
+    'options': '选项',
+  };
+  final name = aliases[field] ?? field;
+  final translated = switch (name) {
+    '域名搜索' => l10n.maintenanceDetailSearchDomain,
+    '域名' => l10n.maintenanceDetailDomain,
+    '选项' => l10n.maintenanceDetailOptions,
+    '用户' => l10n.maintenanceDetailUser,
+    '终端' => l10n.maintenanceDetailTerminal,
+    '登录时间' => l10n.maintenanceDetailLoginTime,
+    '来源' => l10n.maintenanceDetailSource,
+    '目标' => l10n.maintenanceDetailTarget,
+    '权限' => l10n.maintenanceDetailPermissions,
+    '计划' => l10n.maintenanceDetailSchedule,
+    '时间' => l10n.maintenanceDetailTime,
+    '消息' => l10n.maintenanceDetailMessage,
+    '镜像' => l10n.maintenanceDetailImage,
+    '创建时间' => l10n.maintenanceDetailCreated,
+    '端口' => l10n.maintenanceDetailPorts,
+    '重启策略' => l10n.maintenanceDetailRestartPolicy,
+    '通知访问' => l10n.maintenanceDetailNotifyAccess,
+    '重启间隔' => l10n.maintenanceDetailRestartDelay,
+    '启动超时' => l10n.maintenanceDetailStartTimeout,
+    '停止超时' => l10n.maintenanceDetailStopTimeout,
+    '监控超时' => l10n.maintenanceDetailWatchdogTimeout,
+    '权限掩码' => l10n.maintenanceDetailUmask,
+    '跟踪进程' => l10n.maintenanceDetailTracer,
+    '文件描述符上限' => l10n.maintenanceDetailDescriptorLimit,
+    '软限制' => l10n.maintenanceDetailSoftLimit,
+    '硬限制' => l10n.maintenanceDetailHardLimit,
+    '启用' => l10n.maintenanceDetailEnabled,
+    '禁用' => l10n.maintenanceDetailDisabled,
+    '无' => l10n.maintenanceDetailNone,
+    _ => maintenanceLabel(context, name),
+  };
+  if (translated != field ||
+      !RegExp('^[A-Za-z_]').hasMatch(field) ||
+      const ['ID', 'PID', 'MAC', 'MTU'].contains(field)) {
+    return translated;
+  }
+  final legacy = maintenanceLocalizedOutput(context, '$field:');
+  if (legacy != '$field:') return legacy.substring(0, legacy.length - 1);
+  return l10n.maintenanceExtendedMetric(field);
+}
+
+String maintenanceDetailValue(BuildContext context, String value) {
+  final label = switch (value) {
+    'yes' || 'true' || 'enabled' => '启用',
+    'no' || 'false' || 'disabled' => '禁用',
+    'none' => '无',
+    'active' || 'running' => '运行中',
+    'inactive' || 'dead' => '未运行',
+    'S (sleeping)' => '休眠',
+    'R (running)' => '运行',
+    'Z (zombie)' => '僵尸',
+    _ => value,
+  };
+  return label == value ? value : maintenanceDetailLabel(context, label);
+}
