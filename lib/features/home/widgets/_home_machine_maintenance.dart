@@ -1468,88 +1468,110 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         '',
                         switch (key) {
                           'util' => Icons.speed_rounded,
-                          'memoryUsed' => Icons.memory_rounded,
+                          'memoryUsed' || 'sharedUsed' => Icons.memory_rounded,
+                          'renderer' => Icons.layers_outlined,
+                          'cores' => Icons.developer_board_rounded,
                           'temperature' => Icons.thermostat_rounded,
                           _ => Icons.bolt_rounded,
                         },
-                        key == 'temperature' ? cs.tertiary : cs.primary,
-                        key == 'util'
-                            ? (device.metrics[key] == null
-                                  ? null
-                                  : device.metrics[key]! / 100)
-                            : null,
+                        switch (key) {
+                          'memoryUsed' || 'sharedUsed' => cs.tertiary,
+                          'temperature' || 'renderer' => cs.secondary,
+                          _ => cs.primary,
+                        },
+                        null,
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _MaintenanceGrid(
-                  minWidth: 280,
-                  children: [
-                    _MaintenanceCard(
-                      title: l10n.maintenanceGpuTrend,
-                      icon: Icons.show_chart_rounded,
-                      child: SizedBox(
-                        height: 190,
-                        child: (_gpuHistory[device.id]?.length ?? 0) >= 2
-                            ? _MaintenanceTrend(
-                                key: ValueKey(device.id),
-                                points: List.of(_gpuHistory[device.id]!),
-                              )
-                            : Center(child: Text(value(device, 'util'))),
-                      ),
-                    ),
-                    if ((device.metrics['memoryTotal'] ?? 0) > 0 &&
-                        device.metrics['memoryUsed'] != null)
-                      _MaintenanceCard(
-                        title: l10n.maintenanceGpuMemoryUsed,
-                        icon: Icons.pie_chart_outline_rounded,
-                        child: _MaintenanceVisual(
-                          donut: true,
-                          segments: [
-                            OpenHandChartSegment(
-                              label: l10n.maintenanceGpuMemoryUsed,
-                              value: device.metrics['memoryUsed']!.clamp(
-                                0,
-                                device.metrics['memoryTotal']!,
-                              ),
-                              valueLabel: value(device, 'memoryUsed'),
-                              color: cs.primary,
+                if ((_gpuHistory[device.id]?.length ?? 0) >= 2 ||
+                    ((device.metrics['memoryTotal'] ?? 0) > 0 &&
+                        device.metrics['memoryUsed'] != null)) ...[
+                  const SizedBox(height: 12),
+                  _MaintenanceGrid(
+                    minWidth: 280,
+                    children: [
+                      if ((_gpuHistory[device.id]?.length ?? 0) >= 2)
+                        _MaintenanceCard(
+                          title: l10n.maintenanceGpuTrend,
+                          icon: Icons.show_chart_rounded,
+                          child: SizedBox(
+                            height: 190,
+                            child: _MaintenanceTrend(
+                              key: ValueKey(device.id),
+                              points: List.of(_gpuHistory[device.id]!),
                             ),
-                            OpenHandChartSegment(
-                              label: l10n.maintenanceGpuMemoryFree,
-                              value: math.max(
-                                0,
-                                device.metrics['memoryTotal']! -
-                                    device.metrics['memoryUsed']!,
-                              ),
-                              color: cs.secondary,
-                            ),
-                          ],
+                          ),
                         ),
+                      if ((device.metrics['memoryTotal'] ?? 0) > 0 &&
+                          device.metrics['memoryUsed'] != null)
+                        _MaintenanceCard(
+                          title: l10n.maintenanceGpuMemoryUsed,
+                          icon: Icons.pie_chart_outline_rounded,
+                          child: _MaintenanceVisual(
+                            donut: true,
+                            segments: [
+                              OpenHandChartSegment(
+                                label: l10n.maintenanceGpuMemoryUsed,
+                                value: device.metrics['memoryUsed']!.clamp(
+                                  0,
+                                  device.metrics['memoryTotal']!,
+                                ),
+                                valueLabel: value(device, 'memoryUsed'),
+                                color: cs.primary,
+                              ),
+                              OpenHandChartSegment(
+                                label: l10n.maintenanceGpuMemoryFree,
+                                value: math.max(
+                                  0,
+                                  device.metrics['memoryTotal']! -
+                                      device.metrics['memoryUsed']!,
+                                ),
+                                color: cs.secondary,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                _MaintenanceCard(
+                  title: maintenanceLabel(context, '基本信息'),
+                  icon: Icons.info_outline_rounded,
+                  scrollBody: false,
+                  child: _MaintenanceGrid(
+                    maxColumns: 2,
+                    children: [
+                      _MaintenanceFacts(
+                        labelWidth: 140,
+                        values: {
+                          'UUID / ID': device.id,
+                          l10n.maintenanceGpuSource: device.source,
+                          for (final entry in device.info.entries)
+                            switch (entry.key) {
+                              'vendor' => l10n.maintenanceGpuVendor,
+                              'driver' => l10n.maintenanceGpuDriver,
+                              'bus' => l10n.maintenanceGpuBus,
+                              'state' => maintenanceLabel(context, '状态'),
+                              _ => 'Metal',
+                            }: maintenanceDetailValue(
+                              context,
+                              entry.value,
+                            ),
+                        },
                       ),
-                    _MaintenanceFacts(
-                      values: {
-                        'UUID / ID': device.id,
-                        l10n.maintenanceGpuSource: device.source,
-                        for (final entry in device.info.entries)
-                          switch (entry.key) {
-                            'vendor' => l10n.maintenanceGpuVendor,
-                            'driver' => l10n.maintenanceGpuDriver,
-                            'bus' => l10n.maintenanceGpuBus,
-                            'state' => maintenanceLabel(context, '状态'),
-                            _ => 'Metal',
-                          }: maintenanceDetailValue(
-                            context,
-                            entry.value,
-                          ),
-                        for (final entry in device.metrics.entries)
-                          labels[entry.key] ?? entry.key: value(
-                            device,
-                            entry.key,
-                          ),
-                      },
-                    ),
-                  ],
+                      _MaintenanceFacts(
+                        labelWidth: 140,
+                        values: {
+                          for (final entry in device.metrics.entries)
+                            labels[entry.key] ?? entry.key: value(
+                              device,
+                              entry.key,
+                            ),
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -3320,8 +3342,9 @@ class _MaintenanceTable extends StatelessWidget {
 }
 
 class _MaintenanceFacts extends StatelessWidget {
-  const _MaintenanceFacts({required this.values});
+  const _MaintenanceFacts({required this.values, this.labelWidth = 78});
   final Map<String, String> values;
+  final double labelWidth;
   @override
   Widget build(BuildContext context) => Column(
     children: [
@@ -3341,7 +3364,7 @@ class _MaintenanceFacts extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 78,
+                width: labelWidth,
                 child: Text(
                   maintenanceLabel(context, entry.key),
                   style: TextStyle(
@@ -3441,7 +3464,10 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
         ? widget.raw
         : '${widget.raw} ${widget.unit}';
     var readable = widget.readable ?? raw;
-    if (widget.readable == null && number != null && number.isFinite) {
+    if (widget.readable == null &&
+        number != null &&
+        number.isFinite &&
+        !RegExp(r'^[KMGTPE]i?B$').hasMatch(unit)) {
       var scaled = number;
       var suffix = unit;
       if (unit == 'B') {

@@ -74,6 +74,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   String platform = 'Linux';
   bool powershell = false;
   bool fail = false;
+  String? gpuOutput;
   Object? failure;
   Completer<String>? pending;
   MachineTerminalUploadCancelCheck? cancelled;
@@ -94,6 +95,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     if (failure != null) throw failure!;
     if (fail) throw StateError('模拟连接中断');
     if (pending != null) return pending!.future;
+    if (gpuOutput != null && command.contains('section gpu_')) return gpuOutput!;
     if (command.contains('section gpu_nvidia')) return '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\nGPU主机\\n__OH_OPS_gpu_nvidia__\\nGPU-1,NVIDIA Test,550.1,00000000:01:00.0,45,1024,8192,60,80.5,150,1800,7000,0,P2\\n__OH_OPS_gpu_processes__\\nGPU-1,42,compute,128\\n__OH_OPS_end__\\n';
     return '''
     "r'''"
@@ -1373,6 +1375,48 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+
+  testWidgets('Apple GPU 首次采样不占空趋势框，容量保持单位且详情分栏', (tester) async {
+    final service = _MaintenanceFixture()..platform = 'Darwin';
+    service.gpuOutput = ['__OH_OPS_platform__', 'Darwin', '__OH_OPS_host__', 'GPU主机',
+      '__OH_OPS_gpu_apple__', jsonEncode({'SPDisplaysDataType': [{'sppci_model': 'Apple M4', 'sppci_cores': '10', 'spdisplays_vendor': 'Apple', 'sppci_bus': 'builtin'}]}),
+      '__OH_OPS_gpu_accelerators__', '+-o GPU "model" = "Apple M4" "Device Utilization %"=49 "Renderer Utilization %"=48 "In use system memory"=1053818880', '__OH_OPS_end__'].join('\\n');
+    await tester.binding.setSurfaceSize(const Size(1440, 1100));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: MaterialApp(builder: (context, child) => LayoutBuilder(builder: (context, constraints) => MediaQuery(data: MediaQuery.of(context).copyWith(size: constraints.biggest), child: child!)), theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'), locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales, home: const Scaffold(body: RepaintBoundary(key: ValueKey('GPU预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GPU 管理'));
+    await tester.pumpAndSettle();
+    expect(find.text('Apple M4'), findsOneWidget);
+    expect(find.text('GPU 利用率趋势'), findsNothing);
+    final facts = find.byType(_MaintenanceFacts);
+    expect(facts, findsNWidgets(2));
+    expect(tester.getRect(facts.first).top, tester.getRect(facts.last).top);
+    expect(tester.getRect(facts.last).right, greaterThan(1200));
+    expect(find.byIcon(Icons.memory_rounded), findsWidgets);
+    await tester.tap(find.byTooltip('刷新当前分区'));
+    await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceTrend), findsOneWidget);
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('GPU预览')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/maintenance-gpu-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: _MaintenanceNumber(raw: '1005 MB'))));
+    await tester.pumpAndSettle();
+    expect(find.text('1005 MB'), findsOneWidget);
+    expect(find.text('1k MB'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
 
   testWidgets('GPU 分区按需采集并显示指标、显存图与连续趋势', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
