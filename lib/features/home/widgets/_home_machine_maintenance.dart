@@ -34,6 +34,17 @@ const _maintenanceSectionLabels = {
   'timers': '系统定时器',
   'sockets': '连接与监听端口',
   'routes': '地址与路由',
+  'addresses': '网卡地址与链路统计',
+  'policy_routes': '策略路由 · IPv4 / IPv6',
+  'neighbors': '邻居表 · ARP / NDP',
+  'network_stats': '网络协议与错误统计',
+  'socket_details': '连接进程与 TCP 诊断',
+  'dns_status': '解析器与代理状态',
+  'firewall_rules': '防火墙规则与计数器',
+  'firewall_nat': 'NAT 与地址转换规则',
+  'firewall_states': '防火墙运行统计',
+  'firewall_ipvfour': 'iptables · IPv4 规则与计数器',
+  'firewall_ipvsix': 'ip6tables · IPv6 规则与计数器',
   'dns': 'DNS 配置',
   'logs': '最近日志',
   'users': '登录用户',
@@ -793,6 +804,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               _ => _sections(data, const [
                 'sockets',
                 'routes',
+                'addresses',
+                'policy_routes',
+                'neighbors',
+                'network_stats',
+                'socket_details',
+                'dns_status',
                 'dns',
                 'logs',
                 'users',
@@ -2603,7 +2620,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       onOpen: () => _showCollected('连接与监听端口', data.text('sockets')),
       maxHeight: 470,
       child: connections.isEmpty
-          ? _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据'))
+          ? _MaintenanceReadout(text: data.text('sockets'), section: 'sockets')
           : _MaintenanceTable(
               maxBodyHeight: 360,
               headers: const ['协议', '本地地址', '远端地址', '状态', '接收队列', '发送队列', '进程'],
@@ -2670,7 +2687,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         maxColumns: 4,
         children: [
           for (final name in names.where(
-            (name) => name != 'sockets' && name != 'dns',
+            (name) =>
+                name != 'sockets' &&
+                name != 'dns' &&
+                name != 'routes' &&
+                name != 'firewall' &&
+                data.sections.containsKey(name),
           ))
             Builder(
               builder: (context) {
@@ -2826,6 +2848,49 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
         const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceCard(
+          title: '路由表',
+          scrollBody: false,
+          icon: Icons.alt_route_rounded,
+          onOpen: () => _showCollected('地址与路由', data.text('routes')),
+          child: _MaintenanceReadout(
+            text: data.text('routes'),
+            section: 'routes',
+          ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceCard(
+          title: '防火墙与 NAT',
+          icon: Icons.shield_outlined,
+          scrollBody: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final name in const [
+                'firewall',
+                'firewall_ipvfour',
+                'firewall_ipvsix',
+                'firewall_rules',
+                'firewall_nat',
+                'firewall_states',
+              ].where(data.sections.containsKey))
+                ExpansionTile(
+                  title: Text(_maintenanceSectionLabels[name] ?? name),
+                  subtitle: Text(_maintenanceOutputStatus(data.text(name))),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _MaintenanceReadout(
+                        text: data.text(name),
+                        section: name,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
         diagnostics,
         const SizedBox(height: _maintenancePanelBottomInset),
       ],
@@ -2888,7 +2953,7 @@ List<List<String>> _maintenanceConnections(MachineMaintenanceSnapshot data) {
     data.text('sockets'),
     'sockets',
   );
-  return readout.fields ? [] : readout.rows;
+  return readout.fields || readout.raw ? [] : readout.rows;
 }
 
 String _maintenanceProcessState(String state) =>
@@ -4572,6 +4637,35 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
 
   @override
   Widget build(BuildContext context) {
+    if (_data.raw && widget.text.trim().isNotEmpty) {
+      final denied = RegExp(
+        'permission denied|operation not permitted|access.*denied',
+        caseSensitive: false,
+      ).hasMatch(widget.text);
+      final disabled =
+          widget.section == 'firewall' &&
+          widget.text.contains('Firewall is disabled');
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (denied || disabled) ...[
+            _MaintenanceEmptyHint(
+              message: [
+                if (disabled) '应用防火墙已关闭',
+                if (denied) '部分数据需要更高读取权限，已保留完整诊断信息',
+              ].join(' · '),
+            ),
+            const SizedBox(height: 8),
+          ],
+          OpenHandConsoleText(
+            title: _maintenanceSectionLabels[widget.section] ?? '采集报告',
+            text: widget.text,
+            maxHeight: 420,
+          ),
+        ],
+      );
+    }
     if (_data.issue case final issue?) {
       final cs = Theme.of(context).colorScheme;
       final title = switch (issue) {
@@ -4711,7 +4805,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         );
       }
     }
-    return _MaintenanceTable(
+    final table = _MaintenanceTable(
       headers: _data.headers
           .map((label) => maintenanceDetailLabel(context, label))
           .toList(),
@@ -4745,6 +4839,23 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       ],
       paginate: _data.rows.length > 20,
       maxBodyHeight: 480,
+    );
+    if (widget.section != 'routes' && widget.section != 'sockets') return table;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        table,
+        ExpansionTile(
+          title: const Text('原始采集报告'),
+          children: [
+            OpenHandConsoleText(
+              title: '采集输出',
+              text: widget.text,
+              maxHeight: 360,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

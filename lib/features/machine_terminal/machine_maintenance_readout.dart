@@ -1,9 +1,24 @@
+const machineMaintenanceNetworkReports = {
+  'addresses',
+  'policy_routes',
+  'neighbors',
+  'network_stats',
+  'socket_details',
+  'dns_status',
+  'firewall',
+  'firewall_rules',
+  'firewall_nat',
+  'firewall_states',
+  'firewall_ipvfour',
+  'firewall_ipvsix',
+};
+
 /// 仅识别采集输出开头的明确错误，日志正文和正常指标不参与错误推断。
 String? machineMaintenanceCollectionIssue(String output, String section) {
   if (section == 'logs' || section == 'command') return null;
   final first = output.trimLeft().split('\n').first.trim();
   final failure = RegExp(
-    r'^(?:failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|未安装|缺少|权限不足|无法连接|(?:docker|podman|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|nft|iptables)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
+    r'^(?:failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|未安装|缺少|权限不足|无法连接|(?:docker|podman|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|pfctl|nft|iptables)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
     caseSensitive: false,
   );
   if (!failure.hasMatch(first)) return null;
@@ -38,9 +53,13 @@ class MachineMaintenanceReadout {
     this.rows, {
     this.fields = false,
     this.issue,
+    this.raw = false,
   });
 
   factory MachineMaintenanceReadout.parse(String output, String section) {
+    if (machineMaintenanceNetworkReports.contains(section)) {
+      return const MachineMaintenanceReadout([], [], raw: true);
+    }
     final issue = machineMaintenanceCollectionIssue(output, section);
     if (issue != null) return MachineMaintenanceReadout([], [], issue: issue);
     final lines = output
@@ -122,18 +141,7 @@ class MachineMaintenanceReadout {
     }
     final rows = <List<String>>[];
     if (section == 'sockets') {
-      // UNIX 套接字包含平台专属列，保留完整报告，避免误拆属性或丢弃记录。
-      if (lines.any(
-        (line) => line.contains('(UNIX)') || line.contains('UNIX domain'),
-      )) {
-        return MachineMaintenanceReadout(
-          ['名称', '数值'],
-          [
-            ['连接与监听端口', output.trim()],
-          ],
-          fields: true,
-        );
-      }
+      final macProcesses = lines.any((line) => line.contains('process:pid'));
       for (final line in lines) {
         final values = line.trim().split(RegExp(r'\s+'));
         if (values.length < 4 ||
@@ -155,6 +163,16 @@ class MachineMaintenanceReadout {
             values.last,
           ]);
         } else if (int.tryParse(values[1]) != null && values.length >= 5) {
+          var process = values.last.contains('/') ? values.last : '—';
+          if (macProcesses) {
+            final details = values
+                .skip(protocol.startsWith('TCP') ? 10 : 9)
+                .toList();
+            final end = details.indexWhere(
+              (value) => RegExp(r':\d+$').hasMatch(value),
+            );
+            if (end >= 0) process = details.take(end + 1).join(' ');
+          }
           rows.add([
             protocol,
             values[3],
@@ -162,7 +180,7 @@ class MachineMaintenanceReadout {
             protocol.startsWith('TCP') && values.length > 5 ? values[5] : '—',
             values[1],
             values[2],
-            values.last.contains('/') ? values.last : '—',
+            process,
           ]);
         } else if (values.length >= 6) {
           rows.add([
@@ -187,6 +205,7 @@ class MachineMaintenanceReadout {
           '进程',
         ], rows);
       }
+      return const MachineMaintenanceReadout([], [], raw: true);
     }
     if (section == 'users' &&
         !lines.any((line) => RegExp(r'LogonId\s*[:=]').hasMatch(line))) {
@@ -274,13 +293,76 @@ class MachineMaintenanceReadout {
       }
       return MachineMaintenanceReadout(['时间', '消息'], rows);
     }
-    if (section == 'routes' &&
-        lines.any(
-          (line) =>
-              RegExp(r'^(default|[0-9a-fA-F.:]+/\d+)\s').hasMatch(line.trim()),
-        )) {
+    if (section == 'routes') {
+      final bsd = lines.any(
+        (line) =>
+            RegExp(r'^Destination\s+Gateway\s+Flags').hasMatch(line.trim()),
+      );
+      if (bsd) {
+        var family = 'IPv4';
+        var headers = <String>[];
+        for (final line in lines) {
+          final parts = line.trim().split(RegExp(r'\s+'));
+          if (line.trim() == 'Internet6:') family = 'IPv6';
+          if (line.trim() == 'Internet:') family = 'IPv4';
+          if (parts.first == 'Destination') {
+            headers = parts;
+            continue;
+          }
+          if (headers.isEmpty ||
+              parts.length < 4 ||
+              !RegExp('^(?:default|[0-9a-fA-F:.%/]+)').hasMatch(parts.first)) {
+            continue;
+          }
+          String column(String key) {
+            final index = headers.indexOf(key);
+            return index < 0 || index >= parts.length ? '—' : parts[index];
+          }
+
+          rows.add([
+            family,
+            parts[0],
+            parts[1],
+            column('Netif') == '—' ? column('Iface') : column('Netif'),
+            column('Flags'),
+            column('Expire'),
+          ]);
+        }
+        return MachineMaintenanceReadout([
+          '地址族',
+          '目的地址',
+          '网关',
+          '网卡',
+          '标志',
+          '过期时间',
+        ], rows);
+      }
       for (final line in lines) {
         final parts = line.trim().split(RegExp(r'\s+'));
+        const types = {
+          'local',
+          'broadcast',
+          'unreachable',
+          'blackhole',
+          'prohibit',
+          'throw',
+          'multicast',
+          'unicast',
+        };
+        final destination = types.contains(parts.first) && parts.length > 1
+            ? parts[1]
+            : parts.first;
+        if (!RegExp(
+          r'^(?:default|[0-9a-fA-F:.]+(?:/\d+)?)$',
+        ).hasMatch(destination)) {
+          continue;
+        }
+        // Windows 与旧版 netstat 输出使用不同列结构，保留完整报告。
+        if (!parts.contains('dev') &&
+            !parts.contains('via') &&
+            !types.contains(parts.first)) {
+          continue;
+        }
         String after(String name) {
           final index = parts.indexOf(name);
           return index < 0 || index + 1 >= parts.length
@@ -289,16 +371,31 @@ class MachineMaintenanceReadout {
         }
 
         rows.add([
-          RegExp(r'^(default|[0-9a-fA-F.:]+/\d+)$').hasMatch(parts.first)
-              ? parts.first
-              : '—',
+          destination,
           after('via'),
           after('dev'),
           after('src'),
+          after('table'),
+          after('metric'),
+          after('proto'),
+          types.contains(parts.first) ? parts.first : 'unicast',
           parts.skip(1).join(' '),
         ]);
       }
-      return MachineMaintenanceReadout(['目的地址', '网关', '网卡', '来源', '描述'], rows);
+      if (rows.isEmpty) {
+        return const MachineMaintenanceReadout([], [], raw: true);
+      }
+      return MachineMaintenanceReadout([
+        '目的地址',
+        '网关',
+        '网卡',
+        '来源',
+        '路由表',
+        '跃点成本',
+        '协议',
+        '类型',
+        '详情',
+      ], rows);
     }
     if (section == 'status' &&
         lines.first.contains('PID') &&
@@ -440,5 +537,6 @@ class MachineMaintenanceReadout {
   final List<String> headers;
   final List<List<String>> rows;
   final bool fields;
+  final bool raw;
   final String? issue;
 }

@@ -107,9 +107,19 @@ section end
           _ =>
             r'''
 section sockets
-netstat -anv 2>&1 | head -c 18000
+{ netstat -anv -f inet; netstat -anv -f inet6; } 2>&1 | head -c 48000
 section routes
-netstat -rn 2>&1 | head -c 10000
+netstat -rn 2>&1 | head -c 48000
+section addresses
+ifconfig -a 2>&1 | head -c 24000
+section neighbors
+{ arp -an; ndp -an; } 2>&1 | head -c 24000
+section network_stats
+netstat -s 2>&1 | head -c 32000
+section socket_details
+lsof -nP -i 2>&1 | head -c 32000
+section dns_status
+{ scutil --nwi; scutil --proxy; } 2>&1 | head -c 16000
 section dns
 scutil --dns 2>&1 | head -c 10000
 section logs
@@ -119,8 +129,13 @@ who
 section cron
 crontab -l 2>&1 | head -c 8000
 section firewall
-/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>&1
-pfctl -s info 2>&1 | head -c 4000
+{ /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate; /usr/libexec/ApplicationFirewall/socketfilterfw --getblockall; /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode; } 2>&1 | head -c 8000
+section firewall_rules
+pfctl -vvsr 2>&1 | head -c 32000
+section firewall_nat
+pfctl -vvsn 2>&1 | head -c 24000
+section firewall_states
+pfctl -si 2>&1 | head -c 12000
 section containers
 if command -v docker >/dev/null 2>&1; then docker ps -a 2>&1 | head -c 10000; else printf '未安装 Docker。\n'; fi
 section end
@@ -298,7 +313,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
               multiLine: true,
             )
           : RegExp(
-              r'^(?:emit\("routes"|emit\("dns"|var sessions=|emit\("cron"|var logs=|emit\("firewall"|emit\("containers")',
+              r'^(?:emit\("(?:routes|addresses|neighbors|network_stats|socket_details|dns_status|firewall_rules)"|emit\("dns"|var sessions=|emit\("cron"|var logs=|emit\("firewall"|emit\("containers")',
               multiLine: true,
             );
       final starts = [
@@ -314,7 +329,11 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
             body.substring(starts[i], starts[i + 1]),
         ],
         workers,
-        maxOutputCharacters: section == 4 ? 4000000 : 100000,
+        maxOutputCharacters: switch (section) {
+          4 => 4000000,
+          3 => 1000000,
+          _ => 100000,
+        },
       );
     }
     return '$_windowsPrelude$body\nemit("end", "");';
@@ -429,13 +448,19 @@ emit("timers",command("schtasks /query /fo LIST",12000));
 
 const _windowsDiagnostics = r'''
 emit("sockets",command("netstat -ano",18000));
-emit("routes",command("route print",10000));
+emit("routes",command("route print",32000));
+emit("addresses",command("ipconfig /all",24000));
+emit("neighbors",command("netsh interface ipv4 show neighbors",16000)+"\n"+command("netsh interface ipv6 show neighbors",16000));
+emit("network_stats",command("netstat -s",24000));
+emit("socket_details",command("netstat -ano",32000));
+emit("dns_status",command("netsh winhttp show proxy",8000));
 emit("dns",command("ipconfig /all",12000));
 var sessions=rows("SELECT LogonId,LogonType,StartTime FROM Win32_LogonSession",64),sessionLines=[];for(var i=0;i<sessions.length;i++)sessionLines.push(describe(sessions[i]));emit("users",sessionLines.join("\n\n").substr(0,10000));
 emit("cron",command("schtasks /query /fo LIST",12000));
 var logs=rows("SELECT TimeGenerated,SourceName,Message FROM Win32_NTLogEvent WHERE Logfile='System' AND EventType=1",40),lines=[];
 for(var i=0;i<logs.length && i<40;i++)lines.push(clean(logs[i].TimeGenerated)+" "+clean(logs[i].SourceName)+" "+clean(logs[i].Message));emit("logs",lines.join("\n").substr(0,16000));
 emit("firewall",command(parseInt(String(os.Version),10)<6?"netsh firewall show state":"netsh advfirewall show allprofiles",10000));
+emit("firewall_rules",command("netsh advfirewall firewall show rule name=all verbose",48000));
 emit("containers",command("docker ps -a",10000));
 ''';
 

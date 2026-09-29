@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_parallel.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_readout.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
 import 'package:openhand/features/machine_terminal/machine_terminal_command_protocol.dart';
 
@@ -303,10 +304,10 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
     }
     if (Platform.isMacOS) {
       final adapter = MachineMaintenancePlatformAdapter.forPlatform('Darwin');
-      for (final i in [0, 1, 2, 4, 5, 6]) {
+      for (final i in [0, 1, 2, 3, 4, 5, 6]) {
         final result = await Process.run('/bin/sh', [
           '-c',
-          adapter.collect(i),
+          adapter.collect(i, workers: i == 3 ? 4 : null),
         ]).timeout(const Duration(seconds: 30));
         check(result.exitCode == 0, 'macOS 原生采集失败：${result.stderr}');
         final data = MachineMaintenanceSnapshot.parse(result.stdout as String);
@@ -317,6 +318,32 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
         if (i == 0) {
           check((data.memory['MemTotal'] ?? 0) > 0, 'macOS 内存采集失败');
           check(data.cpuUsage(null) != null, 'macOS CPU 采集失败');
+        }
+        if (i == 3) {
+          final routes = MachineMaintenanceReadout.parse(
+            data.text('routes'),
+            'routes',
+          );
+          check(
+            !routes.raw &&
+                routes.rows.isNotEmpty &&
+                routes.headers.contains('网关'),
+            'macOS 实机路由未正确结构化',
+          );
+          for (final key in [
+            'routes',
+            'addresses',
+            'neighbors',
+            'network_stats',
+            'socket_details',
+            'dns_status',
+            'firewall',
+            'firewall_rules',
+            'firewall_nat',
+            'firewall_states',
+          ]) {
+            check(data.sections.containsKey(key), '网络诊断缺少采集分区：$key');
+          }
         }
         if (i == 6) {
           for (final key in machineHealthSections) {

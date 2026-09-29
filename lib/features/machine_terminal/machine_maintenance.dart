@@ -371,12 +371,25 @@ const machineMaintenanceDiagnosticsCommand =
     _linuxPrelude +
     r'''
 section sockets
-if command -v ss >/dev/null 2>&1; then ss -tunap 2>&1 | head -c 18000
-elif command -v netstat >/dev/null 2>&1; then netstat -tunap 2>&1 | head -c 18000
+if command -v ss >/dev/null 2>&1; then ss -tunap 2>&1 | head -c 48000
+elif command -v netstat >/dev/null 2>&1; then netstat -tunap 2>&1 | head -c 48000
 else printf '未安装 ss 或 netstat。\n'; fi
 section routes
-if command -v ip >/dev/null 2>&1; then ip address 2>&1; ip route 2>&1; ip -6 route 2>&1
-else cat /proc/net/route /proc/net/ipv6_route 2>/dev/null; fi
+if command -v ip >/dev/null 2>&1; then { ip -4 route show table all; ip -6 route show table all; } 2>&1 | head -c 48000
+elif command -v netstat >/dev/null 2>&1; then netstat -rn 2>&1 | head -c 48000
+else printf '缺少 ip 或 netstat，无法读取路由表。\n'; fi
+section addresses
+if command -v ip >/dev/null 2>&1; then ip -details -statistics address show 2>&1 | head -c 24000; else ifconfig -a 2>&1 | head -c 24000; fi
+section policy_routes
+if command -v ip >/dev/null 2>&1; then { ip -4 rule show; ip -6 rule show; } 2>&1 | head -c 12000; else printf '缺少 ip，无法读取策略路由。\n'; fi
+section neighbors
+if command -v ip >/dev/null 2>&1; then ip -statistics neighbor show 2>&1 | head -c 24000; else arp -an 2>&1 | head -c 24000; fi
+section network_stats
+cat /proc/net/sockstat /proc/net/sockstat6 /proc/net/snmp /proc/net/netstat 2>&1 | head -c 24000
+section socket_details
+if command -v ss >/dev/null 2>&1; then ss -tinaomep 2>&1 | head -c 48000; else printf '缺少 ss，无法读取 TCP 扩展诊断。\n'; fi
+section dns_status
+if command -v resolvectl >/dev/null 2>&1; then bounded resolvectl status 2>&1 | head -c 16000; else printf '未安装 resolvectl，DNS 配置可在 DNS 服务器板块查看。\n'; fi
 section dns
 cat /etc/resolv.conf 2>/dev/null
 section logs
@@ -387,9 +400,13 @@ who 2>&1
 section cron
 if command -v crontab >/dev/null 2>&1; then crontab -l 2>&1 | head -c 8000; else printf '未安装 crontab。\n'; fi
 section firewall
-if command -v nft >/dev/null 2>&1; then bounded nft list ruleset 2>&1 | head -c 12000
-elif command -v iptables >/dev/null 2>&1; then bounded iptables -S 2>&1 | head -c 12000
+if command -v nft >/dev/null 2>&1; then bounded nft -a list ruleset 2>&1 | head -c 48000
+elif command -v iptables >/dev/null 2>&1; then bounded iptables -S 2>&1 | head -c 24000
 else printf '未安装 nft 或 iptables。\n'; fi
+section firewall_ipvfour
+if command -v iptables-save >/dev/null 2>&1; then bounded iptables-save -c 2>&1 | head -c 48000; else printf '未安装 iptables-save，可查看本机防火墙规则。\n'; fi
+section firewall_ipvsix
+if command -v ip6tables-save >/dev/null 2>&1; then bounded ip6tables-save -c 2>&1 | head -c 48000; else printf '未安装 ip6tables-save。\n'; fi
 section containers
 if command -v docker >/dev/null 2>&1; then bounded docker ps -a --no-trunc 2>&1 | head -c 12000
 elif command -v podman >/dev/null 2>&1; then bounded podman ps -a --no-trunc 2>&1 | head -c 12000

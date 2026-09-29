@@ -185,9 +185,39 @@ void main() {
   const unixReport =
       'Active LOCAL (UNIX) domain sockets\nAddress Type Recv-Q Send-Q Inode Conn PID\n6d3890 stream 0 0 0 caaa89 68450 Cursor Helper';
   final unix = parse(unixReport, 'sockets');
+  check(unix.raw && unix.rows.isEmpty, 'UNIX 套接字报告不得拆成错误属性或丢失记录');
+  final mixed = parse(
+    'tcp4 0 0 127.0.0.1.80 *.* LISTEN\n$unixReport',
+    'sockets',
+  );
+  check(mixed.rows.length == 1 && !mixed.raw, 'UNIX 报告不能导致网络连接丢失');
+  final routes = parse(
+    'Routing tables\nInternet:\nDestination Gateway Flags Netif Expire\ndefault 192.168.1.1 UGScg en0\n10.0.0.2/31 2.0.6.125 UGSc utun4\nInternet6:\nDestination Gateway Flags Netif Expire\nfe80::%en0/64 link#4 UCI en0',
+    'routes',
+  );
   check(
-    unix.fields && unix.rows.single.last == unixReport,
-    'UNIX 套接字报告不得拆成错误属性或丢失记录',
+    routes.rows.length == 3 &&
+        routes.rows.first[2] == '192.168.1.1' &&
+        routes.rows.first[3] == 'en0',
+    'macOS 路由表头或网关列解析错误',
+  );
+  check(routes.rows.last.first == 'IPv6', 'IPv6 路由地址族丢失');
+  final linuxRoutes = parse(
+    'default via 10.0.0.1 dev eth0 proto dhcp metric 100\nlocal 10.0.0.2 dev eth0 table local src 10.0.0.2\nblackhole 10.1.0.0/16',
+    'routes',
+  );
+  check(
+    linuxRoutes.rows.length == 3 &&
+        linuxRoutes.rows.first[5] == '100' &&
+        linuxRoutes.rows[1][4] == 'local',
+    'Linux 路由策略字段丢失',
+  );
+  check(
+    parse(
+      'Firewall is disabled. (State = 0)\npfctl: /dev/pf: Permission denied',
+      'firewall',
+    ).raw,
+    '混合防火墙报告不得拆成扩展指标',
   );
   final nextLine = parse('Options =\n{\n key = value;\n}\nPID = 42', 'status');
   check(

@@ -1344,6 +1344,22 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('防火墙混合输出保留原文且不生成伪指标', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(520, 700));
+    const raw = 'Firewall is disabled. (State = 0)\\npfctl: /dev/pf: Permission denied';
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: 'firewall', text: raw)))));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('应用防火墙已关闭'), findsOneWidget);
+    expect(find.textContaining('扩展指标'), findsNothing);
+    expect(tester.widget<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).text, raw);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器连接错误显示简洁提示并保留完整可选诊断', (tester) async {
     await tester.binding.setSurfaceSize(const Size(520, 700));
     const raw = 'failed to connect to the docker API at unix:///tmp/docker.sock: connect: no such file or directory';
