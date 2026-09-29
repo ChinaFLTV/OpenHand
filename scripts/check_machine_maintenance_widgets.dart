@@ -64,6 +64,7 @@ const _checks =
     '''
 class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTerminalFileService {
   int calls = 0;
+  int probes = 0;
   String lastCommand = "";
   String platform = 'Linux';
   bool powershell = false;
@@ -72,7 +73,8 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   MachineTerminalUploadCancelCheck? cancelled;
   @override
   Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
-    if (commandShell == MachineTerminalCommandShell.probe && command != machineTerminalShellProbe) return 'OH_SHELL_bash 5.2';
+    if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
+    if (command == machineTerminalShellProbe) probes++;
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
     expect(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
@@ -1314,6 +1316,7 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
     expect(service.calls, 2);
+    expect(service.probes, 1);
     expect(service.lastCommand, contains('oh_workers=2'));
     await tester.ensureVisible(find.text('10 秒'));
     await tester.tap(find.text('10 秒'));
@@ -1344,6 +1347,7 @@ void main() {
     await tester.tap(find.byTooltip('刷新当前分区'));
     await tester.pump();
     expect(progress, findsOneWidget);
+    expect(service.probes, 2);
     await tester.tap(find.byTooltip('暂停自动刷新'));
     await tester.pump();
     expect(progress, findsOneWidget);

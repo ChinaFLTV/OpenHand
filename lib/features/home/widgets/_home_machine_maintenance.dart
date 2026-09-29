@@ -62,6 +62,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   Timer? _timer;
   MachineMaintenancePlatformAdapter? _platform;
   String? _platformName;
+  ({MachineTerminalCommandShell shell, String platform})? _detectedTarget;
   MachineTerminalCommandShell _commandShell = MachineTerminalCommandShell.posix;
   MachineTerminalCommandShell _requestedShell =
       MachineTerminalCommandShell.automatic;
@@ -111,21 +112,29 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         !_loading &&
         !_detailOpen &&
         _error == null) {
-      _timer = startSafeTimer(Duration(seconds: _intervalSeconds), _refresh);
+      _timer = startSafeTimer(
+        Duration(seconds: _intervalSeconds),
+        () => _refresh(detectShell: false),
+      );
     }
   }
 
-  Future<String> _run(String command, {bool probe = false}) =>
-      context.read<MachineTerminalFileService>().runMaintenanceCommand(
-        sessionId: widget.sessionId,
-        terminalId: widget.terminalId,
-        command: command,
-        windowsScript: !probe && (_platform?.windowsScript ?? false),
-        commandShell: probe ? MachineTerminalCommandShell.probe : _commandShell,
-        isCancelled: () => !mounted || _closing,
-      );
+  Future<String> _run(
+    String command, {
+    bool probe = false,
+    MachineTerminalCommandShell? shell,
+  }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
+    sessionId: widget.sessionId,
+    terminalId: widget.terminalId,
+    command: command,
+    windowsScript:
+        !probe && shell == null && (_platform?.windowsScript ?? false),
+    commandShell:
+        shell ?? (probe ? MachineTerminalCommandShell.probe : _commandShell),
+    isCancelled: () => !mounted || _closing,
+  );
 
-  Future<void> _refresh({bool manual = false}) async {
+  Future<void> _refresh({bool manual = false, bool detectShell = true}) async {
     if (_loading || !mounted || _closing) return;
     _timer?.cancel();
     final tab = _tab;
@@ -135,9 +144,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _error = null;
     });
     try {
-      final target = parseMachineTerminalShellProbe(
-        await _run(machineTerminalShellProbe, probe: true),
-      );
+      final target = detectShell || _detectedTarget == null
+          ? parseMachineTerminalShellProbe(
+              await _run(machineTerminalShellProbe, probe: true),
+            )
+          : _detectedTarget!;
       if (!mounted || _closing) return;
       if (_requestedShell != MachineTerminalCommandShell.automatic &&
           (_requestedShell == MachineTerminalCommandShell.posix) !=
@@ -151,16 +162,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _previous.clear();
         _cpuHistory.clear();
       }
-      if (_shellLabel == null || _platformName != target.platform) {
+      if (detectShell ||
+          _shellLabel == null ||
+          _platformName != target.platform) {
         _shellLabel = parseMachineTerminalShellDetails(
           await _run(
             machineTerminalShellDetailsCommand(target.shell),
-            probe: true,
+            shell: target.shell,
           ),
           target.shell,
         );
         if (!mounted || _closing) return;
       }
+      _detectedTarget = target;
       _platformName = target.platform;
       _platform = MachineMaintenancePlatformAdapter.forPlatform(
         target.platform,
@@ -190,6 +204,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         }
       });
     } catch (error) {
+      _detectedTarget = null;
       if (mounted && !_closing && tab == _tab) {
         setState(() {
           _error = '$error';

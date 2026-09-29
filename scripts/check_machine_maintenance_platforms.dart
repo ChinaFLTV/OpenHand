@@ -90,6 +90,21 @@ Future<void> main() async {
       check(!payload.contains('stty'), 'Windows 协议混入 POSIX 命令');
     }
   }
+  for (final output in [
+    "echo '__READY__'\n",
+    "stty -echo; printf '__READY__'\n",
+    '__READY__',
+    '__READY__\r',
+    'PS> __READY__\n',
+  ]) {
+    check(
+      !machineTerminalHasOutputMarker(output, '__READY__'),
+      '命令回显或不完整标记被误判为就绪',
+    );
+  }
+  for (final output in ['__READY__\n', '前置输出\r\n__READY__\r\n']) {
+    check(machineTerminalHasOutputMarker(output, '__READY__'), '完整就绪标记未被识别');
+  }
   final markers = MachineTerminalCommandMarkers('__开始__', '__结束__');
   final echoed = markers.locate('C:\\>echo __开始__\r\nC:\\>echo __结束__:0\r\n');
   check(echoed.outputStart < 0 && echoed.endIndex < 0, 'CMD 回显被误认为命令完成');

@@ -2708,7 +2708,12 @@ class MachineTerminalSession {
     );
     try {
       while (true) {
-        if (_plainText(_outputSince(startOffset)).contains(marker)) return;
+        if (machineTerminalHasOutputMarker(
+          _plainText(_outputSince(startOffset)),
+          marker,
+        )) {
+          return;
+        }
         if (_startGeneration != startGeneration ||
             _pty == null ||
             _status != MachineTerminalStatus.running) {

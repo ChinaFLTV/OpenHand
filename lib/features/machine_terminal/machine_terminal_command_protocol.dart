@@ -137,6 +137,12 @@ class MachineTerminalWindowsScript {
       : 'cmd.exe /d /v:off /c if exist $path del /q $path';
 }
 
+/// 只接受完整输出行，命令回显或尚未接收完的标记不能作为就绪确认。
+bool machineTerminalHasOutputMarker(String output, String marker) => RegExp(
+  '^${RegExp.escape(marker)}\\r?\\n',
+  multiLine: true,
+).hasMatch(output);
+
 /// 只识别独占行的标记，忽略终端输入回显中的同名文本。
 class MachineTerminalCommandMarkers {
   MachineTerminalCommandMarkers(String begin, String end)
