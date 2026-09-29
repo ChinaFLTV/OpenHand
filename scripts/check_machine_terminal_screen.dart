@@ -72,6 +72,27 @@ void main() {
     await tester.runAsync(() => service.shutdown());
     service.dispose(); controller.dispose(); focus.dispose(); directory.deleteSync(recursive: true);
   });
+  test('隐藏输出的输入模式跨包识别，重启清空，粘贴只提交一次', () {
+    const enabled = '\x1b[?2004h';
+    const disabled = '\x1b[?2004l';
+    for (var split = 0; split <= enabled.length; split++) {
+      final mode = MachineTerminalInputMode();
+      expect(mode.frame('命令\n'), '命令\n');
+      mode.add(enabled.substring(0, split));
+      mode.add(enabled.substring(split));
+      expect(mode.supported, isTrue);
+      expect(mode.enabled, isTrue);
+      expect(mode.frame('第一行\n第二行\n'), '\x1b[200~第一行\n第二行\x1b[201~\n');
+      for (final character in disabled.split('')) { mode.add(character); }
+      expect(mode.enabled, isFalse);
+      expect(mode.supported, isTrue);
+      mode.add(enabled + disabled + enabled);
+      expect(mode.enabled, isTrue);
+      mode.reset();
+      expect(mode.enabled, isFalse);
+      expect(mode.supported, isFalse);
+    }
+  });
   test('OSC 终止符不能吞掉命令标记，增量结果与整段一致', () {
     const raw = '\x1b]7;file://host/project\x1b\\\r\n__BEGIN__\r\nDarwin\r\n__END__:0\r\n\x1b]2;next title\x07';
     final plain = _plainText(raw);

@@ -42,6 +42,32 @@ String machineTerminalCommandPayload({
   }
 }
 
+/// 独立跟踪输入模式，隐藏命令输出时也能识别交互编辑器是否就绪。
+class MachineTerminalInputMode {
+  static final _pattern = RegExp(r'\x1b\[\?2004([hl])');
+  bool supported = false;
+  bool enabled = false;
+  String _tail = '';
+
+  void add(String output) {
+    final text = _tail + output;
+    for (final match in _pattern.allMatches(text)) {
+      enabled = match[1] == 'h';
+      supported |= enabled;
+    }
+    _tail = text.substring((text.length - 7).clamp(0, text.length));
+  }
+
+  void reset() {
+    supported = false;
+    enabled = false;
+    _tail = '';
+  }
+
+  String frame(String payload) =>
+      enabled ? '\x1b[200~${payload.trimRight()}\x1b[201~\n' : payload;
+}
+
 /// 将一个参数拆成短物理行，避免 macOS 规范模式的行缓冲丢弃输入。
 String machineTerminalPosixArgument(String value) {
   const runesPerLine = 64;
@@ -91,8 +117,9 @@ String machineTerminalShellDetailsCommand(
   MachineTerminalCommandShell.powershell =>
     r"Write-Output ('OH_SHELL_PowerShell ' + $PSVersionTable.PSVersion.ToString())",
   MachineTerminalCommandShell.cmd => 'ver',
+  // 保持短命令，避免被暂存脚本转入 sh 后误报子进程版本。
   _ =>
-    r'''if [ -n "${ZSH_VERSION:-}" ]; then printf 'OH_SHELL_zsh %s\n' "$ZSH_VERSION"; elif [ -n "${BASH_VERSION:-}" ]; then printf 'OH_SHELL_bash %s\n' "$BASH_VERSION"; elif [ -n "${KSH_VERSION:-}" ]; then printf 'OH_SHELL_ksh %s\n' "$KSH_VERSION"; else printf 'OH_SHELL_%s\n' "${0##*/}"; fi''',
+    r'''printf '\nOH_SHELL_%s\n' "${ZSH_VERSION:+zsh }${ZSH_VERSION:-${BASH_VERSION:+bash }${BASH_VERSION:-${KSH_VERSION:+ksh }${KSH_VERSION:-${0##*/}}}}"''',
 };
 
 String? parseMachineTerminalShellDetails(

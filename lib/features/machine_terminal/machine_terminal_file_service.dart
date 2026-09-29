@@ -45,7 +45,8 @@ const String _machineTerminalTransferHistoryFileName =
 const int _machineTerminalMaxQueuedOperations = 64;
 const int _machineTerminalCommandErrorOutputLimit = 4000;
 const int _machineTerminalInlineCommandBytes = 240;
-const int _machineTerminalStagedCommandChunkCharacters = 1024;
+// 参数已拆成安全短行，适度合批以减少远端提示符往返。
+const int _machineTerminalStagedCommandChunkCharacters = 4 * kBytesPerKiB;
 const int _machineTerminalMaxStagedCommandBytes = 16 * kBytesPerKiB;
 const int _machineTerminalMaxStagedPathCharacters = 4096;
 const int _machineTerminalMaxStagedPathBytes =

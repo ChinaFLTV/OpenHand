@@ -1760,6 +1760,7 @@ class MachineTerminalSession {
   Future<void>? _uploadExecution;
   int _historyRecordingSuppressionDepth = 0;
   int _hiddenCommandDepth = 0;
+  final _inputMode = MachineTerminalInputMode();
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
@@ -1943,6 +1944,7 @@ class MachineTerminalSession {
           _status != MachineTerminalStatus.starting) {
         return;
       }
+      _inputMode.reset();
       final pty = Pty.start(
         shell,
         arguments: _shellArguments(shell),
@@ -2492,7 +2494,12 @@ class MachineTerminalSession {
         endMarker: endMarker,
         shell: commandShell,
       );
-      await _writePtyPaced(payload);
+      await _writePtyPaced(
+        resolveMachineTerminalShell(commandShell) ==
+                MachineTerminalCommandShell.posix
+            ? _inputMode.frame(payload)
+            : payload,
+      );
       final parsed = await _waitForCommandOutput(
         begin: begin,
         end: end,
@@ -2631,6 +2638,7 @@ class MachineTerminalSession {
   }
 
   void _handleOutput(String text) {
+    _inputMode.add(text);
     _output.append(text);
     if (_hiddenCommandDepth > 0) return;
     terminal.write(text);
@@ -2702,6 +2710,7 @@ class MachineTerminalSession {
       startOffset: startOffset,
       startGeneration: startGeneration,
       timeout: _terminalEchoReadyTimeout,
+      waitForInputReady: true,
     );
   }
 
@@ -2722,6 +2731,7 @@ class MachineTerminalSession {
     required int startOffset,
     required int startGeneration,
     required Duration timeout,
+    bool waitForInputReady = false,
   }) async {
     final deadline = MonotonicDeadline(
       timeout,
@@ -2729,10 +2739,14 @@ class MachineTerminalSession {
     );
     try {
       while (true) {
-        if (machineTerminalHasOutputMarker(
+        final markerReady = machineTerminalHasOutputMarker(
           _plainText(_outputSince(startOffset)),
           marker,
-        )) {
+        );
+        if (markerReady &&
+            (!waitForInputReady ||
+                !_inputMode.supported ||
+                _inputMode.enabled)) {
           return;
         }
         if (_startGeneration != startGeneration ||
@@ -2741,7 +2755,14 @@ class MachineTerminalSession {
           throw StateError(_terminalNotRunningError);
         }
         final remaining = deadline.remainingOrNull();
-        if (remaining == null) throw deadline.timeoutException();
+        if (remaining == null) {
+          // SSH 或嵌套 Shell 可能不支持粘贴模式；命令已响应时回退普通输入。
+          if (waitForInputReady && markerReady) {
+            _inputMode.reset();
+            return;
+          }
+          throw deadline.timeoutException();
+        }
         await Future<void>.delayed(
           remaining < _commandPollInterval ? remaining : _commandPollInterval,
         );
