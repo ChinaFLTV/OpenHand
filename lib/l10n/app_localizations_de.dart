@@ -13583,4 +13583,73 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceAccountGroup => 'Gruppe';
+
+  @override
+  String get maintenancePosixShell => 'POSIX-Shell';
+
+  @override
+  String get maintenancePowerShell => 'PowerShell';
+
+  @override
+  String get maintenanceCmdShell => 'CMD';
+
+  @override
+  String get maintenanceWindowsScm => 'Windows-Dienstverwaltung';
+
+  @override
+  String get maintenanceGpuUuid => 'GPU-Kennung';
+
+  @override
+  String get maintenanceDeviceIdentity => 'Gerätekennung';
+
+  @override
+  String get maintenanceGpuMetal => 'Metal-Unterstützung';
+
+  @override
+  String get maintenanceGpuSourceNvidia => 'NVIDIA-Erfassung';
+
+  @override
+  String get maintenanceGpuSourceDrm => 'Kernel-DRM';
+
+  @override
+  String get maintenanceGpuSourceApple => 'Systembericht';
+
+  @override
+  String get maintenanceGpuSourceWindows => 'WMI';
+
+  @override
+  String get maintenanceGpuSerial => 'Seriennummer';
+
+  @override
+  String get maintenanceGpuPerformanceState => 'Leistungsstatus';
+
+  @override
+  String get maintenanceGpuVbios => 'VBIOS-Version';
+
+  @override
+  String get maintenanceGpuBoardId => 'Board-ID';
+
+  @override
+  String get maintenanceGpuPartNumber => 'Teilenummer';
+
+  @override
+  String get maintenanceGpuInforom => 'InfoROM-Version';
+
+  @override
+  String get maintenanceGpuEncoder => 'Encoder-Auslastung';
+
+  @override
+  String get maintenanceGpuDecoder => 'Decoder-Auslastung';
+
+  @override
+  String get maintenanceGpuMemoryUtil => 'Videospeicher-Auslastung';
+
+  @override
+  String get maintenanceGpuProductBrand => 'Produktfamilie';
+
+  @override
+  String get maintenanceHealthy => 'Gesund';
+
+  @override
+  String get maintenanceMacos => 'macOS';
 }

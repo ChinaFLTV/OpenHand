@@ -45,6 +45,7 @@ import 'package:openhand/features/machine_terminal/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/app/theme/openhand_theme.dart';
 import 'package:openhand/app/theme/openhand_theme_preset.dart';
+import 'package:openhand/app/theme/openhand_status_colors.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';

@@ -20350,7 +20350,7 @@ abstract class AppLocalizations {
   /// 服务器运维界面文案
   ///
   /// In zh, this message translates to:
-  /// **'SWAP 使用量'**
+  /// **'交换空间使用量'**
   String get maintenanceSwapUsage;
 
   /// 服务器运维界面文案
@@ -24172,6 +24172,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'用户组'**
   String get maintenanceAccountGroup;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'POSIX 终端'**
+  String get maintenancePosixShell;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'PowerShell'**
+  String get maintenancePowerShell;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'CMD'**
+  String get maintenanceCmdShell;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'Windows 服务管理器'**
+  String get maintenanceWindowsScm;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 标识'**
+  String get maintenanceGpuUuid;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'设备标识'**
+  String get maintenanceDeviceIdentity;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'Metal 支持'**
+  String get maintenanceGpuMetal;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'NVIDIA 采集'**
+  String get maintenanceGpuSourceNvidia;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内核 DRM'**
+  String get maintenanceGpuSourceDrm;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'系统报告'**
+  String get maintenanceGpuSourceApple;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'WMI'**
+  String get maintenanceGpuSourceWindows;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'序列号'**
+  String get maintenanceGpuSerial;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'性能状态'**
+  String get maintenanceGpuPerformanceState;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'VBIOS 版本'**
+  String get maintenanceGpuVbios;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'板卡编号'**
+  String get maintenanceGpuBoardId;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'部件号'**
+  String get maintenanceGpuPartNumber;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'InfoROM 版本'**
+  String get maintenanceGpuInforom;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'编码器利用率'**
+  String get maintenanceGpuEncoder;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'解码器利用率'**
+  String get maintenanceGpuDecoder;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'显存利用率'**
+  String get maintenanceGpuMemoryUtil;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'产品系列'**
+  String get maintenanceGpuProductBrand;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'健康'**
+  String get maintenanceHealthy;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'macOS'**
+  String get maintenanceMacos;
 }
 
 class _AppLocalizationsDelegate

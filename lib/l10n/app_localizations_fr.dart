@@ -13633,4 +13633,73 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceAccountGroup => 'Groupe';
+
+  @override
+  String get maintenancePosixShell => 'Shell POSIX';
+
+  @override
+  String get maintenancePowerShell => 'PowerShell';
+
+  @override
+  String get maintenanceCmdShell => 'CMD';
+
+  @override
+  String get maintenanceWindowsScm => 'Gestionnaire de services Windows';
+
+  @override
+  String get maintenanceGpuUuid => 'Identifiant GPU';
+
+  @override
+  String get maintenanceDeviceIdentity => 'Identifiant de l’appareil';
+
+  @override
+  String get maintenanceGpuMetal => 'Prise en charge Metal';
+
+  @override
+  String get maintenanceGpuSourceNvidia => 'Collecte NVIDIA';
+
+  @override
+  String get maintenanceGpuSourceDrm => 'DRM du noyau';
+
+  @override
+  String get maintenanceGpuSourceApple => 'Rapport système';
+
+  @override
+  String get maintenanceGpuSourceWindows => 'WMI';
+
+  @override
+  String get maintenanceGpuSerial => 'Numéro de série';
+
+  @override
+  String get maintenanceGpuPerformanceState => 'État de performance';
+
+  @override
+  String get maintenanceGpuVbios => 'Version VBIOS';
+
+  @override
+  String get maintenanceGpuBoardId => 'Identifiant de carte';
+
+  @override
+  String get maintenanceGpuPartNumber => 'Référence';
+
+  @override
+  String get maintenanceGpuInforom => 'Version InfoROM';
+
+  @override
+  String get maintenanceGpuEncoder => 'Utilisation encodeur';
+
+  @override
+  String get maintenanceGpuDecoder => 'Utilisation décodeur';
+
+  @override
+  String get maintenanceGpuMemoryUtil => 'Utilisation VRAM';
+
+  @override
+  String get maintenanceGpuProductBrand => 'Gamme de produits';
+
+  @override
+  String get maintenanceHealthy => 'Sain';
+
+  @override
+  String get maintenanceMacos => 'macOS';
 }

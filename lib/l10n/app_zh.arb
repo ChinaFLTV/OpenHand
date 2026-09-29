@@ -8679,7 +8679,7 @@
   "@maintenanceNoData": {
     "description": "服务器运维界面文案"
   },
-  "maintenanceSwapUsage": "SWAP 使用量",
+  "maintenanceSwapUsage": "交换空间使用量",
   "@maintenanceSwapUsage": {
     "description": "服务器运维界面文案"
   },
@@ -9850,5 +9850,97 @@
   "maintenanceGpuDetailAttached": "已连接显卡数量",
   "maintenanceLogArchives": "轮转记录",
   "maintenanceLogPolicy": "轮转策略",
-  "maintenanceAccountGroup": "用户组"
+  "maintenanceAccountGroup": "用户组",
+  "maintenancePosixShell": "POSIX 终端",
+  "@maintenancePosixShell": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenancePowerShell": "PowerShell",
+  "@maintenancePowerShell": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceCmdShell": "CMD",
+  "@maintenanceCmdShell": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceWindowsScm": "Windows 服务管理器",
+  "@maintenanceWindowsScm": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuUuid": "GPU 标识",
+  "@maintenanceGpuUuid": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceDeviceIdentity": "设备标识",
+  "@maintenanceDeviceIdentity": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuMetal": "Metal 支持",
+  "@maintenanceGpuMetal": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuSourceNvidia": "NVIDIA 采集",
+  "@maintenanceGpuSourceNvidia": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuSourceDrm": "内核 DRM",
+  "@maintenanceGpuSourceDrm": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuSourceApple": "系统报告",
+  "@maintenanceGpuSourceApple": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuSourceWindows": "WMI",
+  "@maintenanceGpuSourceWindows": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuSerial": "序列号",
+  "@maintenanceGpuSerial": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuPerformanceState": "性能状态",
+  "@maintenanceGpuPerformanceState": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuVbios": "VBIOS 版本",
+  "@maintenanceGpuVbios": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuBoardId": "板卡编号",
+  "@maintenanceGpuBoardId": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuPartNumber": "部件号",
+  "@maintenanceGpuPartNumber": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuInforom": "InfoROM 版本",
+  "@maintenanceGpuInforom": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuEncoder": "编码器利用率",
+  "@maintenanceGpuEncoder": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuDecoder": "解码器利用率",
+  "@maintenanceGpuDecoder": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuMemoryUtil": "显存利用率",
+  "@maintenanceGpuMemoryUtil": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceGpuProductBrand": "产品系列",
+  "@maintenanceGpuProductBrand": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceHealthy": "健康",
+  "@maintenanceHealthy": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMacos": "macOS",
+  "@maintenanceMacos": {
+    "description": "服务器运维界面文案"
+  }
 }

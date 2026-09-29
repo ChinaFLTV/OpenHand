@@ -51,6 +51,56 @@ const _maintenanceSectionLabels = {
   'network': '网卡累计计数 · 字节、包、错误与丢包',
 };
 
+const _maintenanceTabIcons = <IconData>[
+  Icons.dashboard_outlined,
+  Icons.memory_rounded,
+  Icons.settings_suggest_outlined,
+  Icons.hub_outlined,
+  Icons.developer_board_rounded,
+  Icons.article_outlined,
+  Icons.health_and_safety_outlined,
+];
+const _maintenanceCardRadius = kOpenHandRadius12;
+const _maintenanceNoOverlay = WidgetStatePropertyAll<Color?>(
+  Colors.transparent,
+);
+
+Color _maintenanceUsageColor(ColorScheme cs, double? ratio) {
+  if (ratio == null) return cs.onSurfaceVariant;
+  if (ratio >= 0.85) return OpenHandStatusColors.error;
+  if (ratio >= 0.70) return OpenHandStatusColors.warning;
+  return OpenHandStatusColors.success;
+}
+
+Color _maintenanceStateColor(ColorScheme cs, String label) {
+  return switch (label) {
+    '运行中' || '运行' || '采集成功' || '健康' || '已连接' => OpenHandStatusColors.success,
+    '异常' || '僵尸' || '数据可能过期' => OpenHandStatusColors.error,
+    '待检查' || '暂停' || 'IO 等待' || '部分不可用 · 查看原因' => OpenHandStatusColors.warning,
+    '未运行' || '休眠' || '空闲' || '暂无阈值提醒' => cs.onSurfaceVariant,
+    _ => OpenHandStatusColors.info,
+  };
+}
+
+String _maintenancePlatformLabel(BuildContext context, String? platform) {
+  return switch (platform) {
+    'Darwin' => maintenanceLabel(context, 'macOS'),
+    null || '' => maintenanceLabel(context, '正在识别目标系统'),
+    _ => platform,
+  };
+}
+
+String _maintenanceShellChoice(
+  MachineTerminalCommandShell shell,
+  String? autoLabel,
+) => switch (shell) {
+  MachineTerminalCommandShell.automatic ||
+  MachineTerminalCommandShell.probe => autoLabel ?? '自动识别 Shell',
+  MachineTerminalCommandShell.posix => 'POSIX Shell',
+  MachineTerminalCommandShell.powershell => 'PowerShell',
+  MachineTerminalCommandShell.cmd => 'CMD',
+};
+
 class _MachineMaintenanceDialog extends StatefulWidget {
   const _MachineMaintenanceDialog({
     required this.sessionId,
@@ -378,21 +428,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _MaintenanceToolbarMenu<MachineTerminalCommandShell>(
-                            label: switch (_requestedShell) {
-                              MachineTerminalCommandShell.automatic =>
-                                _shellLabel ?? '自动识别 Shell',
-                              MachineTerminalCommandShell.posix =>
-                                'POSIX Shell',
-                              MachineTerminalCommandShell.powershell =>
-                                'PowerShell',
-                              _ => 'CMD',
-                            },
+                            label: _maintenanceShellChoice(
+                              _requestedShell,
+                              _shellLabel,
+                            ),
                             tooltip: maintenanceLabel(context, '终端 Shell'),
                             enabled: !_loading,
                             value: _requestedShell,
                             items: {
                               MachineTerminalCommandShell.automatic:
-                                  _shellLabel ?? '自动识别 Shell',
+                                  _maintenanceShellChoice(
+                                    MachineTerminalCommandShell.automatic,
+                                    _shellLabel,
+                                  ),
                               MachineTerminalCommandShell.posix: 'POSIX Shell',
                               MachineTerminalCommandShell.powershell:
                                   'PowerShell',
@@ -476,7 +524,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         icon: Icons.dns_rounded,
                         title: maintenanceLabel(context, '服务器运维中心'),
                         subtitle:
-                            '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? maintenanceLabel(context, '正在识别目标系统')}',
+                            '${data?.text('host') ?? widget.terminalId}  /  ${_maintenancePlatformLabel(context, _platformName)}',
                         onClose: () => Navigator.of(context).pop(),
                         trailingActions: [
                           if (constraints.maxWidth >= 900) controls,
@@ -565,15 +613,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   : BorderSide.none,
                             ),
                             icon: Icon(
-                              const [
-                                Icons.dashboard_outlined,
-                                Icons.memory_rounded,
-                                Icons.settings_suggest_outlined,
-                                Icons.hub_outlined,
-                                Icons.developer_board_rounded,
-                                Icons.article_outlined,
-                                Icons.health_and_safety_outlined,
-                              ][index],
+                              _maintenanceTabIcons[index],
                               size: 18,
                             ),
                             label: Text(
@@ -581,6 +621,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 context,
                                 _maintenanceTabs[index],
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontWeight: selected
                                     ? FontWeight.w800
@@ -737,7 +779,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               Text(
                 maintenanceLabel(context, failed ? '机器状态暂不可用' : '采集中'),
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleSmall,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               if (failed) ...[
                 const SizedBox(height: 16),
@@ -866,28 +910,30 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final left = <Widget>[
       _MaintenanceCard(
         title: maintenanceLabel(context, '资源使用'),
-        icon: Icons.memory_rounded,
+        icon: Icons.speed_rounded,
         child: Column(
           children: [
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              alignment: WrapAlignment.center,
-              children: [
-                _MaintenanceGauge(label: 'CPU', value: cpu, color: cs.primary),
-                _MaintenanceGauge(
-                  label: maintenanceLabel(context, '内存'),
-                  value: memoryUsage,
-                  color: cs.tertiary,
-                ),
-                _MaintenanceGauge(
-                  label: 'SWAP',
-                  value: swap != null && swap > 0 && freeSwap != null
-                      ? (swap - freeSwap) / swap
-                      : null,
-                  color: cs.secondary,
-                ),
-              ],
+            _MaintenanceUsage(
+              label: 'CPU',
+              value: cpu,
+              color: _maintenanceUsageColor(cs, cpu),
+            ),
+            _MaintenanceUsage(
+              label: maintenanceLabel(context, '内存'),
+              value: memoryUsage,
+              color: _maintenanceUsageColor(cs, memoryUsage),
+            ),
+            _MaintenanceUsage(
+              label: 'SWAP',
+              value: swap != null && swap > 0 && freeSwap != null
+                  ? (swap - freeSwap) / swap
+                  : null,
+              color: _maintenanceUsageColor(
+                cs,
+                swap != null && swap > 0 && freeSwap != null
+                    ? (swap - freeSwap) / swap
+                    : null,
+              ),
             ),
             const Divider(height: 18),
             _MaintenanceFacts(
@@ -912,7 +958,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           children: [
             _MaintenanceStatus(
               label: _error != null ? '数据可能过期' : '采集成功',
-              color: _error != null ? cs.error : cs.primary,
+              color: _error != null
+                  ? OpenHandStatusColors.error
+                  : OpenHandStatusColors.success,
             ),
             const SizedBox(height: 10),
             _MaintenanceFacts(
@@ -941,7 +989,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 _MaintenanceStatus(
                   label:
                       '$core · ${data.cpuUsage(_previous[0], core) == null ? '—' : '${(data.cpuUsage(_previous[0], core)! * 100).round()}%'}',
-                  color: cs.primary,
+                  color: _maintenanceUsageColor(
+                    cs,
+                    data.cpuUsage(_previous[0], core),
+                  ),
                 ),
             ],
           ),
@@ -989,7 +1040,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 (double.tryParse(v[4].replaceAll('%', '')) ??
                                     0) /
                                 100,
-                            color: cs.primary,
+                            color: _maintenanceUsageColor(
+                              cs,
+                              (double.tryParse(v[4].replaceAll('%', '')) ?? 0) /
+                                  100,
+                            ),
                           ),
                           _MaintenanceValue(
                             value:
@@ -1074,7 +1129,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   : AppLocalizations.of(
                       context,
                     )!.maintenanceAlertCount('${warnings.length}'),
-              color: warnings.isEmpty ? cs.primary : cs.error,
+              color: warnings.isEmpty
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.error,
             ),
             if (warnings.isNotEmpty) const SizedBox(height: 10),
             for (final warning in warnings.take(6))
@@ -1103,7 +1160,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 context,
               )!.maintenanceCpuCount(facts['逻辑处理器']!),
               Icons.memory_rounded,
-              cs.primary,
+              _maintenanceUsageColor(cs, cpu),
               cpu,
             ),
             _metric(
@@ -1115,7 +1172,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ? '暂无数据'
                   : '${formatByteSize(total - available)} / ${formatByteSize(total)}',
               Icons.storage_rounded,
-              cs.tertiary,
+              _maintenanceUsageColor(cs, memoryUsage),
               memoryUsage,
             ),
             _metric(
@@ -1129,7 +1186,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       swap == null ? '—' : formatByteSize(swap),
                     ),
               Icons.swap_horiz_rounded,
-              cs.secondary,
+              _maintenanceUsageColor(
+                cs,
+                swap != null && swap > 0 && freeSwap != null
+                    ? (swap - freeSwap) / swap
+                    : null,
+              ),
               swap != null && swap > 0 && freeSwap != null
                   ? (swap - freeSwap) / swap
                   : null,
@@ -1139,7 +1201,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               facts['运行时间']!,
               facts['操作系统']!,
               Icons.schedule_rounded,
-              cs.primary,
+              OpenHandStatusColors.info,
               null,
             ),
           ],
@@ -1238,8 +1300,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: .65)),
+        borderRadius: BorderRadius.circular(_maintenanceCardRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .6)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1408,44 +1470,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       'recoveries': l10n.maintenanceGpuRecoveries,
       'cores': l10n.maintenanceGpuCores,
     };
-    String fieldLabel(String path) => path
-        .split('/')
-        .map((field) {
-          final key = field.replaceAll(RegExp(r'\[\d+\]'), '');
-          final label = switch (key) {
-            'cuda_version' => l10n.maintenanceGpuCudaCompatibility,
-            'gpu_fabric_info' => l10n.maintenanceGpuDetailFabric,
-            'fb_memory_usage' => l10n.maintenanceGpuDetailMemory,
-            'ecc_errors' => l10n.maintenanceGpuDetailEcc,
-            'clocks_event_reasons' => l10n.maintenanceGpuDetailThrottling,
-            'clocks_throttle_reasons' => l10n.maintenanceGpuDetailThrottling,
-            'utilization' => l10n.maintenanceGpuDetailUtilization,
-            'NRestarts' => l10n.maintenanceGpuDetailRestarts,
-            'LoadState' => l10n.maintenanceGpuDetailLoaded,
-            'SubState' => l10n.maintenanceGpuDetailDetailState,
-            'Result' => l10n.maintenanceGpuDetailResult,
-            'attached_gpus' => l10n.maintenanceGpuDetailAttached,
-            'driver_version' => l10n.maintenanceGpuDriver,
-            'gpu_util' => l10n.maintenanceGpuUtil,
-            'gpu_temp' || 'temperature' => l10n.maintenanceGpuTemperature,
-            'power_draw' || 'power_readings' => l10n.maintenanceGpuPower,
-            'power_limit' => l10n.maintenanceGpuPowerLimit,
-            'processes' || 'process_info' => maintenanceLabel(context, '进程'),
-            'product_name' || 'process_name' => maintenanceLabel(context, '名称'),
-            'version' => maintenanceHealthLabel(context, 'Version'),
-            'path' => maintenanceLabel(context, '路径'),
-            'state' ||
-            'status' ||
-            'ActiveState' => maintenanceLabel(context, '状态'),
-            'pid' || 'MainPID' => 'PID',
-            'uuid' => 'UUID',
-            'MemoryCurrent' => '${maintenanceLabel(context, '内存')} (B)',
-            'CPUUsageNSec' => l10n.maintenanceGpuDetailCpuTime,
-            _ => key.replaceAll('_', ' '),
-          };
-          return label + field.substring(key.length);
-        })
-        .join(' › ');
+    String fieldLabel(String path) => maintenanceGpuFieldLabel(context, path);
 
     String value(MachineGpuDevice device, String key) {
       final n = device.metrics[key];
@@ -1586,14 +1611,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         labelWidth: 140,
                         values: {
                           'UUID / ID': device.id,
-                          l10n.maintenanceGpuSource: device.source,
+                          l10n.maintenanceGpuSource: maintenanceGpuSourceLabel(
+                            context,
+                            device.source,
+                          ),
                           for (final entry in device.info.entries)
                             switch (entry.key) {
                               'vendor' => l10n.maintenanceGpuVendor,
                               'driver' => l10n.maintenanceGpuDriver,
                               'bus' => l10n.maintenanceGpuBus,
                               'state' => maintenanceLabel(context, '状态'),
-                              _ => 'Metal',
+                              'metal' => l10n.maintenanceGpuMetal,
+                              _ => l10n.maintenanceExtendedMetric(entry.key),
                             }: maintenanceDetailValue(
                               context,
                               entry.value,
@@ -1666,6 +1695,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 for (final report in reports)
                   Material(
                     color: Colors.transparent,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
                     child: ExpansionTile(
                       key: ValueKey('gpu-component-${report.title}'),
                       leading: Icon(
@@ -1932,9 +1963,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 ),
                                 _MaintenanceStatus(
                                   label: _maintenanceProcessState(p.state),
-                                  color: p.state.startsWith('Z')
-                                      ? Theme.of(context).colorScheme.error
-                                      : Theme.of(context).colorScheme.primary,
+                                  color: _maintenanceStateColor(
+                                    Theme.of(context).colorScheme,
+                                    _maintenanceProcessState(p.state),
+                                  ),
                                 ),
                               ],
                             ),
@@ -2157,7 +2189,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${rows.length}',
               manager,
               Icons.settings_suggest_outlined,
-              cs.primary,
+              OpenHandStatusColors.info,
               null,
             ),
             _metric(
@@ -2165,7 +2197,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${rows.where((line) => const ['运行中', 'Running'].contains(state(line))).length}',
               '',
               Icons.play_circle_outline,
-              cs.tertiary,
+              OpenHandStatusColors.success,
               null,
             ),
             _metric(
@@ -2173,7 +2205,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${rows.where((line) => state(line) == '异常').length}',
               '',
               Icons.error_outline,
-              cs.error,
+              OpenHandStatusColors.error,
               null,
             ),
           ],
@@ -2286,7 +2318,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       null,
                       _MaintenanceStatus(
                         label: state(line),
-                        color: state(line) == '异常' ? cs.error : cs.primary,
+                        color: _maintenanceStateColor(cs, state(line)),
                       ),
                     ],
                   ),
@@ -2318,9 +2350,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   label: entry.key,
                   value: entry.value,
                   color: entry.key == maintenanceLabel(context, '异常')
-                      ? cs.error
+                      ? OpenHandStatusColors.error
                       : entry.key == maintenanceLabel(context, '运行中')
-                      ? cs.primary
+                      ? OpenHandStatusColors.success
                       : cs.secondary,
                 ),
             ],
@@ -2388,6 +2420,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     title: titles[i],
                     icon: icons[i],
                     scrollBody: false,
+                    accent: report.issue == null
+                        ? OpenHandStatusColors.success
+                        : report.issue == 'pending' || report.issue == 'empty'
+                        ? OpenHandStatusColors.warning
+                        : OpenHandStatusColors.error,
+                    trailing: _MaintenanceStatus(
+                      label: report.issue == null
+                          ? '健康'
+                          : report.issue == 'pending' || report.issue == 'empty'
+                          ? '待检查'
+                          : '异常',
+                      color: report.issue == null
+                          ? OpenHandStatusColors.success
+                          : report.issue == 'pending' || report.issue == 'empty'
+                          ? OpenHandStatusColors.warning
+                          : OpenHandStatusColors.error,
+                    ),
                     child: _MaintenanceHealthContent(report: report, raw: raw),
                   );
                 },
@@ -2471,14 +2520,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ))
                 ListTile(
                   hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  selectedTileColor: Colors.transparent,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  leading: Icon(
-                    Icons.fact_check_outlined,
-                    color: cs.primary,
-                    size: 20,
+                  leading: _MaintenanceIconBadge(
+                    icon: Icons.fact_check_outlined,
+                    color: data.text(name).trim().isEmpty
+                        ? cs.onSurfaceVariant
+                        : cs.primary,
+                    size: 32,
+                    iconSize: 16,
                   ),
                   title: Text(
                     maintenanceLabel(
@@ -2521,7 +2575,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${connections.length}',
               '',
               Icons.hub_outlined,
-              cs.primary,
+              OpenHandStatusColors.info,
               null,
             ),
             _metric(
@@ -2529,7 +2583,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${dns.length}',
               '',
               Icons.language_rounded,
-              cs.tertiary,
+              OpenHandStatusColors.success,
               null,
             ),
             _metric(
@@ -2537,7 +2591,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${names.length}',
               '',
               Icons.fact_check_outlined,
-              cs.secondary,
+              OpenHandStatusColors.warning,
               null,
             ),
           ],
@@ -3138,6 +3192,9 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                             Expanded(
                               child: InkWell(
                                 hoverColor: Colors.transparent,
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                overlayColor: _maintenanceNoOverlay,
                                 onTap: row == null
                                     ? null
                                     : () => widget.table.onRowTap?.call(row),
@@ -3447,8 +3504,11 @@ class _MaintenanceFacts extends StatelessWidget {
                 width: labelWidth,
                 child: Text(
                   maintenanceLabel(context, entry.key),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -3615,6 +3675,9 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
             : l10n.maintenanceShowExactValue,
         child: InkWell(
           hoverColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          overlayColor: _maintenanceNoOverlay,
           borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() => _exact = !_exact),
           child: Padding(
@@ -3680,14 +3743,18 @@ class _MaintenanceUsage extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 7),
     child: Row(
       children: [
-        SizedBox(
-          width: 52,
+        Expanded(
+          flex: 2,
           child: Text(
             maintenanceLabel(context, label),
-            style: const TextStyle(fontSize: 12),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
+        const SizedBox(width: 10),
         Expanded(
+          flex: 5,
           child: TweenAnimationBuilder<double>(
             tween: Tween(
               begin: (value ?? 0).clamp(0, 1),
@@ -3697,19 +3764,20 @@ class _MaintenanceUsage extends StatelessWidget {
             curve: kOpenHandSwitchInCurve,
             builder: (_, progress, _) => LinearProgressIndicator(
               value: progress.clamp(0, 1),
-              minHeight: 5,
+              minHeight: 6,
               color: color,
-              backgroundColor: color.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(4),
+              backgroundColor: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(kOpenHandRadius4),
             ),
           ),
         ),
+        const SizedBox(width: 10),
         SizedBox(
-          width: 42,
+          width: 44,
           child: _MaintenanceValue(
             value: value == null ? '—' : '${(value! * 100).round()}%',
             alignment: Alignment.centerRight,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -3822,6 +3890,8 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
               ],
               Text(
                 maintenanceLabel(context, label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: enabled ? cs.onSurface : cs.onSurfaceVariant,
                 ),
@@ -4105,6 +4175,33 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
   }
 }
 
+class _MaintenanceIconBadge extends StatelessWidget {
+  const _MaintenanceIconBadge({
+    required this.icon,
+    required this.color,
+    this.size = 36,
+    this.iconSize = 18,
+  });
+  final IconData icon;
+  final Color color;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      ),
+      child: Icon(icon, size: iconSize, color: color),
+    );
+  }
+}
+
 class _MaintenanceCard extends StatelessWidget {
   const _MaintenanceCard({
     required this.title,
@@ -4113,7 +4210,9 @@ class _MaintenanceCard extends StatelessWidget {
     this.onOpen,
     this.maxHeight = 280,
     this.scrollBody = true,
-    this.contentPadding = const EdgeInsets.all(12),
+    this.contentPadding = const EdgeInsets.all(14),
+    this.trailing,
+    this.accent,
   });
   final String title;
   final Widget child;
@@ -4122,45 +4221,62 @@ class _MaintenanceCard extends StatelessWidget {
   final double maxHeight;
   final bool scrollBody;
   final EdgeInsetsGeometry contentPadding;
+  final Widget? trailing;
+  final Color? accent;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tone = accent ?? cs.primary;
     return Container(
       clipBehavior: Clip.antiAlias,
       padding: const EdgeInsets.all(1),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_maintenanceCardRadius),
       ),
       foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_maintenanceCardRadius),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: .65)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            color: cs.surfaceContainerLow,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
             child: Row(
               children: [
-                Icon(icon, size: 16, color: cs.primary),
-                const SizedBox(width: 8),
+                _MaintenanceIconBadge(
+                  icon: icon,
+                  color: tone,
+                  size: 32,
+                  iconSize: 16,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     maintenanceLabel(context, title),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       fontSize: 13,
                     ),
                   ),
                 ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  Flexible(child: trailing!),
+                ],
                 if (onOpen != null)
                   Tooltip(
                     message: maintenanceLabel(context, '查看详情'),
                     child: InkWell(
                       onTap: onOpen,
+                      hoverColor: Colors.transparent,
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      overlayColor: _maintenanceNoOverlay,
                       borderRadius: BorderRadius.circular(6),
                       child: Padding(
                         padding: const EdgeInsets.all(3),
@@ -4175,6 +4291,7 @@ class _MaintenanceCard extends StatelessWidget {
               ],
             ),
           ),
+          Divider(height: 1, color: cs.outlineVariant.withValues(alpha: .45)),
           Padding(
             padding: contentPadding,
             // 列表自行约束数据区，外层不能再次截断分页栏。
@@ -4209,6 +4326,7 @@ class _MaintenanceCard extends StatelessWidget {
 
 const _maintenanceChartLimit = 6;
 
+// ignore: unused_element
 class _MaintenanceGauge extends StatelessWidget {
   const _MaintenanceGauge({
     required this.label,
@@ -5268,7 +5386,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                         ? l.maintenanceLogApplication
                         : l.maintenanceLogKernel,
                     'security': platform == 'Darwin'
-                        ? '/var/log/system.log'
+                        ? l.maintenanceLogSystem
                         : l.maintenanceLogSecurity,
                   },
                   onSelected: (value) => setState(() {
@@ -5346,7 +5464,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             Expanded(
               child: OpenHandConsoleFrame(
                 title:
-                    '${l.maintenanceLogsTab} / $_source · ${_visible.length}',
+                    '${l.maintenanceLogsTab} / ${switch (_source) {
+                      'kernel' => platform == 'Windows' ? l.maintenanceLogApplication : l.maintenanceLogKernel,
+                      'security' => platform == 'Darwin' ? l.maintenanceLogSystem : l.maintenanceLogSecurity,
+                      _ => l.maintenanceLogSystem,
+                    }} · ${_visible.length}',
                 expandBody: true,
                 child: _visible.isEmpty
                     ? Center(
@@ -5399,6 +5521,10 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                             final entry = _visible[index];
                             return InkWell(
                               key: ValueKey(entry.id),
+                              hoverColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              overlayColor: _maintenanceNoOverlay,
                               onTap: () => _showEntry(entry),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -5460,6 +5586,8 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             const SizedBox(height: 8),
             Material(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
+              elevation: 0,
+              shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(

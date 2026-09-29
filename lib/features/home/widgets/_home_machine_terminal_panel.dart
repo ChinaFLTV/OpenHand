@@ -2352,6 +2352,10 @@ class _MachineTerminalIconButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         borderRadius: kOpenHandBorderRadius8,
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         onTap: onPressed,
         child: AnimatedOpacity(
           duration: duration,

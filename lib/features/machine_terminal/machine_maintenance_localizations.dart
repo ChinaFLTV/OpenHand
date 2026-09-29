@@ -98,6 +98,21 @@ String maintenanceLabel(BuildContext context, String label) {
     "内部物理磁盘" => l10n.maintenanceMetricInternalPhysicalDisk,
     "合成磁盘" => l10n.maintenanceMetricSynthesizedDisk,
     "磁盘映像" => l10n.maintenanceMetricDiskImage,
+    "POSIX Shell" => l10n.maintenancePosixShell,
+    "PowerShell" => l10n.maintenancePowerShell,
+    "CMD" => l10n.maintenanceCmdShell,
+    "Windows SCM" => l10n.maintenanceWindowsScm,
+    "Windows 服务管理器" => l10n.maintenanceWindowsScm,
+    "SWAP" => l10n.maintenanceSwapSpace,
+    "UUID / ID" => l10n.maintenanceDeviceIdentity,
+    "GPU UUID" => l10n.maintenanceGpuUuid,
+    "Metal" => l10n.maintenanceGpuMetal,
+    "NVIDIA SMI" => l10n.maintenanceGpuSourceNvidia,
+    "DRM / sysfs" => l10n.maintenanceGpuSourceDrm,
+    "system_profiler / IOAccelerator" => l10n.maintenanceGpuSourceApple,
+    "WMI" => l10n.maintenanceGpuSourceWindows,
+    "macOS" => l10n.maintenanceMacos,
+    "健康" => l10n.maintenanceHealthy,
     "服务器运维中心" => l10n.maintenanceCenter,
     "服务器运维" => l10n.maintenanceEntry,
     "运行总览" => l10n.maintenanceOverview,
@@ -900,6 +915,71 @@ String maintenanceDetailValue(BuildContext context, String value) {
   return label == value && !const ['系统代理', '用户代理', '系统守护进程'].contains(value)
       ? value
       : maintenanceDetailLabel(context, label);
+}
+
+String maintenanceGpuFieldLabel(BuildContext context, String path) {
+  final l10n = AppLocalizations.of(context)!;
+  return path
+      .split('/')
+      .map((field) {
+        final key = field.replaceAll(RegExp(r'\[\d+\]'), '');
+        final label = switch (key) {
+          'cuda_version' => l10n.maintenanceGpuCudaCompatibility,
+          'gpu_fabric_info' => l10n.maintenanceGpuDetailFabric,
+          'fb_memory_usage' => l10n.maintenanceGpuDetailMemory,
+          'ecc_errors' => l10n.maintenanceGpuDetailEcc,
+          'clocks_event_reasons' ||
+          'clocks_throttle_reasons' => l10n.maintenanceGpuDetailThrottling,
+          'utilization' => l10n.maintenanceGpuDetailUtilization,
+          'NRestarts' => l10n.maintenanceGpuDetailRestarts,
+          'LoadState' => l10n.maintenanceGpuDetailLoaded,
+          'SubState' => l10n.maintenanceGpuDetailDetailState,
+          'Result' => l10n.maintenanceGpuDetailResult,
+          'attached_gpus' => l10n.maintenanceGpuDetailAttached,
+          'driver_version' => l10n.maintenanceGpuDriver,
+          'gpu_util' => l10n.maintenanceGpuUtil,
+          'gpu_temp' || 'temperature' => l10n.maintenanceGpuTemperature,
+          'power_draw' || 'power_readings' => l10n.maintenanceGpuPower,
+          'power_limit' => l10n.maintenanceGpuPowerLimit,
+          'processes' || 'process_info' => maintenanceLabel(context, '进程'),
+          'product_name' || 'process_name' => maintenanceLabel(context, '名称'),
+          'product_brand' => l10n.maintenanceGpuProductBrand,
+          'product_architecture' => l10n.maintenanceHealthParsedArchitecture,
+          'serial' ||
+          'serial_number' ||
+          'gpu_serial' => l10n.maintenanceGpuSerial,
+          'uuid' || 'gpu_uuid' => l10n.maintenanceGpuUuid,
+          'pci' || 'pci_bus' || 'bus_id' => l10n.maintenanceGpuBus,
+          'fan_speed' => l10n.maintenanceGpuFan,
+          'performance_state' ||
+          'pstate' => l10n.maintenanceGpuPerformanceState,
+          'vbios_version' => l10n.maintenanceGpuVbios,
+          'board_id' => l10n.maintenanceGpuBoardId,
+          'gpu_part_number' => l10n.maintenanceGpuPartNumber,
+          'inforom_version' => l10n.maintenanceGpuInforom,
+          'account_name' => l10n.maintenanceDetailUser,
+          'used_gpu_memory' => l10n.maintenanceGpuMemoryUsed,
+          'encoder_util' => l10n.maintenanceGpuEncoder,
+          'decoder_util' => l10n.maintenanceGpuDecoder,
+          'memory_util' => l10n.maintenanceGpuMemoryUtil,
+          'gpu_busy_percent' => l10n.maintenanceGpuUtil,
+          'version' => maintenanceHealthLabel(context, 'Version'),
+          'path' => maintenanceLabel(context, '路径'),
+          'state' ||
+          'status' ||
+          'ActiveState' => maintenanceLabel(context, '状态'),
+          'pid' || 'MainPID' => 'PID',
+          'MemoryCurrent' => '${maintenanceLabel(context, '内存')} (B)',
+          'CPUUsageNSec' => l10n.maintenanceGpuDetailCpuTime,
+          _ => l10n.maintenanceExtendedMetric(key),
+        };
+        return label + field.substring(key.length);
+      })
+      .join(' › ');
+}
+
+String maintenanceGpuSourceLabel(BuildContext context, String source) {
+  return maintenanceLabel(context, source);
 }
 
 String maintenanceHealthLabel(BuildContext context, String field) {

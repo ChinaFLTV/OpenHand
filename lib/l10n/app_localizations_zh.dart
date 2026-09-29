@@ -11059,7 +11059,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceNoData => '暂无数据';
 
   @override
-  String get maintenanceSwapUsage => 'SWAP 使用量';
+  String get maintenanceSwapUsage => '交换空间使用量';
 
   @override
   String get maintenanceNoSwap => '未配置交换空间';
@@ -13018,6 +13018,75 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceAccountGroup => '用户组';
+
+  @override
+  String get maintenancePosixShell => 'POSIX 终端';
+
+  @override
+  String get maintenancePowerShell => 'PowerShell';
+
+  @override
+  String get maintenanceCmdShell => 'CMD';
+
+  @override
+  String get maintenanceWindowsScm => 'Windows 服务管理器';
+
+  @override
+  String get maintenanceGpuUuid => 'GPU 标识';
+
+  @override
+  String get maintenanceDeviceIdentity => '设备标识';
+
+  @override
+  String get maintenanceGpuMetal => 'Metal 支持';
+
+  @override
+  String get maintenanceGpuSourceNvidia => 'NVIDIA 采集';
+
+  @override
+  String get maintenanceGpuSourceDrm => '内核 DRM';
+
+  @override
+  String get maintenanceGpuSourceApple => '系统报告';
+
+  @override
+  String get maintenanceGpuSourceWindows => 'WMI';
+
+  @override
+  String get maintenanceGpuSerial => '序列号';
+
+  @override
+  String get maintenanceGpuPerformanceState => '性能状态';
+
+  @override
+  String get maintenanceGpuVbios => 'VBIOS 版本';
+
+  @override
+  String get maintenanceGpuBoardId => '板卡编号';
+
+  @override
+  String get maintenanceGpuPartNumber => '部件号';
+
+  @override
+  String get maintenanceGpuInforom => 'InfoROM 版本';
+
+  @override
+  String get maintenanceGpuEncoder => '编码器利用率';
+
+  @override
+  String get maintenanceGpuDecoder => '解码器利用率';
+
+  @override
+  String get maintenanceGpuMemoryUtil => '显存利用率';
+
+  @override
+  String get maintenanceGpuProductBrand => '产品系列';
+
+  @override
+  String get maintenanceHealthy => '健康';
+
+  @override
+  String get maintenanceMacos => 'macOS';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26016,4 +26085,73 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceAccountGroup => '使用者群組';
+
+  @override
+  String get maintenancePosixShell => 'POSIX 終端';
+
+  @override
+  String get maintenancePowerShell => 'PowerShell';
+
+  @override
+  String get maintenanceCmdShell => 'CMD';
+
+  @override
+  String get maintenanceWindowsScm => 'Windows 服務管理員';
+
+  @override
+  String get maintenanceGpuUuid => 'GPU 識別';
+
+  @override
+  String get maintenanceDeviceIdentity => '裝置識別';
+
+  @override
+  String get maintenanceGpuMetal => 'Metal 支援';
+
+  @override
+  String get maintenanceGpuSourceNvidia => 'NVIDIA 採集';
+
+  @override
+  String get maintenanceGpuSourceDrm => '核心 DRM';
+
+  @override
+  String get maintenanceGpuSourceApple => '系統報告';
+
+  @override
+  String get maintenanceGpuSourceWindows => 'WMI';
+
+  @override
+  String get maintenanceGpuSerial => '序號';
+
+  @override
+  String get maintenanceGpuPerformanceState => '效能狀態';
+
+  @override
+  String get maintenanceGpuVbios => 'VBIOS 版本';
+
+  @override
+  String get maintenanceGpuBoardId => '板卡編號';
+
+  @override
+  String get maintenanceGpuPartNumber => '料號';
+
+  @override
+  String get maintenanceGpuInforom => 'InfoROM 版本';
+
+  @override
+  String get maintenanceGpuEncoder => '編碼器使用率';
+
+  @override
+  String get maintenanceGpuDecoder => '解碼器使用率';
+
+  @override
+  String get maintenanceGpuMemoryUtil => '顯示記憶體使用率';
+
+  @override
+  String get maintenanceGpuProductBrand => '產品系列';
+
+  @override
+  String get maintenanceHealthy => '健康';
+
+  @override
+  String get maintenanceMacos => 'macOS';
 }

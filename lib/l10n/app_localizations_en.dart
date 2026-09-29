@@ -13441,4 +13441,73 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceAccountGroup => 'Group';
+
+  @override
+  String get maintenancePosixShell => 'POSIX shell';
+
+  @override
+  String get maintenancePowerShell => 'PowerShell';
+
+  @override
+  String get maintenanceCmdShell => 'CMD';
+
+  @override
+  String get maintenanceWindowsScm => 'Windows Service Manager';
+
+  @override
+  String get maintenanceGpuUuid => 'GPU identity';
+
+  @override
+  String get maintenanceDeviceIdentity => 'Device identity';
+
+  @override
+  String get maintenanceGpuMetal => 'Metal support';
+
+  @override
+  String get maintenanceGpuSourceNvidia => 'NVIDIA collector';
+
+  @override
+  String get maintenanceGpuSourceDrm => 'Kernel DRM';
+
+  @override
+  String get maintenanceGpuSourceApple => 'System report';
+
+  @override
+  String get maintenanceGpuSourceWindows => 'WMI';
+
+  @override
+  String get maintenanceGpuSerial => 'Serial number';
+
+  @override
+  String get maintenanceGpuPerformanceState => 'Performance state';
+
+  @override
+  String get maintenanceGpuVbios => 'VBIOS version';
+
+  @override
+  String get maintenanceGpuBoardId => 'Board ID';
+
+  @override
+  String get maintenanceGpuPartNumber => 'Part number';
+
+  @override
+  String get maintenanceGpuInforom => 'InfoROM version';
+
+  @override
+  String get maintenanceGpuEncoder => 'Encoder utilization';
+
+  @override
+  String get maintenanceGpuDecoder => 'Decoder utilization';
+
+  @override
+  String get maintenanceGpuMemoryUtil => 'VRAM utilization';
+
+  @override
+  String get maintenanceGpuProductBrand => 'Product family';
+
+  @override
+  String get maintenanceHealthy => 'Healthy';
+
+  @override
+  String get maintenanceMacos => 'macOS';
 }
