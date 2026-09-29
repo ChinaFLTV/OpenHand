@@ -3554,7 +3554,6 @@ class _MaintenanceTable extends StatelessWidget {
                     '写 IOPS',
                     '次数',
                     '页数',
-                    '数值',
                   }.contains(headers[i]))
                 _MaintenanceNumber(
                   raw: row.cells[i],
@@ -3701,7 +3700,7 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
   @override
   Widget build(BuildContext context) {
     final match = RegExp(
-      r'^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*(.*)$',
+      r'^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*(B|[KMGTPE]i?B|ms|s|min|h|d|%)?$',
     ).firstMatch(widget.raw);
     final number = match == null ? null : double.tryParse(match[1]!);
     final unit = widget.unit.isNotEmpty ? widget.unit : match?[2] ?? '';

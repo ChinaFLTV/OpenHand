@@ -3874,12 +3874,20 @@ class _OpenHandOperationalRankTableState
                     ? widgets[index]
                     : null;
                 if (metric != null) {
-                  return Align(
-                    alignment: alignment,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: alignment,
-                      child: metric,
+                  return Builder(
+                    builder: (cellContext) => MouseRegion(
+                      onEnter: (_) => _showCellTip(
+                        cellContext: cellContext,
+                        title: headerText,
+                        body: index < row!.cells.length
+                            ? row.cells[index]
+                            : headerText,
+                        note: subtitleFor(row, index),
+                        accent: colors.primary,
+                      ),
+                      onHover: (_) => _captureAnchor(cellContext),
+                      onExit: (_) => _scheduleHideTip(),
+                      child: Align(alignment: alignment, child: metric),
                     ),
                   );
                 }

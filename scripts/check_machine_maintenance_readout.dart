@@ -158,6 +158,13 @@ void main() {
     report.rows.last.last.contains('MALLOC 400M\nTOTAL 500M'),
     '非属性报告应完整成块保留',
   );
+  const unixReport =
+      'Active LOCAL (UNIX) domain sockets\nAddress Type Recv-Q Send-Q Inode Conn PID\n6d3890 stream 0 0 0 caaa89 68450 Cursor Helper';
+  final unix = parse(unixReport, 'sockets');
+  check(
+    unix.fields && unix.rows.single.last == unixReport,
+    'UNIX 套接字报告不得拆成错误属性或丢失记录',
+  );
   check(parse('', 'status').rows.isEmpty, '空输出解析错误');
   for (final sample in [
     'TCP 127.0.0.1:80 0.0.0.0:0 LISTENING 42',

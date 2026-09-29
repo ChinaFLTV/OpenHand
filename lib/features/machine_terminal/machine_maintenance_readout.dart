@@ -86,6 +86,18 @@ class MachineMaintenanceReadout {
     }
     final rows = <List<String>>[];
     if (section == 'sockets') {
+      // UNIX 套接字包含平台专属列，保留完整报告，避免误拆属性或丢弃记录。
+      if (lines.any(
+        (line) => line.contains('(UNIX)') || line.contains('UNIX domain'),
+      )) {
+        return MachineMaintenanceReadout(
+          ['名称', '数值'],
+          [
+            ['连接与监听端口', output.trim()],
+          ],
+          fields: true,
+        );
+      }
       for (final line in lines) {
         final values = line.trim().split(RegExp(r'\s+'));
         if (values.length < 4 ||

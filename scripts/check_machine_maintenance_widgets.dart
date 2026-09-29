@@ -1198,6 +1198,39 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('长字段保留字号，自定义单元格有全文提示且文本不误缩写', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(600, 700));
+    final long = List.filled(30, 'abcdef0123456789').join(' ');
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MaintenanceTable(headers: const ['名称', '数值'], rows: [
+        OpenHandOperationalRankRow(value: 0, cells: ['记录', long], cellWidgets: [null,
+          Text(long, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14))]),
+      ]))));
+    await tester.pumpAndSettle();
+    expect(find.byType(FittedBox), findsNothing);
+    final text = find.text(long).first;
+    expect(tester.widget<Text>(text).style!.fontSize, 14);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(text));
+    await tester.pumpAndSettle();
+    expect(find.text('完整内容'), findsOneWidget);
+    await mouse.removePointer();
+    for (final raw in ['2026-09-30 08:00:00', '68450 00102 00000100', '65536 Cursor Helper']) {
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MaintenanceNumber(raw: raw))));
+      await tester.pumpAndSettle();
+      expect(find.text(raw), findsOneWidget);
+      expect(find.byType(InkWell), findsNothing);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('网格末行填满可用宽度且网络诊断没有空白占位', (tester) async {
     for (final width in [420.0, 900.0, 1300.0]) {
       await tester.binding.setSurfaceSize(Size(width, 1000));
