@@ -14,6 +14,12 @@ void main() {
         MachineMaintenanceSnapshot({'platform': platform, key: value}),
         key,
       );
+  final interfaces = parse(
+    'Linux',
+    'interfaces',
+    '2: eth0 inet 10.0.0.2/24 brd 10.0.0.255\n2: eth0 inet6 fe80::1/64 scope link\neth0\naddress: 00:11:22:33:44:55\noperstate: up\nmtu: 1500',
+  ).tables.single.rows.single;
+  check(interfaces[4] == '10.0.0.2/24 · fe80::1/64', '网卡双栈地址丢失或重复生成网卡');
   final disks = parse(
     'Linux',
     'disks',

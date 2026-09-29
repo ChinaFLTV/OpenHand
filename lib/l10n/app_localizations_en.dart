@@ -12639,4 +12639,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceDetailOptions => 'Options';
+
+  @override
+  String get maintenanceCpuTime => 'CPU time';
+
+  @override
+  String get maintenanceLoadState => 'Load state';
+
+  @override
+  String get maintenanceSubState => 'Substate';
+
+  @override
+  String get maintenanceTaskCount => 'Tasks';
+
+  @override
+  String get maintenanceRestartCount => 'Restarts';
+
+  @override
+  String get maintenanceLoaded => 'Loaded';
+
+  @override
+  String get maintenanceExited => 'Exited';
+
+  @override
+  String get maintenanceStatic => 'Static';
+
+  @override
+  String get maintenanceMasked => 'Masked';
 }

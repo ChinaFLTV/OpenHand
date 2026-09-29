@@ -8621,5 +8621,14 @@
   "maintenanceDetailNone": "なし",
   "maintenanceDetailSearchDomain": "検索ドメイン",
   "maintenanceDetailDomain": "ドメイン",
-  "maintenanceDetailOptions": "オプション"
+  "maintenanceDetailOptions": "オプション",
+  "maintenanceCpuTime": "累積 CPU 時間",
+  "maintenanceLoadState": "読み込み状態",
+  "maintenanceSubState": "詳細状態",
+  "maintenanceTaskCount": "タスク数",
+  "maintenanceRestartCount": "再起動回数",
+  "maintenanceLoaded": "読み込み済み",
+  "maintenanceExited": "終了",
+  "maintenanceStatic": "静的",
+  "maintenanceMasked": "マスク済み"
 }

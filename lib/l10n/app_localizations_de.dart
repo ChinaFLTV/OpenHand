@@ -12775,4 +12775,31 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceDetailOptions => 'Optionen';
+
+  @override
+  String get maintenanceCpuTime => 'CPU-Zeit';
+
+  @override
+  String get maintenanceLoadState => 'Ladezustand';
+
+  @override
+  String get maintenanceSubState => 'Unterstatus';
+
+  @override
+  String get maintenanceTaskCount => 'Tasks';
+
+  @override
+  String get maintenanceRestartCount => 'Neustarts';
+
+  @override
+  String get maintenanceLoaded => 'Geladen';
+
+  @override
+  String get maintenanceExited => 'Beendet';
+
+  @override
+  String get maintenanceStatic => 'Statisch';
+
+  @override
+  String get maintenanceMasked => 'Maskiert';
 }

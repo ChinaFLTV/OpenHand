@@ -277,6 +277,7 @@ bounded df -Pi 2>&1 | head -c 8000
 section swap
 cat /proc/swaps
 section interfaces
+if command -v ip >/dev/null 2>&1; then bounded ip -o address show 2>/dev/null; fi
 for d in /sys/class/net/*; do
   [ -d "$d" ] || continue
   printf '\n%s\n' "${d##*/}"
@@ -325,6 +326,8 @@ if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   printf 'systemd\n'
   section services
   bounded systemctl list-units --type=service --all --no-legend --plain --no-pager 2>&1 | head -c 50000
+  section service_metrics
+  bounded sh -c 'systemctl list-units --type=service --all --no-legend --plain --no-pager | sed "s/^ *//;s/ .*//" | grep "[.]service$" | xargs -r -d "\n" systemctl show --no-pager -p Id -p MainPID -p MemoryCurrent -p CPUUsageNSec -p TasksCurrent -p NRestarts -p ExecMainStatus --' 2>&1 | head -c 160000
   section startup
   bounded systemctl list-unit-files --type=service --no-legend --no-pager 2>&1 | head -c 20000
   section timers
@@ -421,6 +424,10 @@ section memory
 cat /proc/\$pid/smaps_rollup 2>&1 | head -c 10000
 section descriptors
 ls -l /proc/\$pid/fd 2>&1 | head -c 20000
+section logs
+if command -v journalctl >/dev/null 2>&1; then
+  since=\$(awk -v ticks=${process.started} -v hz="\$(getconf CLK_TCK)" '\$1=="btime" && hz>0 {printf "%.0f",\$2+ticks/hz}' /proc/stat)
+  [ -n "\$since" ] && bounded journalctl -b --since="@\$since" _PID=\$pid -n 60 --no-pager -o short-iso 2>&1 | head -c 20000; fi
 section end
 ''';
 }

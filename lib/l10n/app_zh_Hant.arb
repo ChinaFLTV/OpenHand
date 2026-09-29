@@ -8621,5 +8621,14 @@
   "maintenanceDetailNone": "無",
   "maintenanceDetailSearchDomain": "搜尋網域",
   "maintenanceDetailDomain": "網域",
-  "maintenanceDetailOptions": "選項"
+  "maintenanceDetailOptions": "選項",
+  "maintenanceCpuTime": "累計 CPU 時間",
+  "maintenanceLoadState": "載入狀態",
+  "maintenanceSubState": "子狀態",
+  "maintenanceTaskCount": "工作數",
+  "maintenanceRestartCount": "重新啟動次數",
+  "maintenanceLoaded": "已載入",
+  "maintenanceExited": "已結束",
+  "maintenanceStatic": "靜態",
+  "maintenanceMasked": "已遮罩"
 }

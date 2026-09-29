@@ -92,7 +92,7 @@ void main() {
     'tcp LISTEN 0 128 [::]:80 [::]:*',
   ]) {
     final result = parse(sample, 'sockets');
-    check(!result.fields && result.rows.single.length == 4, '跨平台连接解析错误');
+    check(!result.fields && result.rows.single.length == 7, '跨平台连接解析错误');
   }
   check(parse("'", 'command').rows.single.last == "'", '不完整引号不得丢失或抛出异常');
   check(

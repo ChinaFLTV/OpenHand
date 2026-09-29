@@ -53,6 +53,9 @@ class MachineMaintenanceReadout {
             values[1],
             values[2],
             protocol == 'TCP' && values.length > 4 ? values[3] : '—',
+            '—',
+            '—',
+            values.last,
           ]);
         } else if (int.tryParse(values[1]) != null && values.length >= 5) {
           rows.add([
@@ -60,13 +63,32 @@ class MachineMaintenanceReadout {
             values[3],
             values[4],
             protocol.startsWith('TCP') && values.length > 5 ? values[5] : '—',
+            values[1],
+            values[2],
+            values.last.contains('/') ? values.last : '—',
           ]);
         } else if (values.length >= 6) {
-          rows.add([protocol, values[4], values[5], values[1]]);
+          rows.add([
+            protocol,
+            values[4],
+            values[5],
+            values[1],
+            values[2],
+            values[3],
+            values.length > 6 ? values.skip(6).join(' ') : '—',
+          ]);
         }
       }
       if (rows.isNotEmpty) {
-        return MachineMaintenanceReadout(['协议', '本地地址', '远端地址', '状态'], rows);
+        return MachineMaintenanceReadout([
+          '协议',
+          '本地地址',
+          '远端地址',
+          '状态',
+          '接收队列',
+          '发送队列',
+          '进程',
+        ], rows);
       }
     }
     if (section == 'users' &&

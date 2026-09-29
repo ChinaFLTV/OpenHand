@@ -12243,6 +12243,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceDetailOptions => '选项';
+
+  @override
+  String get maintenanceCpuTime => '累计 CPU 时间';
+
+  @override
+  String get maintenanceLoadState => '加载状态';
+
+  @override
+  String get maintenanceSubState => '子状态';
+
+  @override
+  String get maintenanceTaskCount => '任务数';
+
+  @override
+  String get maintenanceRestartCount => '重启次数';
+
+  @override
+  String get maintenanceLoaded => '已加载';
+
+  @override
+  String get maintenanceExited => '已退出';
+
+  @override
+  String get maintenanceStatic => '静态';
+
+  @override
+  String get maintenanceMasked => '已屏蔽';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24466,4 +24493,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceDetailOptions => '選項';
+
+  @override
+  String get maintenanceCpuTime => '累計 CPU 時間';
+
+  @override
+  String get maintenanceLoadState => '載入狀態';
+
+  @override
+  String get maintenanceSubState => '子狀態';
+
+  @override
+  String get maintenanceTaskCount => '工作數';
+
+  @override
+  String get maintenanceRestartCount => '重新啟動次數';
+
+  @override
+  String get maintenanceLoaded => '已載入';
+
+  @override
+  String get maintenanceExited => '已結束';
+
+  @override
+  String get maintenanceStatic => '靜態';
+
+  @override
+  String get maintenanceMasked => '已遮罩';
 }

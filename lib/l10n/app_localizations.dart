@@ -22639,6 +22639,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'选项'**
   String get maintenanceDetailOptions;
+
+  /// No description provided for @maintenanceCpuTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计 CPU 时间'**
+  String get maintenanceCpuTime;
+
+  /// No description provided for @maintenanceLoadState.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载状态'**
+  String get maintenanceLoadState;
+
+  /// No description provided for @maintenanceSubState.
+  ///
+  /// In zh, this message translates to:
+  /// **'子状态'**
+  String get maintenanceSubState;
+
+  /// No description provided for @maintenanceTaskCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务数'**
+  String get maintenanceTaskCount;
+
+  /// No description provided for @maintenanceRestartCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启次数'**
+  String get maintenanceRestartCount;
+
+  /// No description provided for @maintenanceLoaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加载'**
+  String get maintenanceLoaded;
+
+  /// No description provided for @maintenanceExited.
+  ///
+  /// In zh, this message translates to:
+  /// **'已退出'**
+  String get maintenanceExited;
+
+  /// No description provided for @maintenanceStatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'静态'**
+  String get maintenanceStatic;
+
+  /// No description provided for @maintenanceMasked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽'**
+  String get maintenanceMasked;
 }
 
 class _AppLocalizationsDelegate

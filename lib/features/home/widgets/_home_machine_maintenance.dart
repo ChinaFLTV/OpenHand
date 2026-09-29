@@ -1389,7 +1389,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     constraints.maxHeight -
                         (constraints.maxWidth < 720 ? 148 : 96),
                   ),
-                  headers: const ['PID', '进程', '状态', 'CPU / 单核', '驻留内存', '线程'],
+                  headers: const [
+                    'PID',
+                    '进程',
+                    '状态',
+                    'CPU / 单核',
+                    '驻留内存',
+                    '线程',
+                    '父进程 ID',
+                    '优先级',
+                    '虚拟内存',
+                    '累计 CPU 时间',
+                  ],
                   rows: [
                     for (final p in rows)
                       OpenHandOperationalRankRow(
@@ -1410,6 +1421,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               ? maintenanceLabel(context, '不可用')
                               : formatByteSize(p.residentPages * pageSize),
                           p.threads < 0 ? '—' : '${p.threads}',
+                          '${p.parent}',
+                          '${p.nice}',
+                          p.virtualBytes < 0
+                              ? '—'
+                              : formatByteSize(p.virtualBytes),
+                          ticksPerSecond == null ||
+                                  ticksPerSecond <= 0 ||
+                                  p.ticks < 0
+                              ? '—'
+                              : '${(p.ticks / ticksPerSecond).toStringAsFixed(2)} s',
                         ],
                         cellWidgets: [
                           null,
@@ -1487,6 +1508,114 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         .toList();
     final cs = Theme.of(context).colorScheme;
     final manager = data.text('manager');
+    final startup = <String, String>{
+      for (final line in data.text('startup').split('\n'))
+        if (line.trim().split(RegExp(r'\s+')).length >= 2)
+          line.trim().split(RegExp(r'\s+')).first: line.trim().split(
+            RegExp(r'\s+'),
+          )[1],
+    };
+    final serviceMetrics = <String, Map<String, String>>{};
+    for (final block
+        in data.text('service_metrics').split(RegExp(r'\n\s*\n'))) {
+      final values = <String, String>{};
+      for (final line in block.split('\n')) {
+        final separator = line.indexOf('=');
+        if (separator > 0) {
+          values[line.substring(0, separator)] = line.substring(separator + 1);
+        }
+      }
+      if (values['Id'] case final String name) {
+        serviceMetrics[name] = values;
+      }
+    }
+    final serviceHeaders = switch (manager) {
+      'systemd' => const [
+        '名称',
+        '状态',
+        '加载状态',
+        '子状态',
+        '启动方式',
+        '描述',
+        'PID',
+        '内存',
+        '累计 CPU 时间',
+        '任务数',
+        '重启次数',
+        '退出代码',
+      ],
+      'launchd' => const ['名称', '状态', 'PID', '退出代码'],
+      'Windows SCM' => const [
+        '名称',
+        '状态',
+        '描述',
+        '启动方式',
+        'PID',
+        '用户',
+        '退出代码',
+        '路径',
+      ],
+      _ => const ['名称', '状态', '状态详情'],
+    };
+    List<String> serviceCells(String line, String status) {
+      final fields = line.trim().split(RegExp(r'\s+'));
+      final columns = line.split('\t');
+      final name = columns.length > 1 ? columns.first : fields.first;
+      if (manager == 'systemd') {
+        final metrics = serviceMetrics[name] ?? const <String, String>{};
+        String counter(
+          String key, {
+          bool bytes = false,
+          bool duration = false,
+        }) {
+          final value = int.tryParse(metrics[key] ?? '');
+          if (value == null || value < 0 || value >= 9223372036854775807) {
+            return '—';
+          }
+          return bytes
+              ? formatByteSize(value)
+              : duration
+              ? '${(value / 1000000000).toStringAsFixed(2)} s'
+              : '$value';
+        }
+
+        final loaded = fields.length >= 4 && fields[2] != '—';
+        return [
+          name,
+          status,
+          loaded ? maintenanceDetailValue(context, fields[1]) : '—',
+          loaded ? maintenanceDetailValue(context, fields[3]) : '—',
+          maintenanceDetailValue(context, startup[name] ?? '—'),
+          loaded ? fields.skip(4).join(' ') : '—',
+          counter('MainPID'),
+          counter('MemoryCurrent', bytes: true),
+          counter('CPUUsageNSec', duration: true),
+          counter('TasksCurrent'),
+          counter('NRestarts'),
+          counter('ExecMainStatus'),
+        ];
+      }
+      if (manager == 'launchd') {
+        return [
+          name,
+          status,
+          fields.length > 1 ? fields[1] : '—',
+          fields.length > 2 ? fields[2] : '—',
+        ];
+      }
+      if (manager == 'Windows SCM') {
+        return [
+          name,
+          status,
+          columns.length > 2 ? columns[2] : '—',
+          maintenanceDetailValue(context, startup[name] ?? '—'),
+          for (var i = 3; i < 7; i++)
+            columns.length > i && columns[i].isNotEmpty ? columns[i] : '—',
+        ];
+      }
+      return [name, status, line];
+    }
+
     String state(String line) {
       final fields = line.trim().split(RegExp(r'\s+'));
       if (manager == 'launchd') {
@@ -1627,7 +1756,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           child: _MaintenanceTable(
             key: ValueKey(_search.text),
             maxBodyHeight: 360,
-            headers: const ['名称', '状态', '状态详情'],
+            headers: serviceHeaders,
             rows: [
               for (final line in filtered)
                 OpenHandOperationalRankRow(
@@ -1636,13 +1765,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ? line.split('\t').first
                       : line.trim().split(RegExp(r'\s+')).first,
                   data: line,
-                  cells: [
-                    line.contains('\t')
-                        ? line.split('\t').first
-                        : line.trim().split(RegExp(r'\s+')).first,
-                    maintenanceLabel(context, state(line)),
+                  cells: serviceCells(
                     line,
-                  ],
+                    maintenanceLabel(context, state(line)),
+                  ),
                   cellWidgets: [
                     null,
                     _MaintenanceStatus(
@@ -1690,7 +1816,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             )
           : _MaintenanceTable(
               maxBodyHeight: 360,
-              headers: const ['协议', '本地地址', '远端地址', '状态'],
+              headers: const ['协议', '本地地址', '远端地址', '状态', '接收队列', '发送队列', '进程'],
               rows: [
                 for (final row in connections)
                   OpenHandOperationalRankRow(
@@ -1700,6 +1826,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       row[1],
                       row[2],
                       maintenanceLabel(context, row[3]),
+                      ...row.skip(4),
                     ],
                   ),
               ],

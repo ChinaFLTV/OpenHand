@@ -8626,5 +8626,14 @@
   "maintenanceDetailNone": "None",
   "maintenanceDetailSearchDomain": "Search domains",
   "maintenanceDetailDomain": "Domain",
-  "maintenanceDetailOptions": "Options"
+  "maintenanceDetailOptions": "Options",
+  "maintenanceCpuTime": "CPU time",
+  "maintenanceLoadState": "Load state",
+  "maintenanceSubState": "Substate",
+  "maintenanceTaskCount": "Tasks",
+  "maintenanceRestartCount": "Restarts",
+  "maintenanceLoaded": "Loaded",
+  "maintenanceExited": "Exited",
+  "maintenanceStatic": "Static",
+  "maintenanceMasked": "Masked"
 }

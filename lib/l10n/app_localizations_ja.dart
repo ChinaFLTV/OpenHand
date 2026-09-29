@@ -12367,4 +12367,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceDetailOptions => 'オプション';
+
+  @override
+  String get maintenanceCpuTime => '累積 CPU 時間';
+
+  @override
+  String get maintenanceLoadState => '読み込み状態';
+
+  @override
+  String get maintenanceSubState => '詳細状態';
+
+  @override
+  String get maintenanceTaskCount => 'タスク数';
+
+  @override
+  String get maintenanceRestartCount => '再起動回数';
+
+  @override
+  String get maintenanceLoaded => '読み込み済み';
+
+  @override
+  String get maintenanceExited => '終了';
+
+  @override
+  String get maintenanceStatic => '静的';
+
+  @override
+  String get maintenanceMasked => 'マスク済み';
 }

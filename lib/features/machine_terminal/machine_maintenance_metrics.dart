@@ -348,8 +348,25 @@ class MachineMaintenanceMetrics {
             }
           }
         } else {
+          final addresses = <String, List<String>>{};
+          if (platform == 'Linux') {
+            for (final line in lines) {
+              final address = RegExp(
+                r'^\d+:\s+(\S+)\s+inet6?\s+(\S+)',
+              ).firstMatch(line);
+              if (address != null) {
+                (addresses[address[1]!.split('@').first] ??= []).add(
+                  address[2]!,
+                );
+              }
+            }
+          }
           List<String>? current;
           for (final line in lines) {
+            if (platform == 'Linux' &&
+                RegExp(r'^\d+:\s+\S+\s+inet6?\s+').hasMatch(line)) {
+              continue;
+            }
             final macHeader = RegExp(
               r'^(\S+): flags=([^ ]+).*\bmtu (\d+)',
             ).firstMatch(line);
@@ -366,7 +383,14 @@ class MachineMaintenanceMetrics {
               continue;
             }
             if (platform == 'Linux' && !line.contains(':')) {
-              current = [line, '—', '—', '—', '—', '—'];
+              current = [
+                line,
+                '—',
+                '—',
+                '—',
+                addresses[line]?.join(' · ') ?? '—',
+                '—',
+              ];
               rows.add(current);
               continue;
             }

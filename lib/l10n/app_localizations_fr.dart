@@ -12813,4 +12813,31 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceDetailOptions => 'Options';
+
+  @override
+  String get maintenanceCpuTime => 'Temps CPU';
+
+  @override
+  String get maintenanceLoadState => 'État de chargement';
+
+  @override
+  String get maintenanceSubState => 'Sous-état';
+
+  @override
+  String get maintenanceTaskCount => 'Tâches';
+
+  @override
+  String get maintenanceRestartCount => 'Redémarrages';
+
+  @override
+  String get maintenanceLoaded => 'Chargé';
+
+  @override
+  String get maintenanceExited => 'Terminé';
+
+  @override
+  String get maintenanceStatic => 'Statique';
+
+  @override
+  String get maintenanceMasked => 'Masqué';
 }

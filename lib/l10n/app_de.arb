@@ -8621,5 +8621,14 @@
   "maintenanceDetailNone": "Keine",
   "maintenanceDetailSearchDomain": "Suchdomänen",
   "maintenanceDetailDomain": "Domäne",
-  "maintenanceDetailOptions": "Optionen"
+  "maintenanceDetailOptions": "Optionen",
+  "maintenanceCpuTime": "CPU-Zeit",
+  "maintenanceLoadState": "Ladezustand",
+  "maintenanceSubState": "Unterstatus",
+  "maintenanceTaskCount": "Tasks",
+  "maintenanceRestartCount": "Neustarts",
+  "maintenanceLoaded": "Geladen",
+  "maintenanceExited": "Beendet",
+  "maintenanceStatic": "Statisch",
+  "maintenanceMasked": "Maskiert"
 }

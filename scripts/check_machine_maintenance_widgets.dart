@@ -129,6 +129,15 @@ __OH_OPS_manager__
 systemd
 __OH_OPS_services__
 nginx.service loaded active running 测试服务
+__OH_OPS_service_metrics__
+MainPID=42
+MemoryCurrent=1048576
+CPUUsageNSec=2000000000
+TasksCurrent=3
+NRestarts=0
+ExecMainStatus=0
+Id=nginx.service
+
 __OH_OPS_startup__
 nginx.service enabled
 __OH_OPS_sockets__
@@ -225,11 +234,11 @@ void main() {
     final mac = MachineMaintenanceSnapshot({'platform': 'Darwin', 'system': 'ProductVersion: 27.0.1\\nDarwin host 27.0.0 Darwin Kernel Version 27.0.0: Tue 13:20:00', 'sockets': 'tcp46 0 0 *.80 *.* LISTEN\\nudp4 0 0 127.0.0.1.53 *.* 0', 'host': 'host'});
     expect(_maintenanceFacts(mac)['系统版本'], '27.0.1');
     expect(_maintenanceFacts(mac)['内核版本'], '27.0.0');
-    expect(_maintenanceConnections(mac).first, ['TCP46', '*.80', '*.*', 'LISTEN']);
+    expect(_maintenanceConnections(mac).first, ['TCP46', '*.80', '*.*', 'LISTEN', '0', '0', '—']);
     final linux = MachineMaintenanceSnapshot({'platform': 'Linux', 'sockets': 'tcp LISTEN 0 128 [::]:22 [::]:*'});
-    expect(_maintenanceConnections(linux).single, ['TCP', '[::]:22', '[::]:*', 'LISTEN']);
+    expect(_maintenanceConnections(linux).single, ['TCP', '[::]:22', '[::]:*', 'LISTEN', '0', '128', '—']);
     final windows = MachineMaintenanceSnapshot({'platform': 'Windows', 'sockets': 'TCP [::1]:80 [::]:0 LISTENING 20'});
-    expect(_maintenanceConnections(windows).single, ['TCP', '[::1]:80', '[::]:0', 'LISTENING']);
+    expect(_maintenanceConnections(windows).single, ['TCP', '[::1]:80', '[::]:0', 'LISTENING', '—', '—', '20']);
   });
 
   testWidgets('扩展指标直接显示分页表格并区分累计值与缺失值', (tester) async {
@@ -643,6 +652,7 @@ void main() {
     expect(find.text('下一批进程'), findsNothing);
     final table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
     expect(table.limitToViewport, isFalse);
+    expect(table.headers, containsAll(['父进程 ID', '优先级', '虚拟内存', '累计 CPU 时间']));
     expect(table.maxBodyHeight, greaterThan(1100 * .45));
     final dialogBottom = tester.getRect(find.byType(Dialog).first).bottom;
     expect(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).bottom, lessThanOrEqualTo(dialogBottom - 16));
@@ -660,6 +670,9 @@ void main() {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
       if (tab == '系统服务') {
+        final services = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
+        expect(services.headers.length, 12);
+        expect(services.rows.first.cells.skip(6).toList(), ['42', '1 MB', '2.00 s', '3', '0', '0']);
         expect(tester.getSize(find.byType(TextField).first).height, controlHeight);
         for (final label in ['开机启动状态', '系统定时器']) {
           final button = find.widgetWithText(OutlinedButton, label);

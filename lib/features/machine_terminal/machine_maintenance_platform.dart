@@ -16,6 +16,7 @@ abstract class MachineMaintenancePlatformAdapter {
       };
   bool get windowsScript => false;
   bool canInspectProcess(MachineMaintenanceProcess process) => process.pid >= 1;
+
   /// 指定并发数时启用受监管采集；省略时保留原始协议脚本。
   String collect(int section, {int offset = 0, int? workers});
   String process(MachineMaintenanceProcess process, {String? action});
@@ -355,8 +356,8 @@ lines.push("__COUNT__\t"+processes.length);emit("processes",lines.join("\n"));em
 
 const _windowsServices = r'''
 emit("manager","Windows SCM");
-var services=rows("SELECT Name,DisplayName,State,StartMode FROM Win32_Service"),lines=[],startup=[];
-for(var i=0;i<services.length;i++){var s=services[i];lines.push([clean(s.Name),clean(s.State),clean(s.DisplayName)].join("\t"));startup.push(clean(s.Name)+"\t"+clean(s.StartMode));}
+var services=rows("SELECT Name,DisplayName,State,StartMode,ProcessId,StartName,ExitCode,PathName FROM Win32_Service"),lines=[],startup=[];
+for(var i=0;i<services.length;i++){var s=services[i];lines.push([clean(s.Name),clean(s.State),clean(s.DisplayName),clean(s.ProcessId),clean(s.StartName),clean(s.ExitCode),clean(s.PathName)].join("\t"));startup.push(clean(s.Name)+"\t"+clean(s.StartMode));}
 emit("services",lines.join("\n").substr(0,50000));emit("startup",startup.join("\n").substr(0,16000));
 emit("timers",command("schtasks /query /fo LIST",12000));
 ''';

@@ -9595,5 +9595,14 @@
   "maintenanceDetailNone": "无",
   "maintenanceDetailSearchDomain": "域名搜索",
   "maintenanceDetailDomain": "域名",
-  "maintenanceDetailOptions": "选项"
+  "maintenanceDetailOptions": "选项",
+  "maintenanceCpuTime": "累计 CPU 时间",
+  "maintenanceLoadState": "加载状态",
+  "maintenanceSubState": "子状态",
+  "maintenanceTaskCount": "任务数",
+  "maintenanceRestartCount": "重启次数",
+  "maintenanceLoaded": "已加载",
+  "maintenanceExited": "已退出",
+  "maintenanceStatic": "静态",
+  "maintenanceMasked": "已屏蔽"
 }
