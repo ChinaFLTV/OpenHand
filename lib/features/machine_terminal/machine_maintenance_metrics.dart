@@ -122,7 +122,17 @@ class MachineMaintenanceMetrics {
           } else if (section == 'vm') {
             unit = const ['pgpgin', 'pgpgout'].contains(name)
                 ? 'KiB'
-                : const ['pswpin', 'pswpout'].contains(name)
+                : const [
+                    'pswpin',
+                    'pswpout',
+                    'nr_free_pages',
+                    'nr_anon_pages',
+                    'nr_file_pages',
+                    'nr_shmem',
+                    'nr_mapped',
+                    'nr_dirty',
+                    'nr_writeback',
+                  ].contains(name)
                 ? '页数'
                 : '—';
           } else if (section == 'memory_details') {

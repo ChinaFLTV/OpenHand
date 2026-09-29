@@ -44,6 +44,12 @@ void main() {
     'pgpgin 8192\npswpout 4',
   ).tables.single.rows;
   check(pages[0][2] == 'KiB' && pages[1][2] == '页数', '分页流量与页数混淆');
+  final vm = parse(
+    'Linux',
+    'vm',
+    'nr_free_pages 42\npgfault 8',
+  ).tables.single.rows;
+  check(vm[0][2] == '页数' && vm[1][2] == '—', '内存页计数与事件计数单位混淆');
   final pressure = parse(
     'Linux',
     'pressure',

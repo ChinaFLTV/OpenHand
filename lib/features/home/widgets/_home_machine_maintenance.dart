@@ -866,18 +866,36 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 maintenanceLabel(context, '暂无可读的文件系统'),
                 style: const TextStyle(fontSize: 12),
               )
-            : _MaintenanceTable(
-                headers: const ['路径', '存储空间', '状态'],
-                rows: [
+            : Column(
+                children: [
                   for (final v in visibleVolumes)
-                    OpenHandOperationalRankRow(
-                      value: 0,
-                      rowKey: v.first,
-                      cells: [
-                        v.skip(5).join(' '),
-                        '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
-                        v[4],
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            v.skip(5).join(' '),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          _MaintenanceUsage(
+                            label: '存储空间',
+                            value:
+                                (double.tryParse(v[4].replaceAll('%', '')) ??
+                                    0) /
+                                100,
+                            color: cs.primary,
+                          ),
+                          _MaintenanceValue(
+                            value:
+                                '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -1696,21 +1714,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   maintenanceLabel(context, '暂无可解析的服务器地址'),
                   style: const TextStyle(fontSize: 12),
                 )
-              : _MaintenanceTable(
-                  headers: const ['名称', '地址'],
-                  rows: [
+              : _MaintenanceFacts(
+                  values: {
                     for (var i = 0; i < dns.length; i++)
-                      OpenHandOperationalRankRow(
-                        value: 0,
-                        rowKey: dns[i],
-                        cells: [
-                          AppLocalizations.of(
-                            context,
-                          )!.maintenanceServerNumber('${i + 1}'),
-                          dns[i],
-                        ],
-                      ),
-                  ],
+                      AppLocalizations.of(
+                        context,
+                      )!.maintenanceServerNumber('${i + 1}'): dns[i],
+                  },
                 ),
         ),
         const SizedBox(height: 12),
@@ -1718,37 +1728,44 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           title: maintenanceLabel(context, '诊断项目'),
           maxHeight: 360,
           icon: Icons.fact_check_outlined,
-          child: _MaintenanceTable(
-            headers: const ['诊断项目', '状态'],
-            rows: [
+          child: Column(
+            children: [
               for (final name in names.where(
                 (name) => name != 'sockets' && name != 'dns',
               ))
-                OpenHandOperationalRankRow(
-                  value: 0,
-                  rowKey: name,
-                  data: name,
-                  cells: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.fact_check_outlined,
+                    color: cs.primary,
+                    size: 20,
+                  ),
+                  title: Text(
                     maintenanceLabel(
                       context,
                       _maintenanceSectionLabels[name] ?? name,
                     ),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
                     maintenanceLabel(
                       context,
                       data.text(name).trim().isEmpty
                           ? '暂无数据'
                           : _maintenanceOutputStatus(data.text(name)),
                     ),
-                  ],
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+                  onTap: () => _showCollected(
+                    _maintenanceSectionLabels[name] ?? name,
+                    data.text(name),
+                  ),
                 ),
             ],
-            onRowTap: (row) {
-              final name = row.data! as String;
-              _showCollected(
-                _maintenanceSectionLabels[name] ?? name,
-                data.text(name),
-              );
-            },
           ),
         ),
       ],
@@ -1951,25 +1968,54 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
             child: Text(maintenanceLabel(context, '可用内存包含可回收页，具体统计口径因系统而异。')),
           ),
         for (var t = 0; t < metrics.tables.length; t++)
-          _MaintenanceTable(
-            key: ValueKey((section, t)),
-            headers: metrics.tables[t].headers,
-            rows: [
-              for (var r = 0; r < metrics.tables[t].rows.length; r++)
-                OpenHandOperationalRankRow(
-                  value: 0,
-                  rowKey: '$section:$t:$r',
-                  cells: [
-                    for (var c = 0; c < metrics.tables[t].rows[r].length; c++)
-                      maintenanceMetricLabel(
-                        context,
-                        metrics.tables[t].rows[r][c],
-                        metrics.tables[t].headers[c],
+          if (metrics.tables[t].rows.isEmpty)
+            Text(maintenanceLabel(context, '暂无可用数据'))
+          else if (section == 'capabilities')
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final row in metrics.tables[t].rows)
+                  Tooltip(
+                    message: maintenanceMetricLabel(context, row.first, '类型'),
+                    child: Chip(
+                      avatar: Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                  ],
-                ),
-            ],
-          ),
+                      label: Text(row.last),
+                    ),
+                  ),
+              ],
+            )
+          else if (metrics.tables[t].headers.contains('数值') ||
+              section == 'pressure')
+            _MaintenanceMetricTiles(
+              key: ValueKey((section, t)),
+              table: metrics.tables[t],
+              pressure: metrics.tables[t].headers.contains('10 秒平均'),
+            )
+          else
+            _MaintenanceTable(
+              key: ValueKey((section, t)),
+              headers: metrics.tables[t].headers,
+              rows: [
+                for (var r = 0; r < metrics.tables[t].rows.length; r++)
+                  OpenHandOperationalRankRow(
+                    value: 0,
+                    rowKey: '$section:$t:$r',
+                    cells: [
+                      for (var c = 0; c < metrics.tables[t].rows[r].length; c++)
+                        maintenanceMetricLabel(
+                          context,
+                          metrics.tables[t].rows[r][c],
+                          metrics.tables[t].headers[c],
+                        ),
+                    ],
+                  ),
+              ],
+            ),
         if (metrics.unparsed > 0)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -1979,6 +2025,156 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MaintenanceMetricTiles extends StatelessWidget {
+  const _MaintenanceMetricTiles({
+    super.key,
+    required this.table,
+    this.pressure = false,
+  });
+  final MachineMaintenanceMetricTable table;
+  final bool pressure;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final locale = Localizations.localeOf(context);
+    return _MaintenanceGrid(
+      minWidth: pressure ? 280 : 200,
+      maxColumns: pressure ? 3 : 5,
+      children: [
+        for (final row in table.rows)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: .45),
+              ),
+            ),
+            child: pressure
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '${maintenanceMetricLabel(context, row[0], '资源')} · ${maintenanceMetricLabel(context, row[1], '范围')}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      for (var i = 2; i < 5; i++) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                maintenanceLabel(context, table.headers[i]),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            _MaintenanceValue(value: row[i]),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(
+                            end:
+                                ((double.tryParse(row[i].replaceAll('%', '')) ??
+                                            0) /
+                                        100)
+                                    .clamp(0, 1),
+                          ),
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion260,
+                          ),
+                          curve: kOpenHandSwitchInCurve,
+                          builder: (_, value, _) => LinearProgressIndicator(
+                            value: value.clamp(0, 1),
+                            color: switch (row.first) {
+                              'memory' => cs.secondary,
+                              'io' => cs.tertiary,
+                              _ => cs.primary,
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            backgroundColor: cs.surfaceContainerHighest,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        '${maintenanceLabel(context, table.headers.last)} · ${row.last}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  )
+                : Builder(
+                    builder: (context) {
+                      final unit = row.length > 2 ? row[2] : '—';
+                      final number = num.tryParse(row[1]);
+                      final multiplier = const {
+                        'B': 1,
+                        'KiB': 1024,
+                        'MiB': 1048576,
+                      }[unit];
+                      final value =
+                          number != null && multiplier != null && number >= 0
+                          ? formatByteSize(
+                              number * multiplier,
+                              languageCode: locale.languageCode,
+                              scriptCode: locale.scriptCode,
+                              countryCode: locale.countryCode,
+                            )
+                          : '${maintenanceMetricLabel(context, row[1], '数值')}${unit == '—' || number == null ? '' : ' ${maintenanceMetricLabel(context, unit, '单位')}'}';
+                      return Tooltip(
+                        message: row.join(' · '),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              maintenanceMetricLabel(context, row.first, '名称'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _MaintenanceValue(
+                              value: value,
+                              maxLines: 2,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: cs.primary,
+                              ),
+                            ),
+                            if (row.length > 3) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                row[3],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
       ],
     );
