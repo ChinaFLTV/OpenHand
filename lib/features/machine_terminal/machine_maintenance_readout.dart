@@ -264,7 +264,7 @@ class MachineMaintenanceReadout {
       }
       return MachineMaintenanceReadout(['目的地址', '网关', '网卡', '来源', '描述'], rows);
     }
-    if ((section == 'status' || section == 'descriptors') &&
+    if (section == 'status' &&
         lines.first.contains('PID') &&
         (lines.first.contains('COMMAND') || lines.first.contains('NAME'))) {
       final headers = lines.first.trim().split(RegExp(r'\s+'));
@@ -327,10 +327,24 @@ class MachineMaintenanceReadout {
                       .trim(),
         ]);
       }
-      return MachineMaintenanceReadout(
-        columns.map((m) => m[0]!).toList(),
-        rows,
-      );
+      final headers = columns.map((m) => m[0]!).toList();
+      if (section == 'limits') {
+        return MachineMaintenanceReadout(
+          ['名称', '数值'],
+          [
+            for (final row in rows)
+              [
+                row.first,
+                [
+                  for (var i = 1; i < headers.length; i++)
+                    '${headers[i]}: ${row[i]}',
+                ].join('\n'),
+              ],
+          ],
+          fields: true,
+        );
+      }
+      return MachineMaintenanceReadout(headers, rows);
     }
     final fields = <List<String>>[];
     final property = RegExp(
@@ -348,7 +362,12 @@ class MachineMaintenanceReadout {
               (index == lines.length - 1 && (text == '}' || text == '};')))) {
         continue;
       }
-      if (depth > 0) {
+      if (depth == 0 &&
+          fields.isNotEmpty &&
+          fields.last[1].isEmpty &&
+          RegExp(r'^[{(\[]').hasMatch(text)) {
+        fields.last[1] = line;
+      } else if (depth > 0) {
         fields.last[1] += '\n$line';
       } else {
         final match = property.firstMatch(line);

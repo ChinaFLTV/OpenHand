@@ -13090,6 +13090,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceBusBuiltin => '内置';
+
+  @override
+  String get maintenanceLoadAddress => '加载地址';
+
+  @override
+  String get maintenanceLaunchd => '启动服务';
+
+  @override
+  String get maintenanceColorLcd => '彩色液晶';
+
+  @override
+  String get maintenanceChargeState => '充电状态';
+
+  @override
+  String get maintenanceToolSysctl => '内核参数';
+
+  @override
+  String get maintenanceToolTop => '进程采样';
+
+  @override
+  String get maintenanceToolVmStat => '虚拟内存';
+
+  @override
+  String get maintenanceToolIoreg => '设备树';
+
+  @override
+  String get maintenanceToolNetstat => '网络连接';
+
+  @override
+  String get maintenanceToolLaunchctl => '启动项';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26160,4 +26190,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceBusBuiltin => '內建';
+
+  @override
+  String get maintenanceLoadAddress => '載入位址';
+
+  @override
+  String get maintenanceLaunchd => '啟動服務';
+
+  @override
+  String get maintenanceColorLcd => '彩色液晶';
+
+  @override
+  String get maintenanceChargeState => '充電狀態';
+
+  @override
+  String get maintenanceToolSysctl => '核心參數';
+
+  @override
+  String get maintenanceToolTop => '行程取樣';
+
+  @override
+  String get maintenanceToolVmStat => '虛擬記憶體';
+
+  @override
+  String get maintenanceToolIoreg => '裝置樹';
+
+  @override
+  String get maintenanceToolNetstat => '網路連線';
+
+  @override
+  String get maintenanceToolLaunchctl => '啟動項目';
 }

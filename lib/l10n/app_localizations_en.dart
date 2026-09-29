@@ -13513,4 +13513,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceBusBuiltin => 'Built-in';
+
+  @override
+  String get maintenanceLoadAddress => 'Load address';
+
+  @override
+  String get maintenanceLaunchd => 'Launch services';
+
+  @override
+  String get maintenanceColorLcd => 'Color LCD';
+
+  @override
+  String get maintenanceChargeState => 'Charge state';
+
+  @override
+  String get maintenanceToolSysctl => 'Kernel parameters';
+
+  @override
+  String get maintenanceToolTop => 'Process sample';
+
+  @override
+  String get maintenanceToolVmStat => 'Virtual memory';
+
+  @override
+  String get maintenanceToolIoreg => 'Device tree';
+
+  @override
+  String get maintenanceToolNetstat => 'Network connections';
+
+  @override
+  String get maintenanceToolLaunchctl => 'Startup items';
 }

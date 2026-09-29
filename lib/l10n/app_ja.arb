@@ -8900,5 +8900,15 @@
   "maintenanceGpuProductBrand": "製品シリーズ",
   "maintenanceHealthy": "正常",
   "maintenanceMacos": "macOS",
-  "maintenanceBusBuiltin": "内蔵"
+  "maintenanceBusBuiltin": "内蔵",
+  "maintenanceLoadAddress": "ロードアドレス",
+  "maintenanceLaunchd": "起動サービス",
+  "maintenanceColorLcd": "カラー液晶",
+  "maintenanceChargeState": "充電状態",
+  "maintenanceToolSysctl": "カーネルパラメータ",
+  "maintenanceToolTop": "プロセス採取",
+  "maintenanceToolVmStat": "仮想メモリ",
+  "maintenanceToolIoreg": "デバイスツリー",
+  "maintenanceToolNetstat": "ネットワーク接続",
+  "maintenanceToolLaunchctl": "起動項目"
 }

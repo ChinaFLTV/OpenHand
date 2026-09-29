@@ -8900,5 +8900,15 @@
   "maintenanceGpuProductBrand": "產品系列",
   "maintenanceHealthy": "健康",
   "maintenanceMacos": "macOS",
-  "maintenanceBusBuiltin": "內建"
+  "maintenanceBusBuiltin": "內建",
+  "maintenanceLoadAddress": "載入位址",
+  "maintenanceLaunchd": "啟動服務",
+  "maintenanceColorLcd": "彩色液晶",
+  "maintenanceChargeState": "充電狀態",
+  "maintenanceToolSysctl": "核心參數",
+  "maintenanceToolTop": "行程取樣",
+  "maintenanceToolVmStat": "虛擬記憶體",
+  "maintenanceToolIoreg": "裝置樹",
+  "maintenanceToolNetstat": "網路連線",
+  "maintenanceToolLaunchctl": "啟動項目"
 }

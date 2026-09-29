@@ -13705,4 +13705,34 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceBusBuiltin => 'Intégré';
+
+  @override
+  String get maintenanceLoadAddress => 'Adresse de chargement';
+
+  @override
+  String get maintenanceLaunchd => 'Services de lancement';
+
+  @override
+  String get maintenanceColorLcd => 'LCD couleur';
+
+  @override
+  String get maintenanceChargeState => 'État de charge';
+
+  @override
+  String get maintenanceToolSysctl => 'Paramètres noyau';
+
+  @override
+  String get maintenanceToolTop => 'Échantillon de processus';
+
+  @override
+  String get maintenanceToolVmStat => 'Mémoire virtuelle';
+
+  @override
+  String get maintenanceToolIoreg => 'Arborescence matérielle';
+
+  @override
+  String get maintenanceToolNetstat => 'Connexions réseau';
+
+  @override
+  String get maintenanceToolLaunchctl => 'Éléments de démarrage';
 }

@@ -316,7 +316,13 @@ class MachineHealthReport {
         add('电量', '${m[3]}%');
         for (final part in m[4]!.split(';')) {
           final states = part.split(' present:');
-          add('状态', states.first);
+          final text = states.first.trim();
+          add(
+            RegExp('charg', caseSensitive: false).hasMatch(text)
+                ? '充电状态'
+                : '状态',
+            text,
+          );
           if (states.length > 1) add('present', states.last);
         }
       }

@@ -1170,7 +1170,7 @@ void main() {
       expect(maintenanceEnglishTimestamp('Tue Sep 29 19:22 2026'), '2026-09-29 19:22');
       expect(maintenanceHealthValue(context, 'Darwin'), l10n.maintenanceMacos);
       expect(maintenanceHealthValue(context, 'Sep 29 18:41:39 2026'), '2026-09-29 18:41:39');
-      expect(maintenanceHealthValue(context, '- 10:26 (00:00)'), l10n.maintenanceExited + ' 10:26 · 00:00');
+      expect(maintenanceHealthValue(context, '- 10:26 (00:00)'), l10n.maintenanceExited);
 
       const raw = 'ProductVersion: 27.0.1\\nnameserver[0] : 2001:db8::1\\nCommandLine: /bin/Name --host=State\\nlog: ProductVersion: original';
       final translated = maintenanceLocalizedOutput(context, raw);
@@ -1867,6 +1867,9 @@ void main() {
     await tester.tap(find.text('CUDA Toolkit'));
     await tester.pumpAndSettle();
     expect(find.text('12.8'), findsOneWidget);
+    expect(find.byType(_MaintenanceFields), findsWidgets);
+    expect(find.byType(_MaintenanceTable), findsNothing);
+    expect(find.byType(OpenHandTablePagination), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);

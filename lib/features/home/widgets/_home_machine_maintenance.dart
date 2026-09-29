@@ -1747,18 +1747,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ),
                       children: [
                         if (report.rows.isNotEmpty)
-                          _MaintenanceTable(
-                            headers: [
-                              l10n.maintenanceGpuFields,
-                              maintenanceLabel(context, '状态'),
-                            ],
-                            rows: [
-                              for (final row in report.rows)
-                                OpenHandOperationalRankRow(
-                                  value: 0,
-                                  cells: [fieldLabel(row[0]), row[1]],
-                                ),
-                            ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                            child: _MaintenanceFields(
+                              rows: [
+                                for (final row in report.rows)
+                                  [fieldLabel(row[0]), row[1]],
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -1781,8 +1777,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ],
               rows: [
                 for (final row in gpu.displays)
-                  OpenHandOperationalRankRow(value: 0, cells: row),
+                  OpenHandOperationalRankRow(
+                    value: 0,
+                    cells: [
+                      for (final cell in row)
+                        maintenanceDetailValue(context, cell),
+                    ],
+                  ),
               ],
+              paginate: gpu.displays.length > 20,
             ),
           ),
       ],
@@ -2005,7 +2008,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           _details(
                             AppLocalizations.of(
                               context,
-                            )!.maintenanceProcessTitle('${p.pid}', p.name),
+                            )!.maintenanceProcessTitle(
+                              '${p.pid}',
+                              p.name.split('/').last.split('\\').last,
+                            ),
                             _platform!.process(p),
                             actions: {
                               for (final action
@@ -2768,6 +2774,45 @@ String _maintenanceProcessState(String state) =>
       _ => state,
     };
 
+String _maintenanceReadoutValue(
+  BuildContext context,
+  String key,
+  String value,
+) {
+  final normalized = key.trim();
+  if (const {'STAT', 'STATE', 'State', '状态', 'state'}.contains(normalized)) {
+    final token = value.trim();
+    if (token.length == 1 || RegExp(r'^[RSIZTD]\b').hasMatch(token)) {
+      return maintenanceLabel(context, _maintenanceProcessState(token));
+    }
+  }
+  return maintenanceDetailValue(context, value);
+}
+
+String _maintenanceToolLabel(BuildContext context, String name) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (name) {
+    'sysctl' => l10n.maintenanceToolSysctl,
+    'top' => l10n.maintenanceToolTop,
+    'vm_stat' => l10n.maintenanceToolVmStat,
+    'ioreg' => l10n.maintenanceToolIoreg,
+    'netstat' => l10n.maintenanceToolNetstat,
+    'launchctl' => l10n.maintenanceToolLaunchctl,
+    _ => name,
+  };
+}
+
+IconData _maintenanceFieldIcon(String key) => switch (key) {
+  'Path' || 'NAME' || '路径' || 'Program' || 'COMMAND' => Icons.route_outlined,
+  'Process' || '进程' => Icons.memory_rounded,
+  'PID' || 'PPID' || 'Parent Process' => Icons.tag_rounded,
+  'USER' || '用户' || 'UserName' => Icons.person_outline,
+  'STAT' || 'STATE' || '状态' || 'State' => Icons.circle,
+  'Version' || 'OS Version' || '系统版本' => Icons.info_outline,
+  'Load Address' || '加载地址' => Icons.place_outlined,
+  _ => Icons.data_object_outlined,
+};
+
 String _maintenanceOutputStatus(String text) =>
     RegExp(
       'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
@@ -2834,7 +2879,7 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
                         size: 16,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                      label: Text(row.last),
+                      label: Text(_maintenanceToolLabel(context, row.last)),
                     ),
                   ),
               ],
@@ -4134,52 +4179,19 @@ class _MaintenanceHealthContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (issue.isNotEmpty) _MaintenanceEmptyHint(message: issue),
+        if (issue.isNotEmpty)
+          _MaintenanceEmptyHint(message: issue)
+        else if (report.data.rows.isEmpty)
+          _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据')),
         if (report.data.rows.isNotEmpty && report.data.fields)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 340),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  for (final row in report.data.rows)
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withValues(alpha: .45),
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              maintenanceHealthLabel(context, row[0]),
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 3,
-                            child: SelectableText(
-                              maintenanceHealthValue(context, row[1]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          _MaintenanceFields(
+            rows: [
+              for (final row in report.data.rows)
+                [
+                  maintenanceHealthLabel(context, row[0]),
+                  maintenanceHealthValue(context, row[1]),
                 ],
-              ),
-            ),
+            ],
           ),
         if (report.data.rows.isNotEmpty && !report.data.fields)
           _MaintenanceTable(
@@ -4229,6 +4241,67 @@ class _MaintenanceHealthContent extends StatelessWidget {
   }
 }
 
+class _MaintenanceFields extends StatelessWidget {
+  const _MaintenanceFields({required this.rows});
+  final List<List<String>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final pairedWidth = (constraints.maxWidth - _maintenanceGridGap) / 2;
+        final widths = List<double>.filled(rows.length, constraints.maxWidth);
+        if (constraints.maxWidth >= 600 * scale) {
+          for (var i = 0; i + 1 < rows.length; i++) {
+            final pair = rows.skip(i).take(2);
+            if (pair.every(
+              (field) => !field[1].contains('\n') && field[1].length <= 70,
+            )) {
+              widths[i] = widths[i + 1] = pairedWidth;
+              i++;
+            }
+          }
+        }
+        return _MaintenanceEqualHeightWrap(
+          children: [
+            for (var i = 0; i < rows.length; i++)
+              SizedBox(
+                width: widths[i],
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: .04),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rows[i][0],
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SelectableText(
+                          rows[i][1].isEmpty ? '—' : rows[i][1],
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _MaintenanceReadout extends StatefulWidget {
   const _MaintenanceReadout({required this.text, this.section = ''});
   final String text;
@@ -4264,61 +4337,52 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       return _MaintenanceLogTimeline(rows: _data.rows);
     }
     if (_data.fields) {
-      final theme = Theme.of(context);
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-          final pairedWidth = (constraints.maxWidth - _maintenanceGridGap) / 2;
-          final widths = List<double>.filled(
-            _data.rows.length,
-            constraints.maxWidth,
-          );
-          if (constraints.maxWidth >= 600 * scale) {
-            for (var i = 0; i + 1 < _data.rows.length; i++) {
-              final pair = _data.rows.skip(i).take(2);
-              if (pair.every(
-                (field) => !field[1].contains('\n') && field[1].length <= 70,
-              )) {
-                widths[i] = widths[i + 1] = pairedWidth;
-                i++;
-              }
-            }
-          }
-          return _MaintenanceEqualHeightWrap(
-            children: [
-              for (var i = 0; i < _data.rows.length; i++)
-                SizedBox(
-                  width: widths[i],
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: .04),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            maintenanceDetailLabel(context, _data.rows[i][0]),
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          SelectableText(
-                            _data.rows[i][1].isEmpty ? '—' : _data.rows[i][1],
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+      return _MaintenanceFields(
+        rows: [
+          for (final row in _data.rows)
+            [
+              maintenanceDetailLabel(context, row[0]),
+              _maintenanceReadoutValue(context, row[0], row[1]),
             ],
-          );
-        },
+        ],
       );
+    }
+    if (widget.section == 'descriptors') {
+      final headers = _data.headers;
+      int at(List<String> names) => headers.indexWhere(names.contains);
+      final columns = [
+        at(['NAME', '路径', '目标']),
+        at(['FD']),
+        at(const ['TYPE', '类型']),
+        at(const ['USER', '用户']),
+      ].where((index) => index >= 0).toList();
+      if (columns.isNotEmpty) {
+        return _MaintenanceTable(
+          headers: [
+            for (final index in columns)
+              maintenanceDetailLabel(context, headers[index]),
+          ],
+          paginate: _data.rows.length > 20,
+          maxBodyHeight: 420,
+          rows: [
+            for (var i = 0; i < _data.rows.length; i++)
+              OpenHandOperationalRankRow(
+                rowKey: i,
+                value: 0,
+                cells: [
+                  for (final index in columns)
+                    index < _data.rows[i].length
+                        ? _maintenanceReadoutValue(
+                            context,
+                            headers[index],
+                            _data.rows[i][index],
+                          )
+                        : '—',
+                ],
+              ),
+          ],
+        );
+      }
     }
     return _MaintenanceTable(
       headers: _data.headers
@@ -4333,6 +4397,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
               for (var c = 0; c < _data.rows[i].length; c++)
                 const [
                       '状态',
+                      'STAT',
                       'STATUS',
                       'STATE',
                       'PRESET',
@@ -4342,11 +4407,16 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                       '预设',
                       '类型',
                     ].contains(_data.headers[c])
-                    ? maintenanceDetailValue(context, _data.rows[i][c])
+                    ? _maintenanceReadoutValue(
+                        context,
+                        _data.headers[c],
+                        _data.rows[i][c],
+                      )
                     : _data.rows[i][c],
             ],
           ),
       ],
+      paginate: _data.rows.length > 20,
       maxBodyHeight: 480,
     );
   }
@@ -5683,126 +5753,136 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            Expanded(
-              child: OpenHandConsoleFrame(
-                title:
-                    '${l.maintenanceLogsTab} / ${switch (_source) {
-                      'kernel' => platform == 'Windows' ? l.maintenanceLogApplication : l.maintenanceLogKernel,
-                      'security' => platform == 'Darwin' ? l.maintenanceLogSystem : l.maintenanceLogSecurity,
-                      _ => l.maintenanceLogSystem,
-                    }} · ${_visible.length}',
-                expandBody: true,
-                child: _visible.isEmpty
-                    ? Center(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  buffer?.error != null
-                                      ? Icons.cloud_off_rounded
-                                      : Icons.terminal_rounded,
-                                  color: buffer?.error != null
-                                      ? OpenHandConsolePalette.warning
-                                      : OpenHandConsolePalette.notice,
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  buffer?.error != null
-                                      ? l.maintenanceLogUnavailable
-                                      : l.maintenanceLogEmpty,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+            Flexible(
+              fit: _visible.isEmpty ? FlexFit.loose : FlexFit.tight,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: _visible.isEmpty ? 220 : double.infinity,
+                ),
+                child: OpenHandConsoleFrame(
+                  title:
+                      '${l.maintenanceLogsTab} / ${switch (_source) {
+                        'kernel' => platform == 'Windows' ? l.maintenanceLogApplication : l.maintenanceLogKernel,
+                        'security' => platform == 'Darwin' ? l.maintenanceLogSystem : l.maintenanceLogSecurity,
+                        _ => l.maintenanceLogSystem,
+                      }} · ${_visible.length}',
+                  expandBody: true,
+                  child: _visible.isEmpty
+                      ? Center(
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    buffer?.error != null
+                                        ? Icons.cloud_off_rounded
+                                        : Icons.terminal_rounded,
+                                    color: buffer?.error != null
+                                        ? OpenHandConsolePalette.warning
+                                        : OpenHandConsolePalette.notice,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    buffer?.error != null
+                                        ? l.maintenanceLogUnavailable
+                                        : l.maintenanceLogEmpty,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: (event) {
-                          if (event is ScrollUpdateNotification &&
-                              event.dragDetails != null &&
-                              _follow) {
-                            setState(() => _follow = false);
-                          }
-                          if (event is UserScrollNotification &&
-                              event.direction != ScrollDirection.idle &&
-                              _follow) {
-                            setState(() => _follow = false);
-                          }
-                          return false;
-                        },
-                        child: ListView.builder(
-                          controller: _scroll,
-                          itemExtent: _rowHeight,
-                          itemCount: _visible.length,
-                          itemBuilder: (context, index) {
-                            final entry = _visible[index];
-                            return InkWell(
-                              key: ValueKey(entry.id),
-                              hoverColor: Colors.transparent,
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              overlayColor: _maintenanceNoOverlay,
-                              onTap: () => _showEntry(entry),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 7,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: colors[entry.level],
-                                      width: 3,
-                                    ),
-                                    bottom: const BorderSide(
-                                      color:
-                                          OpenHandConsolePalette.githubBorder,
+                        )
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: (event) {
+                            if (event is ScrollUpdateNotification &&
+                                event.dragDetails != null &&
+                                _follow) {
+                              setState(() => _follow = false);
+                            }
+                            if (event is UserScrollNotification &&
+                                event.direction != ScrollDirection.idle &&
+                                _follow) {
+                              setState(() => _follow = false);
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
+                            controller: _scroll,
+                            itemExtent: _rowHeight,
+                            itemCount: _visible.length,
+                            itemBuilder: (context, index) {
+                              final entry = _visible[index];
+                              return InkWell(
+                                key: ValueKey(entry.id),
+                                hoverColor: Colors.transparent,
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                overlayColor: _maintenanceNoOverlay,
+                                onTap: () => _showEntry(entry),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: colors[entry.level],
+                                        width: 3,
+                                      ),
+                                      bottom: const BorderSide(
+                                        color:
+                                            OpenHandConsolePalette.githubBorder,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width:
-                                          MediaQuery.sizeOf(context).width < 600
-                                          ? 90
-                                          : 145,
-                                      child: Text(
-                                        entry.time.isEmpty
-                                            ? names[entry.level]
-                                            : entry.time.replaceFirst('T', ' '),
-                                        maxLines: 2,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: colors[entry.level],
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width:
+                                            MediaQuery.sizeOf(context).width <
+                                                600
+                                            ? 90
+                                            : 145,
+                                        child: Text(
+                                          entry.time.isEmpty
+                                              ? names[entry.level]
+                                              : entry.time.replaceFirst(
+                                                  'T',
+                                                  ' ',
+                                                ),
+                                          maxLines: 2,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: colors[entry.level],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        entry.message,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontFamily: 'monospace',
-                                          color: OpenHandConsolePalette.text,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          entry.message,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontFamily: 'monospace',
+                                            color: OpenHandConsolePalette.text,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
             const SizedBox(height: 8),

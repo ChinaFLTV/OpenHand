@@ -8900,5 +8900,15 @@
   "maintenanceGpuProductBrand": "Gamme de produits",
   "maintenanceHealthy": "Sain",
   "maintenanceMacos": "macOS",
-  "maintenanceBusBuiltin": "Intégré"
+  "maintenanceBusBuiltin": "Intégré",
+  "maintenanceLoadAddress": "Adresse de chargement",
+  "maintenanceLaunchd": "Services de lancement",
+  "maintenanceColorLcd": "LCD couleur",
+  "maintenanceChargeState": "État de charge",
+  "maintenanceToolSysctl": "Paramètres noyau",
+  "maintenanceToolTop": "Échantillon de processus",
+  "maintenanceToolVmStat": "Mémoire virtuelle",
+  "maintenanceToolIoreg": "Arborescence matérielle",
+  "maintenanceToolNetstat": "Connexions réseau",
+  "maintenanceToolLaunchctl": "Éléments de démarrage"
 }

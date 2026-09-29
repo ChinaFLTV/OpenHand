@@ -9946,5 +9946,45 @@
   "maintenanceBusBuiltin": "内置",
   "@maintenanceBusBuiltin": {
     "description": "服务器运维界面文案"
+  },
+  "maintenanceLoadAddress": "加载地址",
+  "@maintenanceLoadAddress": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceLaunchd": "启动服务",
+  "@maintenanceLaunchd": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceColorLcd": "彩色液晶",
+  "@maintenanceColorLcd": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceChargeState": "充电状态",
+  "@maintenanceChargeState": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolSysctl": "内核参数",
+  "@maintenanceToolSysctl": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolTop": "进程采样",
+  "@maintenanceToolTop": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolVmStat": "虚拟内存",
+  "@maintenanceToolVmStat": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolIoreg": "设备树",
+  "@maintenanceToolIoreg": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolNetstat": "网络连接",
+  "@maintenanceToolNetstat": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceToolLaunchctl": "启动项",
+  "@maintenanceToolLaunchctl": {
+    "description": "服务器运维界面文案"
   }
 }

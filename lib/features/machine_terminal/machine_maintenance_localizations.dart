@@ -347,6 +347,10 @@ String maintenanceLabel(BuildContext context, String label) {
     "退出代码" => l10n.maintenanceExitCode,
     "路径" => l10n.maintenancePath,
     "架构" => l10n.maintenanceArchitecture,
+    "加载地址" => l10n.maintenanceLoadAddress,
+    "launchd" => l10n.maintenanceLaunchd,
+    "充电状态" => l10n.maintenanceChargeState,
+    "彩色液晶" => l10n.maintenanceColorLcd,
     "可用内存" => l10n.maintenanceAvailableMemory,
     "空闲内存" => l10n.maintenanceFreeMemory,
     "内存总量" => l10n.maintenanceTotalMemory,
@@ -766,6 +770,22 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'CONTAINER ID': 'ID',
     'IMAGE': '镜像',
     'COMMAND': '启动命令',
+    'FD': '打开的文件描述符',
+    'NAME': '路径',
+    'Process': '进程',
+    'Path': '路径',
+    'Parent Process': '父进程 ID',
+    'Platform': '操作系统',
+    'Code Type': '架构',
+    'Version': '系统版本',
+    'OS Version': '系统版本',
+    'Identifier': 'UUID / ID',
+    'Launch Time': '创建时间',
+    'Date/Time': '时间',
+    'Physical footprint': '驻留内存',
+    'Physical footprint (peak)': '驻留内存',
+    'Load Address': '加载地址',
+    'Reason': '描述',
     'CREATED': '创建时间',
     'STATUS': '状态',
     'PORTS': '端口',
@@ -927,6 +947,8 @@ String maintenanceDetailValue(BuildContext context, String value) {
   if (lower == 'builtin' || lower == 'built-in') {
     return l10n.maintenanceBusBuiltin;
   }
+  if (lower == 'launchd') return l10n.maintenanceLaunchd;
+  if (lower == 'color lcd') return l10n.maintenanceColorLcd;
   final label = switch (trimmed) {
     'indirect' => '间接启用',
     'generated' => '自动生成',
@@ -1120,6 +1142,7 @@ String maintenanceHealthLabel(BuildContext context, String field) {
     "ProductVersion" => l.maintenanceHealthParsedSystemVersion,
     "BuildVersion" => l.maintenanceHealthParsedBuildVersion,
     "供电来源" => l.maintenanceHealthParsedPowerSource,
+    "充电状态" => l.maintenanceChargeState,
     "电量" => l.maintenanceHealthParsedBatteryCharge,
     "温度告警" => l.maintenanceHealthParsedThermalWarning,
     "性能告警" => l.maintenanceHealthParsedPerformanceWarning,
@@ -1194,9 +1217,7 @@ String maintenanceHealthValue(BuildContext context, String value) {
   final logout = RegExp(
     r'^-\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+\(([^)]+)\)$',
   ).firstMatch(trimmed);
-  if (logout != null) {
-    return '${l.maintenanceExited} ${logout[1]} · ${logout[2]}';
-  }
+  if (logout != null) return l.maintenanceExited;
   return switch (trimmed) {
     'Darwin' || 'darwin' => l.maintenanceMacos,
     'P' || 'PS' => l.maintenanceHealthParsedPasswordSet,

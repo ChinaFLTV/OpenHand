@@ -24316,6 +24316,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'内置'**
   String get maintenanceBusBuiltin;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'加载地址'**
+  String get maintenanceLoadAddress;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动服务'**
+  String get maintenanceLaunchd;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'彩色液晶'**
+  String get maintenanceColorLcd;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'充电状态'**
+  String get maintenanceChargeState;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内核参数'**
+  String get maintenanceToolSysctl;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程采样'**
+  String get maintenanceToolTop;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'虚拟内存'**
+  String get maintenanceToolVmStat;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'设备树'**
+  String get maintenanceToolIoreg;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'网络连接'**
+  String get maintenanceToolNetstat;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动项'**
+  String get maintenanceToolLaunchctl;
 }
 
 class _AppLocalizationsDelegate

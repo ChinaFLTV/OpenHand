@@ -13216,4 +13216,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceBusBuiltin => '内蔵';
+
+  @override
+  String get maintenanceLoadAddress => 'ロードアドレス';
+
+  @override
+  String get maintenanceLaunchd => '起動サービス';
+
+  @override
+  String get maintenanceColorLcd => 'カラー液晶';
+
+  @override
+  String get maintenanceChargeState => '充電状態';
+
+  @override
+  String get maintenanceToolSysctl => 'カーネルパラメータ';
+
+  @override
+  String get maintenanceToolTop => 'プロセス採取';
+
+  @override
+  String get maintenanceToolVmStat => '仮想メモリ';
+
+  @override
+  String get maintenanceToolIoreg => 'デバイスツリー';
+
+  @override
+  String get maintenanceToolNetstat => 'ネットワーク接続';
+
+  @override
+  String get maintenanceToolLaunchctl => '起動項目';
 }
