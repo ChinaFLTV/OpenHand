@@ -13574,4 +13574,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceGpuDetailAttached => 'Angeschlossene GPUs';
+
+  @override
+  String get maintenanceLogArchives => 'Rotationsprotokolle';
+
+  @override
+  String get maintenanceLogPolicy => 'Rotationsregeln';
 }

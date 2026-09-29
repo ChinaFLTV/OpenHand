@@ -8873,5 +8873,7 @@
   "maintenanceGpuDetailResult": "前回の実行結果",
   "maintenanceGpuDetailCpuTime": "累積 CPU 時間（ns）",
   "maintenanceGpuDetailLinkCounters": "NVLink 累積エラーカウンター",
-  "maintenanceGpuDetailAttached": "接続 GPU 数"
+  "maintenanceGpuDetailAttached": "接続 GPU 数",
+  "maintenanceLogArchives": "ローテーション履歴",
+  "maintenanceLogPolicy": "ローテーション設定"
 }

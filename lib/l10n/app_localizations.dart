@@ -24154,6 +24154,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已连接显卡数量'**
   String get maintenanceGpuDetailAttached;
+
+  /// No description provided for @maintenanceLogArchives.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转记录'**
+  String get maintenanceLogArchives;
+
+  /// No description provided for @maintenanceLogPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转策略'**
+  String get maintenanceLogPolicy;
 }
 
 class _AppLocalizationsDelegate

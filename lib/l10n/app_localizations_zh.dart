@@ -13009,6 +13009,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceGpuDetailAttached => '已连接显卡数量';
+
+  @override
+  String get maintenanceLogArchives => '轮转记录';
+
+  @override
+  String get maintenanceLogPolicy => '轮转策略';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -25998,4 +26004,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceGpuDetailAttached => '已連接顯示卡數量';
+
+  @override
+  String get maintenanceLogArchives => '輪轉記錄';
+
+  @override
+  String get maintenanceLogPolicy => '輪轉策略';
 }

@@ -363,6 +363,39 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('日志轮转卡片合并归档字段并按类别切换，窄屏展开保留日志区域', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 620));
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'), locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: RepaintBoundary(key: const ValueKey('轮转预览'), child: Scaffold(body: _MaintenanceLogBrowser(buffers: {}, data: MachineMaintenanceSnapshot({
+        'platform': 'Darwin',
+        'log_rotation': '-rw-r--r-- 1 root wheel 384599 Sep 29 18:41:39 2026 /var/log/system.log.0',
+        'log_config': '/etc/logrotate.conf\\nweekly\\nrotate 7',
+        'log_storage': '4096 /var/log',
+      }))))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ExpansionTile)); await tester.pumpAndSettle();
+    expect(find.text('/var/log/system.log.0'), findsOneWidget);
+    expect(find.text(formatByteSize(384599)), findsOneWidget);
+    expect(tester.getSize(find.byType(OpenHandConsoleFrame)).height, greaterThan(80));
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('轮转预览')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1.5);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/maintenance-log-rotation-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    await tester.tap(find.text('轮转策略 · 2')); await tester.pumpAndSettle();
+    expect(find.text('/etc/logrotate.conf'), findsWidgets);
+    await tester.tap(find.text('日志目录大小 · 1')); await tester.pumpAndSettle();
+    expect(find.text(formatByteSize(4096 * 1024)), findsOneWidget);
+    expect(find.text('/var/log'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
     final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
     var revision = 0;

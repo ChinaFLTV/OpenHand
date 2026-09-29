@@ -8878,5 +8878,7 @@
   "maintenanceGpuDetailResult": "Last execution result",
   "maintenanceGpuDetailCpuTime": "Cumulative CPU time (ns)",
   "maintenanceGpuDetailLinkCounters": "NVLink cumulative error counters",
-  "maintenanceGpuDetailAttached": "Attached GPUs"
+  "maintenanceGpuDetailAttached": "Attached GPUs",
+  "maintenanceLogArchives": "Rotation records",
+  "maintenanceLogPolicy": "Rotation policy"
 }

@@ -8873,5 +8873,7 @@
   "maintenanceGpuDetailResult": "Letztes Ausführungsergebnis",
   "maintenanceGpuDetailCpuTime": "Kumulierte CPU-Zeit (ns)",
   "maintenanceGpuDetailLinkCounters": "Kumulative NVLink-Fehlerzähler",
-  "maintenanceGpuDetailAttached": "Angeschlossene GPUs"
+  "maintenanceGpuDetailAttached": "Angeschlossene GPUs",
+  "maintenanceLogArchives": "Rotationsprotokolle",
+  "maintenanceLogPolicy": "Rotationsregeln"
 }

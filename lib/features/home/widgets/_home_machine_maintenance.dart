@@ -3320,12 +3320,14 @@ class _MaintenanceTable extends StatelessWidget {
     this.onRowTap,
     this.maxBodyHeight = 220,
     this.limitToViewport = true,
+    this.paginate = true,
   });
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final double maxBodyHeight;
   final bool limitToViewport;
+  final bool paginate;
   @override
   Widget build(BuildContext context) => OpenHandOperationalRankTable(
     headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
@@ -3375,6 +3377,7 @@ class _MaintenanceTable extends StatelessWidget {
         ),
     ],
     sortByValue: false,
+    paginate: paginate,
     compact: true,
     animateCellChanges: true,
     onRowTap: onRowTap,
@@ -5099,6 +5102,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
   final _scroll = ScrollController();
   String _source = 'system', _query = '';
   int _level = -1;
+  String _metadataKind = 'rotation';
   bool _follow = true;
   List<MachineLogEntry> _visible = [];
   static const _rowHeight = 64.0;
@@ -5173,257 +5177,404 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
       OpenHandConsolePalette.notice,
     ];
     final platform = widget.data.sections['platform']?.trim();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        8,
-        12,
-        _maintenancePanelBottomInset,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _MaintenanceToolbarMenu<String>(
-                tooltip: l.maintenanceLogsTab,
-                label: switch (_source) {
-                  'kernel' =>
-                    platform == 'Windows'
+    final metadata = {
+      for (final kind in ['rotation', 'config', 'storage'])
+        kind: MachineLogMetadata.parse(widget.data.text('log_$kind'), kind),
+    };
+    final groups = <String, Map<String, String>>{};
+    for (final row in metadata['rotation']!) {
+      (groups[row[0]] ??= {})[row[1]] = row[2];
+    }
+    final rotationFields = ['字节', '修改时间', '最近轮转']
+        .where(
+          (field) => groups.values.any((fields) => fields.containsKey(field)),
+        )
+        .toList();
+    final canGroupRotation =
+        groups.isNotEmpty &&
+        groups.values.every(
+          (fields) => fields.keys.every(rotationFields.contains),
+        );
+    final titles = {
+      'rotation': l.maintenanceLogArchives,
+      'config': l.maintenanceLogPolicy,
+      'storage': l.maintenanceLogStorage,
+    };
+    final selectedRows = metadata[_metadataKind]!;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return LayoutBuilder(
+      builder: (context, bounds) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          _maintenancePanelBottomInset,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MaintenanceToolbarMenu<String>(
+                  tooltip: l.maintenanceLogsTab,
+                  label: switch (_source) {
+                    'kernel' =>
+                      platform == 'Windows'
+                          ? l.maintenanceLogApplication
+                          : l.maintenanceLogKernel,
+                    'security' =>
+                      platform == 'Darwin'
+                          ? l.maintenanceLogSystem
+                          : l.maintenanceLogSecurity,
+                    _ => l.maintenanceLogSystem,
+                  },
+                  value: _source,
+                  items: {
+                    'system': l.maintenanceLogSystem,
+                    'kernel': platform == 'Windows'
                         ? l.maintenanceLogApplication
                         : l.maintenanceLogKernel,
-                  'security' =>
-                    platform == 'Darwin'
-                        ? l.maintenanceLogSystem
+                    'security': platform == 'Darwin'
+                        ? '/var/log/system.log'
                         : l.maintenanceLogSecurity,
-                  _ => l.maintenanceLogSystem,
-                },
-                value: _source,
-                items: {
-                  'system': l.maintenanceLogSystem,
-                  'kernel': platform == 'Windows'
-                      ? l.maintenanceLogApplication
-                      : l.maintenanceLogKernel,
-                  'security': platform == 'Darwin'
-                      ? '/var/log/system.log'
-                      : l.maintenanceLogSecurity,
-                },
-                onSelected: (value) => setState(() {
-                  _source = value;
-                  if (_scroll.hasClients) _scroll.jumpTo(0);
-                }),
-              ),
-              SizedBox(
-                width: 230,
-                height: _maintenanceControlHeight,
-                child: TextField(
-                  onChanged: (value) =>
-                      setState(() => _query = value.toLowerCase()),
-                  decoration: InputDecoration(
-                    hintText: l.maintenanceLogSearch,
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
+                  },
+                  onSelected: (value) => setState(() {
+                    _source = value;
+                    if (_scroll.hasClients) _scroll.jumpTo(0);
+                  }),
+                ),
+                SizedBox(
+                  width: 230,
+                  height: _maintenanceControlHeight,
+                  child: TextField(
+                    onChanged: (value) =>
+                        setState(() => _query = value.toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: l.maintenanceLogSearch,
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _MaintenanceToolbarMenu<int>(
-                tooltip: l.maintenanceLogAll,
-                label: _level < 0 ? l.maintenanceLogAll : names[_level],
-                value: _level,
-                items: {
-                  -1: l.maintenanceLogAll,
-                  for (var i = 0; i < names.length; i++) i: names[i],
-                },
-                onSelected: (value) => setState(() => _level = value),
-              ),
-              FilterChip(
-                label: Text(l.maintenanceLogFollow),
-                selected: _follow,
-                onSelected: (value) => setState(() {
-                  _follow = value;
-                  if (value && _scroll.hasClients) {
-                    _scroll.jumpTo(_scroll.position.maxScrollExtent);
-                  }
-                }),
-              ),
-              for (var i = 0; i < names.length; i++)
-                Chip(
-                  avatar: Icon(
-                    i == 0
-                        ? Icons.error_outline
-                        : i == 1
-                        ? Icons.warning_amber_rounded
-                        : Icons.info_outline,
-                    size: 16,
-                    color: [
-                      Theme.of(context).colorScheme.error,
-                      Theme.of(context).colorScheme.tertiary,
-                      Theme.of(context).colorScheme.primary,
-                    ][i],
-                  ),
-                  label: Text(
-                    '${names[i]} ${entries.where((e) => e.level == i).length}',
-                  ),
+                _MaintenanceToolbarMenu<int>(
+                  tooltip: l.maintenanceLogAll,
+                  label: _level < 0 ? l.maintenanceLogAll : names[_level],
+                  value: _level,
+                  items: {
+                    -1: l.maintenanceLogAll,
+                    for (var i = 0; i < names.length; i++) i: names[i],
+                  },
+                  onSelected: (value) => setState(() => _level = value),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (buffer?.error != null && _visible.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                l.maintenanceLogUnavailable,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                FilterChip(
+                  label: Text(l.maintenanceLogFollow),
+                  selected: _follow,
+                  onSelected: (value) => setState(() {
+                    _follow = value;
+                    if (value && _scroll.hasClients) {
+                      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+                    }
+                  }),
+                ),
+                for (var i = 0; i < names.length; i++)
+                  Chip(
+                    avatar: Icon(
+                      i == 0
+                          ? Icons.error_outline
+                          : i == 1
+                          ? Icons.warning_amber_rounded
+                          : Icons.info_outline,
+                      size: 16,
+                      color: [
+                        Theme.of(context).colorScheme.error,
+                        Theme.of(context).colorScheme.tertiary,
+                        Theme.of(context).colorScheme.primary,
+                      ][i],
+                    ),
+                    label: Text(
+                      '${names[i]} ${entries.where((e) => e.level == i).length}',
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (buffer?.error != null && _visible.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  l.maintenanceLogUnavailable,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: OpenHandConsoleFrame(
+                title:
+                    '${l.maintenanceLogsTab} / $_source · ${_visible.length}',
+                expandBody: true,
+                child: _visible.isEmpty
+                    ? Center(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  buffer?.error != null
+                                      ? Icons.cloud_off_rounded
+                                      : Icons.terminal_rounded,
+                                  color: buffer?.error != null
+                                      ? OpenHandConsolePalette.warning
+                                      : OpenHandConsolePalette.notice,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  buffer?.error != null
+                                      ? l.maintenanceLogUnavailable
+                                      : l.maintenanceLogEmpty,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (event) {
+                          if (event is ScrollUpdateNotification &&
+                              event.dragDetails != null &&
+                              _follow) {
+                            setState(() => _follow = false);
+                          }
+                          if (event is UserScrollNotification &&
+                              event.direction != ScrollDirection.idle &&
+                              _follow) {
+                            setState(() => _follow = false);
+                          }
+                          return false;
+                        },
+                        child: ListView.builder(
+                          controller: _scroll,
+                          itemExtent: _rowHeight,
+                          itemCount: _visible.length,
+                          itemBuilder: (context, index) {
+                            final entry = _visible[index];
+                            return InkWell(
+                              key: ValueKey(entry.id),
+                              onTap: () => _showEntry(entry),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: colors[entry.level],
+                                      width: 3,
+                                    ),
+                                    bottom: const BorderSide(
+                                      color:
+                                          OpenHandConsolePalette.githubBorder,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width:
+                                          MediaQuery.sizeOf(context).width < 600
+                                          ? 90
+                                          : 145,
+                                      child: Text(
+                                        entry.time.isEmpty
+                                            ? names[entry.level]
+                                            : entry.time.replaceFirst('T', ' '),
+                                        maxLines: 2,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: colors[entry.level],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        entry.message,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'monospace',
+                                          color: OpenHandConsolePalette.text,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
               ),
             ),
-          Expanded(
-            child: OpenHandConsoleFrame(
-              title: '${l.maintenanceLogsTab} / $_source · ${_visible.length}',
-              expandBody: true,
-              child: _visible.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
+            const SizedBox(height: 8),
+            Material(
+              color: Theme.of(context).colorScheme.surfaceContainerLowest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ListTileTheme.merge(
+                shape: const RoundedRectangleBorder(),
+                child: ExpansionTile(
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                  leading: Icon(
+                    Icons.inventory_2_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(
+                    l.maintenanceLogRotation,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  expansionAnimationStyle: AnimationStyle(
+                    duration: motion.disablesAnimation
+                        ? Duration.zero
+                        : motion.entranceDuration,
+                    reverseDuration: motion.disablesAnimation
+                        ? Duration.zero
+                        : motion.entranceDuration,
+                    curve: motion.curve.curve,
+                  ),
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.min(300, bounds.maxHeight * .4),
+                      ),
+                      child: SingleChildScrollView(
+                        primary: false,
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(
-                              buffer?.error != null
-                                  ? Icons.cloud_off_rounded
-                                  : Icons.terminal_rounded,
-                              color: buffer?.error != null
-                                  ? OpenHandConsolePalette.warning
-                                  : OpenHandConsolePalette.notice,
-                              size: 28,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                for (final kind in titles.keys)
+                                  ChoiceChip(
+                                    label: Text(
+                                      '${titles[kind]} · ${kind == 'rotation' && canGroupRotation ? groups.length : metadata[kind]!.length}',
+                                    ),
+                                    selected: _metadataKind == kind,
+                                    onSelected: (_) =>
+                                        setState(() => _metadataKind = kind),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              buffer?.error != null
-                                  ? l.maintenanceLogUnavailable
-                                  : l.maintenanceLogEmpty,
-                              textAlign: TextAlign.center,
+                            const SizedBox(height: 10),
+                            _MaintenanceTable(
+                              key: ValueKey(_metadataKind),
+                              maxBodyHeight: 160,
+                              paginate: false,
+                              limitToViewport: false,
+                              headers: [
+                                maintenanceLabel(context, '路径'),
+                                if (_metadataKind == 'rotation' &&
+                                    canGroupRotation)
+                                  ...rotationFields.map(
+                                    (field) => field == '字节'
+                                        ? l.listCardMetricSize
+                                        : maintenanceHealthLabel(
+                                            context,
+                                            field,
+                                          ),
+                                  )
+                                else if (_metadataKind == 'storage')
+                                  l.maintenanceLogStorage
+                                else ...[
+                                  maintenanceLabel(context, '名称'),
+                                  maintenanceLabel(context, '数值'),
+                                ],
+                              ],
+                              rows:
+                                  _metadataKind == 'rotation' &&
+                                      canGroupRotation
+                                  ? [
+                                      for (final entry in groups.entries)
+                                        OpenHandOperationalRankRow(
+                                          value: 0,
+                                          cells: [
+                                            entry.key,
+                                            for (final field in rotationFields)
+                                              field == '字节' &&
+                                                      int.tryParse(
+                                                            entry.value[field] ??
+                                                                '',
+                                                          ) !=
+                                                          null
+                                                  ? formatByteSize(
+                                                      int.parse(
+                                                        entry.value[field]!,
+                                                      ),
+                                                    )
+                                                  : entry.value[field] ?? '—',
+                                          ],
+                                        ),
+                                    ]
+                                  : [
+                                      for (final row in selectedRows)
+                                        OpenHandOperationalRankRow(
+                                          value: 0,
+                                          cells: [
+                                            row[0],
+                                            if (_metadataKind == 'storage')
+                                              int.tryParse(row[2]) == null
+                                                  ? row[2]
+                                                  : formatByteSize(
+                                                      int.parse(row[2]) * 1024,
+                                                    )
+                                            else ...[
+                                              maintenanceHealthLabel(
+                                                context,
+                                                row[1],
+                                              ),
+                                              maintenanceHealthValue(
+                                                context,
+                                                row[2],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                    ],
                             ),
                           ],
                         ),
                       ),
-                    )
-                  : NotificationListener<ScrollNotification>(
-                      onNotification: (event) {
-                        if (event is ScrollUpdateNotification &&
-                            event.dragDetails != null &&
-                            _follow) {
-                          setState(() => _follow = false);
-                        }
-                        if (event is UserScrollNotification &&
-                            event.direction != ScrollDirection.idle &&
-                            _follow) {
-                          setState(() => _follow = false);
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _scroll,
-                        itemExtent: _rowHeight,
-                        itemCount: _visible.length,
-                        itemBuilder: (context, index) {
-                          final entry = _visible[index];
-                          return InkWell(
-                            key: ValueKey(entry.id),
-                            onTap: () => _showEntry(entry),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  left: BorderSide(
-                                    color: colors[entry.level],
-                                    width: 3,
-                                  ),
-                                  bottom: const BorderSide(
-                                    color: OpenHandConsolePalette.githubBorder,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width:
-                                        MediaQuery.sizeOf(context).width < 600
-                                        ? 90
-                                        : 145,
-                                    child: Text(
-                                      entry.time.isEmpty
-                                          ? names[entry.level]
-                                          : entry.time.replaceFirst('T', ' '),
-                                      maxLines: 2,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: colors[entry.level],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      entry.message,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontFamily: 'monospace',
-                                        color: OpenHandConsolePalette.text,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
                     ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-            title: Text(l.maintenanceLogRotation),
-            children: [
-              _MaintenanceTable(
-                maxBodyHeight: 160,
-                headers: [
-                  maintenanceLabel(context, '路径'),
-                  maintenanceLabel(context, '名称'),
-                  maintenanceLabel(context, '数值'),
-                ],
-                rows: [
-                  for (final kind in ['rotation', 'config', 'storage'])
-                    for (final row in MachineLogMetadata.parse(
-                      widget.data.text('log_$kind'),
-                      kind,
-                    ))
-                      OpenHandOperationalRankRow(
-                        value: 0,
-                        cells: [
-                          row[0],
-                          maintenanceHealthLabel(context, row[1]),
-                          maintenanceHealthValue(context, row[2]),
-                        ],
-                      ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

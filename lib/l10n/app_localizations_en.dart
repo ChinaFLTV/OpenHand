@@ -13432,4 +13432,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceGpuDetailAttached => 'Attached GPUs';
+
+  @override
+  String get maintenanceLogArchives => 'Rotation records';
+
+  @override
+  String get maintenanceLogPolicy => 'Rotation policy';
 }

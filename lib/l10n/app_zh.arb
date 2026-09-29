@@ -9847,5 +9847,7 @@
   "maintenanceGpuDetailResult": "上次执行结果",
   "maintenanceGpuDetailCpuTime": "累计 CPU 时间（纳秒）",
   "maintenanceGpuDetailLinkCounters": "NVLink 累计错误计数",
-  "maintenanceGpuDetailAttached": "已连接显卡数量"
+  "maintenanceGpuDetailAttached": "已连接显卡数量",
+  "maintenanceLogArchives": "轮转记录",
+  "maintenanceLogPolicy": "轮转策略"
 }

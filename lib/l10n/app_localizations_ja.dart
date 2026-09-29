@@ -13135,4 +13135,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceGpuDetailAttached => '接続 GPU 数';
+
+  @override
+  String get maintenanceLogArchives => 'ローテーション履歴';
+
+  @override
+  String get maintenanceLogPolicy => 'ローテーション設定';
 }
