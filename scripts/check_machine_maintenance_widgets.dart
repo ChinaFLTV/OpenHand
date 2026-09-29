@@ -72,6 +72,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   MachineTerminalUploadCancelCheck? cancelled;
   @override
   Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
+    if (commandShell == MachineTerminalCommandShell.probe && command != machineTerminalShellProbe) return 'OH_SHELL_bash 5.2';
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
     expect(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
@@ -632,6 +633,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('进程管理'));
     await tester.pumpAndSettle();
+    expect(find.text('bash 5.2'), findsOneWidget);
+    final workers = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.account_tree_outlined);
+    final toolbarGap = tester.getRect(find.byType(_MachineTerminalIconButton).first).left - tester.getRect(workers).right;
+    expect(toolbarGap, inInclusiveRange(0, 14));
+    expect(find.text('手动刷新'), findsNothing);
+    expect(find.textContaining('更新于'), findsNothing);
     expect(find.text('上一批进程'), findsNothing);
     expect(find.text('下一批进程'), findsNothing);
     final table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);

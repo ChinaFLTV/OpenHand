@@ -11,6 +11,52 @@ void check(bool value, String message) {
 }
 
 Future<void> main() async {
+  for (final sample in [
+    ('OH_SHELL_zsh 5.9\r\n', MachineTerminalCommandShell.posix, 'zsh 5.9'),
+    (
+      'OH_SHELL_bash 5.2.15(1)-release',
+      MachineTerminalCommandShell.posix,
+      'bash 5.2.15(1)-release',
+    ),
+    (
+      'OH_SHELL_PowerShell 7.4.6',
+      MachineTerminalCommandShell.powershell,
+      'PowerShell 7.4.6',
+    ),
+    (
+      'Microsoft Windows [版本 10.0.26100.1]',
+      MachineTerminalCommandShell.cmd,
+      'CMD 10.0.26100.1',
+    ),
+  ]) {
+    check(
+      parseMachineTerminalShellDetails(sample.$1, sample.$2) == sample.$3,
+      'Shell 版本解析错误',
+    );
+  }
+  check(
+    parseMachineTerminalShellDetails(
+          'echo OH_SHELL_fake',
+          MachineTerminalCommandShell.posix,
+        ) ==
+        null,
+    '不能把回显当作 Shell 信息',
+  );
+  if (!Platform.isWindows) {
+    final probe = await Process.run('/bin/bash', [
+      '-c',
+      machineTerminalShellDetailsCommand(MachineTerminalCommandShell.posix),
+    ]);
+    check(
+      parseMachineTerminalShellDetails(
+            probe.stdout as String,
+            MachineTerminalCommandShell.posix,
+          )?.startsWith('bash ') ??
+          false,
+      '真实 Bash 版本读取失败',
+    );
+  }
+
   for (final fixture in [
     ('Linux', MachineTerminalCommandShell.posix, 'Linux'),
     ('Darwin', MachineTerminalCommandShell.posix, 'Darwin'),

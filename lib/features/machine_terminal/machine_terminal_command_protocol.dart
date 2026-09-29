@@ -69,6 +69,35 @@ parseMachineTerminalShellProbe(String output) {
   throw UnsupportedError('无法识别当前终端；请确保终端处于系统命令提示符状态，且允许执行系统查询。');
 }
 
+/// 在已识别的交互终端内读取版本，避免把采集子进程的 Shell 当作当前 Shell。
+String machineTerminalShellDetailsCommand(
+  MachineTerminalCommandShell shell,
+) => switch (shell) {
+  MachineTerminalCommandShell.powershell =>
+    r"Write-Output ('OH_SHELL_PowerShell ' + $PSVersionTable.PSVersion.ToString())",
+  MachineTerminalCommandShell.cmd => 'ver',
+  _ =>
+    r'''if [ -n "${ZSH_VERSION:-}" ]; then printf 'OH_SHELL_zsh %s\n' "$ZSH_VERSION"; elif [ -n "${BASH_VERSION:-}" ]; then printf 'OH_SHELL_bash %s\n' "$BASH_VERSION"; elif [ -n "${KSH_VERSION:-}" ]; then printf 'OH_SHELL_ksh %s\n' "$KSH_VERSION"; else printf 'OH_SHELL_%s\n' "${0##*/}"; fi''',
+};
+
+String? parseMachineTerminalShellDetails(
+  String output,
+  MachineTerminalCommandShell shell,
+) {
+  if (shell == MachineTerminalCommandShell.cmd) {
+    final version = RegExp(r'\d+\.\d+\.\d+(?:\.\d+)?').firstMatch(output);
+    return version == null ? null : 'CMD ${version[0]}';
+  }
+  final match = RegExp(
+    r'^OH_SHELL_([^\r\n]+)$',
+    multiLine: true,
+  ).firstMatch(output.replaceAll('\r', ''));
+  final value = match?[1]?.trim();
+  return value == null || value.isEmpty
+      ? null
+      : value.replaceFirst(RegExp('^-'), '');
+}
+
 /// Windows 脚本分块只包含 Base64 与数字，不暴露 CMD 元字符。
 class MachineTerminalWindowsScript {
   MachineTerminalWindowsScript(String script, String token, this.shell) {

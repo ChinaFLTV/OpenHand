@@ -71,7 +71,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _detailOpen = false,
       _closing = false;
   String? _error;
-  DateTime? _updated;
+  String? _shellLabel;
   int _tab = 0, _sort = 0, _processOffset = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
   int _workers = machineMaintenanceDefaultWorkers;
@@ -153,6 +153,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _cpuHistory.clear();
         _processOffset = 0;
       }
+      if (_shellLabel == null || _platformName != target.platform) {
+        _shellLabel = parseMachineTerminalShellDetails(
+          await _run(
+            machineTerminalShellDetailsCommand(target.shell),
+            probe: true,
+          ),
+          target.shell,
+        );
+        if (!mounted || _closing) return;
+      }
       _platformName = target.platform;
       _platform = MachineMaintenancePlatformAdapter.forPlatform(
         target.platform,
@@ -171,7 +181,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         final old = _snapshots[tab];
         if (old != null) _previous[tab] = old;
         _snapshots[tab] = result;
-        _updated = DateTime.now();
         if (tab == 0) {
           if (old?.identity != result.identity) _cpuHistory.clear();
           final cpu = result.cpuUsage(old);
@@ -237,13 +246,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    final status = _loading
-        ? '采集中'
-        : _error != null
-        ? '采集异常'
-        : _automatic
-        ? '自动刷新'
-        : '手动刷新';
     final dialog = buildOpenHandDialog(
       insetPadding: const EdgeInsets.all(18),
       backgroundColor: Color.alphaBlend(
@@ -305,13 +307,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     height: _maintenanceControlHeight,
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
+                      reverse: true,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _MaintenanceToolbarMenu<MachineTerminalCommandShell>(
                             label: switch (_requestedShell) {
                               MachineTerminalCommandShell.automatic =>
-                                '自动识别 Shell',
+                                _shellLabel ?? '自动识别 Shell',
                               MachineTerminalCommandShell.posix =>
                                 'POSIX Shell',
                               MachineTerminalCommandShell.powershell =>
@@ -321,9 +324,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             tooltip: maintenanceLabel(context, '终端 Shell'),
                             enabled: !_loading,
                             value: _requestedShell,
-                            items: const {
+                            items: {
                               MachineTerminalCommandShell.automatic:
-                                  '自动识别 Shell',
+                                  _shellLabel ?? '自动识别 Shell',
                               MachineTerminalCommandShell.posix: 'POSIX Shell',
                               MachineTerminalCommandShell.powershell:
                                   'PowerShell',
@@ -383,42 +386,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             },
                             onSelected: (value) =>
                                 setState(() => _workers = value),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            height: _maintenanceControlHeight,
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              color: (_error != null ? cs.error : cs.primary)
-                                  .withValues(alpha: .08),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              maintenanceLabel(context, status),
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: _error != null ? cs.error : cs.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            maintenanceLabel(
-                              context,
-                              _updated == null
-                                  ? '等待首次采样'
-                                  : AppLocalizations.of(
-                                      context,
-                                    )!.maintenanceUpdated(
-                                      _updated!.toLocal().toString().substring(
-                                        11,
-                                        19,
-                                      ),
-                                    ),
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
                           ),
                         ],
                       ),
