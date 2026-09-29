@@ -2460,18 +2460,24 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     scrollBody: false,
                     accent: report.issue == null
                         ? OpenHandStatusColors.success
-                        : report.issue == 'pending' || report.issue == 'empty'
+                        : report.issue == 'pending' ||
+                              report.issue == 'empty' ||
+                              report.issue == 'partial'
                         ? OpenHandStatusColors.warning
                         : OpenHandStatusColors.error,
                     trailing: _MaintenanceStatus(
                       label: report.issue == null
                           ? '健康'
-                          : report.issue == 'pending' || report.issue == 'empty'
+                          : report.issue == 'pending' ||
+                                report.issue == 'empty' ||
+                                report.issue == 'partial'
                           ? '待检查'
                           : '异常',
                       color: report.issue == null
                           ? OpenHandStatusColors.success
-                          : report.issue == 'pending' || report.issue == 'empty'
+                          : report.issue == 'pending' ||
+                                report.issue == 'empty' ||
+                                report.issue == 'partial'
                           ? OpenHandStatusColors.warning
                           : OpenHandStatusColors.error,
                     ),
@@ -4148,6 +4154,8 @@ class _MaintenanceHealthContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final issue = switch (report.issue) {
+      'unsynchronized' => '时钟尚未同步',
+      'partial' => '部分指标不可用，已保留成功采集的数据',
       'unsupported' => l.maintenanceHealthUnsupported,
       'empty' => maintenanceLabel(context, '暂无数据'),
       'pending' => maintenanceHealthLabel(context, 'pending'),
@@ -4164,7 +4172,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
       children: [
         if (issue.isNotEmpty)
           _MaintenanceEmptyHint(message: issue)
-        else if (report.data.rows.isEmpty)
+        else if (report.data.rows.isEmpty && report.tables.isEmpty)
           _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据')),
         if (report.data.rows.isNotEmpty && report.data.fields)
           _MaintenanceFields(
@@ -4203,6 +4211,26 @@ class _MaintenanceHealthContent extends StatelessWidget {
                 ),
             ],
           ),
+        for (final entry in report.tables.entries) ...[
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
+          ),
+          _MaintenanceTable(
+            maxBodyHeight: 300,
+            paginate: entry.value.rows.length > 20,
+            headers: entry.value.headers,
+            rows: [
+              for (var i = 0; i < entry.value.rows.length; i++)
+                OpenHandOperationalRankRow(
+                  rowKey: i,
+                  value: 0,
+                  cells: entry.value.rows[i],
+                ),
+            ],
+          ),
+        ],
         if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
           Material(
             type: MaterialType.transparency,

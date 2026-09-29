@@ -94,10 +94,7 @@ void main() async {
     'ntp',
     'Reference ID : AABBCCDD\nStratum : 2\n^* 192.0.2.1 1 6 377 20 +12us[+14us] +/- 1ms',
   );
-  check(
-    ntp.data.rows.any((r) => r.first == 'reach' && r.last == '377'),
-    'Chrony 来源缺少可达性',
-  );
+  check(ntp.tables['Chrony 时钟源']!.rows.single[5] == '377', 'Chrony 来源缺少可达性');
   check(
     parse(
           'clock',
@@ -106,6 +103,135 @@ void main() async {
         3,
     '本地与 UTC 时钟未解析',
   );
+  final detailed = parse('ntp', """
+@@OH_TIME:Chrony 跟踪
+Last offset : -0.000006747 seconds
+RMS offset : 0.000035822 seconds
+Leap status : Normal
+@@OH_RESULT:0
+@@OH_TIME:Chrony 时钟源
+^* 2001:db8::1 2 6 377 20 +12us[+14us] +/- 1ms
+^- 192.0.2.2 2 6 377 21 -2ms[-3ms] +/- 4ms
+^x 192.0.2.3 2 6 377 23 +1s[+1s] +/- 2ms
+^? 192.0.2.4 0 6 0 - +0ns[+0ns] +/- 0ns
+@@OH_RESULT:0
+@@OH_TIME:Chrony 源统计
+2001:db8::1 8 5 123 0.2 0.3 -12us 2us
+@@OH_RESULT:0
+@@OH_TIME:Chrony 选择详情
+N 192.0.2.3 N N---- N---- 4 1.0 -61ms +62ms N
+@@OH_RESULT:0
+@@OH_TIME:额外查询
+Not authorised
+@@OH_RESULT:1
+""");
+  check(
+    detailed.issue == 'partial' && detailed.tables.length == 3,
+    '局部失败不能遮掉成功采集的源表',
+  );
+  check(
+    detailed.tables['Chrony 时钟源']!.rows.first.first == '2001:db8::1',
+    'IPv6 地址被冒号拆散',
+  );
+  check(
+    detailed.tables['Chrony 时钟源']!.rows[1][1].contains('未参与'),
+    'Chrony 未合并源不能误标为备份',
+  );
+  check(
+    detailed.tables['Chrony 选择详情']!.rows.single[1].contains('noselect'),
+    '缺少排除原因',
+  );
+  check(
+    detailed.data.rows.any((r) => r.last == '-0.000006747 seconds'),
+    '同步偏移的符号或单位丢失',
+  );
+  for (final table in detailed.tables.values) {
+    check(
+      table.rows.every((row) => row.length == table.headers.length),
+      '时钟源表头与行错位',
+    );
+  }
+  final peer = parse('ntp', """
+@@OH_TIME:NTP 时钟源
+*2001:db8:100:100:100:100:100:1
+ .GPS. 1 u 4 64 377 0.25 -0.12 0.03
+#192.0.2.2 .GPS. 1 u 8 64 377 1.5 +0.2 0.1
+ 192.0.2.3 .INIT. 16 u - 64 0 0.0 0.0 0.0
+@@OH_RESULT:0
+@@OH_TIME:NTP 系统变量
+offset=-0.12, sys_jitter=0.03, frequency=1.2
+@@OH_RESULT:0
+""");
+  check(peer.tables['NTP 时钟源']!.rows.length == 3, 'NTP 未选中源或长地址被遗漏');
+  check(peer.tables['NTP 时钟源']!.rows[1][1].contains('备份'), 'NTP 备份标记未解析');
+  check(
+    peer.data.rows.any((r) => r.first == 'sys_jitter' && r.last == '0.03'),
+    'NTP 系统变量未拆分',
+  );
+  final mac = parse(
+    'ntp',
+    '@@OH_TIME:SNTP 只读测量\n+0.05 +/- 0.2 time.apple.com 2001:db8::1\n@@OH_RESULT:0\n实时同步状态: 原生服务不提供选中源',
+  );
+  check(
+    mac.tables.values.single.rows.single[2] == '+0.05' &&
+        mac.issue == 'partial',
+    'SNTP 测量不得冒充原生同步状态',
+  );
+  final win = parse(
+    'ntp',
+    '@@OH_TIME:Windows peers\nPeer: time.example.com,0x9\nState: Active\nStratum: 2\n@@OH_TIME:Windows status\nSource: time.example.com\nPhase Offset: 0.001s',
+  );
+  check(
+    win.tables['Windows 时钟源']!.rows.single.first == 'time.example.com,0x9',
+    'Windows 对等源未独立展示',
+  );
+  check(win.data.rows.any((r) => r.first == 'Phase Offset'), 'Windows 详细偏移未保留');
+  check(
+    parse(
+          'ntp',
+          'configured: /etc/ntp.conf\nNetwork Time Server: time.apple.com',
+        ).issue ==
+        'partial',
+    '仅配置不能被视为已同步',
+  );
+  check(
+    parse('ntp', 'Leap status : Not synchronised').issue == 'unsynchronized',
+    '未同步不能显示为健康',
+  );
+  final tools = await Directory.systemTemp.createTemp('openhand-time-check-');
+  try {
+    final chronyc = File('${tools.path}/chronyc');
+    await chronyc.writeAsString(r'''#!/bin/sh
+for arg in "$@"; do command=$arg; done
+case "$command" in
+  tracking) printf '506 Cannot talk to daemon\n'; exit 1 ;;
+  sources) printf '^* 192.0.2.1 2 6 377 20 +12us[+14us] +/- 1ms\n' ;;
+  sourcestats) printf '192.0.2.1 8 5 123 0.2 0.3 -12us 2us\n' ;;
+  selectdata) printf 'N 192.0.2.2 N N---- N---- 4 1.0 -61ms +62ms N\n' ;;
+esac
+''');
+    await Process.run('chmod', ['+x', chronyc.path]);
+    final sample = await Process.run(
+      '/bin/sh',
+      [
+        '-c',
+        'section() { printf "\\n__OH_OPS_%s__\\n" "\$1"; }\n$machineHealthPosixPrelude\nsection platform\nprintf Linux\nhealth ntp time_sources\nsection end',
+      ],
+      environment: {'PATH': '${tools.path}:/usr/bin:/bin'},
+    ).timeout(const Duration(seconds: 15));
+    final result = MachineMaintenanceSnapshot.parse(sample.stdout as String);
+    final report = parse(
+      'ntp',
+      result.text('health_ntp'),
+      result.text('health_ntp_status'),
+    );
+    check(
+      report.tables.length >= 3 && report.issue == 'partial',
+      '采集子命令失败导致后续源数据丢失',
+    );
+  } finally {
+    await tools.delete(recursive: true);
+  }
   final rotation = MachineLogMetadata.parse(
     'logrotate state -- version 2\n"/var/log/app.log" 2026-9-29-0:0:0',
     'rotation',

@@ -550,6 +550,27 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('时钟源列表与固定指标分开展示，局部失败不隐藏有效数据', (tester) async {
+    for (final width in [360.0, 1200.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      final report = MachineHealthReport.parse('ntp',
+        'Last offset : -0.00012 seconds\\n^* 2001:db8::1 2 6 377 20 +12us[+14us] +/- 1ms\\n@@OH_TIME:Chrony 选择详情\\n@@OH_RESULT:1', '0');
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceHealthContent(report: report, raw: '诊断原文')))));
+      await tester.pumpAndSettle();
+      expect(find.text('-0.00012 seconds'), findsOneWidget);
+      expect(find.text('Chrony 时钟源'), findsOneWidget);
+      expect(find.byType(_MaintenanceTable), findsOneWidget);
+      expect(find.byType(_MaintenanceFields), findsOneWidget);
+      expect(find.text('部分指标不可用，已保留成功采集的数据'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('共用分页器按实际宽度换行，适配页数、语言和字体', (tester) async {
     for (final locale in ['zh', 'en', 'de']) {
       for (final scale in [1.0, 1.5]) {

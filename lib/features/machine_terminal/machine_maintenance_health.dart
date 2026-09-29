@@ -2,6 +2,7 @@ import 'package:xml/xml.dart';
 
 import 'machine_maintenance_logs.dart';
 import 'machine_maintenance_readout.dart';
+import 'machine_maintenance_time.dart';
 
 const machineHealthSections = [
   'system',
@@ -26,6 +27,58 @@ health() {
   section "health_${key}_status"
   printf '%s\n' "$result"
 }
+time_probe() {
+  label=$1; shift
+  printf '\n@@OH_TIME:%s\n' "$label"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout -k 1 3 "$@" 2>&1
+  else
+    "$@" 2>&1
+  fi
+  code=$?
+  printf '@@OH_RESULT:%s\n' "$code"
+}
+time_sources() {
+  found=0
+  if command -v systemctl >/dev/null 2>&1; then
+    time_probe '时间服务状态' systemctl show chronyd.service chrony.service ntpd.service ntp.service systemd-timesyncd.service --property=Id --property=LoadState --property=ActiveState --property=SubState
+  fi
+  if command -v chronyc >/dev/null 2>&1; then
+    found=1
+    time_probe 'Chrony 跟踪' chronyc -n -m 'timeout 500' 'retries 0' tracking
+    time_probe 'Chrony 时钟源' chronyc -n -m 'timeout 500' 'retries 0' sources
+    time_probe 'Chrony 源统计' chronyc -n -m 'timeout 500' 'retries 0' sourcestats
+    time_probe 'Chrony 选择详情' chronyc -n -m 'timeout 500' 'retries 0' selectdata
+  fi
+  if command -v ntpq >/dev/null 2>&1; then
+    found=1
+    time_probe 'NTP 时钟源' ntpq -n -w -c 'timeout 1000' -c peers
+    time_probe 'NTP 系统变量' ntpq -n -c 'timeout 1000' -c 'rv 0'
+  fi
+  if [ "$found" = 0 ] && command -v timedatectl >/dev/null 2>&1; then
+    time_probe 'systemd-timesyncd' timedatectl show-timesync --all
+    time_probe 'systemd-timesyncd 采样' timedatectl timesync-status
+  fi
+  for f in /etc/ntp.conf /etc/chrony.conf /etc/chrony/chrony.conf; do
+    [ -r "$f" ] || continue
+    printf 'configured: %s\n' "$f"
+    awk '$1 == "server" || $1 == "pool" || $1 == "peer" {print "Network Time Server: " $2}' "$f"
+  done
+  if [ "$found" = 0 ] && [ "$(uname -s)" = Darwin ]; then
+    printf '实时同步状态: 原生 timed 不提供当前选中源及偏移查询接口\n'
+    printf '测量说明: 最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟\n'
+    if [ ! -r /etc/ntp.conf ]; then
+      time_probe '对时服务器配置' systemsetup -getnetworktimeserver
+    fi
+    if [ -r /etc/ntp.conf ] && [ -x /usr/bin/sntp ]; then
+      awk '($1 == "server" || $1 == "pool") && $2 ~ /^[a-zA-Z0-9]/ {if (!seen[$2]++) print $2; if (++n >= 3) exit}' /etc/ntp.conf |
+      while IFS= read -r server; do
+        time_probe 'SNTP 只读测量' /usr/bin/sntp -t 1 -n 1 "$server"
+      done
+    fi
+  fi
+}
+
 ''';
 
 const machineHealthLinuxCollection =
@@ -41,7 +94,7 @@ health temperature sh -c 'printf "@sensor\tcelsius\n"; found=0; for f in /sys/cl
 health power sh -c 'found=0; for d in /sys/class/power_supply/*; do [ -d "$d" ] || continue; found=1; printf "%s\n" "$d"; for f in type status capacity health cycle_count; do [ -r "$d/$f" ] && printf "%s: %s\n" "$f" "$(cat "$d/$f")"; done; done; [ "$found" = 1 ] || exit 125'
 health clock sh -c 'date "+%Y-%m-%d %H:%M:%S %Z %z"; date -u "+%Y-%m-%d %H:%M:%S UTC"'
 health sync timedatectl show --property=Timezone --property=NTPSynchronized --property=NTP --property=LocalRTC
-health ntp sh -c 'if command -v systemctl >/dev/null 2>&1; then systemctl show chronyd.service chrony.service ntpd.service ntp.service systemd-timesyncd.service --property=Id --property=LoadState --property=ActiveState --property=SubState; fi; if command -v chronyc >/dev/null 2>&1; then chronyc -n tracking && chronyc -n sources; elif command -v ntpq >/dev/null 2>&1; then ntpq -pn; elif command -v timedatectl >/dev/null 2>&1; then timedatectl timesync-status; else exit 125; fi'
+health ntp time_sources
 section end
 ''';
 
@@ -58,7 +111,7 @@ health temperature pmset -g therm
 health power sh -c 'pmset -g batt; ioreg -r -c AppleSmartBattery -w0 | sed -n -E "s/.*\"(CycleCount|DesignCapacity|Voltage)\" = ([0-9]+).*/\1: \2/p"'
 health clock sh -c 'date "+%Y-%m-%d %H:%M:%S %Z %z"; date -u "+%Y-%m-%d %H:%M:%S UTC"'
 health sync sh -c 'out=$(systemsetup -getusingnetworktime 2>&1); code=$?; case "$out" in *"administrator access"*) printf "%s\n" "$out"; exit 1;; *) printf "%s\n" "$out"; exit "$code";; esac'
-health ntp sh -c 'if [ -r /etc/ntp.conf ]; then printf "configured: /etc/ntp.conf\n"; awk "\$1 == \"server\" || \$1 == \"pool\" {print \"Network Time Server: \" \$2}" /etc/ntp.conf; else systemsetup -getnetworktimeserver; fi'
+health ntp time_sources
 section end
 ''';
 
@@ -75,8 +128,8 @@ healthCommand("ssh",'sc query sshd',2000);
 emit("health_temperature_status","125");
 healthQuery("power","SELECT Name,BatteryStatus,EstimatedChargeRemaining,EstimatedRunTime FROM Win32_Battery",10);
 var clockWarnings=warnings.length;emit("health_clock",healthDescribe(rows("SELECT LocalDateTime,CurrentTimeZone FROM Win32_OperatingSystem",1))+"\n"+healthDescribe(rows("SELECT Caption,StandardName,DaylightName,Bias FROM Win32_TimeZone",1))+"\n"+"UTC\n"+healthDescribe(rows("SELECT Year,Month,Day,Hour,Minute,Second FROM Win32_UTCTime",1)));emit("health_clock_status",warnings.length>clockWarnings?"1":"0");
-healthCommand("sync",'w32tm /query /status',4000);
-healthCommand("ntp",'sc query w32time && w32tm /query /peers && w32tm /query /configuration',8000);
+healthCommand("sync",'w32tm /query /status /verbose',8000);
+healthCommand("ntp",'echo @@OH_TIME:Windows peers & w32tm /query /peers /verbose & echo @@OH_TIME:Windows status & w32tm /query /status /verbose & echo @@OH_TIME:Windows configuration & w32tm /query /configuration',16000);
 ''';
 
 /// 不把工具退出成功等同于数据可用，保留无法识别的样本供诊断。
@@ -94,6 +147,23 @@ class MachineHealthReport {
         .where((s) => s.isNotEmpty)
         .toList();
     const empty = MachineMaintenanceReadout([], []);
+    if (key == 'ntp' && text.isNotEmpty && status.isNotEmpty) {
+      final time = MachineTimeReport.parse(text);
+      if (time.data.rows.isNotEmpty || time.tables.isNotEmpty) {
+        return MachineHealthReport(
+          time.data,
+          tables: time.tables,
+          issue: time.unsynchronized
+              ? 'unsynchronized'
+              : status != '0'
+              ? 'failed'
+              : time.partial
+              ? 'partial'
+              : null,
+          unparsed: time.unparsed,
+        );
+      }
+    }
     if (status == '125') {
       return const MachineHealthReport(empty, issue: 'unsupported');
     }
@@ -368,41 +438,6 @@ class MachineHealthReport {
             continue;
           }
         }
-        if (key == 'ntp') {
-          final parts = line.split(RegExp(r'\s+'));
-          if (parts.length >= 6 &&
-              RegExp(r'^[\^=#~*+?ox-]').hasMatch(parts.first)) {
-            add('来源', parts[0]);
-            if (parts.length >= 7 && RegExp(r'^[\^=#~]').hasMatch(parts[0])) {
-              for (var i = 1; i <= 5; i++) {
-                add(
-                  ['', '名称', 'stratum', 'poll', 'reach', 'lastRx'][i],
-                  parts[i],
-                );
-              }
-              add('offset', parts.skip(6).join(' '));
-            } else if (parts.length >= 10) {
-              for (var i = 1; i < parts.length; i++) {
-                add(
-                  [
-                    '来源',
-                    '参考源',
-                    'stratum',
-                    '类型',
-                    'lastRx',
-                    'poll',
-                    'reach',
-                    '延迟',
-                    'offset',
-                    '抖动',
-                  ][i.clamp(0, 9)],
-                  parts[i],
-                );
-              }
-            }
-            continue;
-          }
-        }
         if (key == 'password') {
           final parts = line.split(RegExp(r'\s+'));
           if (parts.length >= 7 &&
@@ -437,7 +472,13 @@ class MachineHealthReport {
       unparsed: skipped,
     );
   }
-  const MachineHealthReport(this.data, {this.issue, this.unparsed = 0});
+  const MachineHealthReport(
+    this.data, {
+    this.issue,
+    this.unparsed = 0,
+    this.tables = const {},
+  });
+  final Map<String, MachineMaintenanceReadout> tables;
   final MachineMaintenanceReadout data;
   final String? issue;
   final int unparsed;
