@@ -941,6 +941,7 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
     bool startIfNeeded = true,
     bool recordHistory = true,
+    bool displayOutput = true,
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
@@ -980,6 +981,7 @@ class MachineTerminalService extends ChangeNotifier {
       endMarker: '${token}_END',
       timeout: effectiveTimeout,
       recordHistory: recordHistory,
+      displayOutput: displayOutput,
       commandShell: commandShell,
       onOutput: onOutput,
     );
@@ -1753,6 +1755,7 @@ class MachineTerminalSession {
   Future<MachineTerminalCommandResult>? _commandExecution;
   Future<void>? _uploadExecution;
   int _historyRecordingSuppressionDepth = 0;
+  int _hiddenCommandDepth = 0;
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
@@ -2395,6 +2398,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     bool recordHistory = true,
+    bool displayOutput = true,
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
@@ -2421,6 +2425,7 @@ class MachineTerminalSession {
             endMarker: endMarker,
             timeout: timeout,
             recordHistory: recordHistory,
+            displayOutput: displayOutput,
             commandShell: commandShell,
             onOutput: onOutput,
           ),
@@ -2439,6 +2444,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     required bool recordHistory,
+    required bool displayOutput,
     required MachineTerminalCommandShell commandShell,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
@@ -2453,7 +2459,8 @@ class MachineTerminalSession {
         error: _terminalNotRunningError,
       );
     }
-    if (!recordHistory) _appendTransientCommandEcho(command);
+    if (!displayOutput) _hiddenCommandDepth++;
+    if (!recordHistory && displayOutput) _appendTransientCommandEcho(command);
     final startGeneration = _startGeneration;
     final begin = '__${beginMarker}__';
     final end = '__${endMarker}__';
@@ -2514,6 +2521,8 @@ class MachineTerminalSession {
         durationMs: stopwatch.elapsedMilliseconds,
         error: '命令执行失败。',
       );
+    } finally {
+      if (!displayOutput) _hiddenCommandDepth--;
     }
   }
 
@@ -2602,6 +2611,7 @@ class MachineTerminalSession {
 
   void _handleOutput(String text) {
     _output.append(text);
+    if (_hiddenCommandDepth > 0) return;
     terminal.write(text);
     if (_historyRecordingSuppressionDepth == 0) {
       _appendHistory(text);

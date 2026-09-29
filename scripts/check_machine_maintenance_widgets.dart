@@ -709,6 +709,40 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('采集期间切换只排入最终板块且忽略旧板块错误', (tester) async {
+    final service = _MaintenanceFixture();
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final pending = Completer<String>();
+    service.pending = pending;
+    expect(state._loading, isFalse, reason: '初次采集应已结束');
+    await tester.tap(find.byTooltip('刷新当前分区'));
+    await tester.pump();
+    expect(state._loading, isTrue, reason: '第二次采集应在等待结果，错误：\${state._error}');
+    final count = service.calls;
+    await tester.tap(find.text('进程管理'));
+    await tester.pump();
+    await tester.tap(find.text('系统服务'));
+    await tester.pump();
+    expect(state._tab, 2);
+    expect(service.calls, count, reason: '切换不得重叠采集');
+    service.pending = null;
+    pending.completeError(StateError('旧分区失败'));
+    await tester.pumpAndSettle();
+    expect(service.calls, count + 1, reason: '只刷新最终板块');
+    expect(service.lastCommand, contains('section manager'));
+    expect(service.lastCommand, isNot(contains('section processes')));
+    expect(state._error, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('刷新间隔、串行采集、失败暂停与关闭清理', (tester) async {
     final service = _MaintenanceFixture();
     await tester.binding.setSurfaceSize(const Size(1280, 900));

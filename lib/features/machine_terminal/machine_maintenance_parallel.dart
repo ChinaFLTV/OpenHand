@@ -38,11 +38,31 @@ String parallelMaintenanceCommand(String command, int? workers, int tab) {
       ..clear()
       ..add(command);
   }
+  return supervisedPosixCommands(
+    jobs,
+    workers: workers,
+    prefix: prefix,
+    suffix: "printf '\\n__OH_OPS_end__\\n'",
+  );
+}
+
+/// 在当前终端下创建有界工作进程，并在父进程退出时回收进程树。
+String supervisedPosixCommands(
+  List<String> jobs, {
+  required int workers,
+  String prefix = '',
+  String suffix = '',
+  String common = '',
+}) {
+  if (workers < 1 || workers > machineMaintenanceMaxWorkers || jobs.isEmpty) {
+    throw ArgumentError('采集任务或并发数无效。');
+  }
   // 独立进程组保证管道与孙进程一起回收；缺少系统能力时明确失败。
   final script =
       '''
 $prefix
 ${_coordinatorPrelude.replaceAll('__WORKERS__', '${workers.clamp(1, jobs.length)}')}
+printf %s ${posixShellQuote(common)} > "\$oh_dir/common.sh"
 ${[for (var i = 0; i < jobs.length; i++) 'printf %s ${posixShellQuote("${jobs[i]}\n:")} > "\$oh_dir/$i.sh"'].join('\n')}
 oh_next=0
 while [ "\$oh_next" -lt ${jobs.length} ]; do
@@ -58,7 +78,7 @@ while [ "\$oh_next" -lt ${jobs.length} ]; do
   [ -d "\$oh_dir" ] && [ ! -f "\$oh_dir/expired" ] || exit 1
 done
 ${[for (var i = 0; i < jobs.length; i++) 'cat "\$oh_dir/$i.out"'].join('\n')}
-printf '\\n__OH_OPS_end__\\n'
+$suffix
 ''';
   return 'sh -c ${posixShellQuote(script)}';
 }
@@ -126,8 +146,9 @@ oh_guard=$!
 String parallelWindowsMaintenanceCommand(
   String prelude,
   List<String> jobs,
-  int workers,
-) {
+  int workers, {
+  bool rawOutput = false,
+}) {
   if (workers < 1 || workers > machineMaintenanceMaxWorkers) {
     throw ArgumentError('采集并发数必须在 1–8 之间。');
   }
@@ -141,6 +162,7 @@ String parallelWindowsMaintenanceCommand(
       '$outputPrelude\n'
       'function ohEcho(text){if(typeof ohOut!="undefined")ohOut.WriteLine(text);else WScript.Echo(text);}';
   return '''
+var ohRawOutput=$rawOutput;
 var ohPrelude=${jsonEncode(common)};
 eval(ohPrelude);
 var ohJobs=${jsonEncode(jobs)},ohLimit=$workers,ohGuardSource=${jsonEncode(_windowsGuard)},ohWorkerSource=${jsonEncode(_windowsWorkerPrelude)};
@@ -193,10 +215,11 @@ try {
   }
   for(var i=0;i<ohJobs.length;i++){
     var output=ohRead(ohDir+"\\"+i+".out");if(output.indexOf("__OH_OPS_end__")<0)throw Error("采集子进程结果不完整。");
+    if(ohRawOutput){WScript.StdOut.Write(output.replace(/__OH_OPS_end__\r?\n\s*$/, ""));continue;}
     var parts=output.split(/__OH_OPS_([a-z_]+)__\r?\n/);
     for(var j=1;j+1<parts.length;j+=2){var key=parts[j];if(/^(platform|host|boot|uptime|encoding|end)$/.test(key))continue;if(key=="notice"){warnings.push(decodeURIComponent(parts[j+1].replace(/\s+$/, "")));continue;}var block="__OH_OPS_"+key+"__\n"+parts[j+1];if(emitted+block.length>100000){truncated=true;continue;}WScript.Echo(block);emitted+=block.length;}
   }
-  emit("end","");
+  if(!ohRawOutput)emit("end","");
 } catch(e){WScript.Echo("并行采集失败："+e.message);throw e;}
 finally {
   if(ohGuard){

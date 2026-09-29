@@ -345,10 +345,7 @@ class _MachineTerminalFileManagerDialogState
       viewport.width * 0.96,
       kOpenHandDialogWidthPanel,
     );
-    final dialogHeight = math.min(
-      viewport.height * 0.92,
-      kOpenHandDialogHeightTall,
-    );
+    final dialogHeight = viewport.height * .88;
     final snapshot = _snapshot;
     final transfers = context.watch<MachineTerminalFileService>().transfers(
       sessionId: widget.sessionId,

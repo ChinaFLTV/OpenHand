@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_parallel.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
 import 'package:openhand/features/machine_terminal/machine_terminal_command_protocol.dart';
 
@@ -173,6 +174,14 @@ Future<void> main() async {
         .writeAsString(
           jsonEncode([
             for (var i = 0; i < 4; i++) windows.collect(i, workers: 4),
+            parallelWindowsMaintenanceCommand(
+              r'''var wmi=GetObject("winmgmts:!\\\\.\\root\\cimv2");
+function fail(message){throw Error(message);}
+function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
+              [for (var i = 0; i < 8; i++) 'ohOut.Write("文件记录$i\\n");'],
+              8,
+              rawOutput: true,
+            ),
           ]),
         );
     final parallelRunner = await File('${directory.path}/parallel.cjs')
@@ -193,6 +202,11 @@ Future<void> main() async {
     );
     final parallelResults =
         (jsonDecode(parallelOutput.stdout as String) as List).cast<String>();
+    check(
+      !parallelResults.last.contains('__OH_OPS_') &&
+          parallelResults.last.contains('文件记录7'),
+      'Windows 文件读取协议混入运维标记或遗漏分片',
+    );
     for (var i = 0; i < 4; i++) {
       final parallel = MachineMaintenanceSnapshot.parse(parallelResults[i]);
       final serial = MachineMaintenanceSnapshot.parse(results[i]);
@@ -319,7 +333,7 @@ for(const script of scripts){
       Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
       GetObject:wmi,
       ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():{Exec:exec};},
-      WScript:{ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
+      WScript:{StdOut:{Write:s=>output.push(String(s))},ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
         tick+=n;
         for(const p of pending.splice(0)){p.Status=1;processes.delete(p.ProcessID);}
         if(guard && files.has('C:\\临时目录\\私有采集\\done')){const g=guard;guard=null;run(g.code,g.path);g.process.Status=1;}
@@ -343,7 +357,7 @@ for(const script of scripts){
   }
   const output=run(script,'C:\\ops.js');
   if(files.size)throw Error('采集目录未清理');
-  if(peak>4 || peak<1)throw Error('并发上限错误：'+peak);
+  if(peak>Number(script.match(/ohLimit=(\d+)/)[1]) || peak<1)throw Error('并发上限错误：'+peak);
   results.push(output);
   for(const expired of [false,true]){
     if(!expired)processes.delete(100);else processes.set(100,owner);

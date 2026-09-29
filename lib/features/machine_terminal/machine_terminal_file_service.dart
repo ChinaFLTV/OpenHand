@@ -18,9 +18,11 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/platform_shell.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
+import 'machine_maintenance_parallel.dart';
 import 'machine_terminal_command_protocol.dart';
 import 'machine_terminal_service.dart';
 
+const int _machineTerminalFileWorkers = 8;
 const int kMachineTerminalMaxUploadFiles = 20;
 const int kMachineTerminalMaxEditableFileBytes = 5 * kBytesPerMiB;
 const int _machineTerminalDirectoryEntryLimit = 2000;
@@ -835,13 +837,22 @@ class MachineTerminalFileService extends ChangeNotifier {
     final command = _listDirectoryCommand(path);
     final progress = _MachineTerminalDirectoryProgressTracker(onProgress);
     progress.reportPreparing();
-    final output = await _runCommand(
-      sessionId: sessionId,
-      terminalId: terminalId,
-      command: command,
-      timeout: _machineTerminalFileCommandTimeout,
-      onOutput: onProgress == null ? null : progress.consume,
-    );
+    final output = Platform.isWindows
+        ? await _runWindowsMaintenanceScript(
+            sessionId,
+            terminalId,
+            command,
+            resolveMachineTerminalShell(MachineTerminalCommandShell.automatic),
+            isCancelled,
+          )
+        : await _runCommand(
+            sessionId: sessionId,
+            terminalId: terminalId,
+            command: command,
+            timeout: _machineTerminalFileCommandTimeout,
+            onOutput: onProgress == null ? null : progress.consume,
+            isCancelled: isCancelled,
+          );
     _throwIfMachineTerminalTransferCancelled(isCancelled);
     progress.consume(output, flush: true);
     return parseMachineTerminalDirectoryProtocol(
@@ -867,12 +878,23 @@ class MachineTerminalFileService extends ChangeNotifier {
         unit: MachineTerminalFileProgressUnit.steps,
       ),
     );
-    final output = await _runCommand(
-      sessionId: sessionId,
-      terminalId: terminalId,
-      command: command,
-      timeout: _machineTerminalFileCommandTimeout,
-    );
+    final output = Platform.isWindows
+        ? await _runWindowsMaintenanceScript(
+            sessionId,
+            terminalId,
+            _parallelWindowsFileCommands([command]),
+            resolveMachineTerminalShell(MachineTerminalCommandShell.automatic),
+            isCancelled,
+          )
+        : await _runCommand(
+            sessionId: sessionId,
+            terminalId: terminalId,
+            command: supervisedPosixCommands([
+              command,
+            ], workers: _machineTerminalFileWorkers),
+            timeout: _machineTerminalFileCommandTimeout,
+            isCancelled: isCancelled,
+          );
     _throwIfMachineTerminalTransferCancelled(isCancelled);
     try {
       final details = parseMachineTerminalFileDetailsProtocol(
@@ -1122,6 +1144,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       command: command,
       timeout: timeout,
       recordHistory: false,
+      displayOutput: false,
       onOutput: onOutput,
     );
     if (result.succeeded) return result.output;
@@ -2037,6 +2060,24 @@ String? _decodeProtocolTextOrNull(String value) {
   }
 }
 
+String _parallelWindowsFileCommands(
+  List<String> commands,
+) => parallelWindowsMaintenanceCommand(
+  r'''var wmi=GetObject("winmgmts:!\\\\.\\root\\cimv2");
+function fail(message){throw Error(message);}
+function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}
+''',
+  [
+    for (final command in commands)
+      'var process=new ActiveXObject("WScript.Shell").Exec(${jsonEncode(command)});'
+          'ohTrack(process.ProcessID);var output=process.StdOut.ReadAll();'
+          'while(process.Status==0)WScript.Sleep(30);'
+          'if(process.ExitCode!=0)throw Error(process.StdErr.ReadAll());ohOut.Write(output);',
+  ],
+  _machineTerminalFileWorkers,
+  rawOutput: true,
+);
+
 String _listDirectoryCommand(String? path) {
   if (Platform.isWindows) {
     const entryLimitWithSentinel = _machineTerminalDirectoryEntryLimit + 1;
@@ -2050,10 +2091,13 @@ function B64([string]\$value) { [Convert]::ToBase64String([Text.Encoding]::UTF8.
 \$directory = $pathLiteral
 Set-Location -LiteralPath \$directory
 \$resolved = (Get-Location).ProviderPath
-Write-Output ("P`t" + (B64 \$resolved))
-\$items = @(Get-ChildItem -LiteralPath \$resolved -Force | Select-Object -First $entryLimitWithSentinel)
-Write-Output ("N`t" + [Math]::Min(\$items.Count, $_machineTerminalDirectoryEntryLimit))
+if (\$worker -eq 0) { Write-Output ("P`t" + (B64 \$resolved)) }
+\$items = @(Get-ChildItem -LiteralPath \$resolved -Force | Sort-Object Name | Select-Object -First $entryLimitWithSentinel)
+if (\$worker -eq 0) { Write-Output ("N`t" + [Math]::Min(\$items.Count, $_machineTerminalDirectoryEntryLimit)) }
+\$index = 0
 \$items | Select-Object -First $_machineTerminalDirectoryEntryLimit | ForEach-Object {
+  \$index++
+  if ((\$index - 1) % $_machineTerminalFileWorkers -ne \$worker) { return }
   \$item = \$_
   \$kind = if (\$item.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'l' } elseif (\$item.PSIsContainer) { 'd' } else { 'f' }
   Write-Output ("R`t\$kind`t" + (B64 \$item.Name))
@@ -2071,16 +2115,21 @@ Write-Output ("N`t" + [Math]::Min(\$items.Count, $_machineTerminalDirectoryEntry
   }
   Write-Output ("E`t\$kind`t\$size`t\$mtime`t\$([int]\$item.Attributes)`t\$(B64 \$item.Name)`t\$(B64 \$target)`t\$childDirectories`t\$childFiles")
 }
-if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
+if (\$worker -eq 0 -and \$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
 ''';
-    return powerShellEncodedCommand(script);
+    return _parallelWindowsFileCommands([
+      for (var worker = 0; worker < _machineTerminalFileWorkers; worker++)
+        powerShellEncodedCommand("\$worker=$worker;\n$script"),
+    ]);
   }
   final changeDirectory = path == null
       ? ''
       : 'cd -- ${posixShellQuote(path)} || exit 2\n';
-  return '$changeDirectory'
+  final command =
+      '$changeDirectory'
       '__oh_b64() { base64 | tr -d "\\r\\n"; }\n'
       '__oh_pwd=\$(pwd -P) || exit 2\n'
+      '[ "\$__oh_worker" -ne 0 ] || {\n'
       'printf "P\\t"; printf "%s" "\$__oh_pwd" | __oh_b64; printf "\\n"\n'
       '__oh_total=0\n'
       'for __oh_path in ./* ./.[!.]* ./..?*; do\n'
@@ -2090,12 +2139,15 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
       'done\n'
       '[ "\$__oh_total" -le $_machineTerminalDirectoryEntryLimit ] || __oh_total=$_machineTerminalDirectoryEntryLimit\n'
       'printf "N\\t%s\\n" "\$__oh_total"\n'
+      '}\n'
       '__oh_count=0\n'
       '__oh_list() {\n'
       'setopt local_options null_glob 2>/dev/null || true\n'
       'for __oh_path in ./* ./.[!.]* ./..?*; do\n'
       '  [ -e "\$__oh_path" ] || [ -L "\$__oh_path" ] || continue\n'
-      '  [ "\$__oh_count" -lt $_machineTerminalDirectoryEntryLimit ] || { printf "T\\n"; break; }\n'
+      '  [ "\$__oh_count" -lt $_machineTerminalDirectoryEntryLimit ] || { [ "\$__oh_worker" -ne 0 ] || printf "T\\n"; break; }\n'
+      '  __oh_count=\$((__oh_count + 1))\n'
+      '  [ "\$(((__oh_count - 1) % $_machineTerminalFileWorkers))" -eq "\$__oh_worker" ] || continue\n'
       '  __oh_name=\${__oh_path#./}\n'
       'if [ -L "\$__oh_path" ]; then __oh_kind=l; __oh_link=\$(readlink "\$__oh_path" 2>/dev/null || true); '
       'elif [ -d "\$__oh_path" ]; then __oh_kind=d; __oh_link=; '
@@ -2118,11 +2170,18 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
       '  printf "%s" "\$__oh_name" | __oh_b64; printf "\\t"\n'
       '  printf "%s" "\$__oh_link" | __oh_b64\n'
       '  printf "\\t%s\\t%s\\n" "\$__oh_child_dirs" "\$__oh_child_files"\n'
-      '  __oh_count=\$((__oh_count + 1))\n'
       'done\n'
       '}\n'
       '__oh_list\n'
       'unset -f __oh_list 2>/dev/null || true\n';
+  return supervisedPosixCommands(
+    [
+      for (var worker = 0; worker < _machineTerminalFileWorkers; worker++)
+        '__oh_worker=$worker\n. "\$(dirname "\$0")/common.sh"',
+    ],
+    workers: _machineTerminalFileWorkers,
+    common: command,
+  );
 }
 
 String _fileDetailsCommand(String path) {

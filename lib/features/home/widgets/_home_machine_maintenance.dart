@@ -176,7 +176,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         }
       });
     } catch (error) {
-      if (mounted) {
+      if (mounted && tab == _tab) {
         setState(() {
           _error = '$error';
         });
@@ -187,7 +187,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         setState(() {
           _loading = false;
         });
-        _schedule();
+        if (tab != _tab) {
+          unawaited(_refresh());
+        } else {
+          _schedule();
+        }
       }
     }
   }
@@ -512,17 +516,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                     : FontWeight.w500,
                               ),
                             ),
-                            onPressed: _loading
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _tab = index;
+                            onPressed: () {
+                              if (_tab == index) return;
+                              setState(() {
+                                _tab = index;
 
-                                      _search.clear();
-                                      _error = null;
-                                    });
-                                    _refresh();
-                                  },
+                                _search.clear();
+                                _error = null;
+                              });
+                              _refresh();
+                            },
                           ),
                         );
                       }),

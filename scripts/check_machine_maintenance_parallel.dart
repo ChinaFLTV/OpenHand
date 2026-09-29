@@ -28,7 +28,7 @@ section() { printf '\\n__OH_OPS_%s__\\n' "\$1"; }
 section platform
 printf 'Linux\\n'
 ${[
-          for (final name in ['alpha', 'beta', 'gamma', 'delta']) '''section $name
+          for (final name in ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta']) '''section $name
 printf '开始 $name\\n' >> ${posixShellQuote(events.path)}
 sleep .3
 printf '$name 内容\\n'
@@ -38,7 +38,7 @@ printf '完成 $name\\n' >> ${posixShellQuote(events.path)}
 section end
 ''';
     final times = <int>[];
-    for (final workers in [1, 2, 4]) {
+    for (final workers in [1, 2, 4, 8]) {
       await events.writeAsString('');
       final timer = Stopwatch()..start();
       final result = await Process.run('sh', [
@@ -62,7 +62,7 @@ section end
       times.add(timer.elapsedMilliseconds);
     }
     check(times.last < times.first * .8, '并行采集未带来预期提速');
-    stdout.writeln('1 / 2 / 4 个采集任务耗时：${times.join(' / ')} 毫秒；并发上限、输出隔离与清理通过。');
+    stdout.writeln('1 / 2 / 4 / 8 个采集任务耗时：${times.join(' / ')} 毫秒；并发上限、输出隔离与清理通过。');
 
     for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
       final witness = File('${directory.path}/child');
