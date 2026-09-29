@@ -24,8 +24,15 @@ class MachineMaintenanceSnapshot {
       }
     }
     if (!complete) throw const FormatException('采样未完成，请重试。');
-    if (sections['platform'] != 'Linux') {
-      throw UnsupportedError('当前终端不是 Linux 环境，请先连接 Linux 机器。');
+    if (sections['encoding'] == 'uri') {
+      for (final key in sections.keys.toList()) {
+        if (key != 'encoding') {
+          sections[key] = Uri.decodeComponent(sections[key]!);
+        }
+      }
+    }
+    if (!const ['Linux', 'Darwin', 'Windows'].contains(sections['platform'])) {
+      throw UnsupportedError('目标系统不支持当前运维协议。');
     }
     return MachineMaintenanceSnapshot(Map.unmodifiable(sections));
   }
@@ -33,7 +40,7 @@ class MachineMaintenanceSnapshot {
   final Map<String, String> sections;
   String text(String name) => sections[name] ?? '';
   double? get uptime => double.tryParse(text('uptime').split(' ').first);
-  String get identity => '${text('host')}|${text('boot')}';
+  String get identity => '${text('platform')}|${text('host')}|${text('boot')}';
 
   final _counterCache = <String, Map<String, List<int>>>{};
 
@@ -70,6 +77,8 @@ class MachineMaintenanceSnapshot {
   }
 
   double? cpuUsage(MachineMaintenanceSnapshot? previous, [String cpu = 'cpu']) {
+    final direct = counters('cpu_percent')[cpu]?.firstOrNull;
+    if (direct != null) return (direct / 10000).clamp(0, 1);
     if (previous == null || previous.identity != identity) return null;
     final now = counters('cpu')[cpu];
     final old = previous.counters('cpu')[cpu];
@@ -106,6 +115,8 @@ class MachineMaintenanceSnapshot {
         old == null ||
         current.length <= index ||
         old.length <= index ||
+        current[index] < 0 ||
+        old[index] < 0 ||
         current[index] < old[index]) {
       return null;
     }
@@ -130,8 +141,9 @@ class MachineMaintenanceProcess {
     this.virtualBytes,
     this.ticks,
     this.started,
-    this.name,
-  );
+    this.name, {
+    this.startToken,
+  });
   static MachineMaintenanceProcess? parse(String line) {
     final fields = line.split('\t');
     if (fields.length < 10) return null;
@@ -156,7 +168,10 @@ class MachineMaintenanceProcess {
       numbers[5]!,
       numbers[6]!,
       numbers[7]!,
-      fields.sublist(9).join(' '),
+      fields[9],
+      startToken: fields.length > 10 && fields[10].isNotEmpty
+          ? fields[10]
+          : null,
     );
   }
 
@@ -169,6 +184,7 @@ class MachineMaintenanceProcess {
       ticks,
       started;
   final String state, name;
+  final String? startToken;
 }
 
 const _linuxPrelude = r'''
@@ -400,7 +416,7 @@ String machineMaintenanceBoundCommand(
 }
 
 /// 按能力选择策略，发行版版本和名称不参与命令分支。
-sealed class MachineMaintenanceServiceAdapter {
+abstract class MachineMaintenanceServiceAdapter {
   const MachineMaintenanceServiceAdapter();
 
   static MachineMaintenanceServiceAdapter? detect(String manager) =>

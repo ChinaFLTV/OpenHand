@@ -58,10 +58,14 @@ const _checks =
     '''
 class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTerminalFileService {
   int calls = 0;
+  String platform = 'Linux';
+  bool powershell = false;
   bool fail = false;
   Completer<String>? pending;
   @override
-  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, MachineTerminalUploadCancelCheck? isCancelled}) async {
+  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
+    if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
+    expect(windowsScript, platform == 'Windows');
     calls++;
     if (fail) throw StateError('模拟连接中断');
     if (pending != null) return pending!.future;
@@ -108,7 +112,9 @@ __OH_OPS_status__
 __OH_OPS_end__
 '''
     "'''"
-    ''';
+    '''.replaceFirst('Linux', platform)
+      .replaceFirst('systemd', platform == 'Darwin' ? 'launchd' : platform == 'Windows' ? 'Windows SCM' : 'systemd')
+      .replaceFirst('测试进程\\n', '测试进程\\t启动标识\\n');
   }
 }
 
@@ -161,6 +167,32 @@ void main() {
         }
         await tester.pumpWidget(const SizedBox());
       }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('macOS 与 Windows Shell 策略显示对应动作', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    for (final target in [('Darwin', false), ('Windows', false), ('Windows', true)]) {
+      final service = _MaintenanceFixture()..platform = target.\$1..powershell = target.\$2;
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: const MaterialApp(home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('进程管理'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试进程'));
+      await tester.pumpAndSettle();
+      expect(find.text('终止进程'), findsOneWidget);
+      expect(find.text('暂停进程'), target.\$1 == 'Darwin' ? findsOneWidget : findsNothing);
+      await tester.tap(find.byTooltip('Close').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('系统服务'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('nginx.service').first);
+      await tester.pumpAndSettle();
+      expect(find.text('启动服务'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     }
     await tester.binding.setSurfaceSize(null);
   });

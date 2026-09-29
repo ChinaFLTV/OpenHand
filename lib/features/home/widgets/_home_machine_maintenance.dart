@@ -1,12 +1,6 @@
 part of '../openhand_home_page.dart';
 
 const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断'];
-final _maintenanceCommands = [
-  machineMaintenanceOverviewCommand,
-  machineMaintenanceProcessesCommand(),
-  machineMaintenanceServicesCommand,
-  machineMaintenanceDiagnosticsCommand,
-];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
   'processor': '处理器型号',
@@ -18,6 +12,8 @@ const _maintenanceSectionLabels = {
   'interfaces': '网卡链路与硬件',
   'sensors': '温度传感器',
   'memory': '内存详情',
+  'memory_note': '内存统计口径',
+  'memory_details': '内存与分页性能计数器',
   'vm': '虚拟内存计数器',
   'startup': '开机启动状态',
   'timers': '系统定时器',
@@ -61,6 +57,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   final _cpuHistory = <double>[];
   final _search = TextEditingController();
   Timer? _timer;
+  MachineMaintenancePlatformAdapter? _platform;
+  String? _platformName;
+  MachineTerminalCommandShell _commandShell = MachineTerminalCommandShell.posix;
+  MachineTerminalCommandShell _requestedShell =
+      MachineTerminalCommandShell.automatic;
   bool _loading = false,
       _automatic = false,
       _foreground = true,
@@ -105,11 +106,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
   }
 
-  Future<String> _run(String command) =>
+  Future<String> _run(String command, {bool probe = false}) =>
       context.read<MachineTerminalFileService>().runMaintenanceCommand(
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         command: command,
+        windowsScript: !probe && (_platform?.windowsScript ?? false),
+        commandShell: probe ? MachineTerminalCommandShell.probe : _commandShell,
         isCancelled: () => !mounted,
       );
 
@@ -122,12 +125,30 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _error = null;
     });
     try {
+      final target = parseMachineTerminalShellProbe(
+        await _run(machineTerminalShellProbe, probe: true),
+      );
+      if (!mounted) return;
+      if (_requestedShell != MachineTerminalCommandShell.automatic &&
+          (_requestedShell == MachineTerminalCommandShell.posix) !=
+              (target.platform != 'Windows')) {
+        throw StateError('所选 Shell 与目标系统不匹配，请改为自动识别或实际使用的 Shell。');
+      }
+      if (_platformName != null && _platformName != target.platform) {
+        _snapshots.clear();
+        _previous.clear();
+        _cpuHistory.clear();
+        _processOffset = 0;
+      }
+      _platformName = target.platform;
+      _platform = MachineMaintenancePlatformAdapter.forPlatform(
+        target.platform,
+      );
+      _commandShell = _requestedShell == MachineTerminalCommandShell.automatic
+          ? target.shell
+          : _requestedShell;
       final result = MachineMaintenanceSnapshot.parse(
-        await _run(
-          tab == 1
-              ? machineMaintenanceProcessesCommand(offset: _processOffset)
-              : _maintenanceCommands[tab],
-        ),
+        await _run(_platform!.collect(tab, offset: _processOffset)),
       );
       if (!mounted) return;
       setState(() {
@@ -163,6 +184,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String command, {
     Map<String, String> actions = const {},
   }) async {
+    if (_loading || _platform == null) return;
+    final platform = _platform!;
     final snapshot = _snapshots[_tab]!;
     _detailOpen = true;
     _timer?.cancel();
@@ -170,10 +193,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       context: context,
       builder: (_) => _MachineMaintenanceDetails(
         title: title,
-        load: () => _run(machineMaintenanceBoundCommand(snapshot, command)),
+        load: () => _run(platform.bind(snapshot, command)),
         actions: actions,
-        execute: (command) =>
-            _run(machineMaintenanceBoundCommand(snapshot, command)),
+        execute: (command) => _run(platform.bind(snapshot, command)),
       ),
     );
     _detailOpen = false;
@@ -198,7 +220,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               icon: Icons.monitor_heart_outlined,
               title: '服务器运维',
               subtitle:
-                  '${data?.text('host') ?? widget.terminalId} · ${_updated == null ? '正在连接当前终端' : '更新于 ${_updated!.toLocal().toString().substring(11, 19)}'}',
+                  '${_platformName ?? '目标系统识别中'} · ${data?.text('host') ?? widget.terminalId} · ${_updated == null ? '正在连接当前终端' : '更新于 ${_updated!.toLocal().toString().substring(11, 19)}'}',
               onClose: () => Navigator.of(context).pop(),
               trailingActions: [
                 _MachineTerminalIconButton(
@@ -252,6 +274,49 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  SizedBox(
+                    width: 190,
+                    child:
+                        AnimatedDropdownButtonFormField<
+                          MachineTerminalCommandShell
+                        >(
+                          value: _requestedShell,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: MachineTerminalCommandShell.automatic,
+                              child: Text('自动识别 Shell'),
+                            ),
+                            DropdownMenuItem(
+                              value: MachineTerminalCommandShell.posix,
+                              child: Text('POSIX Shell'),
+                            ),
+                            DropdownMenuItem(
+                              value: MachineTerminalCommandShell.powershell,
+                              child: Text('PowerShell'),
+                            ),
+                            DropdownMenuItem(
+                              value: MachineTerminalCommandShell.cmd,
+                              child: Text('CMD'),
+                            ),
+                          ],
+                          onChanged: _loading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _requestedShell = value!;
+                                  });
+                                  _refresh();
+                                },
+                        ),
+                  ),
                   const Text('自动刷新间隔'),
                   SizedBox(
                     width: 120,
@@ -281,7 +346,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ),
                   ),
                   Text(
-                    _automatic ? '已开启 · 上次采集完成后计时' : '已暂停',
+                    _automatic
+                        ? (_error == null ? '已开启 · 上次采集完成后计时' : '自动刷新等待手动恢复')
+                        : '已暂停',
                     style: TextStyle(color: cs.primary),
                   ),
                 ],
@@ -290,7 +357,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
               child: Text(
-                '沿用当前终端身份与权限 · 辅助命令不持久化 · ${_automatic ? '自动采样已开启' : '手动采样'} · 速率需两次采样，缺失数据表示不可用',
+                '沿用当前终端身份与权限 · 辅助命令不持久化 · ${_automatic && _error == null ? '自动采样已开启' : '等待手动采样'} · 速率需两次采样，缺失数据表示不可用',
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
@@ -300,6 +367,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               height: 3,
               child: _loading ? const LinearProgressIndicator() : null,
             ),
+            if (data?.text('notice').isNotEmpty ?? false)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  data!.text('notice'),
+                  style: TextStyle(color: cs.tertiary),
+                ),
+              ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
@@ -356,7 +431,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             _metric(
               'CPU 使用率',
               cpu == null ? '等待下次采样' : '${(cpu * 100).toStringAsFixed(1)}%',
-              '${cores.length} 个逻辑处理器',
+              data.text('core_count').isEmpty && cores.isEmpty
+                  ? '逻辑处理器数量未知'
+                  : '${data.text('core_count').isEmpty ? cores.length : data.text('core_count')} 个逻辑处理器',
               Icons.memory_rounded,
               cs.primary,
               cpu,
@@ -415,18 +492,20 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         _MaintenanceCard(
           title: '每核负载',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: cores.map((core) {
-              final value = data.cpuUsage(_previous[0], core);
-              return Chip(
-                label: Text(
-                  '$core · ${value == null ? '待采样' : '${(value * 100).toStringAsFixed(0)}%'}',
+          child: cores.isEmpty
+              ? const Text('当前系统未提供每核计数。')
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: cores.map((core) {
+                    final value = data.cpuUsage(_previous[0], core);
+                    return Chip(
+                      label: Text(
+                        '$core · ${value == null ? '待采样' : '${(value * 100).toStringAsFixed(0)}%'}',
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
@@ -529,24 +608,26 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         _MaintenanceCard(
           title: '内存 IO · 分页与交换',
-          child: Wrap(
-            spacing: 20,
-            runSpacing: 8,
-            children:
-                [
-                  'pgpgin',
-                  'pgpgout',
-                  'pswpin',
-                  'pswpout',
-                  'pgfault',
-                  'pgmajfault',
-                ].map((key) {
-                  final value = data.rate(_previous[0], 'vm', key, 0);
-                  return Text(
-                    '$key：${value == null ? '待采样' : value.toStringAsFixed(1)} ${key.startsWith('pgpg') ? 'KiB/s' : '次/s'}',
-                  );
-                }).toList(),
-          ),
+          child: data.text('vm').isEmpty
+              ? const Text('当前系统未提供统一分页计数，请查看下方内存性能详情。')
+              : Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  children:
+                      [
+                        'pgpgin',
+                        'pgpgout',
+                        'pswpin',
+                        'pswpout',
+                        'pgfault',
+                        'pgmajfault',
+                      ].map((key) {
+                        final value = data.rate(_previous[0], 'vm', key, 0);
+                        return Text(
+                          '$key：${value == null ? '待采样' : value.toStringAsFixed(1)} ${key.startsWith('pgpg') ? 'KiB/s' : '次/s'}',
+                        );
+                      }).toList(),
+                ),
         ),
         const SizedBox(height: 12),
         ..._sectionWidgets(data, const [
@@ -564,6 +645,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           'interfaces',
           'sensors',
           'memory',
+          'memory_note',
+          'memory_details',
           'vm',
         ]),
       ],
@@ -630,6 +713,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     List<int> multipliers,
   ) {
     final keys = data.counters(section, colon: section == 'network').keys;
+    if (keys.isEmpty) return const Text('当前环境未提供可用计数器。');
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
@@ -638,7 +722,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             .map(
               (key) => DataRow(
                 cells: [
-                  DataCell(Text(key)),
+                  DataCell(
+                    Text(
+                      data.text('platform') == 'Windows'
+                          ? Uri.decodeComponent(key)
+                          : key,
+                    ),
+                  ),
                   ...List.generate(indexes.length, (i) {
                     final rate = data.rate(
                       _previous[0],
@@ -682,6 +772,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       if (old?.identity != data.identity ||
           before == null ||
           before.started != p.started ||
+          before.startToken != p.startToken ||
+          p.ticks < 0 ||
+          before.ticks < 0 ||
           ticksPerSecond == null ||
           ticksPerSecond <= 0 ||
           elapsed <= 0 ||
@@ -779,26 +872,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         .take(40)
                         .map(
                           (p) => DataRow(
-                            onSelectChanged: (_) => _details(
-                              '进程 ${p.pid} · ${p.name}',
-                              machineMaintenanceProcessCommand(p),
-                              actions: p.pid <= 1
-                                  ? const {}
-                                  : {
-                                      '终止进程': machineMaintenanceProcessCommand(
-                                        p,
-                                        signal: 'TERM',
-                                      ),
-                                      '暂停进程': machineMaintenanceProcessCommand(
-                                        p,
-                                        signal: 'STOP',
-                                      ),
-                                      '恢复进程': machineMaintenanceProcessCommand(
-                                        p,
-                                        signal: 'CONT',
-                                      ),
+                            onSelectChanged: !_platform!.canInspectProcess(p)
+                                ? null
+                                : (_) => _details(
+                                    '进程 ${p.pid} · ${p.name}',
+                                    _platform!.process(p),
+                                    actions: {
+                                      for (final action
+                                          in _platform!
+                                              .processActions(p)
+                                              .entries)
+                                        action.key: _platform!.process(
+                                          p,
+                                          action: action.value,
+                                        ),
                                     },
-                            ),
+                                  ),
                             cells: [
                               DataCell(Text('${p.pid}')),
                               DataCell(
@@ -821,14 +910,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               ),
                               DataCell(
                                 Text(
-                                  pageSize == null
-                                      ? '未知页大小'
+                                  pageSize == null || p.residentPages < 0
+                                      ? '不可用'
                                       : formatByteSize(
                                           p.residentPages * pageSize,
                                         ),
                                 ),
                               ),
-                              DataCell(Text('${p.threads}')),
+                              DataCell(
+                                Text(p.threads < 0 ? '—' : '${p.threads}'),
+                              ),
                             ],
                           ),
                         )
@@ -902,22 +993,26 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   }
 
   Widget _services(MachineMaintenanceSnapshot data) {
-    final adapter = MachineMaintenanceServiceAdapter.detect(
-      data.text('manager'),
-    );
+    final adapter = _platform?.servicesFor(data.text('manager'));
     final rows = data
         .text('services')
         .split('\n')
         .where((line) => line.trim().isNotEmpty)
         .toList();
     final known = rows
-        .map((line) => line.trim().split(RegExp(r'\s+')).first)
+        .map(
+          (line) => (line.contains('\t')
+              ? line.split('\t').first
+              : line.trim().split(RegExp(r'\s+')).first),
+        )
         .toSet();
     final extra = data.text(
       data.text('manager') == 'systemd' ? 'startup' : 'installed',
     );
     for (final line in extra.split('\n')) {
-      final name = line.trim().split(RegExp(r'\s+')).first;
+      final name = (line.contains('\t')
+          ? line.split('\t').first
+          : line.trim().split(RegExp(r'\s+')).first);
       if ((adapter?.accepts(name) ?? false) && known.add(name)) rows.add(line);
     }
     final filtered = rows
@@ -952,7 +1047,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             itemCount: filtered.length,
             itemBuilder: (_, index) {
               final line = filtered[index];
-              final name = line.trim().split(RegExp(r'\s+')).first;
+              final name = (line.contains('\t')
+                  ? line.split('\t').first
+                  : line.trim().split(RegExp(r'\s+')).first);
               final enabled = adapter?.accepts(name) ?? false;
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -998,6 +1095,7 @@ List<Widget> _sectionWidgets(
   MachineMaintenanceSnapshot data,
   List<String> names,
 ) => names
+    .where(data.sections.containsKey)
     .map(
       (name) => Padding(
         padding: const EdgeInsets.only(bottom: 10),

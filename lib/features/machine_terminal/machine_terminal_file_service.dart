@@ -18,6 +18,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/platform_shell.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
+import 'machine_terminal_command_protocol.dart';
 import 'machine_terminal_service.dart';
 
 const int kMachineTerminalMaxUploadFiles = 20;
@@ -312,18 +313,82 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
     required String command,
+    bool windowsScript = false,
     MachineTerminalUploadCancelCheck? isCancelled,
-  }) => _withTerminalGate(sessionId, terminalId, () {
-    _throwIfMachineTerminalTransferCancelled(isCancelled);
-    return _runCommand(
-      sessionId: sessionId,
-      terminalId: terminalId,
-      command: command,
-      timeout: _machineTerminalFileCommandTimeout,
-      isCancelled: isCancelled,
-      usePosixShell: true,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.posix,
+  }) {
+    if (_operationGates[_terminalKey(sessionId, terminalId)]?.isIdle == false) {
+      return Future.error(StateError('终端正在执行文件或运维操作，请稍后刷新。'));
+    }
+    return _withTerminalGate(sessionId, terminalId, () {
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      if (windowsScript) {
+        return _runWindowsMaintenanceScript(
+          sessionId,
+          terminalId,
+          command,
+          commandShell,
+          isCancelled,
+        );
+      }
+      return _runCommand(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        command: command,
+        timeout: _machineTerminalFileCommandTimeout,
+        isCancelled: isCancelled,
+        commandShell: commandShell,
+      );
+    });
+  }
+
+  Future<String> _runWindowsMaintenanceScript(
+    String sessionId,
+    String terminalId,
+    String script,
+    MachineTerminalCommandShell shell,
+    MachineTerminalUploadCancelCheck? isCancelled,
+  ) async {
+    if (utf8ByteLength(script) > _machineTerminalMaxStagedCommandBytes) {
+      throw StateError('运维脚本超出传输上限。');
+    }
+    final transport = MachineTerminalWindowsScript(
+      script,
+      '${DateTime.now().microsecondsSinceEpoch}-${math.Random.secure().nextInt(0x7fffffff)}',
+      shell,
     );
-  });
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    Future<String> run(String command, {bool cleanup = false}) {
+      if (!cleanup) _throwIfMachineTerminalTransferCancelled(isCancelled);
+      final remaining = deadline.difference(DateTime.now());
+      if (!cleanup && remaining <= Duration.zero) {
+        throw TimeoutException('运维脚本传输超时。');
+      }
+      return _runInlineCommand(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        command: command,
+        commandShell: shell,
+        timeout: cleanup || remaining > _machineTerminalFileCommandTimeout
+            ? _machineTerminalFileCommandTimeout
+            : remaining,
+      );
+    }
+
+    try {
+      for (final command in transport.commands) {
+        await run(command);
+      }
+      return await run(transport.execute);
+    } finally {
+      try {
+        await run(transport.cleanup, cleanup: true);
+      } catch (error, stack) {
+        silentLog('machine_terminal_file', '清理 Windows 运维脚本', error, stack);
+      }
+    }
+  }
 
   Future<MachineTerminalDirectorySnapshot> listDirectory({
     required String sessionId,
@@ -939,11 +1004,13 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String command,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
-    bool usePosixShell = false,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     final commandBytes = utf8ByteLength(command);
-    if ((usePosixShell || !Platform.isWindows) &&
+    if ((resolveMachineTerminalShell(commandShell) ==
+            MachineTerminalCommandShell.posix) &&
         commandBytes > _machineTerminalInlineCommandBytes) {
       if (commandBytes > _machineTerminalMaxStagedCommandBytes) {
         throw StateError('远端文件命令过长。');
@@ -951,7 +1018,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       return _runStagedPosixCommand(
         sessionId: sessionId,
         terminalId: terminalId,
-        usePosixShell: usePosixShell,
+        commandShell: commandShell,
         command: command,
         timeout: timeout,
         onOutput: onOutput,
@@ -961,7 +1028,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     return _runInlineCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      usePosixShell: usePosixShell,
+      commandShell: commandShell,
       command: command,
       timeout: timeout,
       onOutput: onOutput,
@@ -974,13 +1041,14 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String command,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
-    bool usePosixShell = false,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     final temporaryOutput = await _runInlineCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      usePosixShell: usePosixShell,
+      commandShell: commandShell,
       command:
           '__oh_tmp=\$(mktemp "\${TMPDIR:-/tmp}/openhand-command.XXXXXX") || exit 1; '
           'printf "$_machineTerminalStagedPathBegin%s$_machineTerminalStagedPathEnd\\n" '
@@ -1005,7 +1073,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         await _runInlineCommand(
           sessionId: sessionId,
           terminalId: terminalId,
-          usePosixShell: usePosixShell,
+          commandShell: commandShell,
           command:
               "printf '%s' '${encoded.substring(offset, end)}' >> ${posixShellQuote(temporaryPath)}",
           timeout: _machineTerminalFileCommandTimeout,
@@ -1015,7 +1083,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       return await _runInlineCommand(
         sessionId: sessionId,
         terminalId: terminalId,
-        usePosixShell: usePosixShell,
+        commandShell: commandShell,
         command:
             '__oh_script=${posixShellQuote(temporaryPath)}; '
             'base64 -d < "\$__oh_script" | sh; '
@@ -1028,7 +1096,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         await _runInlineCommand(
           sessionId: sessionId,
           terminalId: terminalId,
-          usePosixShell: usePosixShell,
+          commandShell: commandShell,
           command: 'rm -f -- ${posixShellQuote(temporaryPath)}',
           timeout: _machineTerminalFileCommandTimeout,
         );
@@ -1044,12 +1112,13 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String command,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
-    bool usePosixShell = false,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
   }) async {
     final result = await _terminalService.executeCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      usePosixShell: usePosixShell,
+      commandShell: commandShell,
       command: command,
       timeout: timeout,
       recordHistory: false,

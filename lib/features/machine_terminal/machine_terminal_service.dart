@@ -25,6 +25,8 @@ import '../../shared/util/storage_identifier.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
+import 'machine_terminal_command_protocol.dart';
+
 const String kMachineExpertTemplateId = 'machine_expert';
 const String kMachineTerminalMetadataKey = 'machine_terminal';
 const int kMachineTerminalMetadataSchemaVersion = 2;
@@ -939,7 +941,8 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
     bool startIfNeeded = true,
     bool recordHistory = true,
-    bool usePosixShell = false,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
@@ -977,7 +980,7 @@ class MachineTerminalService extends ChangeNotifier {
       endMarker: '${token}_END',
       timeout: effectiveTimeout,
       recordHistory: recordHistory,
-      usePosixShell: usePosixShell,
+      commandShell: commandShell,
       onOutput: onOutput,
     );
     _scheduleMetadataPersist(terminal.sessionId);
@@ -2392,7 +2395,8 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     bool recordHistory = true,
-    bool usePosixShell = false,
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
@@ -2417,7 +2421,7 @@ class MachineTerminalSession {
             endMarker: endMarker,
             timeout: timeout,
             recordHistory: recordHistory,
-            usePosixShell: usePosixShell,
+            commandShell: commandShell,
             onOutput: onOutput,
           ),
         ).whenComplete(() {
@@ -2435,7 +2439,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     required bool recordHistory,
-    required bool usePosixShell,
+    required MachineTerminalCommandShell commandShell,
     MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -2455,12 +2459,12 @@ class MachineTerminalSession {
     final end = '__${endMarker}__';
     final startOffset = _output.endOffset;
     try {
-      await _disableEchoForCommand(usePosixShell: usePosixShell);
-      final payload = _commandPayload(
+      await _disableEchoForCommand(commandShell: commandShell);
+      final payload = machineTerminalCommandPayload(
         command: command,
         beginMarker: beginMarker,
         endMarker: endMarker,
-        usePosixShell: usePosixShell,
+        shell: commandShell,
       );
       await _writePtyPaced(payload);
       final parsed = await _waitForCommandOutput(
@@ -2483,6 +2487,7 @@ class MachineTerminalSession {
         _plainText(_outputSince(startOffset)).trimRight(),
       );
       await _interruptTimedOutCommandPreservingSession(
+        commandShell: commandShell,
         begin: begin,
         end: end,
         startOffset: startOffset,
@@ -2648,8 +2653,14 @@ class MachineTerminalSession {
     _onChanged();
   }
 
-  Future<void> _disableEchoForCommand({bool usePosixShell = false}) async {
-    if (Platform.isWindows && !usePosixShell) return;
+  Future<void> _disableEchoForCommand({
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
+  }) async {
+    if (resolveMachineTerminalShell(commandShell) !=
+        MachineTerminalCommandShell.posix) {
+      return;
+    }
     final marker =
         '__OPENHAND_ECHO_READY_${DateTime.now().microsecondsSinceEpoch}__';
     final startOffset = _output.endOffset;
@@ -2663,10 +2674,14 @@ class MachineTerminalSession {
     );
   }
 
-  Future<void> _interruptTimedOutCommand() async {
+  Future<void> _interruptTimedOutCommand({
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
+  }) async {
     writeInput('\x03');
     await Future<void>.delayed(_commandInterruptSettleDelay);
-    if (!Platform.isWindows) {
+    if (resolveMachineTerminalShell(commandShell) ==
+        MachineTerminalCommandShell.posix) {
       writeInput('stty echo 2>/dev/null\n');
     }
   }
@@ -2701,12 +2716,14 @@ class MachineTerminalSession {
   }
 
   Future<void> _interruptTimedOutCommandPreservingSession({
+    MachineTerminalCommandShell commandShell =
+        MachineTerminalCommandShell.automatic,
     required String begin,
     required String end,
     required int startOffset,
     required int startGeneration,
   }) async {
-    await _interruptTimedOutCommand();
+    await _interruptTimedOutCommand(commandShell: commandShell);
     try {
       await _waitForCommandOutput(
         begin: begin,
@@ -2732,6 +2749,7 @@ class MachineTerminalSession {
     // 增量剥离：每轮只对新增的原始输出跑一次 _plainText，而不是对最多 24 万
     // 字符的整段缓冲重跑四遍全文替换。刷屏型命令（npm install / find /）此前
     // 每秒要在 UI isolate 上做数百万字符的字符串工作，直接表现为掉帧。
+    final markers = MachineTerminalCommandMarkers(begin, end);
     final plainBuffer = StringBuffer();
     var scannedOffset = startOffset;
     String? lastOutput;
@@ -2751,15 +2769,12 @@ class MachineTerminalSession {
           }
         }
         final segment = plainBuffer.toString();
-        final beginIndex = segment.indexOf(begin);
-        final outputStart = beginIndex >= 0
-            ? beginIndex + begin.length
-            : _output.discardedSince(startOffset)
-            ? 0
-            : -1;
-        final endIndex = outputStart < 0
-            ? -1
-            : segment.indexOf(end, outputStart);
+        final located = markers.locate(
+          segment,
+          beginningDiscarded: _output.discardedSince(startOffset),
+        );
+        final outputStart = located.outputStart;
+        final endIndex = located.endIndex;
         if (onOutput != null && outputStart >= 0) {
           final currentOutput = _removeMarkerNoise(
             segment.substring(
@@ -3058,30 +3073,6 @@ TerminalTargetPlatform _terminalTargetPlatform() {
 }
 
 String _welcomeBanner() => '\x1b[38;5;108mOpenHand 机器终端\x1b[0m\r\n';
-
-String _commandPayload({
-  required String command,
-  required String beginMarker,
-  required String endMarker,
-  bool usePosixShell = false,
-}) {
-  if (Platform.isWindows && !usePosixShell) {
-    return 'set "__OPENHAND_BEGIN=$beginMarker"\r\n'
-        'set "__OPENHAND_END=$endMarker"\r\n'
-        'echo __%__OPENHAND_BEGIN%__\r\n'
-        '$command\r\n'
-        'echo __%__OPENHAND_END%__:%ERRORLEVEL%\r\n'
-        'set "__OPENHAND_BEGIN="\r\n'
-        'set "__OPENHAND_END="\r\n';
-  }
-  return "printf '\\n__%s__\\n' '$beginMarker'\n"
-      '(\n'
-      '$command\n'
-      ')\n'
-      '__openhand_status=\$?\n'
-      'stty echo 2>/dev/null\n'
-      "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n";
-}
 
 String _uploadCommandPayload({
   required String beginMarker,

@@ -15,31 +15,40 @@
 
 列表、表格和展开详情限制高度并滚动；进程每页 40 条，服务列表惰性构建。CPU 趋势保留最近 60 个有效点。
 
-## 适配方式
+## 跨平台适配
 
-- **共同内核接口**：读取 `/proc`、`/sys`，不解析发行版特有的 `top`/`free` 文案，不依赖 Python。
-- **策略模式**：`MachineMaintenanceServiceAdapter.detect` 按实际管理器选择 systemd、OpenRC、runit、SysV 策略。SysV 可回退至 `/etc/init.d` 脚本。
-- **能力探测**：网络、日志、防火墙和容器根据已安装工具选择命令；未知管理器保留监控能力，不猜测控制命令。
-- **宿主与目标分离**：运维明确使用 POSIX 命令协议，避免 Windows 宿主向 Linux SSH 终端发送 CMD 协议。
-- **缺失数据**：工具缺失、内核接口不可读或权限不足时展示原因或不可用，不填零冒充正常状态。容器中保留内核视图与控制组限制，不能将宿主资源总量当作容器配额。
+平台策略按当前终端实际目标选择，独立于运行 OpenHand 的宿主系统；Shell 协议支持 POSIX、PowerShell 和 CMD。先探测目标，再选择采集、进程管理与服务管理策略；面板提供 Shell 协议选择。切换平台清除旧采样，操作前重新验证主机与启动标识。
 
-指标依据 [Linux proc 文档](https://docs.kernel.org/filesystems/proc.html) 和 [块设备统计文档](https://docs.kernel.org/block/stat.html)。CPU 排除重复的 guest 字段；磁盘扇区按 512 字节换算；速率用目标机 uptime 的采样差值计算。机器重启、目标变化、计数器回退、进程 PID 重用时不复用上一组差值。
+| 目标 | 采集方式 | 服务管理 | 边界 |
+| --- | --- | --- | --- |
+| Linux（CentOS、Debian、Ubuntu、Arch 等） | `/proc`、`/sys` 与可用系统工具 | systemd、OpenRC、runit、SysV | 按能力识别，不依赖发行版名称或 Python；容器显示可读的内核视图与控制组限制 |
+| macOS | sysctl、top、vm_stat、ioreg、netstat、ps | 当前 bootstrap 上下文中的 launchd | 内存可用量为估算；无通用每核 CPU 计数时明确说明；进程支持终止、暂停、恢复 |
+| Windows / Windows Server | 系统 WSH/JScript 调用 WMI，CMD 和 PowerShell 共用采集脚本 | Windows SCM | 不依赖 PowerShell 版本、WMIC 或第三方运行时；进程仅提供终止；需启用 WSH、JScript 与 WMI |
+
+Windows 使用老系统已有的 WMI/WSH 接口，以兼容 XP、7、8、10、11 和不同 Server 版本；可选属性及性能类缺失时显示不可用，旧版防火墙查询使用相应命令。Windows 9 没有正式发行版。这里的兼容性指终端连接的目标机器，不代表 Flutter 桌面客户端可安装于 XP 等旧系统；未经过实机矩阵验证，不能保证全部版本和系统裁剪环境可用。
+
+工具缺失、内核接口不可读或权限不足时展示原因或不可用，不填零冒充正常状态。未知服务管理器保留监控能力。Linux 指标依据 [proc 文档](https://docs.kernel.org/filesystems/proc.html) 和 [块设备统计文档](https://docs.kernel.org/block/stat.html)；Windows 使用 WMI 接口，避免依赖[逐步移除的 WMIC](https://support.microsoft.com/en-us/servicing/os/windows/docs/2025/09/windows-management-instrumentation-command-line-wmic-removal-from-windows)。
+
+Linux CPU 排除重复的 guest 字段，磁盘扇区按 512 字节换算；Windows 原始性能计数器和 macOS 原生统计转换为统一指标。速率用目标机采样时间差计算，macOS CPU 使用 top 的采样结果。目标变化、重启、时间或计数器回退、进程 PID 重用时不复用无效差值。
 
 ## 执行边界
 
 - 复用文件管理的终端门闩、分块传输、临时文件清理与 `recordHistory: false`；辅助命令和结果不写入应用的终端持久化历史。实时终端仍会显示命令执行过程。
-- 终端命令最长等待 30 秒；有 `timeout` 的目标对较慢查询额外设置 5 秒限制，不发起无限重试。
-- 服务名称严格校验并按 shell 参数转义；操作需确认，并验证目标主机/启动标识。进程信号执行前校验 PID 启动时间，禁止控制 PID 1。
-- 进程每批最多 512 条，可用上一批/下一批继续浏览；筛选与排序作用于当前批次。其他诊断输出按命令限制到 8–50 KB，防止输出挤爆终端缓冲区。
+- 单条终端命令最长等待 30 秒；Linux 有 `timeout` 时对较慢查询额外设置 5 秒限制。Windows 脚本传输总时限 2 分钟，cscript 自身时限 25 秒，外部诊断子命令最多等待 4 秒；不发起无限重试。终端被文件操作占用时立即提示。
+- 服务名称严格校验并按 shell 参数转义；操作需确认，并验证目标主机/启动标识。进程操作前校验 PID 启动标识；禁止控制 Unix PID 1、Windows PID 4 及以下，无可验证启动标识时不提供控制。Windows 服务重启有停止状态等待上限。
+- 进程每批最多 512 条，可用上一批/下一批继续浏览；筛选与排序作用于当前批次。其他诊断输出按命令限制到 8–50 KB；Windows WMI 单次枚举最多 16384 条、编码输出总预算 100000 字符，截断时提示，防止输出挤爆终端缓冲区。
 - 未实现独立服务器面板的应用商店、网站部署、数据库管理、证书签发、备份恢复、账号/软件包编辑；当前不能宣称与 1Panel 全功能等价。
 
 ## 验证
 
 ```sh
 dart run scripts/check_machine_maintenance.dart
+dart run scripts/check_machine_maintenance_platforms.dart
 dart run scripts/check_machine_maintenance_widgets.dart
 dart run scripts/check_imports.dart
 bash scripts/build_web.sh
 ```
 
-检查覆盖采样协议、单位换算、重启/回退、注入输入、四种服务策略、POSIX 脚本语法及实际 awk 执行；组件检查覆盖浅深主题、窄窗口、大字体、详情弹窗、刷新间隔、串行采样、失败暂停及关闭清理。当前开发机为 macOS，Docker 守护进程未运行，尚未完成真实 Linux 发行版/权限/SSH 矩阵联调。
+检查覆盖采样协议、单位换算、重启/回退、注入输入、Linux 服务策略、POSIX 脚本语法、Shell 探测、CMD/PowerShell 回显边界和 Windows WMI 模拟执行。组件检查覆盖三平台动作差异、浅深主题、窄窗口、大字体、详情弹窗、列表限高、刷新间隔、串行采样、失败暂停及关闭清理。
+
+本机 macOS 已实际执行总览、进程与服务采集；Windows 脚本经过模拟 WMI 执行，尚未在真实 CMD/PowerShell、XP 或 Windows Server 上联调。Linux 发行版、权限及 SSH 的完整实机矩阵仍待验证。

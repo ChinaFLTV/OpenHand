@@ -1,0 +1,127 @@
+import 'dart:convert';
+import 'dart:io';
+
+import '../../shared/util/platform_shell.dart';
+
+/// 宿主系统仅用于旧调用的默认值，远程运维始终显式指定目标 Shell。
+enum MachineTerminalCommandShell { automatic, posix, powershell, cmd, probe }
+
+MachineTerminalCommandShell resolveMachineTerminalShell(
+  MachineTerminalCommandShell shell,
+) => shell == MachineTerminalCommandShell.automatic
+    ? (Platform.isWindows
+          ? MachineTerminalCommandShell.cmd
+          : MachineTerminalCommandShell.posix)
+    : shell;
+
+String machineTerminalCommandPayload({
+  required String command,
+  required String beginMarker,
+  required String endMarker,
+  MachineTerminalCommandShell shell = MachineTerminalCommandShell.automatic,
+}) {
+  switch (resolveMachineTerminalShell(shell)) {
+    case MachineTerminalCommandShell.probe:
+      return 'echo __${beginMarker}__\r\n${command.replaceAll('\n', '\r\n')}\r\necho __${endMarker}__:0\r\n';
+    case MachineTerminalCommandShell.powershell:
+      return "Write-Output ''; Write-Output '__${beginMarker}__'\r\n"
+          "& { \$ErrorActionPreference='Stop'; \$LASTEXITCODE=0; try { $command; "
+          "if (-not \$?) { throw '命令执行失败。' }; "
+          "Write-Output ''; Write-Output ('__${endMarker}__:' + \$LASTEXITCODE) "
+          "} catch { Write-Output \$_; Write-Output ''; Write-Output '__${endMarker}__:1' } }\r\n";
+    case MachineTerminalCommandShell.cmd:
+      return 'echo. & echo __${beginMarker}__\r\n'
+          '$command\r\n'
+          'echo. & echo __${endMarker}__:%ERRORLEVEL%\r\n';
+    default:
+      return "printf '\\n__%s__\\n' '$beginMarker'\n"
+          '(\n$command\n)\n'
+          '__openhand_status=\$?\n'
+          'stty echo 2>/dev/null\n'
+          "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n";
+  }
+}
+
+const machineTerminalShellProbe = r'''
+echo OH_PS_$env:OS
+echo OH_CMD_%OS%
+uname -s
+''';
+
+({MachineTerminalCommandShell shell, String platform})
+parseMachineTerminalShellProbe(String output) {
+  final lines = output
+      .replaceAll('\r', '')
+      .split('\n')
+      .map((line) => line.trim())
+      .toSet();
+  if (lines.contains('OH_PS_Windows_NT')) {
+    return (shell: MachineTerminalCommandShell.powershell, platform: 'Windows');
+  }
+  if (lines.contains('OH_CMD_Windows_NT')) {
+    return (shell: MachineTerminalCommandShell.cmd, platform: 'Windows');
+  }
+  for (final platform in ['Linux', 'Darwin']) {
+    if (lines.contains(platform)) {
+      return (shell: MachineTerminalCommandShell.posix, platform: platform);
+    }
+  }
+  throw UnsupportedError('无法识别当前终端；请确保终端处于系统命令提示符状态，且允许执行系统查询。');
+}
+
+/// Windows 脚本分块只包含 Base64 与数字，不暴露 CMD 元字符。
+class MachineTerminalWindowsScript {
+  MachineTerminalWindowsScript(String script, String token, this.shell) {
+    if (!RegExp(r'^[a-zA-Z0-9-]+$').hasMatch(token) ||
+        !const [
+          MachineTerminalCommandShell.cmd,
+          MachineTerminalCommandShell.powershell,
+        ].contains(shell)) {
+      throw ArgumentError('Windows 脚本传输参数无效。');
+    }
+    final name = 'openhand-ops-$token.js';
+    path = powershell ? "(Join-Path \$env:TEMP '$name')" : '"%TEMP%\\$name"';
+    final encoded = base64Encode(utf8.encode(script));
+    commands = [write('var s=String();', append: false)];
+    for (var offset = 0; offset < encoded.length; offset += chunkCharacters) {
+      final end = (offset + chunkCharacters).clamp(0, encoded.length);
+      commands.add(write("s+='${encoded.substring(offset, end)}';"));
+    }
+    commands.add(
+      write('eval(String.fromCharCode(${decoder.codeUnits.join(',')}));'),
+    );
+  }
+  static const chunkCharacters = 1024;
+  static const decoder =
+      "var a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',b=0,n=0,t='';for(var i=0;i<s.length;i++){var v=a.indexOf(s.charAt(i));if(v<0)continue;b=(b<<6)|v;n+=6;if(n>=8){n-=8;t+=String.fromCharCode((b>>n)&255);}}eval(decodeURIComponent(escape(t)));";
+  final MachineTerminalCommandShell shell;
+  late final String path;
+  late final List<String> commands;
+  bool get powershell => shell == MachineTerminalCommandShell.powershell;
+  String write(String text, {bool append = true}) => powershell
+      ? "[IO.File]::${append ? 'AppendAllText' : 'WriteAllText'}($path, '${escapePowerShellSingleQuotedString(text)}' + [Environment]::NewLine, [Text.Encoding]::ASCII)"
+      : 'cmd.exe /d /v:off /c echo $text ${append ? '^>^>' : '^>'} $path';
+  String get execute =>
+      '${powershell ? '& ' : ''}cscript.exe //nologo //B //T:25 //E:JScript $path';
+  String get cleanup => powershell
+      ? 'Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue'
+      : 'cmd.exe /d /v:off /c if exist $path del /q $path';
+}
+
+/// 只识别独占行的标记，忽略终端输入回显中的同名文本。
+class MachineTerminalCommandMarkers {
+  MachineTerminalCommandMarkers(String begin, String end)
+    : _begin = RegExp('^${RegExp.escape(begin)}\\r?\$', multiLine: true),
+      _end = RegExp('^${RegExp.escape(end)}:', multiLine: true);
+  final RegExp _begin, _end;
+  ({int outputStart, int endIndex}) locate(
+    String text, {
+    bool beginningDiscarded = false,
+  }) {
+    final start = _begin.firstMatch(text)?.end ?? (beginningDiscarded ? 0 : -1);
+    final end = start < 0
+        ? -1
+        : (_end.allMatches(text, start).firstOrNull?.start ?? -1);
+    return (outputStart: start, endIndex: end);
+  }
+}

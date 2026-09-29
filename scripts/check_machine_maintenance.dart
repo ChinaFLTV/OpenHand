@@ -52,7 +52,7 @@ Future<void> main() async {
   );
   for (final invalid in [
     sample().replaceAll('__OH_OPS_end__', ''),
-    sample().replaceAll('Linux', 'Darwin'),
+    sample().replaceAll('Linux', '未知系统'),
   ]) {
     var rejected = false;
     try {
