@@ -1285,6 +1285,31 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('详情短字段与跨行字段交错时每行完整占用宽度', (tester) async {
+    for (final width in [480.0, 900.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(
+          text: 'Name: worker\\nOptions: {\\n x = 1;\\n}\\nPID: 42\\nUser: test\\nPath: /tmp\\nConfig: {\\n y = 2;\\n}\\nEnd: done', section: 'status')))));
+      await tester.pumpAndSettle();
+      final wrap = tester.widget<_MaintenanceEqualHeightWrap>(find.byType(_MaintenanceEqualHeightWrap));
+      final rows = <double, List<Rect>>{};
+      for (final child in wrap.children) {
+        final rect = tester.getRect(find.byWidget(child));
+        (rows[rect.top] ??= []).add(rect);
+      }
+      for (final row in rows.values) {
+        expect(row.first.left, closeTo(0, .1));
+        expect(row.last.right, closeTo(width, .1));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('详情固定字段完整展示，无分页、顶部冗余间距或等高空白', (tester) async {
     final font = Platform.environment['MAINTENANCE_FONT'];
     if (font != null) {
@@ -1395,6 +1420,18 @@ void main() {
               final image = await boundary.toImage();
               final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
               await File(Platform.environment['MAINTENANCE_PREVIEW']! + '.services.png').writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
+          if (label == '网络与诊断' && width == 1280 && brightness == Brightness.light && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+            final scroll = tester.state<ScrollableState>(find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
+            scroll.position.jumpTo(scroll.position.maxScrollExtent);
+            await tester.pumpAndSettle();
+            await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('运维预览')));
+              final image = await boundary.toImage();
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File(Platform.environment['MAINTENANCE_PREVIEW']! + '.network.png').writeAsBytes(bytes!.buffer.asUint8List());
               image.dispose();
             });
           }

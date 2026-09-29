@@ -4267,17 +4267,28 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       final theme = Theme.of(context);
       return LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 600 ? 2 : 1;
-          final width =
-              (constraints.maxWidth - _maintenanceGridGap * (columns - 1)) /
-              columns;
+          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+          final pairedWidth = (constraints.maxWidth - _maintenanceGridGap) / 2;
+          final widths = List<double>.filled(
+            _data.rows.length,
+            constraints.maxWidth,
+          );
+          if (constraints.maxWidth >= 600 * scale) {
+            for (var i = 0; i + 1 < _data.rows.length; i++) {
+              final pair = _data.rows.skip(i).take(2);
+              if (pair.every(
+                (field) => !field[1].contains('\n') && field[1].length <= 70,
+              )) {
+                widths[i] = widths[i + 1] = pairedWidth;
+                i++;
+              }
+            }
+          }
           return _MaintenanceEqualHeightWrap(
             children: [
-              for (final field in _data.rows)
+              for (var i = 0; i < _data.rows.length; i++)
                 SizedBox(
-                  width: field[1].contains('\n') || field[1].length > 70
-                      ? constraints.maxWidth
-                      : width,
+                  width: widths[i],
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withValues(alpha: .04),
@@ -4289,14 +4300,14 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            maintenanceDetailLabel(context, field[0]),
+                            maintenanceDetailLabel(context, _data.rows[i][0]),
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 6),
                           SelectableText(
-                            field[1].isEmpty ? '—' : field[1],
+                            _data.rows[i][1].isEmpty ? '—' : _data.rows[i][1],
                             style: theme.textTheme.bodyMedium,
                           ),
                         ],
