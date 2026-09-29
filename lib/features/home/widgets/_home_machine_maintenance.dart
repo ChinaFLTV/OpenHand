@@ -5580,6 +5580,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
     final buffer = widget.buffers[_source];
     final entries = buffer?.entries ?? const <MachineLogEntry>[];
     final filter = (_source, _query, _level);
@@ -5645,110 +5646,174 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _MaintenanceToolbarMenu<String>(
-                  tooltip: l.maintenanceLogsTab,
-                  label: switch (_source) {
-                    'kernel' =>
-                      platform == 'Windows'
-                          ? l.maintenanceLogApplication
-                          : l.maintenanceLogKernel,
-                    'security' =>
-                      platform == 'Darwin'
-                          ? l.maintenanceLogSystem
-                          : l.maintenanceLogSecurity,
-                    _ => l.maintenanceLogSystem,
-                  },
-                  value: _source,
-                  items: {
-                    'system': l.maintenanceLogSystem,
-                    'kernel': platform == 'Windows'
-                        ? l.maintenanceLogApplication
-                        : l.maintenanceLogKernel,
-                    'security': platform == 'Darwin'
-                        ? l.maintenanceLogSystem
-                        : l.maintenanceLogSecurity,
-                  },
-                  onSelected: (value) => setState(() {
-                    _source = value;
-                    if (_scroll.hasClients) _scroll.jumpTo(0);
-                  }),
-                ),
-                SizedBox(
-                  width: _maintenanceSearchWidth,
-                  height: _maintenanceControlHeight,
-                  child: TextField(
-                    onChanged: (value) =>
-                        setState(() => _query = value.toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: l.maintenanceLogSearch,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
+            LayoutBuilder(
+              builder: (context, toolbarBounds) {
+                final controls = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _MaintenanceToolbarMenu<String>(
+                      tooltip: l.maintenanceLogsTab,
+                      label: switch (_source) {
+                        'kernel' =>
+                          platform == 'Windows'
+                              ? l.maintenanceLogApplication
+                              : l.maintenanceLogKernel,
+                        'security' =>
+                          platform == 'Darwin'
+                              ? l.maintenanceLogSystem
+                              : l.maintenanceLogSecurity,
+                        _ => l.maintenanceLogSystem,
+                      },
+                      value: _source,
+                      items: {
+                        'system': l.maintenanceLogSystem,
+                        'kernel': platform == 'Windows'
+                            ? l.maintenanceLogApplication
+                            : l.maintenanceLogKernel,
+                        'security': platform == 'Darwin'
+                            ? l.maintenanceLogSystem
+                            : l.maintenanceLogSecurity,
+                      },
+                      onSelected: (value) => setState(() {
+                        _source = value;
+                        if (_scroll.hasClients) _scroll.jumpTo(0);
+                      }),
+                    ),
+                    SizedBox(
+                      width: _maintenanceSearchWidth,
+                      height: _maintenanceControlHeight,
+                      child: TextField(
+                        onChanged: (value) =>
+                            setState(() => _query = value.toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: l.maintenanceLogSearch,
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                _MaintenanceToolbarMenu<int>(
-                  tooltip: l.maintenanceLogAll,
-                  label: _level < 0 ? l.maintenanceLogAll : names[_level],
-                  value: _level,
-                  items: {
-                    -1: l.maintenanceLogAll,
-                    for (var i = 0; i < names.length; i++) i: names[i],
-                  },
-                  onSelected: (value) => setState(() => _level = value),
-                ),
-                FilterChip(
-                  elevation: 0,
-                  pressElevation: 0,
-                  shadowColor: Colors.transparent,
-                  selectedShadowColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  label: Text(l.maintenanceLogFollow),
-                  selected: _follow,
-                  onSelected: (value) => setState(() {
-                    _follow = value;
-                    if (value) {
-                      _selecting = false;
-                      _selectionRevision++;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted && _follow && _scroll.hasClients) {
-                          _scroll.jumpTo(_scroll.position.maxScrollExtent);
-                        }
-                      });
-                    }
-                  }),
-                ),
-                for (var i = 0; i < names.length; i++)
-                  Chip(
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                    surfaceTintColor: Colors.transparent,
-                    avatar: Icon(
-                      i == 0
-                          ? Icons.error_outline
-                          : i == 1
-                          ? Icons.warning_amber_rounded
-                          : Icons.info_outline,
-                      size: 16,
-                      color: [
-                        Theme.of(context).colorScheme.error,
-                        Theme.of(context).colorScheme.tertiary,
-                        Theme.of(context).colorScheme.primary,
-                      ][i],
+                    _MaintenanceToolbarMenu<int>(
+                      tooltip: l.maintenanceLogAll,
+                      label: _level < 0 ? l.maintenanceLogAll : names[_level],
+                      value: _level,
+                      items: {
+                        -1: l.maintenanceLogAll,
+                        for (var i = 0; i < names.length; i++) i: names[i],
+                      },
+                      onSelected: (value) => setState(() => _level = value),
                     ),
-                    label: Text(
-                      '${names[i]} ${entries.where((e) => e.level == i).length}',
+                    SizedBox(
+                      height: _maintenanceControlHeight,
+                      child: FilterChip(
+                        key: const ValueKey('maintenance-log-follow'),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        labelPadding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        side: BorderSide(
+                          color: (_follow ? cs.primary : cs.outlineVariant)
+                              .withValues(alpha: .55),
+                        ),
+                        backgroundColor: cs.surface.withValues(alpha: .72),
+                        selectedColor: cs.primaryContainer,
+                        checkmarkColor: cs.onPrimaryContainer,
+                        labelStyle: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(
+                              color: _follow
+                                  ? cs.onPrimaryContainer
+                                  : cs.onSurface,
+                            ),
+                        elevation: 0,
+                        pressElevation: 0,
+                        shadowColor: Colors.transparent,
+                        selectedShadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        label: Text(l.maintenanceLogFollow),
+                        selected: _follow,
+                        onSelected: (value) => setState(() {
+                          _follow = value;
+                          if (value) {
+                            _selecting = false;
+                            _selectionRevision++;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted && _follow && _scroll.hasClients) {
+                                _scroll.jumpTo(
+                                  _scroll.position.maxScrollExtent,
+                                );
+                              }
+                            });
+                          }
+                        }),
+                      ),
                     ),
-                  ),
-              ],
+                  ],
+                );
+                final counters = Wrap(
+                  key: const ValueKey('maintenance-log-counts'),
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var i = 0; i < names.length; i++)
+                      Container(
+                        key: ValueKey('maintenance-log-count-$i'),
+                        height: _maintenanceControlHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: cs.surface.withValues(alpha: .72),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: .55),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              [
+                                Icons.error_outline,
+                                Icons.warning_amber_rounded,
+                                Icons.info_outline,
+                              ][i],
+                              size: 16,
+                              color: [cs.error, cs.tertiary, cs.primary][i],
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${names[i]} ${entries.where((e) => e.level == i).length}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+                if (toolbarBounds.maxWidth >=
+                    MediaQuery.textScalerOf(context).scale(900)) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: controls),
+                      const SizedBox(width: 16),
+                      counters,
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [controls, const SizedBox(height: 8), counters],
+                );
+              },
             ),
             const SizedBox(height: 8),
             if (buffer?.error != null && _visible.isNotEmpty)

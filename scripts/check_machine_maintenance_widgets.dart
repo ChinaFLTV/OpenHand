@@ -438,6 +438,45 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('日志工具栏统一高度圆角且统计靠右，窄屏换行不溢出', (tester) async {
+    for (final width in [360.0, 760.0, 1280.0]) {
+      for (final brightness in [Brightness.light, Brightness.dark]) {
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.green, brightness: brightness)),
+          home: Scaffold(body: _MaintenanceLogBrowser(buffers: {'system': MachineLogBuffer()},
+            data: MachineMaintenanceSnapshot({'platform': 'Linux'})))));
+        await tester.pumpAndSettle();
+        final follow = find.byKey(const ValueKey('maintenance-log-follow'));
+        final lastCount = find.byKey(const ValueKey('maintenance-log-count-2'));
+        final panel = find.byType(OpenHandConsoleFrame).first;
+        expect(tester.getSize(follow).height, _maintenanceControlHeight);
+        expect(tester.getRect(lastCount).right, closeTo(tester.getRect(panel).right, 1));
+        final chip = tester.widget<FilterChip>(follow);
+        expect((chip.shape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(8));
+        for (var i = 0; i < 3; i++) {
+          final counter = find.byKey(ValueKey('maintenance-log-count-\$i'));
+          expect(tester.getSize(counter).height, _maintenanceControlHeight);
+          expect(tester.getRect(counter).left, greaterThanOrEqualTo(12));
+        }
+        if (width == 1280) {
+          expect(tester.getRect(follow).top, tester.getRect(lastCount).top);
+        } else {
+          expect(tester.getRect(lastCount).top, greaterThanOrEqualTo(tester.getRect(follow).bottom));
+        }
+        final state = tester.state<_MaintenanceLogBrowserState>(find.byType(_MaintenanceLogBrowser));
+        final wasFollowing = state._follow;
+        await tester.tap(follow); await tester.pumpAndSettle();
+        expect(state._follow, !wasFollowing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志空态、错误和筛选空态均填满折叠区剩余高度', (tester) async {
     for (final size in [const Size(760, 700), const Size(420, 900)]) {
       await tester.binding.setSurfaceSize(size);
