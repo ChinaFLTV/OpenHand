@@ -525,27 +525,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      size: 14,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        maintenanceLabel(context, '当前终端 · 辅助命令不持久化 · 速率需两次采样'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -640,17 +619,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     );
     _detailOpen = false;
     if (mounted) _schedule();
-  }
-
-  void _selectSection(int index) {
-    if (_loading) return;
-    setState(() {
-      _tab = index;
-
-      _search.clear();
-      _error = null;
-    });
-    _refresh();
   }
 
   Widget _overview(MachineMaintenanceSnapshot data) {
@@ -862,37 +830,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     cs.primary,
                   ),
                 ),
-        ),
-      ),
-      _MaintenanceCard(
-        title: maintenanceLabel(context, '运维操作'),
-        icon: Icons.tune_rounded,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final action in const [
-              (1, Icons.memory_rounded, '查看进程'),
-              (2, Icons.settings_suggest_outlined, '管理系统服务'),
-              (3, Icons.hub_outlined, '网络诊断'),
-            ])
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                  ),
-                  onPressed: _loading ? null : () => _selectSection(action.$1),
-                  icon: Icon(action.$2, size: 16),
-                  label: Text(
-                    maintenanceLabel(context, action.$3),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
-          ],
         ),
       ),
       _MaintenanceCard(
