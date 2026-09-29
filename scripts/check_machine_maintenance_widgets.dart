@@ -157,6 +157,33 @@ __OH_OPS_end__
 }
 
 void main() {
+  testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
+    final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
+    var revision = 0;
+    Widget host() => MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MaintenanceLogBrowser(buffers: {'system': buffer},
+        data: MachineMaintenanceSnapshot.parse('__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n主机\$revision\\n__OH_OPS_end__\\n'))));
+    await tester.binding.setSurfaceSize(const Size(760, 700));
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final state = tester.state<_MaintenanceLogBrowserState>(find.byType(_MaintenanceLogBrowser));
+    state.setState(() => state._follow = false);
+    state._scroll.jumpTo(640); await tester.pumpAndSettle();
+    buffer.append('记录 119\\n新日志'); revision++;
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    expect(state._scroll.offset, 640);
+    expect(buffer.entries.last.message, '新日志');
+    buffer.append('dmesg: Operation not permitted'); revision++;
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    expect(find.text('日志源暂不可用'), findsOneWidget);
+    expect(buffer.entries.length, 121);
+    await tester.enterText(find.byType(TextField), '新日志'); await tester.pumpAndSettle();
+    expect(state._visible.length, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('分页跳页数字在主题约束、字号和焦点变化下保持居中', (tester) async {
     for (final height in [32.0, 34.0]) {
       for (final scale in [1.0, 1.5]) {

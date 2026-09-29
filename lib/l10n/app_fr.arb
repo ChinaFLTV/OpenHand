@@ -8686,5 +8686,20 @@
   "maintenanceGpuProcesses": "Processus de calcul GPU",
   "maintenanceGpuDisplays": "Écrans connectés",
   "maintenanceGpuPixels": "Pixels physiques",
-  "maintenanceGpuResolution": "Mode d’affichage"
+  "maintenanceGpuResolution": "Mode d’affichage",
+  "maintenanceLogsTab": "Journaux",
+  "maintenanceLogSystem": "Journaux système",
+  "maintenanceLogKernel": "Journaux du noyau",
+  "maintenanceLogSecurity": "Journaux de sécurité",
+  "maintenanceLogApplication": "Journaux applicatifs",
+  "maintenanceLogSearch": "Rechercher dans les journaux",
+  "maintenanceLogFollow": "Suivre les nouveaux événements",
+  "maintenanceLogAll": "Tous les niveaux",
+  "maintenanceLogError": "Erreur",
+  "maintenanceLogWarning": "Avertissement",
+  "maintenanceLogInfo": "Information",
+  "maintenanceLogRotation": "Rotation et configuration",
+  "maintenanceLogUnavailable": "Source de journaux indisponible",
+  "maintenanceLogEmpty": "Aucun événement",
+  "maintenanceLogStorage": "Taille du dossier des journaux"
 }

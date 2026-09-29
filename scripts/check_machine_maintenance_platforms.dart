@@ -155,7 +155,7 @@ Future<void> main() async {
   check(await diskReader.exitCode == 0, '磁盘采集脚本检查失败：$diskError');
   check(diskRows.last.split(' ')[4] == '-1', '磁盘缺失字段沿用了上一条记录');
   for (final platform in ['Linux', 'Darwin', 'Windows']) {
-    for (var tab = 0; tab < 5; tab++) {
+    for (var tab = 0; tab < 6; tab++) {
       final command = MachineMaintenancePlatformAdapter.forPlatform(
         platform,
       ).collect(tab, workers: 8);
@@ -186,7 +186,7 @@ Future<void> main() async {
     'boot': '20260929080000.000000+000',
   });
   final scripts = [
-    for (var i = 0; i < 5; i++) windows.collect(i),
+    for (var i = 0; i < 6; i++) windows.collect(i),
     windows.process(process),
     windows.bind(snapshot, service.command('带 空格服务')),
     for (final action in service.actions.values)
@@ -234,7 +234,7 @@ Future<void> main() async {
     final parallelInput = await File('${directory.path}/parallel.json')
         .writeAsString(
           jsonEncode([
-            for (var i = 0; i < 5; i++) windows.collect(i, workers: 4),
+            for (var i = 0; i < 6; i++) windows.collect(i, workers: 4),
             parallelWindowsMaintenanceCommand(
               r'''var wmi=GetObject("winmgmts:!\\\\.\\root\\cimv2");
 function fail(message){throw Error(message);}
@@ -268,7 +268,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
           parallelResults.last.contains('文件记录7'),
       'Windows 文件读取协议混入运维标记或遗漏分片',
     );
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
       final parallel = MachineMaintenanceSnapshot.parse(parallelResults[i]);
       final serial = MachineMaintenanceSnapshot.parse(results[i]);
       check(
@@ -289,7 +289,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
     check(windows.processActions(process).length == 1, 'Windows 显示了不支持的进程动作');
     for (final platform in ['Linux', 'Darwin']) {
       final adapter = MachineMaintenancePlatformAdapter.forPlatform(platform);
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 6; i++) {
         final shell = await Process.start('/bin/sh', ['-n']);
         shell.stdin.write(adapter.collect(i));
         await shell.stdin.close();
@@ -298,7 +298,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
     }
     if (Platform.isMacOS) {
       final adapter = MachineMaintenancePlatformAdapter.forPlatform('Darwin');
-      for (final i in [0, 1, 2, 4]) {
+      for (final i in [0, 1, 2, 4, 5]) {
         final result = await Process.run('/bin/sh', [
           '-c',
           adapter.collect(i),

@@ -1,3 +1,5 @@
+import 'machine_maintenance_logs.dart';
+export 'machine_maintenance_logs.dart';
 import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance_gpu.dart';
 
@@ -549,3 +551,6 @@ class _SysVMaintenanceAdapter extends MachineMaintenanceServiceAdapter {
 final machineMaintenanceGpuCommand =
     _linuxPrelude +
     machineGpuLinuxCollection.replaceAll('__GPU_QUERY__', machineGpuQuery);
+
+const machineMaintenanceLogsCommand =
+    _linuxPrelude + machineLogsLinuxCollection;

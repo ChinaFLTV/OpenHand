@@ -3,7 +3,7 @@ part of '../openhand_home_page.dart';
 const _maintenanceControlHeight = 34.0;
 const _maintenancePanelBottomInset = 8.0;
 
-const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断', 'GPU 管理'];
+const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断', 'GPU 管理', '日志管理'];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
   'disks': '磁盘 IO',
@@ -58,6 +58,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     with WidgetsBindingObserver {
   final _snapshots = <int, MachineMaintenanceSnapshot>{};
   final _previous = <int, MachineMaintenanceSnapshot>{};
+  final _logBuffers = <String, MachineLogBuffer>{};
   final _gpuHistory = <String, List<({double time, double value})>>{};
   final _cpuHistory = <({double time, double value})>[];
   final _search = TextEditingController();
@@ -193,6 +194,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         final old = _snapshots[tab];
         if (old != null) _previous[tab] = old;
         _snapshots[tab] = result;
+        if (tab == 5) {
+          if (old?.identity != result.identity) _logBuffers.clear();
+          for (final source in machineLogSources) {
+            _logBuffers
+                .putIfAbsent(source, MachineLogBuffer.new)
+                .append(
+                  result.sections['log_$source'] ?? '',
+                  eventLog: result.sections['platform']?.trim() == 'Windows',
+                );
+          }
+        }
         if (tab == 4) {
           if (old?.identity != result.identity) _gpuHistory.clear();
           final devices = MachineGpuSnapshot.parse(result.sections).devices;
@@ -527,6 +539,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 Icons.settings_suggest_outlined,
                                 Icons.hub_outlined,
                                 Icons.developer_board_rounded,
+                                Icons.article_outlined,
                               ][index],
                               size: 18,
                             ),
@@ -645,6 +658,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               1 => _processes(data),
               2 => _services(data),
               4 => _gpu(data),
+              5 => _MaintenanceLogBrowser(buffers: _logBuffers, data: data),
               _ => _sections(data, const [
                 'sockets',
                 'routes',
@@ -4630,6 +4644,327 @@ class _MachineMaintenanceDetailsState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MaintenanceLogBrowser extends StatefulWidget {
+  const _MaintenanceLogBrowser({required this.buffers, required this.data});
+  final Map<String, MachineLogBuffer> buffers;
+  final MachineMaintenanceSnapshot data;
+  @override
+  State<_MaintenanceLogBrowser> createState() => _MaintenanceLogBrowserState();
+}
+
+class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
+  final _scroll = ScrollController();
+  String _source = 'system', _query = '';
+  int _level = -1;
+  bool _follow = true;
+  List<MachineLogEntry> _visible = [];
+  static const _rowHeight = 64.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients && _follow) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MaintenanceLogBrowser oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final index = (offset / _rowHeight).floor();
+    final anchor = index < _visible.length ? _visible[index].id : null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      if (_follow) {
+        final duration = openHandMotionDuration(context, kOpenHandMotion260);
+        if (duration == Duration.zero) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        } else {
+          _scroll.animateTo(
+            _scroll.position.maxScrollExtent,
+            duration: duration,
+            curve: Curves.easeOutCubic,
+          );
+        }
+      } else if (anchor != null) {
+        final next = _visible.indexWhere((entry) => entry.id == anchor);
+        _scroll.jumpTo(
+          (next < 0 ? 0.0 : next * _rowHeight + offset % _rowHeight).clamp(
+            0,
+            _scroll.position.maxScrollExtent,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final buffer = widget.buffers[_source];
+    final entries = buffer?.entries ?? const <MachineLogEntry>[];
+    _visible = entries
+        .where(
+          (e) =>
+              (_level < 0 || e.level == _level) &&
+              e.message.toLowerCase().contains(_query),
+        )
+        .toList();
+    final names = [
+      l.maintenanceLogError,
+      l.maintenanceLogWarning,
+      l.maintenanceLogInfo,
+    ];
+    final colors = [cs.error, cs.tertiary, cs.primary];
+    final platform = widget.data.sections['platform']?.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        8,
+        12,
+        _maintenancePanelBottomInset,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _MaintenanceToolbarMenu<String>(
+                tooltip: l.maintenanceLogsTab,
+                label: switch (_source) {
+                  'kernel' =>
+                    platform == 'Windows'
+                        ? l.maintenanceLogApplication
+                        : l.maintenanceLogKernel,
+                  'security' =>
+                    platform == 'Darwin'
+                        ? l.maintenanceLogSystem
+                        : l.maintenanceLogSecurity,
+                  _ => l.maintenanceLogSystem,
+                },
+                value: _source,
+                items: {
+                  'system': l.maintenanceLogSystem,
+                  'kernel': platform == 'Windows'
+                      ? l.maintenanceLogApplication
+                      : l.maintenanceLogKernel,
+                  'security': platform == 'Darwin'
+                      ? '/var/log/system.log'
+                      : l.maintenanceLogSecurity,
+                },
+                onSelected: (value) => setState(() {
+                  _source = value;
+                  if (_scroll.hasClients) _scroll.jumpTo(0);
+                }),
+              ),
+              SizedBox(
+                width: 230,
+                height: _maintenanceControlHeight,
+                child: TextField(
+                  onChanged: (value) =>
+                      setState(() => _query = value.toLowerCase()),
+                  decoration: InputDecoration(
+                    hintText: l.maintenanceLogSearch,
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+              ),
+              _MaintenanceToolbarMenu<int>(
+                tooltip: l.maintenanceLogAll,
+                label: _level < 0 ? l.maintenanceLogAll : names[_level],
+                value: _level,
+                items: {
+                  -1: l.maintenanceLogAll,
+                  for (var i = 0; i < names.length; i++) i: names[i],
+                },
+                onSelected: (value) => setState(() => _level = value),
+              ),
+              FilterChip(
+                label: Text(l.maintenanceLogFollow),
+                selected: _follow,
+                onSelected: (value) => setState(() {
+                  _follow = value;
+                  if (value && _scroll.hasClients) {
+                    _scroll.jumpTo(_scroll.position.maxScrollExtent);
+                  }
+                }),
+              ),
+              for (var i = 0; i < names.length; i++)
+                Chip(
+                  avatar: Icon(
+                    i == 0
+                        ? Icons.error_outline
+                        : i == 1
+                        ? Icons.warning_amber_rounded
+                        : Icons.info_outline,
+                    size: 16,
+                    color: colors[i],
+                  ),
+                  label: Text(
+                    '${names[i]} ${entries.where((e) => e.level == i).length}',
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (buffer?.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                l.maintenanceLogUnavailable,
+                style: TextStyle(color: cs.error),
+              ),
+            ),
+          Expanded(
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLowest,
+                border: Border.all(color: cs.outlineVariant),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _visible.isEmpty
+                  ? Center(child: Text(l.maintenanceLogEmpty))
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: (event) {
+                        if (event is ScrollUpdateNotification &&
+                            event.dragDetails != null &&
+                            _follow) {
+                          setState(() => _follow = false);
+                        }
+                        if (event is UserScrollNotification &&
+                            event.direction != ScrollDirection.idle &&
+                            _follow) {
+                          setState(() => _follow = false);
+                        }
+                        return false;
+                      },
+                      child: ListView.builder(
+                        controller: _scroll,
+                        itemExtent: _rowHeight,
+                        itemCount: _visible.length,
+                        itemBuilder: (context, index) {
+                          final entry = _visible[index];
+                          return InkWell(
+                            key: ValueKey(entry.id),
+                            onTap: () => _showEntry(entry),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: colors[entry.level],
+                                    width: 3,
+                                  ),
+                                  bottom: BorderSide(
+                                    color: cs.outlineVariant.withValues(
+                                      alpha: .35,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 145,
+                                    child: Text(
+                                      entry.time.isEmpty
+                                          ? names[entry.level]
+                                          : entry.time.replaceFirst('T', ' '),
+                                      maxLines: 2,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colors[entry.level],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      entry.message,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            title: Text(l.maintenanceLogRotation),
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    [
+                      widget.data.sections['log_rotation'] ?? '',
+                      widget.data.sections['log_config'] ?? '',
+                      if ((widget.data.sections['log_storage'] ?? '')
+                          .isNotEmpty)
+                        '${l.maintenanceLogStorage}: ${widget.data.sections['log_storage']} KiB',
+                    ].where((s) => s.isNotEmpty).join('\n\n'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEntry(MachineLogEntry entry) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (context) => buildOpenHandAlertDialog(
+        title: Text(
+          entry.time.isEmpty
+              ? AppLocalizations.of(context)!.maintenanceLogsTab
+              : entry.time,
+        ),
+        content: SingleChildScrollView(child: SelectableText(entry.message)),
       ),
     );
   }

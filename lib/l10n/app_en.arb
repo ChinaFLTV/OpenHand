@@ -8691,5 +8691,20 @@
   "maintenanceGpuProcesses": "GPU compute processes",
   "maintenanceGpuDisplays": "Connected displays",
   "maintenanceGpuPixels": "Physical pixels",
-  "maintenanceGpuResolution": "Display mode"
+  "maintenanceGpuResolution": "Display mode",
+  "maintenanceLogsTab": "Logs",
+  "maintenanceLogSystem": "System logs",
+  "maintenanceLogKernel": "Kernel logs",
+  "maintenanceLogSecurity": "Security logs",
+  "maintenanceLogApplication": "Application logs",
+  "maintenanceLogSearch": "Search logs",
+  "maintenanceLogFollow": "Follow new entries",
+  "maintenanceLogAll": "All levels",
+  "maintenanceLogError": "Error",
+  "maintenanceLogWarning": "Warning",
+  "maintenanceLogInfo": "Information",
+  "maintenanceLogRotation": "Rotation records and configuration",
+  "maintenanceLogUnavailable": "Log source unavailable",
+  "maintenanceLogEmpty": "No log entries",
+  "maintenanceLogStorage": "Log directory size"
 }

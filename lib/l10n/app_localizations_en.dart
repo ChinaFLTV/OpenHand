@@ -12837,4 +12837,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceGpuResolution => 'Display mode';
+
+  @override
+  String get maintenanceLogsTab => 'Logs';
+
+  @override
+  String get maintenanceLogSystem => 'System logs';
+
+  @override
+  String get maintenanceLogKernel => 'Kernel logs';
+
+  @override
+  String get maintenanceLogSecurity => 'Security logs';
+
+  @override
+  String get maintenanceLogApplication => 'Application logs';
+
+  @override
+  String get maintenanceLogSearch => 'Search logs';
+
+  @override
+  String get maintenanceLogFollow => 'Follow new entries';
+
+  @override
+  String get maintenanceLogAll => 'All levels';
+
+  @override
+  String get maintenanceLogError => 'Error';
+
+  @override
+  String get maintenanceLogWarning => 'Warning';
+
+  @override
+  String get maintenanceLogInfo => 'Information';
+
+  @override
+  String get maintenanceLogRotation => 'Rotation records and configuration';
+
+  @override
+  String get maintenanceLogUnavailable => 'Log source unavailable';
+
+  @override
+  String get maintenanceLogEmpty => 'No log entries';
+
+  @override
+  String get maintenanceLogStorage => 'Log directory size';
 }

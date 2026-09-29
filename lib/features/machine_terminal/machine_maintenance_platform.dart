@@ -39,6 +39,7 @@ class _LinuxMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
           1 => machineMaintenanceProcessesCommand(offset: offset),
           2 => machineMaintenanceServicesCommand,
           4 => machineMaintenanceGpuCommand,
+          5 => machineMaintenanceLogsCommand,
           _ => machineMaintenanceDiagnosticsCommand,
         },
         workers,
@@ -98,6 +99,7 @@ done | head -c 12000
 section end
 ''',
           4 => machineGpuMacCollection,
+          5 => machineLogsMacCollection,
           _ =>
             r'''
 section sockets
@@ -240,6 +242,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
             .replaceAll('__LIMIT__', '$machineMaintenanceProcessLimit'),
       2 => _windowsServices,
       4 => _windowsGpu.replaceAll('__GPU_QUERY__', machineGpuQuery),
+      5 => machineLogsWindowsCollection,
       _ => _windowsDiagnostics,
     };
     if (workers != null) {

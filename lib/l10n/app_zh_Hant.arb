@@ -8686,5 +8686,20 @@
   "maintenanceGpuProcesses": "GPU 計算程序",
   "maintenanceGpuDisplays": "連接顯示器",
   "maintenanceGpuPixels": "實體像素",
-  "maintenanceGpuResolution": "顯示模式"
+  "maintenanceGpuResolution": "顯示模式",
+  "maintenanceLogsTab": "日誌管理",
+  "maintenanceLogSystem": "系統日誌",
+  "maintenanceLogKernel": "核心日誌",
+  "maintenanceLogSecurity": "安全日誌",
+  "maintenanceLogApplication": "應用程式日誌",
+  "maintenanceLogSearch": "搜尋日誌",
+  "maintenanceLogFollow": "跟隨新日誌",
+  "maintenanceLogAll": "所有層級",
+  "maintenanceLogError": "錯誤",
+  "maintenanceLogWarning": "警告",
+  "maintenanceLogInfo": "資訊",
+  "maintenanceLogRotation": "輪替記錄與設定",
+  "maintenanceLogUnavailable": "日誌來源暫不可用",
+  "maintenanceLogEmpty": "暫無日誌記錄",
+  "maintenanceLogStorage": "日誌目錄大小"
 }

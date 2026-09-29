@@ -16,6 +16,7 @@ String maintenanceLabel(BuildContext context, String label) {
     _ => label,
   };
   return switch (label) {
+    "日志管理" => l10n.maintenanceLogsTab,
     "GPU 管理" => l10n.maintenanceGpuTab,
     "提交内存" => l10n.maintenanceMetricCommittedMemory,
     "任务线程数" => l10n.maintenanceMetricTaskThreads,

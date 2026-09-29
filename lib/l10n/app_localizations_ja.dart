@@ -12563,4 +12563,49 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceGpuResolution => '表示モード';
+
+  @override
+  String get maintenanceLogsTab => 'ログ管理';
+
+  @override
+  String get maintenanceLogSystem => 'システムログ';
+
+  @override
+  String get maintenanceLogKernel => 'カーネルログ';
+
+  @override
+  String get maintenanceLogSecurity => 'セキュリティログ';
+
+  @override
+  String get maintenanceLogApplication => 'アプリケーションログ';
+
+  @override
+  String get maintenanceLogSearch => 'ログを検索';
+
+  @override
+  String get maintenanceLogFollow => '新しいログを追跡';
+
+  @override
+  String get maintenanceLogAll => 'すべてのレベル';
+
+  @override
+  String get maintenanceLogError => 'エラー';
+
+  @override
+  String get maintenanceLogWarning => '警告';
+
+  @override
+  String get maintenanceLogInfo => '情報';
+
+  @override
+  String get maintenanceLogRotation => 'ローテーションと設定';
+
+  @override
+  String get maintenanceLogUnavailable => 'ログソースを利用できません';
+
+  @override
+  String get maintenanceLogEmpty => 'ログがありません';
+
+  @override
+  String get maintenanceLogStorage => 'ログディレクトリのサイズ';
 }

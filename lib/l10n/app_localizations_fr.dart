@@ -13013,4 +13013,49 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceGpuResolution => 'Mode d’affichage';
+
+  @override
+  String get maintenanceLogsTab => 'Journaux';
+
+  @override
+  String get maintenanceLogSystem => 'Journaux système';
+
+  @override
+  String get maintenanceLogKernel => 'Journaux du noyau';
+
+  @override
+  String get maintenanceLogSecurity => 'Journaux de sécurité';
+
+  @override
+  String get maintenanceLogApplication => 'Journaux applicatifs';
+
+  @override
+  String get maintenanceLogSearch => 'Rechercher dans les journaux';
+
+  @override
+  String get maintenanceLogFollow => 'Suivre les nouveaux événements';
+
+  @override
+  String get maintenanceLogAll => 'Tous les niveaux';
+
+  @override
+  String get maintenanceLogError => 'Erreur';
+
+  @override
+  String get maintenanceLogWarning => 'Avertissement';
+
+  @override
+  String get maintenanceLogInfo => 'Information';
+
+  @override
+  String get maintenanceLogRotation => 'Rotation et configuration';
+
+  @override
+  String get maintenanceLogUnavailable => 'Source de journaux indisponible';
+
+  @override
+  String get maintenanceLogEmpty => 'Aucun événement';
+
+  @override
+  String get maintenanceLogStorage => 'Taille du dossier des journaux';
 }

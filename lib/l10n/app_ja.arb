@@ -8686,5 +8686,20 @@
   "maintenanceGpuProcesses": "GPU 計算プロセス",
   "maintenanceGpuDisplays": "接続ディスプレイ",
   "maintenanceGpuPixels": "物理ピクセル",
-  "maintenanceGpuResolution": "表示モード"
+  "maintenanceGpuResolution": "表示モード",
+  "maintenanceLogsTab": "ログ管理",
+  "maintenanceLogSystem": "システムログ",
+  "maintenanceLogKernel": "カーネルログ",
+  "maintenanceLogSecurity": "セキュリティログ",
+  "maintenanceLogApplication": "アプリケーションログ",
+  "maintenanceLogSearch": "ログを検索",
+  "maintenanceLogFollow": "新しいログを追跡",
+  "maintenanceLogAll": "すべてのレベル",
+  "maintenanceLogError": "エラー",
+  "maintenanceLogWarning": "警告",
+  "maintenanceLogInfo": "情報",
+  "maintenanceLogRotation": "ローテーションと設定",
+  "maintenanceLogUnavailable": "ログソースを利用できません",
+  "maintenanceLogEmpty": "ログがありません",
+  "maintenanceLogStorage": "ログディレクトリのサイズ"
 }

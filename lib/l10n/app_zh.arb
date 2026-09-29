@@ -9660,5 +9660,20 @@
   "maintenanceGpuProcesses": "GPU 计算进程",
   "maintenanceGpuDisplays": "连接显示器",
   "maintenanceGpuPixels": "物理像素",
-  "maintenanceGpuResolution": "显示模式"
+  "maintenanceGpuResolution": "显示模式",
+  "maintenanceLogsTab": "日志管理",
+  "maintenanceLogSystem": "系统日志",
+  "maintenanceLogKernel": "内核日志",
+  "maintenanceLogSecurity": "安全日志",
+  "maintenanceLogApplication": "应用日志",
+  "maintenanceLogSearch": "搜索日志",
+  "maintenanceLogFollow": "跟随新日志",
+  "maintenanceLogAll": "全部级别",
+  "maintenanceLogError": "错误",
+  "maintenanceLogWarning": "警告",
+  "maintenanceLogInfo": "信息",
+  "maintenanceLogRotation": "轮转记录与配置",
+  "maintenanceLogUnavailable": "日志源暂不可用",
+  "maintenanceLogEmpty": "暂无日志记录",
+  "maintenanceLogStorage": "日志目录大小"
 }

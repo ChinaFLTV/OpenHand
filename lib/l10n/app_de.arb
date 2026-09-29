@@ -8686,5 +8686,20 @@
   "maintenanceGpuProcesses": "GPU-Rechenprozesse",
   "maintenanceGpuDisplays": "Angeschlossene Bildschirme",
   "maintenanceGpuPixels": "Physische Pixel",
-  "maintenanceGpuResolution": "Anzeigemodus"
+  "maintenanceGpuResolution": "Anzeigemodus",
+  "maintenanceLogsTab": "Protokolle",
+  "maintenanceLogSystem": "Systemprotokolle",
+  "maintenanceLogKernel": "Kernelprotokolle",
+  "maintenanceLogSecurity": "Sicherheitsprotokolle",
+  "maintenanceLogApplication": "Anwendungsprotokolle",
+  "maintenanceLogSearch": "Protokolle durchsuchen",
+  "maintenanceLogFollow": "Neue Einträge verfolgen",
+  "maintenanceLogAll": "Alle Stufen",
+  "maintenanceLogError": "Fehler",
+  "maintenanceLogWarning": "Warnung",
+  "maintenanceLogInfo": "Information",
+  "maintenanceLogRotation": "Rotation und Konfiguration",
+  "maintenanceLogUnavailable": "Protokollquelle nicht verfügbar",
+  "maintenanceLogEmpty": "Keine Protokolleinträge",
+  "maintenanceLogStorage": "Größe des Protokollverzeichnisses"
 }

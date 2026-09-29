@@ -12973,4 +12973,49 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceGpuResolution => 'Anzeigemodus';
+
+  @override
+  String get maintenanceLogsTab => 'Protokolle';
+
+  @override
+  String get maintenanceLogSystem => 'Systemprotokolle';
+
+  @override
+  String get maintenanceLogKernel => 'Kernelprotokolle';
+
+  @override
+  String get maintenanceLogSecurity => 'Sicherheitsprotokolle';
+
+  @override
+  String get maintenanceLogApplication => 'Anwendungsprotokolle';
+
+  @override
+  String get maintenanceLogSearch => 'Protokolle durchsuchen';
+
+  @override
+  String get maintenanceLogFollow => 'Neue Einträge verfolgen';
+
+  @override
+  String get maintenanceLogAll => 'Alle Stufen';
+
+  @override
+  String get maintenanceLogError => 'Fehler';
+
+  @override
+  String get maintenanceLogWarning => 'Warnung';
+
+  @override
+  String get maintenanceLogInfo => 'Information';
+
+  @override
+  String get maintenanceLogRotation => 'Rotation und Konfiguration';
+
+  @override
+  String get maintenanceLogUnavailable => 'Protokollquelle nicht verfügbar';
+
+  @override
+  String get maintenanceLogEmpty => 'Keine Protokolleinträge';
+
+  @override
+  String get maintenanceLogStorage => 'Größe des Protokollverzeichnisses';
 }

@@ -23029,6 +23029,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'显示模式'**
   String get maintenanceGpuResolution;
+
+  /// No description provided for @maintenanceLogsTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志管理'**
+  String get maintenanceLogsTab;
+
+  /// No description provided for @maintenanceLogSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统日志'**
+  String get maintenanceLogSystem;
+
+  /// No description provided for @maintenanceLogKernel.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核日志'**
+  String get maintenanceLogKernel;
+
+  /// No description provided for @maintenanceLogSecurity.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全日志'**
+  String get maintenanceLogSecurity;
+
+  /// No description provided for @maintenanceLogApplication.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用日志'**
+  String get maintenanceLogApplication;
+
+  /// No description provided for @maintenanceLogSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索日志'**
+  String get maintenanceLogSearch;
+
+  /// No description provided for @maintenanceLogFollow.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随新日志'**
+  String get maintenanceLogFollow;
+
+  /// No description provided for @maintenanceLogAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部级别'**
+  String get maintenanceLogAll;
+
+  /// No description provided for @maintenanceLogError.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误'**
+  String get maintenanceLogError;
+
+  /// No description provided for @maintenanceLogWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'警告'**
+  String get maintenanceLogWarning;
+
+  /// No description provided for @maintenanceLogInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'信息'**
+  String get maintenanceLogInfo;
+
+  /// No description provided for @maintenanceLogRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转记录与配置'**
+  String get maintenanceLogRotation;
+
+  /// No description provided for @maintenanceLogUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志源暂不可用'**
+  String get maintenanceLogUnavailable;
+
+  /// No description provided for @maintenanceLogEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无日志记录'**
+  String get maintenanceLogEmpty;
+
+  /// No description provided for @maintenanceLogStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志目录大小'**
+  String get maintenanceLogStorage;
 }
 
 class _AppLocalizationsDelegate

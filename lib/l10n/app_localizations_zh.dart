@@ -12438,6 +12438,51 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceGpuResolution => '显示模式';
+
+  @override
+  String get maintenanceLogsTab => '日志管理';
+
+  @override
+  String get maintenanceLogSystem => '系统日志';
+
+  @override
+  String get maintenanceLogKernel => '内核日志';
+
+  @override
+  String get maintenanceLogSecurity => '安全日志';
+
+  @override
+  String get maintenanceLogApplication => '应用日志';
+
+  @override
+  String get maintenanceLogSearch => '搜索日志';
+
+  @override
+  String get maintenanceLogFollow => '跟随新日志';
+
+  @override
+  String get maintenanceLogAll => '全部级别';
+
+  @override
+  String get maintenanceLogError => '错误';
+
+  @override
+  String get maintenanceLogWarning => '警告';
+
+  @override
+  String get maintenanceLogInfo => '信息';
+
+  @override
+  String get maintenanceLogRotation => '轮转记录与配置';
+
+  @override
+  String get maintenanceLogUnavailable => '日志源暂不可用';
+
+  @override
+  String get maintenanceLogEmpty => '暂无日志记录';
+
+  @override
+  String get maintenanceLogStorage => '日志目录大小';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24856,4 +24901,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceGpuResolution => '顯示模式';
+
+  @override
+  String get maintenanceLogsTab => '日誌管理';
+
+  @override
+  String get maintenanceLogSystem => '系統日誌';
+
+  @override
+  String get maintenanceLogKernel => '核心日誌';
+
+  @override
+  String get maintenanceLogSecurity => '安全日誌';
+
+  @override
+  String get maintenanceLogApplication => '應用程式日誌';
+
+  @override
+  String get maintenanceLogSearch => '搜尋日誌';
+
+  @override
+  String get maintenanceLogFollow => '跟隨新日誌';
+
+  @override
+  String get maintenanceLogAll => '所有層級';
+
+  @override
+  String get maintenanceLogError => '錯誤';
+
+  @override
+  String get maintenanceLogWarning => '警告';
+
+  @override
+  String get maintenanceLogInfo => '資訊';
+
+  @override
+  String get maintenanceLogRotation => '輪替記錄與設定';
+
+  @override
+  String get maintenanceLogUnavailable => '日誌來源暫不可用';
+
+  @override
+  String get maintenanceLogEmpty => '暫無日誌記錄';
+
+  @override
+  String get maintenanceLogStorage => '日誌目錄大小';
 }
