@@ -165,6 +165,20 @@ void main() {
     unix.fields && unix.rows.single.last == unixReport,
     'UNIX 套接字报告不得拆成错误属性或丢失记录',
   );
+  final nextLine = parse('Options =\n{\n key = value;\n}\nPID = 42', 'status');
+  check(
+    nextLine.rows.length == 2 &&
+        nextLine.rows.first.last.contains('key = value;'),
+    '换行容器必须归属于原字段',
+  );
+  final limits = parse(
+    'Limit               Soft Limit  Hard Limit  Units\nMax open files      1024        4096        files',
+    'limits',
+  );
+  check(
+    limits.fields && limits.rows.single.last.contains('Hard Limit: 4096'),
+    '固定资源限制应完整显示为属性',
+  );
   check(parse('', 'status').rows.isEmpty, '空输出解析错误');
   for (final sample in [
     'TCP 127.0.0.1:80 0.0.0.0:0 LISTENING 42',
