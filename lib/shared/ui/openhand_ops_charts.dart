@@ -3959,8 +3959,13 @@ class _OpenHandOperationalRankTableState
                                 ),
                                 child: widget.animateCellChanges && !header
                                     ? _OperationalLiveCell(
+                                        preserveState:
+                                            row!.cellWidgets != null &&
+                                            i < row.cellWidgets!.length &&
+                                            row.cellWidgets![i]
+                                                is StatefulWidget,
                                         value: (
-                                          i < row!.cells.length
+                                          i < row.cells.length
                                               ? row.cells[i]
                                               : '--',
                                           subtitleFor(row, i),
@@ -5014,7 +5019,12 @@ class _EmptyChartLabel extends StatelessWidget {
 
 /// 保留未变化单元格的子树，数据变化只触发该单元格的过渡。
 class _OperationalLiveCell extends StatefulWidget {
-  const _OperationalLiveCell({required this.value, required this.builder});
+  const _OperationalLiveCell({
+    required this.value,
+    required this.builder,
+    this.preserveState = false,
+  });
+  final bool preserveState;
   final Object value;
   final Widget Function() builder;
 
@@ -5030,13 +5040,18 @@ class _OperationalLiveCellState extends State<_OperationalLiveCell> {
   Widget build(BuildContext context) {
     final identity = (
       widget.value,
+      widget.preserveState,
       Theme.of(context),
       Localizations.localeOf(context),
     );
     if (_identity != identity) {
       _identity = identity;
-      _child = KeyedSubtree(key: ValueKey(identity), child: widget.builder());
+      final child = widget.builder();
+      _child = widget.preserveState
+          ? child
+          : KeyedSubtree(key: ValueKey(identity), child: child);
     }
+    if (widget.preserveState) return _child!;
     return AnimatedSwitcher(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
       switchInCurve: kOpenHandSwitchInCurve,

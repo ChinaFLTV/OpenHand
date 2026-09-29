@@ -1,4 +1,5 @@
 export 'machine_maintenance.dart';
+export 'machine_maintenance_duration.dart';
 export 'machine_maintenance_localizations.dart';
 export 'machine_maintenance_metrics.dart';
 export 'machine_maintenance_parallel.dart';

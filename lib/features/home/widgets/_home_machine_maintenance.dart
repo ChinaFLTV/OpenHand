@@ -3741,27 +3741,39 @@ class _MaintenanceTable extends StatelessWidget {
                   row.cellWidgets![i] != null)
                 row.cellWidgets![i]
               else if (i < headers.length &&
-                  const {
-                    '累计读取次数',
-                    '累计写入次数',
-                    '累计读取字节',
-                    '累计写入字节',
-                    '累计读取耗时',
-                    '累计写入耗时',
-                    '已用 inode',
-                    '可用 inode',
-                    '接收字节',
-                    '发送字节',
-                    '读取字节',
-                    '写入字节',
-                    '线程',
-                    '读 IOPS',
-                    '写 IOPS',
-                    '次数',
-                    '页数',
-                  }.contains(headers[i]))
+                  (machineMaintenanceReadableDuration(
+                            row.cells[i],
+                            field: headers[i],
+                          ) !=
+                          null ||
+                      const {
+                        '累计读取次数',
+                        '累计写入次数',
+                        '累计读取字节',
+                        '累计写入字节',
+                        '累计读取耗时',
+                        '累计写入耗时',
+                        '已用 inode',
+                        '可用 inode',
+                        '接收字节',
+                        '发送字节',
+                        '读取字节',
+                        '写入字节',
+                        '线程',
+                        '读 IOPS',
+                        '写 IOPS',
+                        '次数',
+                        '页数',
+                      }.contains(headers[i])))
                 _MaintenanceNumber(
                   raw: row.cells[i],
+                  field: headers[i],
+                  maxLines: 2,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
                   unit: headers[i].contains('字节') ? 'B' : '',
                 )
               else
@@ -3795,6 +3807,7 @@ class _MaintenanceFacts extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(labelWidth > 0);
     return _MaintenanceFields(
+      fieldKeys: values.keys.toList(),
       rows: [
         for (final entry in values.entries)
           [
@@ -3847,14 +3860,17 @@ class _MaintenanceStatus extends StatelessWidget {
 /// 完整数值始终使用采样原文，避免大整数经浮点换算后丢失精度。
 class _MaintenanceNumber extends StatefulWidget {
   const _MaintenanceNumber({
+    super.key,
     required this.raw,
     this.unit = '',
+    this.field = '',
     this.readable,
     this.style,
     this.maxLines = 1,
   });
   final String raw;
   final String unit;
+  final String field;
   final String? readable;
   final TextStyle? style;
   final int maxLines;
@@ -3875,8 +3891,14 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
     final raw = widget.unit.isEmpty
         ? widget.raw
         : '${widget.raw} ${widget.unit}';
-    var readable = widget.readable ?? raw;
+    final duration = machineMaintenanceReadableDuration(
+      raw,
+      field: widget.field,
+      languageCode: Localizations.localeOf(context).languageCode,
+    );
+    var readable = widget.readable ?? duration ?? raw;
     if (widget.readable == null &&
+        duration == null &&
         number != null &&
         number.isFinite &&
         !RegExp(r'^[KMGTPE]i?B$').hasMatch(unit)) {
@@ -3891,22 +3913,7 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
           countryCode: locale.countryCode,
         );
       } else {
-        if (unit == 'ms' && number.abs() >= 1000) {
-          scaled /= 1000;
-          suffix = 's';
-          if (scaled.abs() >= 60) {
-            scaled /= 60;
-            suffix = 'min';
-          }
-          if (suffix == 'min' && scaled.abs() >= 60) {
-            scaled /= 60;
-            suffix = 'h';
-          }
-          if (suffix == 'h' && scaled.abs() >= 24) {
-            scaled /= 24;
-            suffix = 'd';
-          }
-        } else if (number.abs() >= 1000) {
+        if (number.abs() >= 1000) {
           const prefixes = ['', 'k', 'M', 'G', 'T', 'P', 'E'];
           var index = 0;
           while (scaled.abs() >= 999.95 && index < prefixes.length - 1) {
@@ -4425,8 +4432,9 @@ class _MaintenanceHealthContent extends StatelessWidget {
 }
 
 class _MaintenanceFields extends StatelessWidget {
-  const _MaintenanceFields({required this.rows});
+  const _MaintenanceFields({required this.rows, this.fieldKeys});
   final List<List<String>> rows;
+  final List<String>? fieldKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -4482,22 +4490,37 @@ class _MaintenanceFields extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              SelectableText(
-                                rows[i][1].isEmpty ? '—' : rows[i][1],
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color:
-                                      rows[i][1].contains('\n') ||
-                                          rows[i][1].length > 48
-                                      ? theme.colorScheme.onSurface
-                                      : [
-                                          theme.colorScheme.primary,
-                                          theme.colorScheme.tertiary,
-                                          theme.colorScheme.secondary,
-                                          OpenHandStatusColors.info,
-                                        ][i % 4],
+                              if (machineMaintenanceReadableDuration(
+                                    rows[i][1],
+                                    field: fieldKeys?[i] ?? rows[i][0],
+                                  ) !=
+                                  null)
+                                _MaintenanceNumber(
+                                  key: ValueKey(fieldKeys?[i] ?? rows[i][0]),
+                                  raw: rows[i][1],
+                                  field: fieldKeys?[i] ?? rows[i][0],
+                                  maxLines: 3,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                )
+                              else
+                                SelectableText(
+                                  rows[i][1].isEmpty ? '—' : rows[i][1],
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color:
+                                        rows[i][1].contains('\n') ||
+                                            rows[i][1].length > 48
+                                        ? theme.colorScheme.onSurface
+                                        : [
+                                            theme.colorScheme.primary,
+                                            theme.colorScheme.tertiary,
+                                            theme.colorScheme.secondary,
+                                            OpenHandStatusColors.info,
+                                          ][i % 4],
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -4549,6 +4572,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
     }
     if (_data.fields) {
       return _MaintenanceFields(
+        fieldKeys: [for (final row in _data.rows) row[0]],
         rows: [
           for (final row in _data.rows)
             [

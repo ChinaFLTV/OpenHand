@@ -1123,7 +1123,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1.5k'), findsOneWidget);
     expect(find.text('-1.5k'), findsOneWidget);
-    expect(find.text('1 h'), findsOneWidget);
+    expect(find.text('1 小时'), findsOneWidget);
     expect(find.text('1.5 KB'), findsOneWidget);
     expect(find.text('—'), findsOneWidget);
     expect(find.text('NaN'), findsOneWidget);
@@ -1139,7 +1139,7 @@ void main() {
     await tester.tap(find.text('9007199254740995'));
     await tester.pump();
     expect(find.text('9P'), findsOneWidget);
-    await tester.tap(find.text('1 h'));
+    await tester.tap(find.text('1 小时'));
     await tester.pump();
     expect(find.text('3600000 ms'), findsOneWidget);
     await tester.tap(find.text('1.5 KB'));
@@ -2035,6 +2035,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1005 MB'), findsOneWidget);
     expect(find.text('1k MB'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('时长单元格默认易读，点击保留原始精度且不触发行操作', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 800));
+    var tapped = 0;
+    Widget screen(String raw) => MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: Column(children: [
+        _MaintenanceTable(headers: const ['PID', '累计 CPU 时间', '运行时长'],
+          rows: [OpenHandOperationalRankRow(value: 0, rowKey: '进程', cells: ['24270', raw, '1-02:03:04'])],
+          onRowTap: (_) => tapped++),
+        const _MaintenanceFields(fieldKeys: ['CPUUsageNSec', '创建时间'], rows: [['累计 CPU 时间', '2000000000'], ['创建时间', '2026-09-30 12:00:00']]),
+      ])));
+    await tester.pumpWidget(screen('24270.37 s'));
+    await tester.pumpAndSettle();
+    expect(find.text('6 小时 44 分 30.37 秒'), findsOneWidget);
+    expect(find.text('1 天 2 小时 3 分'), findsOneWidget);
+    expect(find.text('2 秒'), findsOneWidget);
+    expect(find.text('24270'), findsOneWidget);
+    expect(find.text('2026-09-30 12:00:00'), findsOneWidget);
+    await tester.tap(find.text('6 小时 44 分 30.37 秒'));
+    await tester.pumpAndSettle();
+    expect(find.text('24270.37 s'), findsOneWidget);
+    expect(tapped, 0);
+    await tester.pumpWidget(screen('24271.38 s'));
+    await tester.pumpAndSettle();
+    expect(find.text('24271.38 s'), findsOneWidget);
+    await tester.tap(find.text('24271.38 s'));
+    await tester.pumpAndSettle();
+    expect(find.text('6 小时 44 分 31.38 秒'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
