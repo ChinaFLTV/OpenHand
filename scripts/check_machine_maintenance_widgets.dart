@@ -390,6 +390,29 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('进程表使用剩余高度，数量摘要靠右且保留范围切换', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1100));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: MediaQuery(data: MediaQueryData(size: Size(1440, 1100)), child: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('进程管理'));
+    await tester.pumpAndSettle();
+    expect(find.text('上一批进程'), findsNothing);
+    expect(find.text('下一批进程'), findsNothing);
+    final table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
+    expect(table.limitToViewport, isFalse);
+    expect(table.maxBodyHeight, greaterThan(1100 * .45));
+    final summary = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.filter_list_rounded);
+    final search = find.byType(TextField).first;
+    expect(tester.getRect(summary).left, greaterThan(tester.getRect(search).right));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('二级弹窗操作靠右等高，进度条留白且加载结束不跳动', (tester) async {
     for (final width in [1100.0, 580.0]) {
       for (final actions in [

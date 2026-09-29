@@ -1170,6 +1170,32 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         .split('\n')
         .where((line) => line.startsWith('__COUNT__'))
         .firstOrNull;
+    final total =
+        int.tryParse(countLine?.split('\t').last ?? '') ??
+        data.processes.length;
+    final summary = _MaintenanceToolbarMenu<int>(
+      label: '${rows.length} / $total',
+      tooltip: AppLocalizations.of(
+        context,
+      )!.maintenanceMatched('${rows.length}', '$total'),
+      icon: Icons.filter_list_rounded,
+      value: _processOffset,
+      enabled: !_loading && total > machineMaintenanceProcessLimit,
+      items: {
+        for (
+          var offset = 0;
+          offset < total;
+          offset += machineMaintenanceProcessLimit
+        )
+          offset:
+              '${offset + 1}–${math.min(offset + machineMaintenanceProcessLimit, total)} / $total',
+      },
+      onSelected: (offset) {
+        if (offset == _processOffset) return;
+        setState(() => _processOffset = offset);
+        _refresh();
+      },
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Column(
@@ -1178,57 +1204,69 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 240,
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
-                      prefixIcon: const Icon(Icons.search_rounded),
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                final filters = Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 240,
+                      child: TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
+                          prefixIcon: const Icon(Icons.search_rounded),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                SizedBox(
-                  width: 156,
-                  child: AnimatedDropdownButtonFormField<int>(
-                    value: _sort,
-                    decoration: const InputDecoration(isDense: true),
-                    items: [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text(maintenanceLabel(context, 'CPU 降序')),
+                    SizedBox(
+                      width: 156,
+                      child: AnimatedDropdownButtonFormField<int>(
+                        value: _sort,
+                        decoration: const InputDecoration(isDense: true),
+                        items: [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text(maintenanceLabel(context, 'CPU 降序')),
+                          ),
+                          DropdownMenuItem(
+                            value: 1,
+                            child: Text(maintenanceLabel(context, '内存降序')),
+                          ),
+                          DropdownMenuItem(
+                            value: 2,
+                            child: Text(maintenanceLabel(context, 'PID 升序')),
+                          ),
+                        ],
+                        onChanged: (value) => setState(() {
+                          _sort = value!;
+                        }),
                       ),
-                      DropdownMenuItem(
-                        value: 1,
-                        child: Text(maintenanceLabel(context, '内存降序')),
-                      ),
-                      DropdownMenuItem(
-                        value: 2,
-                        child: Text(maintenanceLabel(context, 'PID 升序')),
-                      ),
+                    ),
+                  ],
+                );
+                if (constraints.maxWidth <
+                    720 * MediaQuery.textScalerOf(context).scale(12) / 12) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      filters,
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: summary),
                     ],
-                    onChanged: (value) => setState(() {
-                      _sort = value!;
-                    }),
-                  ),
-                ),
-                Text(
-                  maintenanceLabel(
-                    context,
-                    AppLocalizations.of(context)!.maintenanceMatched(
-                      '${rows.length}',
-                      countLine?.split('\t').last ??
-                          maintenanceLabel(context, '未知'),
-                    ),
-                  ),
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: filters),
+                    const SizedBox(width: 12),
+                    summary,
+                  ],
+                );
+              },
             ),
           ),
           Expanded(
@@ -1236,7 +1274,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               builder: (_, constraints) => SingleChildScrollView(
                 child: _MaintenanceTable(
                   key: ValueKey((_search.text, _sort, _processOffset)),
-                  maxBodyHeight: math.max(100, constraints.maxHeight - 160),
+                  limitToViewport: false,
+                  maxBodyHeight: math.max(
+                    100,
+                    constraints.maxHeight -
+                        (constraints.maxWidth < 720 ? 148 : 96),
+                  ),
                   headers: const ['PID', '进程', '状态', 'CPU / 单核', '驻留内存', '线程'],
                   rows: [
                     for (final p in rows)
@@ -1299,51 +1342,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
               ),
             ),
-          ),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 10,
-            runSpacing: 4,
-            children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: !_loading && _processOffset > 0
-                        ? () {
-                            setState(() {
-                              _processOffset = math.max(
-                                0,
-                                _processOffset - machineMaintenanceProcessLimit,
-                              );
-                            });
-                            _refresh();
-                          }
-                        : null,
-                    child: Text(maintenanceLabel(context, '上一批进程')),
-                  ),
-                  TextButton(
-                    onPressed:
-                        !_loading &&
-                            _processOffset + machineMaintenanceProcessLimit <
-                                (int.tryParse(
-                                      countLine?.split('\t').last ?? '',
-                                    ) ??
-                                    0)
-                        ? () {
-                            setState(() {
-                              _processOffset += machineMaintenanceProcessLimit;
-                            });
-                            _refresh();
-                          }
-                        : null,
-                    child: Text(maintenanceLabel(context, '下一批进程')),
-                  ),
-                ],
-              ),
-            ],
           ),
         ],
       ),
@@ -1838,21 +1836,22 @@ class _MaintenanceTable extends StatelessWidget {
     required this.rows,
     this.onRowTap,
     this.maxBodyHeight = 220,
+    this.limitToViewport = true,
   });
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final double maxBodyHeight;
+  final bool limitToViewport;
   @override
   Widget build(BuildContext context) => OpenHandOperationalRankTable(
     headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
     rows: rows,
     sortByValue: false,
     onRowTap: onRowTap,
-    maxBodyHeight: math.min(
-      maxBodyHeight,
-      MediaQuery.sizeOf(context).height * .45,
-    ),
+    maxBodyHeight: limitToViewport
+        ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
+        : maxBodyHeight,
     emptyLabel: maintenanceLabel(context, '暂无可用数据'),
     semanticsLabel: headers
         .map((label) => maintenanceLabel(context, label))
