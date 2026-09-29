@@ -1477,6 +1477,30 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('GPU 组件在未发现显卡时仍可展开查看安装元数据', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(520, 900));
+    final service = _MaintenanceFixture();
+    service.gpuOutput = ['__OH_OPS_platform__', 'Linux', '__OH_OPS_host__', 'GPU主机',
+      '__OH_OPS_gpu_stack__', 'CUDA Toolkit\\tversion\\t12.8', 'cuDNN\\tversion\\t9.8',
+      '__OH_OPS_gpu_fabric__', 'LoadState=not-found', '__OH_OPS_end__'].join('\\n');
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => LayoutBuilder(builder: (context, constraints) => MediaQuery(data: MediaQuery.of(context).copyWith(size: constraints.biggest), child: child!)),
+        home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('GPU 管理'));
+    await tester.tap(find.text('GPU 管理'));
+    await tester.pumpAndSettle();
+    expect(find.text('CUDA Toolkit'), findsOneWidget);
+    await tester.tap(find.text('CUDA Toolkit'));
+    await tester.pumpAndSettle();
+    expect(find.text('12.8'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('GPU 分区按需采集并显示指标、显存图与连续趋势', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
     final service = _MaintenanceFixture();

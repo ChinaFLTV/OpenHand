@@ -365,7 +365,7 @@ const context={
 VBArray:function(value){this.toArray=()=>value;},
 Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
 GetObject:()=>({ExecQuery:(q)=>datasets[(q.match(/FROM\s+(\w+)/i)||[])[1]]||[],Get:()=>datasets.Win32_Service[0]}),
-ActiveXObject:function(){this.Exec=()=>({Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},
+ActiveXObject:function(){this.Environment=()=>()=>"";this.Exec=()=>({Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},
 WScript:{Echo:s=>output.push(String(s)),Quit:n=>{throw Error('脚本异常退出：'+n+' '+output.join('\n'));},Sleep:()=>{}}
 };
 new vm.Script(script).runInNewContext(context,{timeout:2000});results.push(output.join('\n'));
@@ -405,7 +405,7 @@ for(const script of scripts){
       VBArray:function(value){this.toArray=()=>value;},
       Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
       GetObject:wmi,
-      ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():{Exec:exec};},
+      ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():{Exec:exec,Environment:function(){return function(){return "";};}};},
       WScript:{StdOut:{Write:s=>output.push(String(s))},ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
         tick+=n;
         for(const p of pending.splice(0)){p.Status=1;processes.delete(p.ProcessID);}

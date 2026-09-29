@@ -1387,6 +1387,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
   Widget _gpu(MachineMaintenanceSnapshot data) {
     final gpu = MachineGpuSnapshot.parse(data.sections);
+    final reports = MachineGpuReport.parse(data.sections);
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final labels = {
@@ -1407,6 +1408,45 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       'recoveries': l10n.maintenanceGpuRecoveries,
       'cores': l10n.maintenanceGpuCores,
     };
+    String fieldLabel(String path) => path
+        .split('/')
+        .map((field) {
+          final key = field.replaceAll(RegExp(r'\[\d+\]'), '');
+          final label = switch (key) {
+            'cuda_version' => l10n.maintenanceGpuCudaCompatibility,
+            'gpu_fabric_info' => l10n.maintenanceGpuDetailFabric,
+            'fb_memory_usage' => l10n.maintenanceGpuDetailMemory,
+            'ecc_errors' => l10n.maintenanceGpuDetailEcc,
+            'clocks_event_reasons' => l10n.maintenanceGpuDetailThrottling,
+            'clocks_throttle_reasons' => l10n.maintenanceGpuDetailThrottling,
+            'utilization' => l10n.maintenanceGpuDetailUtilization,
+            'NRestarts' => l10n.maintenanceGpuDetailRestarts,
+            'LoadState' => l10n.maintenanceGpuDetailLoaded,
+            'SubState' => l10n.maintenanceGpuDetailDetailState,
+            'Result' => l10n.maintenanceGpuDetailResult,
+            'attached_gpus' => l10n.maintenanceGpuDetailAttached,
+            'driver_version' => l10n.maintenanceGpuDriver,
+            'gpu_util' => l10n.maintenanceGpuUtil,
+            'gpu_temp' || 'temperature' => l10n.maintenanceGpuTemperature,
+            'power_draw' || 'power_readings' => l10n.maintenanceGpuPower,
+            'power_limit' => l10n.maintenanceGpuPowerLimit,
+            'processes' || 'process_info' => maintenanceLabel(context, '进程'),
+            'product_name' || 'process_name' => maintenanceLabel(context, '名称'),
+            'version' => maintenanceHealthLabel(context, 'Version'),
+            'path' => maintenanceLabel(context, '路径'),
+            'state' ||
+            'status' ||
+            'ActiveState' => maintenanceLabel(context, '状态'),
+            'pid' || 'MainPID' => 'PID',
+            'uuid' => 'UUID',
+            'MemoryCurrent' => '${maintenanceLabel(context, '内存')} (B)',
+            'CPUUsageNSec' => l10n.maintenanceGpuDetailCpuTime,
+            _ => key.replaceAll('_', ' '),
+          };
+          return label + field.substring(key.length);
+        })
+        .join(' › ');
+
     String value(MachineGpuDevice device, String key) {
       final n = device.metrics[key];
       if (n == null) return '—';
@@ -1429,7 +1469,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return '${n == n.roundToDouble() ? n.toInt() : n.toStringAsFixed(1)}$unit';
     }
 
-    if (gpu.devices.isEmpty) {
+    if (gpu.devices.isEmpty && reports.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1602,6 +1642,70 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   .round(),
                             ),
                     ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (reports.isNotEmpty) ...[
+          _MaintenanceCard(
+            title: l10n.maintenanceGpuComponents,
+            icon: Icons.hub_outlined,
+            scrollBody: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    l10n.maintenanceGpuComponentsHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                for (final report in reports)
+                  Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      key: ValueKey('gpu-component-${report.title}'),
+                      leading: Icon(
+                        report.issue.isEmpty
+                            ? Icons.developer_board_outlined
+                            : Icons.info_outline_rounded,
+                      ),
+                      title: Text(
+                        report.title == 'NVLink · counters'
+                            ? l10n.maintenanceGpuDetailLinkCounters
+                            : report.title,
+                      ),
+                      subtitle: Text(
+                        report.issue.isEmpty
+                            ? '${report.rows.length} · ${l10n.maintenanceGpuFields}'
+                            : switch (report.issue) {
+                                'permission' || 'missing' || 'format' =>
+                                  maintenanceHealthLabel(context, report.issue),
+                                'unsupported' =>
+                                  l10n.maintenanceHealthUnsupported,
+                                _ => l10n.maintenanceGpuProbeUnavailable,
+                              },
+                      ),
+                      children: [
+                        if (report.rows.isNotEmpty)
+                          _MaintenanceTable(
+                            headers: [
+                              l10n.maintenanceGpuFields,
+                              maintenanceLabel(context, '状态'),
+                            ],
+                            rows: [
+                              for (final row in report.rows)
+                                OpenHandOperationalRankRow(
+                                  value: 0,
+                                  cells: [fieldLabel(row[0]), row[1]],
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
               ],
             ),

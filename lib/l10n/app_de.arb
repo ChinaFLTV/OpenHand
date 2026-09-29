@@ -8856,5 +8856,22 @@
   "maintenanceHealthParsedPasswordLocked": "Passwort gesperrt",
   "maintenanceHealthParsedPasswordEmpty": "Kein Passwort gesetzt",
   "maintenanceHealthParsedNever": "Nie",
-  "maintenanceHealthParsedConfigured": "Konfiguriert"
+  "maintenanceHealthParsedConfigured": "Konfiguriert",
+  "maintenanceGpuComponents": "GPU-Komponenten und Diagnose",
+  "maintenanceGpuComponentsHint": "Versionen stammen aus Tools oder Installationsdaten. Die CUDA-Kompatibilität des Treibers bezeichnet nicht das installierte Toolkit. Last, Temperatur und Prozesse gehören zu Geräten. NVLink GB/s ist die Linkgeschwindigkeit.",
+  "maintenanceGpuFields": "Messwerte und Metadaten",
+  "maintenanceGpuProbeUnavailable": "Daten teilweise nicht verfügbar oder unvollständig",
+  "maintenanceGpuCudaCompatibility": "Vom Treiber unterstützte CUDA-Version",
+  "maintenanceGpuDetailFabric": "Fabric-Zustand",
+  "maintenanceGpuDetailMemory": "Grafikspeicher",
+  "maintenanceGpuDetailEcc": "ECC-Fehlerzähler",
+  "maintenanceGpuDetailThrottling": "Taktbegrenzungsgründe",
+  "maintenanceGpuDetailUtilization": "Engine-Auslastung",
+  "maintenanceGpuDetailRestarts": "Dienstneustarts",
+  "maintenanceGpuDetailLoaded": "Dienstladestatus",
+  "maintenanceGpuDetailDetailState": "Detailstatus",
+  "maintenanceGpuDetailResult": "Letztes Ausführungsergebnis",
+  "maintenanceGpuDetailCpuTime": "Kumulierte CPU-Zeit (ns)",
+  "maintenanceGpuDetailLinkCounters": "Kumulative NVLink-Fehlerzähler",
+  "maintenanceGpuDetailAttached": "Angeschlossene GPUs"
 }

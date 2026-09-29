@@ -8856,5 +8856,22 @@
   "maintenanceHealthParsedPasswordLocked": "パスワードロック済み",
   "maintenanceHealthParsedPasswordEmpty": "パスワード未設定",
   "maintenanceHealthParsedNever": "なし",
-  "maintenanceHealthParsedConfigured": "設定済み"
+  "maintenanceHealthParsedConfigured": "設定済み",
+  "maintenanceGpuComponents": "GPU コンポーネントと診断",
+  "maintenanceGpuComponentsHint": "バージョンはツールまたはインストール記録に基づきます。ドライバーの CUDA 対応版はツールキットの導入版とは異なります。負荷・温度・プロセスはデバイスの指標です。NVLink GB/s はリンク速度です。",
+  "maintenanceGpuFields": "指標とメタデータ",
+  "maintenanceGpuProbeUnavailable": "一部のデータが取得不能または不完全です",
+  "maintenanceGpuCudaCompatibility": "ドライバー対応 CUDA バージョン",
+  "maintenanceGpuDetailFabric": "Fabric の健全性",
+  "maintenanceGpuDetailMemory": "フレームバッファ",
+  "maintenanceGpuDetailEcc": "ECC エラーカウンター",
+  "maintenanceGpuDetailThrottling": "クロック制限の原因",
+  "maintenanceGpuDetailUtilization": "エンジン使用率",
+  "maintenanceGpuDetailRestarts": "サービス再起動回数",
+  "maintenanceGpuDetailLoaded": "サービス読み込み状態",
+  "maintenanceGpuDetailDetailState": "詳細状態",
+  "maintenanceGpuDetailResult": "前回の実行結果",
+  "maintenanceGpuDetailCpuTime": "累積 CPU 時間（ns）",
+  "maintenanceGpuDetailLinkCounters": "NVLink 累積エラーカウンター",
+  "maintenanceGpuDetailAttached": "接続 GPU 数"
 }

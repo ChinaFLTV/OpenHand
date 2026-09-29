@@ -8861,5 +8861,22 @@
   "maintenanceHealthParsedPasswordLocked": "Password locked",
   "maintenanceHealthParsedPasswordEmpty": "No password set",
   "maintenanceHealthParsedNever": "Never",
-  "maintenanceHealthParsedConfigured": "Configured"
+  "maintenanceHealthParsedConfigured": "Configured",
+  "maintenanceGpuComponents": "GPU components and diagnostics",
+  "maintenanceGpuComponentsHint": "Software versions come from tools or installation records. Driver CUDA compatibility does not identify the installed toolkit. Load, temperature and processes belong to devices. NVLink GB/s denotes link speed, not live traffic.",
+  "maintenanceGpuFields": "Metrics and metadata",
+  "maintenanceGpuProbeUnavailable": "Some data is unavailable or the response is incomplete",
+  "maintenanceGpuCudaCompatibility": "Driver-supported CUDA version",
+  "maintenanceGpuDetailFabric": "Fabric health",
+  "maintenanceGpuDetailMemory": "Framebuffer memory",
+  "maintenanceGpuDetailEcc": "ECC error counters",
+  "maintenanceGpuDetailThrottling": "Clock limiting reasons",
+  "maintenanceGpuDetailUtilization": "Engine utilization",
+  "maintenanceGpuDetailRestarts": "Service restarts",
+  "maintenanceGpuDetailLoaded": "Service load state",
+  "maintenanceGpuDetailDetailState": "Detailed state",
+  "maintenanceGpuDetailResult": "Last execution result",
+  "maintenanceGpuDetailCpuTime": "Cumulative CPU time (ns)",
+  "maintenanceGpuDetailLinkCounters": "NVLink cumulative error counters",
+  "maintenanceGpuDetailAttached": "Attached GPUs"
 }

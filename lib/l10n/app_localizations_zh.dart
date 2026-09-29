@@ -12957,6 +12957,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceHealthParsedConfigured => '已配置';
+
+  @override
+  String get maintenanceGpuComponents => 'GPU 组件与设备诊断';
+
+  @override
+  String get maintenanceGpuComponentsHint =>
+      '软件版本来自工具或安装记录；驱动 CUDA 兼容版本不代表已安装工具包。温度、负载和进程指标归属实际设备。NVLink 的 GB/s 为链路速率，不是实时流量。';
+
+  @override
+  String get maintenanceGpuFields => '指标与元数据';
+
+  @override
+  String get maintenanceGpuProbeUnavailable => '部分数据不可用或响应不完整';
+
+  @override
+  String get maintenanceGpuCudaCompatibility => '驱动支持的 CUDA 版本';
+
+  @override
+  String get maintenanceGpuDetailFabric => 'Fabric 互联健康';
+
+  @override
+  String get maintenanceGpuDetailMemory => '显存占用';
+
+  @override
+  String get maintenanceGpuDetailEcc => 'ECC 错误计数';
+
+  @override
+  String get maintenanceGpuDetailThrottling => '时钟限速原因';
+
+  @override
+  String get maintenanceGpuDetailUtilization => '引擎利用率';
+
+  @override
+  String get maintenanceGpuDetailRestarts => '服务重启次数';
+
+  @override
+  String get maintenanceGpuDetailLoaded => '服务加载状态';
+
+  @override
+  String get maintenanceGpuDetailDetailState => '详细状态';
+
+  @override
+  String get maintenanceGpuDetailResult => '上次执行结果';
+
+  @override
+  String get maintenanceGpuDetailCpuTime => '累计 CPU 时间（纳秒）';
+
+  @override
+  String get maintenanceGpuDetailLinkCounters => 'NVLink 累计错误计数';
+
+  @override
+  String get maintenanceGpuDetailAttached => '已连接显卡数量';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -25894,4 +25946,56 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceHealthParsedConfigured => '已設定';
+
+  @override
+  String get maintenanceGpuComponents => 'GPU 元件與裝置診斷';
+
+  @override
+  String get maintenanceGpuComponentsHint =>
+      '軟體版本來自工具或安裝記錄；驅動 CUDA 相容版本不代表已安裝工具包。溫度、負載及程序指標屬於實際裝置。NVLink 的 GB/s 為鏈路速率，並非即時流量。';
+
+  @override
+  String get maintenanceGpuFields => '指標與中繼資料';
+
+  @override
+  String get maintenanceGpuProbeUnavailable => '部分資料無法取得或回應不完整';
+
+  @override
+  String get maintenanceGpuCudaCompatibility => '驅動支援的 CUDA 版本';
+
+  @override
+  String get maintenanceGpuDetailFabric => 'Fabric 互聯健康';
+
+  @override
+  String get maintenanceGpuDetailMemory => '顯示記憶體使用量';
+
+  @override
+  String get maintenanceGpuDetailEcc => 'ECC 錯誤計數';
+
+  @override
+  String get maintenanceGpuDetailThrottling => '時脈限制原因';
+
+  @override
+  String get maintenanceGpuDetailUtilization => '引擎使用率';
+
+  @override
+  String get maintenanceGpuDetailRestarts => '服務重新啟動次數';
+
+  @override
+  String get maintenanceGpuDetailLoaded => '服務載入狀態';
+
+  @override
+  String get maintenanceGpuDetailDetailState => '詳細狀態';
+
+  @override
+  String get maintenanceGpuDetailResult => '上次執行結果';
+
+  @override
+  String get maintenanceGpuDetailCpuTime => '累計 CPU 時間（奈秒）';
+
+  @override
+  String get maintenanceGpuDetailLinkCounters => 'NVLink 累計錯誤計數';
+
+  @override
+  String get maintenanceGpuDetailAttached => '已連接顯示卡數量';
 }

@@ -13083,4 +13083,56 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceHealthParsedConfigured => '設定済み';
+
+  @override
+  String get maintenanceGpuComponents => 'GPU コンポーネントと診断';
+
+  @override
+  String get maintenanceGpuComponentsHint =>
+      'バージョンはツールまたはインストール記録に基づきます。ドライバーの CUDA 対応版はツールキットの導入版とは異なります。負荷・温度・プロセスはデバイスの指標です。NVLink GB/s はリンク速度です。';
+
+  @override
+  String get maintenanceGpuFields => '指標とメタデータ';
+
+  @override
+  String get maintenanceGpuProbeUnavailable => '一部のデータが取得不能または不完全です';
+
+  @override
+  String get maintenanceGpuCudaCompatibility => 'ドライバー対応 CUDA バージョン';
+
+  @override
+  String get maintenanceGpuDetailFabric => 'Fabric の健全性';
+
+  @override
+  String get maintenanceGpuDetailMemory => 'フレームバッファ';
+
+  @override
+  String get maintenanceGpuDetailEcc => 'ECC エラーカウンター';
+
+  @override
+  String get maintenanceGpuDetailThrottling => 'クロック制限の原因';
+
+  @override
+  String get maintenanceGpuDetailUtilization => 'エンジン使用率';
+
+  @override
+  String get maintenanceGpuDetailRestarts => 'サービス再起動回数';
+
+  @override
+  String get maintenanceGpuDetailLoaded => 'サービス読み込み状態';
+
+  @override
+  String get maintenanceGpuDetailDetailState => '詳細状態';
+
+  @override
+  String get maintenanceGpuDetailResult => '前回の実行結果';
+
+  @override
+  String get maintenanceGpuDetailCpuTime => '累積 CPU 時間（ns）';
+
+  @override
+  String get maintenanceGpuDetailLinkCounters => 'NVLink 累積エラーカウンター';
+
+  @override
+  String get maintenanceGpuDetailAttached => '接続 GPU 数';
 }

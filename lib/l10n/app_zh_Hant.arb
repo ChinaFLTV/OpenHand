@@ -8856,5 +8856,22 @@
   "maintenanceHealthParsedPasswordLocked": "密碼已鎖定",
   "maintenanceHealthParsedPasswordEmpty": "未設定密碼",
   "maintenanceHealthParsedNever": "永不",
-  "maintenanceHealthParsedConfigured": "已設定"
+  "maintenanceHealthParsedConfigured": "已設定",
+  "maintenanceGpuComponents": "GPU 元件與裝置診斷",
+  "maintenanceGpuComponentsHint": "軟體版本來自工具或安裝記錄；驅動 CUDA 相容版本不代表已安裝工具包。溫度、負載及程序指標屬於實際裝置。NVLink 的 GB/s 為鏈路速率，並非即時流量。",
+  "maintenanceGpuFields": "指標與中繼資料",
+  "maintenanceGpuProbeUnavailable": "部分資料無法取得或回應不完整",
+  "maintenanceGpuCudaCompatibility": "驅動支援的 CUDA 版本",
+  "maintenanceGpuDetailFabric": "Fabric 互聯健康",
+  "maintenanceGpuDetailMemory": "顯示記憶體使用量",
+  "maintenanceGpuDetailEcc": "ECC 錯誤計數",
+  "maintenanceGpuDetailThrottling": "時脈限制原因",
+  "maintenanceGpuDetailUtilization": "引擎使用率",
+  "maintenanceGpuDetailRestarts": "服務重新啟動次數",
+  "maintenanceGpuDetailLoaded": "服務載入狀態",
+  "maintenanceGpuDetailDetailState": "詳細狀態",
+  "maintenanceGpuDetailResult": "上次執行結果",
+  "maintenanceGpuDetailCpuTime": "累計 CPU 時間（奈秒）",
+  "maintenanceGpuDetailLinkCounters": "NVLink 累計錯誤計數",
+  "maintenanceGpuDetailAttached": "已連接顯示卡數量"
 }

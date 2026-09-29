@@ -13519,4 +13519,59 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceHealthParsedConfigured => 'Konfiguriert';
+
+  @override
+  String get maintenanceGpuComponents => 'GPU-Komponenten und Diagnose';
+
+  @override
+  String get maintenanceGpuComponentsHint =>
+      'Versionen stammen aus Tools oder Installationsdaten. Die CUDA-Kompatibilität des Treibers bezeichnet nicht das installierte Toolkit. Last, Temperatur und Prozesse gehören zu Geräten. NVLink GB/s ist die Linkgeschwindigkeit.';
+
+  @override
+  String get maintenanceGpuFields => 'Messwerte und Metadaten';
+
+  @override
+  String get maintenanceGpuProbeUnavailable =>
+      'Daten teilweise nicht verfügbar oder unvollständig';
+
+  @override
+  String get maintenanceGpuCudaCompatibility =>
+      'Vom Treiber unterstützte CUDA-Version';
+
+  @override
+  String get maintenanceGpuDetailFabric => 'Fabric-Zustand';
+
+  @override
+  String get maintenanceGpuDetailMemory => 'Grafikspeicher';
+
+  @override
+  String get maintenanceGpuDetailEcc => 'ECC-Fehlerzähler';
+
+  @override
+  String get maintenanceGpuDetailThrottling => 'Taktbegrenzungsgründe';
+
+  @override
+  String get maintenanceGpuDetailUtilization => 'Engine-Auslastung';
+
+  @override
+  String get maintenanceGpuDetailRestarts => 'Dienstneustarts';
+
+  @override
+  String get maintenanceGpuDetailLoaded => 'Dienstladestatus';
+
+  @override
+  String get maintenanceGpuDetailDetailState => 'Detailstatus';
+
+  @override
+  String get maintenanceGpuDetailResult => 'Letztes Ausführungsergebnis';
+
+  @override
+  String get maintenanceGpuDetailCpuTime => 'Kumulierte CPU-Zeit (ns)';
+
+  @override
+  String get maintenanceGpuDetailLinkCounters =>
+      'Kumulative NVLink-Fehlerzähler';
+
+  @override
+  String get maintenanceGpuDetailAttached => 'Angeschlossene GPUs';
 }

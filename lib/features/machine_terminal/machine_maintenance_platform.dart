@@ -437,4 +437,27 @@ for(var i=0;i<cards.length;i++){var c=cards[i];gpu.push([clean(c.DeviceID),clean
 emit("gpu_windows",gpu.join("\n").substr(0,16000));
 emit("gpu_nvidia",command("nvidia-smi --query-gpu=__GPU_QUERY__ --format=csv,noheader,nounits",40000));
 emit("gpu_processes",command("nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory --format=csv,noheader,nounits",20000));
+emit("gpu_details",command("nvidia-smi -q -x",45000));
+emit("gpu_links",command("nvidia-smi nvlink --status",8000));
+emit("gpu_link_errors",command("nvidia-smi nvlink --errorcounters",8000));
+var toolkit=command("nvcc --version",2000),stack=[];
+var release=toolkit.match(/release[^\r\n]+/);
+if(release)stack.push("CUDA Toolkit\tversion\t"+release[0]);
+var env=new ActiveXObject("WScript.Shell").Environment("PROCESS");
+var cuda=env("CUDA_PATH");
+if(cuda)stack.push("CUDA Toolkit\tpath\t"+clean(cuda));
+
+if(cuda){
+  try {
+    var fs=new ActiveXObject("Scripting.FileSystemObject"),header=cuda+"\\include\\cudnn_version.h";
+    if(fs.FileExists(header)){
+      var file=fs.OpenTextFile(header,1),content=file.Read(16000);file.Close();
+      var re=/#define\s+(CUDNN_MAJOR|CUDNN_MINOR|CUDNN_PATCHLEVEL)\s+(\d+)/g,match;
+      stack.push("cuDNN header\tpath\t"+clean(header));
+      while((match=re.exec(content))!==null)stack.push("cuDNN header\t"+match[1]+"\t"+match[2]);
+    }
+  }catch(e){stack.push("cuDNN header\tstatus\t"+clean(e.message));}
+}
+emit("gpu_stack",stack.join("\n"));
+
 ''';

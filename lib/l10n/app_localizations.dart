@@ -24052,6 +24052,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已配置'**
   String get maintenanceHealthParsedConfigured;
+
+  /// No description provided for @maintenanceGpuComponents.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 组件与设备诊断'**
+  String get maintenanceGpuComponents;
+
+  /// No description provided for @maintenanceGpuComponentsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'软件版本来自工具或安装记录；驱动 CUDA 兼容版本不代表已安装工具包。温度、负载和进程指标归属实际设备。NVLink 的 GB/s 为链路速率，不是实时流量。'**
+  String get maintenanceGpuComponentsHint;
+
+  /// No description provided for @maintenanceGpuFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'指标与元数据'**
+  String get maintenanceGpuFields;
+
+  /// No description provided for @maintenanceGpuProbeUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分数据不可用或响应不完整'**
+  String get maintenanceGpuProbeUnavailable;
+
+  /// No description provided for @maintenanceGpuCudaCompatibility.
+  ///
+  /// In zh, this message translates to:
+  /// **'驱动支持的 CUDA 版本'**
+  String get maintenanceGpuCudaCompatibility;
+
+  /// No description provided for @maintenanceGpuDetailFabric.
+  ///
+  /// In zh, this message translates to:
+  /// **'Fabric 互联健康'**
+  String get maintenanceGpuDetailFabric;
+
+  /// No description provided for @maintenanceGpuDetailMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'显存占用'**
+  String get maintenanceGpuDetailMemory;
+
+  /// No description provided for @maintenanceGpuDetailEcc.
+  ///
+  /// In zh, this message translates to:
+  /// **'ECC 错误计数'**
+  String get maintenanceGpuDetailEcc;
+
+  /// No description provided for @maintenanceGpuDetailThrottling.
+  ///
+  /// In zh, this message translates to:
+  /// **'时钟限速原因'**
+  String get maintenanceGpuDetailThrottling;
+
+  /// No description provided for @maintenanceGpuDetailUtilization.
+  ///
+  /// In zh, this message translates to:
+  /// **'引擎利用率'**
+  String get maintenanceGpuDetailUtilization;
+
+  /// No description provided for @maintenanceGpuDetailRestarts.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务重启次数'**
+  String get maintenanceGpuDetailRestarts;
+
+  /// No description provided for @maintenanceGpuDetailLoaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务加载状态'**
+  String get maintenanceGpuDetailLoaded;
+
+  /// No description provided for @maintenanceGpuDetailDetailState.
+  ///
+  /// In zh, this message translates to:
+  /// **'详细状态'**
+  String get maintenanceGpuDetailDetailState;
+
+  /// No description provided for @maintenanceGpuDetailResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次执行结果'**
+  String get maintenanceGpuDetailResult;
+
+  /// No description provided for @maintenanceGpuDetailCpuTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计 CPU 时间（纳秒）'**
+  String get maintenanceGpuDetailCpuTime;
+
+  /// No description provided for @maintenanceGpuDetailLinkCounters.
+  ///
+  /// In zh, this message translates to:
+  /// **'NVLink 累计错误计数'**
+  String get maintenanceGpuDetailLinkCounters;
+
+  /// No description provided for @maintenanceGpuDetailAttached.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接显卡数量'**
+  String get maintenanceGpuDetailAttached;
 }
 
 class _AppLocalizationsDelegate
