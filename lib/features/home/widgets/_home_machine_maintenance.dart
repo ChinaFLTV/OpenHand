@@ -66,6 +66,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   MachineTerminalCommandShell _requestedShell =
       MachineTerminalCommandShell.automatic;
   bool _loading = false,
+      _manualRefresh = false,
       _automatic = false,
       _foreground = true,
       _detailOpen = false,
@@ -77,7 +78,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   int _workers = machineMaintenanceDefaultWorkers;
   Object? _bodyIdentity;
   Widget? _body;
-  final _collecting = ValueNotifier(false);
 
   @override
   void initState() {
@@ -93,7 +93,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _search.dispose();
-    _collecting.dispose();
     super.dispose();
   }
 
@@ -126,13 +125,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         isCancelled: () => !mounted || _closing,
       );
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool manual = false}) async {
     if (_loading || !mounted || _closing) return;
     _timer?.cancel();
     final tab = _tab;
-    _collecting.value = true;
     setState(() {
       _loading = true;
+      _manualRefresh = manual;
       _error = null;
     });
     try {
@@ -198,9 +197,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       }
     } finally {
       if (mounted && !_closing) {
-        _collecting.value = false;
         setState(() {
           _loading = false;
+          _manualRefresh = false;
         });
         if (tab != _tab) {
           unawaited(_refresh());
@@ -419,7 +418,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           _MachineTerminalIconButton(
                             icon: Icons.refresh_rounded,
                             tooltip: maintenanceLabel(context, '刷新当前分区'),
-                            onPressed: _loading ? null : _refresh,
+                            onPressed: _loading
+                                ? null
+                                : () => _refresh(manual: true),
                           ),
                         ],
                       ),
@@ -523,7 +524,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               const SizedBox(height: 12),
               SizedBox(
                 height: 2,
-                child: _loading && data != null
+                child: _loading && _manualRefresh && data != null
                     ? const LinearProgressIndicator()
                     : Divider(
                         height: 1,
@@ -663,7 +664,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  onPressed: _loading ? null : _refresh,
+                  onPressed: _loading ? null : () => _refresh(manual: true),
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(maintenanceLabel(context, '重新采集')),
                 ),
