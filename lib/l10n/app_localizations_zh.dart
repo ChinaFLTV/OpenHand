@@ -12300,6 +12300,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceGraphScope => '展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。';
+
+  @override
+  String get maintenanceStartupSystemAgent => '系统代理';
+
+  @override
+  String get maintenanceStartupUserAgent => '用户代理';
+
+  @override
+  String get maintenanceStartupDaemon => '系统守护进程';
+
+  @override
+  String get maintenanceStartupPreset => '预设';
+
+  @override
+  String get maintenanceStartupIndirect => '间接启用';
+
+  @override
+  String get maintenanceStartupGenerated => '自动生成';
+
+  @override
+  String get maintenanceStartupTransient => '临时';
+
+  @override
+  String get maintenanceStartupAlias => '别名';
+
+  @override
+  String get maintenanceStartupLinked => '已链接';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => '临时启用';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => '临时屏蔽';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => '临时链接';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24580,4 +24616,40 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceGraphScope => '顯示取樣中前 6 組端點，連線數字為連線數；監聽連接埠見下方明細。';
+
+  @override
+  String get maintenanceStartupSystemAgent => '系統代理';
+
+  @override
+  String get maintenanceStartupUserAgent => '使用者代理';
+
+  @override
+  String get maintenanceStartupDaemon => '系統守護行程';
+
+  @override
+  String get maintenanceStartupPreset => '預設';
+
+  @override
+  String get maintenanceStartupIndirect => '間接啟用';
+
+  @override
+  String get maintenanceStartupGenerated => '自動產生';
+
+  @override
+  String get maintenanceStartupTransient => '暫時';
+
+  @override
+  String get maintenanceStartupAlias => '別名';
+
+  @override
+  String get maintenanceStartupLinked => '已連結';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => '暫時啟用';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => '暫時遮蔽';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => '暫時連結';
 }

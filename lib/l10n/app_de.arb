@@ -8640,5 +8640,17 @@
   "maintenanceServiceShare": "Dienststatusverteilung",
   "maintenanceConnectionShare": "Verbindungsstatusverteilung",
   "maintenanceConnectionGraph": "Endpunktverbindungen",
-  "maintenanceGraphScope": "Bis zu 6 erfasste Endpunktpaare; Zahlen zeigen Verbindungen. Lauschende Sockets stehen unten."
+  "maintenanceGraphScope": "Bis zu 6 erfasste Endpunktpaare; Zahlen zeigen Verbindungen. Lauschende Sockets stehen unten.",
+  "maintenanceStartupSystemAgent": "Systemagent",
+  "maintenanceStartupUserAgent": "Benutzeragent",
+  "maintenanceStartupDaemon": "Systemdienst",
+  "maintenanceStartupPreset": "Voreinstellung",
+  "maintenanceStartupIndirect": "Indirekt",
+  "maintenanceStartupGenerated": "Generiert",
+  "maintenanceStartupTransient": "Temporär",
+  "maintenanceStartupAlias": "Alias",
+  "maintenanceStartupLinked": "Verknüpft",
+  "maintenanceStartupEnabledRuntime": "Bis zum Neustart aktiviert",
+  "maintenanceStartupMaskedRuntime": "Bis zum Neustart maskiert",
+  "maintenanceStartupLinkedRuntime": "Bis zum Neustart verknüpft"
 }

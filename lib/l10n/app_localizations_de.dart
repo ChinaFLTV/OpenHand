@@ -12835,4 +12835,40 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceGraphScope =>
       'Bis zu 6 erfasste Endpunktpaare; Zahlen zeigen Verbindungen. Lauschende Sockets stehen unten.';
+
+  @override
+  String get maintenanceStartupSystemAgent => 'Systemagent';
+
+  @override
+  String get maintenanceStartupUserAgent => 'Benutzeragent';
+
+  @override
+  String get maintenanceStartupDaemon => 'Systemdienst';
+
+  @override
+  String get maintenanceStartupPreset => 'Voreinstellung';
+
+  @override
+  String get maintenanceStartupIndirect => 'Indirekt';
+
+  @override
+  String get maintenanceStartupGenerated => 'Generiert';
+
+  @override
+  String get maintenanceStartupTransient => 'Temporär';
+
+  @override
+  String get maintenanceStartupAlias => 'Alias';
+
+  @override
+  String get maintenanceStartupLinked => 'Verknüpft';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => 'Bis zum Neustart aktiviert';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => 'Bis zum Neustart maskiert';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => 'Bis zum Neustart verknüpft';
 }

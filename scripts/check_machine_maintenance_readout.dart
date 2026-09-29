@@ -1,4 +1,6 @@
-import '../lib/features/machine_terminal/machine_maintenance_readout.dart';
+import 'dart:io';
+
+import 'package:openhand/features/machine_terminal/machine_maintenance_readout.dart';
 
 void main() {
   void check(bool condition, String message) {
@@ -7,6 +9,35 @@ void main() {
 
   MachineMaintenanceReadout parse(String text, String section) =>
       MachineMaintenanceReadout.parse(text, section);
+  final startup = parse(
+    '/Library/LaunchAgents:\ncom.example.agent.plist\n/Library/LaunchDaemons:\ncom.example.daemon.plist\n/Users/test/Library/LaunchAgents:\nMy Agent.plist',
+    'startup',
+  );
+  check(!startup.fields && startup.rows.length == 3, '启动目录被误当成描述条目');
+  check(
+    startup.rows.last.join('|') ==
+        'My Agent.plist|用户代理|/Users/test/Library/LaunchAgents/My Agent.plist',
+    '含空格启动项路径或类型丢失',
+  );
+  final tagged = parse(
+    '__OH_STARTUP__\t/Library/LaunchDaemons/com.example.daemon.plist',
+    'startup',
+  );
+  check(tagged.rows.single[1] == '系统守护进程', '带标记启动项解析失败');
+  final systemd = parse(
+    'UNIT FILE STATE PRESET\nnginx.service enabled disabled\nworker.service static -',
+    'startup',
+  );
+  check(
+    systemd.rows.length == 2 && systemd.rows.first[1] == 'enabled',
+    'systemd 启动状态被当作表头丢失',
+  );
+  final windowsStartup = parse('Spooler\tAuto\nExample\tManual', 'startup');
+  check(
+    windowsStartup.rows.length == 2 &&
+        windowsStartup.rows.first.first == 'Spooler',
+    'Windows 启动项丢失首行',
+  );
   final users = parse(
     'root pts/7 Sep 29 16:27 (host.example)\nadmin console Sep 28 09:00',
     'users',
@@ -103,5 +134,5 @@ void main() {
         3,
     '启动参数引号解析错误',
   );
-  print('运维结构化解析检查通过');
+  stdout.writeln('运维结构化解析检查通过');
 }

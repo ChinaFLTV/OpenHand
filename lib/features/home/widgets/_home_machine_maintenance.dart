@@ -2964,63 +2964,45 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
     if (widget.section == 'logs') {
       return _MaintenanceLogTimeline(rows: _data.rows);
     }
-    if (!_data.fields) {
-      return _MaintenanceTable(
-        headers: _data.headers
-            .map((label) => maintenanceDetailLabel(context, label))
-            .toList(),
-        rows: [
-          for (var i = 0; i < _data.rows.length; i++)
-            OpenHandOperationalRankRow(
-              rowKey: i,
-              value: 0,
-              cells: [
-                for (var c = 0; c < _data.rows[i].length; c++)
-                  _data.headers[c] == '名称'
-                      ? maintenanceDetailLabel(context, _data.rows[i][c])
-                      : _data.rows[i][c],
-              ],
-            ),
-        ],
-        maxBodyHeight: 480,
-      );
-    }
-    return _MaintenanceGrid(
-      minWidth: 220,
-      children: [
-        for (final row in _data.rows)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Tooltip(
-                  message: row.first,
-                  child: Text(
-                    maintenanceDetailLabel(context, row.first),
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (const ['io', 'memory'].contains(widget.section) &&
-                    num.tryParse(row.last.split(' ').first) != null)
-                  _MaintenanceNumber(raw: row.last, maxLines: 3)
-                else
-                  SelectableText(
-                    maintenanceDetailValue(context, row.last),
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-              ],
-            ),
+    return _MaintenanceTable(
+      headers: _data.headers
+          .map((label) => maintenanceDetailLabel(context, label))
+          .toList(),
+      rows: [
+        for (var i = 0; i < _data.rows.length; i++)
+          OpenHandOperationalRankRow(
+            rowKey: i,
+            value: 0,
+            cells: [
+              for (var c = 0; c < _data.rows[i].length; c++)
+                _data.fields
+                    ? c == 0
+                          ? maintenanceDetailLabel(context, _data.rows[i][c])
+                          : maintenanceDetailValue(context, _data.rows[i][c])
+                    : const [
+                        '状态',
+                        'STATUS',
+                        'STATE',
+                        'PRESET',
+                        'TYPE',
+                        'State',
+                        '启动方式',
+                        '预设',
+                        '类型',
+                      ].contains(_data.headers[c])
+                    ? maintenanceDetailValue(context, _data.rows[i][c])
+                    : _data.rows[i][c],
+            ],
+            cellWidgets:
+                _data.fields && const ['io', 'memory'].contains(widget.section)
+                ? [
+                    Text(maintenanceDetailLabel(context, _data.rows[i][0])),
+                    _MaintenanceNumber(raw: _data.rows[i][1], maxLines: 3),
+                  ]
+                : null,
           ),
       ],
+      maxBodyHeight: 480,
     );
   }
 }
@@ -3845,15 +3827,7 @@ class _MaintenanceTrendPainter extends CustomPainter {
       ..lineTo(plot.right, plot.bottom)
       ..lineTo(plot.left, plot.bottom)
       ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color.withValues(alpha: .22), color.withValues(alpha: .01)],
-        ).createShader(plot),
-    );
+    canvas.drawPath(fill, Paint()..color = color.withValues(alpha: .10));
     canvas.drawPath(
       path,
       Paint()

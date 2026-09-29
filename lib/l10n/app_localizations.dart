@@ -22753,6 +22753,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。'**
   String get maintenanceGraphScope;
+
+  /// No description provided for @maintenanceStartupSystemAgent.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统代理'**
+  String get maintenanceStartupSystemAgent;
+
+  /// No description provided for @maintenanceStartupUserAgent.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户代理'**
+  String get maintenanceStartupUserAgent;
+
+  /// No description provided for @maintenanceStartupDaemon.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统守护进程'**
+  String get maintenanceStartupDaemon;
+
+  /// No description provided for @maintenanceStartupPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'预设'**
+  String get maintenanceStartupPreset;
+
+  /// No description provided for @maintenanceStartupIndirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'间接启用'**
+  String get maintenanceStartupIndirect;
+
+  /// No description provided for @maintenanceStartupGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动生成'**
+  String get maintenanceStartupGenerated;
+
+  /// No description provided for @maintenanceStartupTransient.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时'**
+  String get maintenanceStartupTransient;
+
+  /// No description provided for @maintenanceStartupAlias.
+  ///
+  /// In zh, this message translates to:
+  /// **'别名'**
+  String get maintenanceStartupAlias;
+
+  /// No description provided for @maintenanceStartupLinked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已链接'**
+  String get maintenanceStartupLinked;
+
+  /// No description provided for @maintenanceStartupEnabledRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时启用'**
+  String get maintenanceStartupEnabledRuntime;
+
+  /// No description provided for @maintenanceStartupMaskedRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时屏蔽'**
+  String get maintenanceStartupMaskedRuntime;
+
+  /// No description provided for @maintenanceStartupLinkedRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时链接'**
+  String get maintenanceStartupLinkedRuntime;
 }
 
 class _AppLocalizationsDelegate

@@ -12425,4 +12425,40 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceGraphScope =>
       'サンプル内の最大6組。線上の数字は接続数です。待受ポートは下の明細に表示します。';
+
+  @override
+  String get maintenanceStartupSystemAgent => 'システムエージェント';
+
+  @override
+  String get maintenanceStartupUserAgent => 'ユーザーエージェント';
+
+  @override
+  String get maintenanceStartupDaemon => 'システムデーモン';
+
+  @override
+  String get maintenanceStartupPreset => 'プリセット';
+
+  @override
+  String get maintenanceStartupIndirect => '間接有効化';
+
+  @override
+  String get maintenanceStartupGenerated => '自動生成';
+
+  @override
+  String get maintenanceStartupTransient => '一時';
+
+  @override
+  String get maintenanceStartupAlias => 'エイリアス';
+
+  @override
+  String get maintenanceStartupLinked => 'リンク済み';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => '再起動まで有効';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => '再起動までマスク';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => '再起動までリンク';
 }

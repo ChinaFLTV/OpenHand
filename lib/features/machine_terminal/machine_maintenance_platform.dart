@@ -88,7 +88,12 @@ printf 'launchd\n'
 section services
 launchctl list | awk 'NR>1 {printf "%s\t%s\t%s\n",$3,$1,$2}' | head -c 50000
 section startup
-ls /Library/LaunchDaemons /Library/LaunchAgents "$HOME/Library/LaunchAgents" 2>&1 | head -c 12000
+for d in /Library/LaunchDaemons /Library/LaunchAgents "$HOME/Library/LaunchAgents"; do
+  [ -d "$d" ] || continue
+  for f in "$d"/*.plist; do
+    [ -f "$f" ] && printf '__OH_STARTUP__\t%s\n' "$f"
+  done
+done | head -c 12000
 section end
 ''',
           _ =>

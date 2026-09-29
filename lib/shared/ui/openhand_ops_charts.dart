@@ -2443,13 +2443,6 @@ class _ChartTooltip extends StatelessWidget {
           color: colors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(kOpenHandRadius8),
           border: Border.all(color: color.withValues(alpha: 0.72)),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -3023,7 +3016,6 @@ class _ChartActionSurface extends StatefulWidget {
 }
 
 class _ChartActionSurfaceState extends State<_ChartActionSurface> {
-  bool _hovered = false;
   bool _focused = false;
   bool _pressed = false;
 
@@ -3031,14 +3023,13 @@ class _ChartActionSurfaceState extends State<_ChartActionSurface> {
   Widget build(BuildContext context) {
     if (widget.onTap == null) return widget.child;
     final colors = Theme.of(context).colorScheme;
-    final highlighted = _hovered || _focused || _pressed;
+    final highlighted = _focused || _pressed;
     return Semantics(
       button: true,
       label: widget.semanticLabel,
       onTap: widget.onTap,
       child: FocusableActionDetector(
         mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: (value) => setState(() => _hovered = value),
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         shortcuts: const <ShortcutActivator, Intent>{
           SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -4675,18 +4666,6 @@ class _HeatmapHoverCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(kOpenHandRadius16),
             color: colors.surfaceContainerHigh,
             border: Border.all(color: accent.withValues(alpha: 0.42)),
-            boxShadow: [
-              BoxShadow(
-                color: accent.withValues(alpha: 0.22),
-                blurRadius: 28,
-                offset: const Offset(0, 14),
-              ),
-              BoxShadow(
-                color: colors.shadow.withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(kOpenHandRadius16),

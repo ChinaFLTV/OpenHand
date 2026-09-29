@@ -8640,5 +8640,17 @@
   "maintenanceServiceShare": "Répartition des états des services",
   "maintenanceConnectionShare": "Répartition des états des connexions",
   "maintenanceConnectionGraph": "Connexions entre points de terminaison",
-  "maintenanceGraphScope": "6 paires échantillonnées au maximum ; les nombres indiquent les connexions. Les ports en écoute figurent ci-dessous."
+  "maintenanceGraphScope": "6 paires échantillonnées au maximum ; les nombres indiquent les connexions. Les ports en écoute figurent ci-dessous.",
+  "maintenanceStartupSystemAgent": "Agent système",
+  "maintenanceStartupUserAgent": "Agent utilisateur",
+  "maintenanceStartupDaemon": "Démon système",
+  "maintenanceStartupPreset": "Préréglage",
+  "maintenanceStartupIndirect": "Indirect",
+  "maintenanceStartupGenerated": "Généré",
+  "maintenanceStartupTransient": "Temporaire",
+  "maintenanceStartupAlias": "Alias",
+  "maintenanceStartupLinked": "Lié",
+  "maintenanceStartupEnabledRuntime": "Activé jusqu’au redémarrage",
+  "maintenanceStartupMaskedRuntime": "Masqué jusqu’au redémarrage",
+  "maintenanceStartupLinkedRuntime": "Lié jusqu’au redémarrage"
 }

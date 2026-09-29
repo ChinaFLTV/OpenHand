@@ -12875,4 +12875,40 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceGraphScope =>
       '6 paires échantillonnées au maximum ; les nombres indiquent les connexions. Les ports en écoute figurent ci-dessous.';
+
+  @override
+  String get maintenanceStartupSystemAgent => 'Agent système';
+
+  @override
+  String get maintenanceStartupUserAgent => 'Agent utilisateur';
+
+  @override
+  String get maintenanceStartupDaemon => 'Démon système';
+
+  @override
+  String get maintenanceStartupPreset => 'Préréglage';
+
+  @override
+  String get maintenanceStartupIndirect => 'Indirect';
+
+  @override
+  String get maintenanceStartupGenerated => 'Généré';
+
+  @override
+  String get maintenanceStartupTransient => 'Temporaire';
+
+  @override
+  String get maintenanceStartupAlias => 'Alias';
+
+  @override
+  String get maintenanceStartupLinked => 'Lié';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => 'Activé jusqu’au redémarrage';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => 'Masqué jusqu’au redémarrage';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => 'Lié jusqu’au redémarrage';
 }

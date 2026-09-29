@@ -8640,5 +8640,17 @@
   "maintenanceServiceShare": "服務狀態分佈",
   "maintenanceConnectionShare": "連線狀態分佈",
   "maintenanceConnectionGraph": "端點連線關係",
-  "maintenanceGraphScope": "顯示取樣中前 6 組端點，連線數字為連線數；監聽連接埠見下方明細。"
+  "maintenanceGraphScope": "顯示取樣中前 6 組端點，連線數字為連線數；監聽連接埠見下方明細。",
+  "maintenanceStartupSystemAgent": "系統代理",
+  "maintenanceStartupUserAgent": "使用者代理",
+  "maintenanceStartupDaemon": "系統守護行程",
+  "maintenanceStartupPreset": "預設",
+  "maintenanceStartupIndirect": "間接啟用",
+  "maintenanceStartupGenerated": "自動產生",
+  "maintenanceStartupTransient": "暫時",
+  "maintenanceStartupAlias": "別名",
+  "maintenanceStartupLinked": "已連結",
+  "maintenanceStartupEnabledRuntime": "暫時啟用",
+  "maintenanceStartupMaskedRuntime": "暫時遮蔽",
+  "maintenanceStartupLinkedRuntime": "暫時連結"
 }

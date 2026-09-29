@@ -9614,5 +9614,17 @@
   "maintenanceServiceShare": "服务状态分布",
   "maintenanceConnectionShare": "连接状态分布",
   "maintenanceConnectionGraph": "端点连接关系",
-  "maintenanceGraphScope": "展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。"
+  "maintenanceGraphScope": "展示采样中前 6 组端点，连线数字为连接数；监听端口见下方明细。",
+  "maintenanceStartupSystemAgent": "系统代理",
+  "maintenanceStartupUserAgent": "用户代理",
+  "maintenanceStartupDaemon": "系统守护进程",
+  "maintenanceStartupPreset": "预设",
+  "maintenanceStartupIndirect": "间接启用",
+  "maintenanceStartupGenerated": "自动生成",
+  "maintenanceStartupTransient": "临时",
+  "maintenanceStartupAlias": "别名",
+  "maintenanceStartupLinked": "已链接",
+  "maintenanceStartupEnabledRuntime": "临时启用",
+  "maintenanceStartupMaskedRuntime": "临时屏蔽",
+  "maintenanceStartupLinkedRuntime": "临时链接"
 }

@@ -8645,5 +8645,17 @@
   "maintenanceServiceShare": "Service states",
   "maintenanceConnectionShare": "Connection states",
   "maintenanceConnectionGraph": "Endpoint connections",
-  "maintenanceGraphScope": "Up to 6 sampled endpoint pairs; numbers show connections. Listening sockets are listed below."
+  "maintenanceGraphScope": "Up to 6 sampled endpoint pairs; numbers show connections. Listening sockets are listed below.",
+  "maintenanceStartupSystemAgent": "System agent",
+  "maintenanceStartupUserAgent": "User agent",
+  "maintenanceStartupDaemon": "System daemon",
+  "maintenanceStartupPreset": "Preset",
+  "maintenanceStartupIndirect": "Indirect",
+  "maintenanceStartupGenerated": "Generated",
+  "maintenanceStartupTransient": "Transient",
+  "maintenanceStartupAlias": "Alias",
+  "maintenanceStartupLinked": "Linked",
+  "maintenanceStartupEnabledRuntime": "Enabled until restart",
+  "maintenanceStartupMaskedRuntime": "Masked until restart",
+  "maintenanceStartupLinkedRuntime": "Linked until restart"
 }

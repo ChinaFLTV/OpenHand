@@ -8640,5 +8640,17 @@
   "maintenanceServiceShare": "サービス状態の分布",
   "maintenanceConnectionShare": "接続状態の分布",
   "maintenanceConnectionGraph": "エンドポイント接続",
-  "maintenanceGraphScope": "サンプル内の最大6組。線上の数字は接続数です。待受ポートは下の明細に表示します。"
+  "maintenanceGraphScope": "サンプル内の最大6組。線上の数字は接続数です。待受ポートは下の明細に表示します。",
+  "maintenanceStartupSystemAgent": "システムエージェント",
+  "maintenanceStartupUserAgent": "ユーザーエージェント",
+  "maintenanceStartupDaemon": "システムデーモン",
+  "maintenanceStartupPreset": "プリセット",
+  "maintenanceStartupIndirect": "間接有効化",
+  "maintenanceStartupGenerated": "自動生成",
+  "maintenanceStartupTransient": "一時",
+  "maintenanceStartupAlias": "エイリアス",
+  "maintenanceStartupLinked": "リンク済み",
+  "maintenanceStartupEnabledRuntime": "再起動まで有効",
+  "maintenanceStartupMaskedRuntime": "再起動までマスク",
+  "maintenanceStartupLinkedRuntime": "再起動までリンク"
 }

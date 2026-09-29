@@ -726,6 +726,23 @@ String? _maintenanceCounterLabel(
 String maintenanceDetailLabel(BuildContext context, String field) {
   final l10n = AppLocalizations.of(context)!;
   const aliases = {
+    'PPID': '父进程 ID',
+    'USER': '用户',
+    'STAT': '状态',
+    'TYPE': '类型',
+    'NI': '优先级',
+    'PRI': '优先级',
+    '%CPU': 'CPU / 单核',
+    '%MEM': '内存使用率',
+    'STARTED': '创建时间',
+    'STATE': '状态',
+    'UNIT FILE': '名称',
+    'PRESET': '预设',
+    'PID': 'PID',
+    'RSS': '驻留内存',
+    'VSZ': '虚拟内存',
+    'TIME': '累计 CPU 时间',
+    'ELAPSED': '运行时间',
     'CONTAINER ID': 'ID',
     'IMAGE': '镜像',
     'COMMAND': '启动命令',
@@ -778,6 +795,19 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   };
   final name = aliases[field] ?? field;
   final translated = switch (name) {
+    '系统代理' => l10n.maintenanceStartupSystemAgent,
+    '用户代理' => l10n.maintenanceStartupUserAgent,
+    '系统守护进程' => l10n.maintenanceStartupDaemon,
+    '预设' => l10n.maintenanceStartupPreset,
+    '间接启用' => l10n.maintenanceStartupIndirect,
+    '自动生成' => l10n.maintenanceStartupGenerated,
+    '临时' => l10n.maintenanceStartupTransient,
+    '别名' => l10n.maintenanceStartupAlias,
+    '已链接' => l10n.maintenanceStartupLinked,
+    '临时启用' => l10n.maintenanceStartupEnabledRuntime,
+    '临时屏蔽' => l10n.maintenanceStartupMaskedRuntime,
+    '临时链接' => l10n.maintenanceStartupLinkedRuntime,
+
     '域名搜索' => l10n.maintenanceDetailSearchDomain,
     '域名' => l10n.maintenanceDetailDomain,
     '选项' => l10n.maintenanceDetailOptions,
@@ -821,6 +851,17 @@ String maintenanceDetailLabel(BuildContext context, String field) {
 
 String maintenanceDetailValue(BuildContext context, String value) {
   final label = switch (value) {
+    'indirect' => '间接启用',
+    'generated' => '自动生成',
+    'transient' => '临时',
+    'alias' => '别名',
+    'linked' => '已链接',
+    'enabled-runtime' => '临时启用',
+    'masked-runtime' => '临时屏蔽',
+    'linked-runtime' => '临时链接',
+    'Auto' || 'Automatic' => '自动启动',
+    'Manual' => '手动启动',
+    'Disabled' => '禁用',
     'yes' || 'true' || 'enabled' => '启用',
     'no' || 'false' || 'disabled' => '禁用',
     'none' => '无',
@@ -835,5 +876,7 @@ String maintenanceDetailValue(BuildContext context, String value) {
     'Z (zombie)' => '僵尸',
     _ => value,
   };
-  return label == value ? value : maintenanceDetailLabel(context, label);
+  return label == value && !const ['系统代理', '用户代理', '系统守护进程'].contains(value)
+      ? value
+      : maintenanceDetailLabel(context, label);
 }

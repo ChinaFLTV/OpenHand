@@ -755,6 +755,7 @@ void main() {
 
   testWidgets('二级详情结构化展示适配窄窗口与六种语言', (tester) async {
     final fixtures = <String, String>{
+      'startup': '/Library/LaunchAgents:\\ncom.example.agent.plist\\n/Users/test/Library/LaunchAgents:\\nMy Agent.plist',
       'users': 'root pts/7 Sep 29 16:27 (host.example)',
       'dns': '# comment\\nnameserver 2001:db8::1',
       'status': 'Name: worker\\nRestart=no\\nExecStart=/bin/app --value=a=b',
@@ -773,6 +774,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.text('原始输出'), findsNothing);
+        if (fixture.key == 'startup') {
+          final l10n = AppLocalizations.of(tester.element(find.byType(_MaintenanceReadout)))!;
+          expect(find.text(l10n.maintenanceStartupSystemAgent), findsOneWidget);
+          expect(find.text('com.example.agent.plist'), findsOneWidget);
+        }
       }
     }
     await tester.pumpWidget(const SizedBox());

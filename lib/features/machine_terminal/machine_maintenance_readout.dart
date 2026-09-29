@@ -22,6 +22,55 @@ class MachineMaintenanceReadout {
         )) {
       return const MachineMaintenanceReadout([], []);
     }
+    if (section == 'startup') {
+      final entries = <List<String>>[];
+      var directory = '';
+      final mac = lines.any(
+        (line) =>
+            line.startsWith('__OH_STARTUP__\t') ||
+            RegExp(r'^/.*Launch(?:Agents|Daemons):$').hasMatch(line.trim()),
+      );
+      if (mac) {
+        for (final line in lines) {
+          final text = line.trim();
+          if (RegExp(r'^/.*Launch(?:Agents|Daemons):$').hasMatch(text)) {
+            directory = text.substring(0, text.length - 1);
+            continue;
+          }
+          final path = text.startsWith('__OH_STARTUP__\t')
+              ? text.substring('__OH_STARTUP__\t'.length)
+              : directory.isNotEmpty && text.endsWith('.plist')
+              ? '$directory/$text'
+              : null;
+          if (path == null || !path.endsWith('.plist')) continue;
+          final type = path.contains('/LaunchDaemons/')
+              ? '系统守护进程'
+              : path.startsWith('/Library/') || path.startsWith('/System/')
+              ? '系统代理'
+              : '用户代理';
+          entries.add([path.split('/').last, type, path]);
+        }
+        return MachineMaintenanceReadout(['名称', '类型', '路径'], entries);
+      }
+      for (final line in lines) {
+        final fields = line.trim().split(RegExp(r'\s+'));
+        if (fields.length < 2 ||
+            fields.first == 'UNIT' ||
+            !RegExp(
+              r'^(enabled|disabled|static|masked|indirect|generated|transient|alias|linked|enabled-runtime|masked-runtime|linked-runtime|Auto|Manual|Disabled|Automatic)$',
+            ).hasMatch(fields[1])) {
+          continue;
+        }
+        entries.add([
+          fields[0],
+          fields[1],
+          fields.length > 2 ? fields[2] : '—',
+        ]);
+      }
+      if (entries.isNotEmpty) {
+        return MachineMaintenanceReadout(['名称', '启动方式', '预设'], entries);
+      }
+    }
     if (section == 'command') {
       final tokens = RegExp(
         r'''(?:[^\s"']+|"[^"]*"|'[^']*')+|\S+''',

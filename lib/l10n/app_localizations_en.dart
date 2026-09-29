@@ -12699,4 +12699,40 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceGraphScope =>
       'Up to 6 sampled endpoint pairs; numbers show connections. Listening sockets are listed below.';
+
+  @override
+  String get maintenanceStartupSystemAgent => 'System agent';
+
+  @override
+  String get maintenanceStartupUserAgent => 'User agent';
+
+  @override
+  String get maintenanceStartupDaemon => 'System daemon';
+
+  @override
+  String get maintenanceStartupPreset => 'Preset';
+
+  @override
+  String get maintenanceStartupIndirect => 'Indirect';
+
+  @override
+  String get maintenanceStartupGenerated => 'Generated';
+
+  @override
+  String get maintenanceStartupTransient => 'Transient';
+
+  @override
+  String get maintenanceStartupAlias => 'Alias';
+
+  @override
+  String get maintenanceStartupLinked => 'Linked';
+
+  @override
+  String get maintenanceStartupEnabledRuntime => 'Enabled until restart';
+
+  @override
+  String get maintenanceStartupMaskedRuntime => 'Masked until restart';
+
+  @override
+  String get maintenanceStartupLinkedRuntime => 'Linked until restart';
 }
