@@ -90,6 +90,8 @@ section manager
 printf 'launchd\n'
 section services
 launchctl list | awk 'NR>1 {printf "%s\t%s\t%s\n",$3,$1,$2}' | head -c 50000
+section service_processes
+ps -axo pid=,user=,%cpu=,rss=,etime=,time=,comm= | awk '{printf "%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6;for(i=7;i<=NF;i++)printf "%s%s",i>7?" ":"",$i;printf "\n"}' | head -c 160000
 section startup
 for d in /Library/LaunchDaemons /Library/LaunchAgents "$HOME/Library/LaunchAgents"; do
   [ -d "$d" ] || continue
@@ -222,7 +224,45 @@ class _LaunchdMaintenanceAdapter extends MachineMaintenanceServiceAdapter {
       : 'launchctl $action ${posixShellQuote(name)}';
   @override
   String detail(String name) =>
-      '$_macPrelude\nsection status\nlaunchctl list ${posixShellQuote(name)} 2>&1\nsection end';
+      _macPrelude +
+      r'''
+name=__NAME__
+section status
+info=""
+for domain in "gui/$(id -u)" "user/$(id -u)" system; do
+  if info=$(launchctl print "$domain/$name" 2>/dev/null); then
+    printf '目标 = %s/%s\n' "$domain" "$name"
+    printf '%s\n' "$info" | sed '1d;$d' | head -c 60000
+    break
+  fi
+done
+if [ -z "$info" ]; then launchctl list "$name" 2>&1; fi
+section process
+pid=$(printf '%s\n' "$info" | awk '$1=="pid" && $2=="=" {print $3;exit}')
+case "$pid" in ''|*[!0-9]*) ;; *) ps -p "$pid" -o pid=,ppid=,user=,%cpu=,rss=,vsz=,etime=,time=,command= | awk '{printf "PID = %s\nPPID = %s\nUser = %s\nCPU = %s %%\nRSS = %s KiB\nVSZ = %s KiB\nElapsed = %s\nCPUTime = %s\nCommand = ",$1,$2,$3,$4,$5,$6,$7,$8;for(i=9;i<=NF;i++)printf "%s%s",i>9?" ":"",$i;printf "\n"}' | head -c 16000 ;; esac
+section logs
+program=$(printf '%s\n' "$info" | sed -n 's/^[[:space:]]*program = //p' | head -n 1)
+base=${program##*/}
+escaped=$(printf '%s' "$base" | sed 's/\\/\\\\/g;s/"/\\"/g')
+predicate="subsystem == \"$name\""
+[ -z "$escaped" ] || predicate="$predicate OR process == \"$escaped\""
+if command -v perl >/dev/null 2>&1; then
+  { perl -e 'alarm 6; exec @ARGV' /usr/bin/log show --last 15m --style compact --info --predicate "$predicate" 2>&1
+    code=$?; [ "$code" -eq 0 ] || printf '\n日志查询未完成（退出码 %s），可手动重试。\n' "$code"
+  } | tail -n 120 | head -c 48000
+else
+  printf '缺少有界日志查询所需的 Perl。\n'
+fi
+for key in 'stdout path' 'stderr path'; do
+  file=$(printf '%s\n' "$info" | sed -n "s/^[[:space:]]*$key = //p" | head -n 1)
+  [ -n "$file" ] || continue
+  printf '\n%s: %s\n' "$key" "$file"
+  if [ -f "$file" ] && [ -r "$file" ]; then tail -n 120 "$file" | head -c 16000
+  else printf '日志文件不存在或当前账户不可读取。\n'; fi
+done
+section end
+'''
+          .replaceAll('__NAME__', posixShellQuote(name));
 }
 
 /// WSH/JScript 使用系统 WMI，兼容没有 PowerShell 的旧 Windows；不依赖 WMIC。
@@ -378,8 +418,8 @@ lines.push("__COUNT__\t"+processes.length);emit("processes",lines.join("\n"));em
 
 const _windowsServices = r'''
 emit("manager","Windows SCM");
-var services=rows("SELECT Name,DisplayName,State,StartMode,ProcessId,StartName,ExitCode,PathName FROM Win32_Service"),lines=[],startup=[];
-for(var i=0;i<services.length;i++){var s=services[i];lines.push([clean(s.Name),clean(s.State),clean(s.DisplayName),clean(s.ProcessId),clean(s.StartName),clean(s.ExitCode),clean(s.PathName)].join("\t"));startup.push(clean(s.Name)+"\t"+clean(s.StartMode));}
+var services=rows("SELECT Name,DisplayName,State,StartMode,ProcessId,StartName,ExitCode,PathName,ServiceType,AcceptStop,AcceptPause,ServiceSpecificExitCode FROM Win32_Service"),lines=[],startup=[];
+for(var i=0;i<services.length;i++){var s=services[i];lines.push([clean(s.Name),clean(s.State),clean(s.DisplayName),clean(s.ProcessId),clean(s.StartName),clean(s.ExitCode),clean(s.PathName),clean(s.ServiceType),clean(s.AcceptStop),clean(s.AcceptPause),clean(s.ServiceSpecificExitCode)].join("\t"));startup.push(clean(s.Name)+"\t"+clean(s.StartMode));}
 emit("services",lines.join("\n").substr(0,50000));emit("startup",startup.join("\n").substr(0,16000));
 var dependencies=rows("SELECT Antecedent,Dependent FROM Win32_DependentService"),links=[];
 for(var i=0;i<dependencies.length;i++){var d=dependencies[i],a=String(d.Antecedent).match(/Name="([^"]+)"/i),b=String(d.Dependent).match(/Name="([^"]+)"/i);if(a&&b)links.push(clean(b[1])+"\t"+clean(a[1]));}
@@ -436,7 +476,17 @@ class _WindowsServiceMaintenanceAdapter
 
   @override
   String detail(String name) =>
-      '$_windowsPrelude\nemit("status",describe(wmi.Get(${jsonEncode('Win32_Service.Name="$name"')})));emit("end","");';
+      '''$_windowsPrelude
+var service=wmi.Get(${jsonEncode('Win32_Service.Name="$name"')});
+emit("status",describe(service));
+var cutoff=new Date(new Date().getTime()-86400000);
+function two(n){return n<10?"0"+n:String(n);}
+var since=String(cutoff.getUTCFullYear())+two(cutoff.getUTCMonth()+1)+two(cutoff.getUTCDate())+two(cutoff.getUTCHours())+two(cutoff.getUTCMinutes())+two(cutoff.getUTCSeconds())+".000000+000";
+var events=rows("SELECT TimeGenerated,SourceName,EventCode,Message FROM Win32_NTLogEvent WHERE Logfile='System' AND SourceName='Service Control Manager' AND TimeGenerated >= '"+since+"'",500),messages=["最近 24 小时内与服务名称匹配的 SCM 事件（不包含应用自有日志）。"];
+
+for(var i=0;i<events.length;i++){var e=events[i],message=String(e.Message||"");if(message.indexOf(String(service.Name))<0 && (!service.DisplayName || message.indexOf(String(service.DisplayName))<0))continue;messages.push(clean(e.TimeGenerated)+" "+clean(e.SourceName)+" ["+clean(e.EventCode)+"] "+String(e.Message||""));}
+emit("logs",messages.join("\\n").substr(0,48000));emit("end","");
+''';
 }
 
 const _windowsGpu = r'''

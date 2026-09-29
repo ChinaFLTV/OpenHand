@@ -5534,7 +5534,7 @@ class _MachineMaintenanceDetailsState
     extends State<_MachineMaintenanceDetails> {
   MachineMaintenanceSnapshot? _data;
   String? _error, _result;
-  bool _busy = false, _automatic = false;
+  bool _busy = false, _automatic = false, _logsOnly = false;
   Timer? _refreshTimer;
 
   @override
@@ -5701,6 +5701,14 @@ class _MachineMaintenanceDetailsState
                     ),
                   if (widget.refreshInterval != null)
                     _MachineTerminalIconButton(
+                      icon: _logsOnly
+                          ? Icons.analytics_outlined
+                          : Icons.article_outlined,
+                      tooltip: _logsOnly ? '查看服务详情' : '查看服务日志',
+                      onPressed: () => setState(() => _logsOnly = !_logsOnly),
+                    ),
+                  if (widget.refreshInterval != null)
+                    _MachineTerminalIconButton(
                       icon: _automatic
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
@@ -5757,13 +5765,15 @@ class _MachineMaintenanceDetailsState
                           _data!,
                           _data!.sections.keys
                               .where(
-                                (key) => !const [
-                                  'platform',
-                                  'host',
-                                  'boot',
-                                  'encoding',
-                                  'uptime',
-                                ].contains(key),
+                                (key) =>
+                                    (!_logsOnly || key == 'logs') &&
+                                    !const [
+                                      'platform',
+                                      'host',
+                                      'boot',
+                                      'encoding',
+                                      'uptime',
+                                    ].contains(key),
                               )
                               .toList(),
                         ))

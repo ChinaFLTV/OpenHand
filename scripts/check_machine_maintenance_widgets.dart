@@ -1714,8 +1714,8 @@ void main() {
       await tester.pumpAndSettle();
       if (tab == '系统服务') {
         final services = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
-        expect(services.headers.length, 12);
-        expect(services.rows.first.cells.skip(6).toList(), ['42', '1 MB', '2.00 s', '3', '0', '0']);
+        expect(services.headers.length, 16);
+        expect(services.rows.first.cells.skip(6).take(6).toList(), ['42', '1 MB', '2.00 s', '3', '0', '0']);
         expect(tester.getSize(find.byType(TextField).first).height, controlHeight);
         expect(tester.getSize(find.byType(TextField).first).width, _maintenanceSearchWidth);
         for (final label in ['开机启动状态', '系统定时器']) {
@@ -1739,6 +1739,51 @@ void main() {
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('服务与日志手动自动刷新不重叠，失败停止，关闭清理', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    var loads = 0;
+    Completer<String>? pending;
+    var fail = false;
+    const sample = '__OH_OPS_platform__\\nDarwin\\n__OH_OPS_status__\\nstate = running\\n__OH_OPS_logs__\\n服务日志第一行\\n服务日志第二行\\n__OH_OPS_end__\\n';
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MachineMaintenanceDetails(title: '测试服务', actions: const {}, execute: (_) async => '',
+        refreshInterval: const Duration(seconds: 10), load: () async {
+          loads++;
+          if (fail) throw StateError('模拟服务刷新失败');
+          return pending == null ? sample : await pending!.future;
+        }))));
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+    await tester.tap(find.byTooltip('查看服务日志'));
+    await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceLogTimeline), findsOneWidget);
+    await tester.tap(find.byTooltip('刷新服务与日志'));
+    await tester.pumpAndSettle();
+    expect(loads, 2);
+    await tester.tap(find.byTooltip('自动刷新服务与日志（10 秒）'));
+    pending = Completer<String>();
+    await tester.pump(const Duration(seconds: 11));
+    expect(loads, 3);
+    await tester.pump(const Duration(seconds: 30));
+    expect(loads, 3);
+    pending!.complete(sample);
+    pending = null;
+    await tester.pumpAndSettle();
+    fail = true;
+    await tester.pump(const Duration(seconds: 11));
+    await tester.pumpAndSettle();
+    expect(loads, 4);
+    await tester.pump(const Duration(seconds: 30));
+    expect(loads, 4);
+    expect(find.byTooltip('自动刷新服务与日志（10 秒）'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
+    expect(loads, 4);
+    expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
 

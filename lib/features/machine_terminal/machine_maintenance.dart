@@ -334,7 +334,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   section services
   bounded systemctl list-units --type=service --all --no-legend --plain --no-pager 2>&1 | head -c 50000
   section service_metrics
-  bounded sh -c 'systemctl list-units --type=service --all --no-legend --plain --no-pager | sed "s/^ *//;s/ .*//" | grep "[.]service$" | xargs -r -d "\n" systemctl show --no-pager -p Id -p MainPID -p MemoryCurrent -p CPUUsageNSec -p TasksCurrent -p NRestarts -p ExecMainStatus -p Requires -p Wants --' 2>&1 | head -c 160000
+  bounded sh -c 'systemctl list-units --type=service --all --no-legend --plain --no-pager | sed "s/^ *//;s/ .*//" | grep "[.]service$" | xargs -r -d "\n" systemctl show --no-pager -p Id -p MainPID -p MemoryCurrent -p CPUUsageNSec -p TasksCurrent -p NRestarts -p ExecMainStatus -p User -p FragmentPath -p ActiveEnterTimestamp -p Result -p Requires -p Wants --' 2>&1 | head -c 160000
   section startup
   bounded systemctl list-unit-files --type=service --no-legend --no-pager 2>&1 | head -c 20000
   section timers
@@ -473,7 +473,17 @@ abstract class MachineMaintenanceServiceAdapter {
       RegExp(r'^[a-zA-Z0-9_][a-zA-Z0-9_.:@\x2d]*$').hasMatch(name);
   String invoke(String name, String action);
   String detail(String name) =>
-      '$_linuxPrelude\nsection status\n${invoke(name, 'status')} 2>&1\nsection end';
+      '''$_linuxPrelude
+section status
+bounded sh -c ${posixShellQuote(invoke(name, 'status'))} 2>&1
+section logs
+if command -v journalctl >/dev/null 2>&1; then
+  bounded journalctl -t ${posixShellQuote(name.split('/').last)} --since="24 hours ago" -n 120 --no-pager -o short-iso 2>&1 | head -c 48000
+else
+  printf '当前服务管理器未提供可查询的集中日志。\\n'
+fi
+section end
+''';
 
   String command(String name, [String? action]) {
     if (!accepts(name) || (action != null && !actions.containsValue(action))) {
@@ -500,9 +510,9 @@ class _SystemdMaintenanceAdapter extends MachineMaintenanceServiceAdapter {
   String detail(String name) =>
       '''$_linuxPrelude
 section status
-systemctl show --no-pager -- ${posixShellQuote(name)} 2>&1 | head -c 25000
+bounded systemctl show --no-pager -- ${posixShellQuote(name)} 2>&1 | head -c 60000
 section logs
-journalctl -u ${posixShellQuote(name)} -n 60 --no-pager -o short-iso 2>&1 | head -c 20000
+bounded journalctl -u ${posixShellQuote(name)} --since="24 hours ago" -n 120 --no-pager -o short-iso 2>&1 | head -c 48000
 section end
 ''';
 }
