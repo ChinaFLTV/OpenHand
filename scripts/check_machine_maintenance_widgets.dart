@@ -965,7 +965,7 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('二级弹窗操作靠右等高，进度条留白且加载结束不跳动', (tester) async {
+  testWidgets('二级弹窗操作靠右等高，加载后按内容收拢', (tester) async {
     for (final width in [1100.0, 580.0]) {
       for (final actions in [
         {'终止进程': 'stop', '暂停进程': 'pause', '恢复进程': 'resume'},
@@ -1001,7 +1001,8 @@ void main() {
         expect(tester.takeException(), isNull);
         pending.complete('__OH_OPS_platform__\\nLinux\\n__OH_OPS_end__\\n');
         await tester.pumpAndSettle();
-        expect(tester.getRect(header), headerRect);
+        expect(tester.getSize(header), headerRect.size);
+        expect(tester.getSize(find.descendant(of: find.byType(Dialog), matching: find.byType(Column)).first).height, lessThan(850 * .82));
         expect(find.byType(LinearProgressIndicator), findsNothing);
         for (final label in actions.keys) {
           expect(tester.widget<_MachineTerminalIconButton>(find.byWidgetPredicate((widget) => widget is _MachineTerminalIconButton && widget.tooltip == label)).onPressed, isNotNull);
@@ -1010,6 +1011,45 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       }
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+
+  testWidgets('采集详情按内容收拢且长内容不越过最大高度', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(
+      value: service,
+      child: const MaterialApp(locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    for (final text in ['', '单条记录', List.filled(100, '这是一条完整的日志记录').join('\\n')]) {
+      final closed = state._showCollected('最近日志', text);
+      await tester.pumpAndSettle();
+      final dialog = find.byType(Dialog).last;
+      final rect = tester.getRect(find.descendant(of: dialog, matching: find.byType(Column)).first);
+      expect(rect.height, lessThanOrEqualTo(900 * .7));
+      if (text.length < 100) {
+        expect(rect.height, lessThan(400));
+      } else {
+        final scrollables = tester.stateList<ScrollableState>(
+          find.descendant(of: dialog, matching: find.byType(Scrollable)));
+        final scrolling = scrollables.where((state) => state.position.maxScrollExtent > 0);
+        expect(scrolling, isNotEmpty);
+        for (final scroll in scrolling) {
+          scroll.position.jumpTo(scroll.position.maxScrollExtent);
+        }
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+      Navigator.of(tester.element(dialog)).pop();
+      await tester.pumpAndSettle();
+      await closed;
+    }
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
 

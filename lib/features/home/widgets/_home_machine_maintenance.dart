@@ -697,10 +697,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     await showAnimatedDialog<void>(
       context: context,
       builder: (context) => buildOpenHandDialog(
+        maxHeight: MediaQuery.sizeOf(context).height * .7,
         child: SizedBox(
           width: math.min(MediaQuery.sizeOf(context).width * .86, 900),
-          height: MediaQuery.sizeOf(context).height * .7,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _MachineTerminalDialogHeader(
@@ -708,7 +709,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 title: maintenanceLabel(context, title),
                 onClose: () => Navigator.of(context).pop(),
               ),
-              Expanded(
+              Flexible(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: SingleChildScrollView(
@@ -3468,9 +3469,10 @@ class _MaintenanceLogTimeline extends StatelessWidget {
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    return SizedBox(
-      height: math.min(300, rows.length * 70.0),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 300),
       child: ListView.builder(
+        shrinkWrap: true,
         primary: false,
         itemCount: rows.length,
         itemBuilder: (_, index) {
@@ -3945,10 +3947,11 @@ class _MachineMaintenanceDetailsState
     return buildOpenHandDialog(
       insetPadding: const EdgeInsets.all(18),
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+      maxHeight: size.height * .82,
       child: SizedBox(
         width: math.min(size.width * .9, 940),
-        height: size.height * .82,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             LayoutBuilder(
@@ -4024,9 +4027,10 @@ class _MachineMaintenanceDetailsState
                   error: _error != null,
                 ),
               ),
-            Expanded(
+            Flexible(
               child: _data == null
                   ? Center(
+                      heightFactor: 3,
                       child: Text(
                         maintenanceLabel(
                           context,
@@ -4035,6 +4039,7 @@ class _MachineMaintenanceDetailsState
                       ),
                     )
                   : ListView(
+                      shrinkWrap: true,
                       padding: const EdgeInsets.all(18),
                       children: [
                         _MaintenanceGrid(

@@ -2112,9 +2112,9 @@ class _MachineTerminalFileDetailsDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.all(18),
+      maxHeight: height,
       child: Container(
         width: width,
-        height: height,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: cs.surface,
@@ -2129,6 +2129,7 @@ class _MachineTerminalFileDetailsDialog extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _MachineTerminalDialogHeader(
               icon: _machineTerminalFileIcon(entry),
@@ -2140,8 +2141,9 @@ class _MachineTerminalFileDetailsDialog extends StatelessWidget {
               subtitle: entry.name,
               onClose: () => Navigator.of(context).pop(),
             ),
-            Expanded(
+            Flexible(
               child: ListView.separated(
+                shrinkWrap: true,
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                 itemCount: rows.length,
                 separatorBuilder: (_, _) => Divider(
@@ -2937,9 +2939,9 @@ class _MachineTerminalTransfersDialogState
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.all(18),
+      maxHeight: height,
       child: Container(
         width: width,
-        height: height,
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: kOpenHandBorderRadius20,
@@ -2953,6 +2955,7 @@ class _MachineTerminalTransfersDialogState
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.swap_vert_circle_rounded,
@@ -2968,17 +2971,20 @@ class _MachineTerminalTransfersDialogState
               ),
               onClose: () => Navigator.of(context).pop(),
             ),
-            Expanded(
+            Flexible(
               child: tasks.isEmpty
-                  ? OpenHandInlineEmptyState(
-                      icon: Icons.swap_vert_circle_outlined,
-                      message: openHandLocalizedText(
-                        context,
-                        zh: '暂无文件传输记录。',
-                        en: 'No file transfers yet.',
+                  ? SingleChildScrollView(
+                      child: OpenHandInlineEmptyState(
+                        icon: Icons.swap_vert_circle_outlined,
+                        message: openHandLocalizedText(
+                          context,
+                          zh: '暂无文件传输记录。',
+                          en: 'No file transfers yet.',
+                        ),
                       ),
                     )
                   : ListView.separated(
+                      shrinkWrap: true,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       itemCount: tasks.length,
                       separatorBuilder: (_, _) => kOpenHandGap8,

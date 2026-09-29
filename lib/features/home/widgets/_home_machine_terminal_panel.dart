@@ -712,9 +712,9 @@ class _MachineTerminalHistoryDialogState
       elevation: 0,
       clipBehavior: Clip.none,
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      maxHeight: dialogHeight,
       child: Container(
         width: dialogWidth,
-        height: dialogHeight,
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: kOpenHandBorderRadius20,
@@ -728,6 +728,7 @@ class _MachineTerminalHistoryDialogState
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.history_rounded,
@@ -748,7 +749,7 @@ class _MachineTerminalHistoryDialogState
               commandCount: _terminalCommandTotal(terminals),
               outputSize: formatByteSize(_terminalHistoryBytes(terminals)),
             ),
-            Expanded(
+            Flexible(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
                 child: _buildHistoryTable(context, terminals, activeTerminalId),
@@ -768,11 +769,13 @@ class _MachineTerminalHistoryDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     if (terminals.isEmpty) {
-      return OpenHandInlineEmptyState(
-        message: openHandLocalizedText(
-          context,
-          zh: '暂无终端会话历史。',
-          en: 'No terminal history yet.',
+      return SingleChildScrollView(
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '暂无终端会话历史。',
+            en: 'No terminal history yet.',
+          ),
         ),
       );
     }

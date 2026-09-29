@@ -33,9 +33,9 @@ class _ThreadTemplateDialog extends StatelessWidget {
         .toDouble();
     return buildOpenHandAlertDialog(
       title: Text(l10n.threadTemplateDialogTitle),
-      content: SizedBox(
+      content: Container(
         width: dialogWidth,
-        height: dialogHeight,
+        constraints: BoxConstraints(maxHeight: dialogHeight),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
