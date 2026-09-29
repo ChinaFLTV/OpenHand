@@ -12228,4 +12228,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceMetricApfsContainer => 'APFS-Container';
+
+  @override
+  String maintenanceWorkers(String count) {
+    return 'Bis zu $count Erfassungsprozesse';
+  }
+
+  @override
+  String get maintenanceWorkersHelp =>
+      'Maximale Anzahl gleichzeitiger Erfassungsaufgaben. Gilt ab der nächsten Aktualisierung.';
 }

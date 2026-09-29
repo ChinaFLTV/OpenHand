@@ -8443,5 +8443,14 @@
   "maintenanceMetricGuidScheme": "GUID-Partitionstabelle",
   "maintenanceMetricApfsVolume": "APFS-Volume",
   "maintenanceMetricApfsSnapshot": "APFS-Schnappschuss",
-  "maintenanceMetricApfsContainer": "APFS-Container"
+  "maintenanceMetricApfsContainer": "APFS-Container",
+  "maintenanceWorkers": "Bis zu {count} Erfassungsprozesse",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "Maximale Anzahl gleichzeitiger Erfassungsaufgaben. Gilt ab der nächsten Aktualisierung."
 }

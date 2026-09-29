@@ -8448,5 +8448,14 @@
   "maintenanceMetricGuidScheme": "GUID partition table",
   "maintenanceMetricApfsVolume": "APFS volume",
   "maintenanceMetricApfsSnapshot": "APFS snapshot",
-  "maintenanceMetricApfsContainer": "APFS container"
+  "maintenanceMetricApfsContainer": "APFS container",
+  "maintenanceWorkers": "Up to {count} workers",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "Maximum concurrent collection tasks. Takes effect on the next refresh."
 }

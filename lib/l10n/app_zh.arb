@@ -9417,5 +9417,14 @@
   "maintenanceMetricGuidScheme": "GUID 分区表",
   "maintenanceMetricApfsVolume": "APFS 卷",
   "maintenanceMetricApfsSnapshot": "APFS 快照",
-  "maintenanceMetricApfsContainer": "APFS 容器"
+  "maintenanceMetricApfsContainer": "APFS 容器",
+  "maintenanceWorkers": "最多 {count} 个采集进程",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "并行采集任务上限，下次刷新生效。"
 }

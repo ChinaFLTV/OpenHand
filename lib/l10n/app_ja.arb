@@ -8443,5 +8443,14 @@
   "maintenanceMetricGuidScheme": "GUID パーティションテーブル",
   "maintenanceMetricApfsVolume": "APFS ボリューム",
   "maintenanceMetricApfsSnapshot": "APFS スナップショット",
-  "maintenanceMetricApfsContainer": "APFS コンテナ"
+  "maintenanceMetricApfsContainer": "APFS コンテナ",
+  "maintenanceWorkers": "最大 {count} 収集プロセス",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "同時に実行する収集タスクの上限。次の更新から適用します。"
 }

@@ -3474,6 +3474,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.paginate = true,
     this.footer,
     this.animateRows = false,
+    this.animateCellChanges = false,
     this.semanticsLabel = '排行表',
     this.scrollResetKey,
   });
@@ -3489,6 +3490,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final bool paginate;
   final Widget? footer;
   final bool animateRows;
+  final bool animateCellChanges;
   final String semanticsLabel;
   final Object? scrollResetKey;
 
@@ -3932,11 +3934,25 @@ class _OpenHandOperationalRankTableState
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: _kRankCellPadding,
                                 ),
-                                child: cellBody(
-                                  header: header,
-                                  index: i,
-                                  row: row,
-                                ),
+                                child: widget.animateCellChanges && !header
+                                    ? _OperationalLiveCell(
+                                        value: (
+                                          i < row!.cells.length
+                                              ? row.cells[i]
+                                              : '--',
+                                          subtitleFor(row, i),
+                                        ),
+                                        builder: () => cellBody(
+                                          header: false,
+                                          index: i,
+                                          row: row,
+                                        ),
+                                      )
+                                    : cellBody(
+                                        header: header,
+                                        index: i,
+                                        row: row,
+                                      ),
                               ),
                               if (header)
                                 Align(
@@ -4064,6 +4080,20 @@ class _OpenHandOperationalRankTableState
                                       primary: false,
                                       padding: EdgeInsets.zero,
                                       itemCount: pageRows.length,
+                                      findChildIndexCallback:
+                                          widget.animateCellChanges
+                                          ? (key) {
+                                              final index = pageRows.indexWhere(
+                                                (row) =>
+                                                    ValueKey(
+                                                      row.rowKey ??
+                                                          row.cells.firstOrNull,
+                                                    ) ==
+                                                    key,
+                                              );
+                                              return index < 0 ? null : index;
+                                            }
+                                          : null,
                                       itemExtent: rowHeight,
                                       physics: openHandDialogAwareScrollPhysics(
                                         context,
@@ -4097,7 +4127,15 @@ class _OpenHandOperationalRankTableState
                                             child: interactive,
                                           );
                                         }
-                                        return interactive;
+                                        return widget.animateCellChanges
+                                            ? KeyedSubtree(
+                                                key: ValueKey(
+                                                  row.rowKey ??
+                                                      row.cells.firstOrNull,
+                                                ),
+                                                child: interactive,
+                                              )
+                                            : interactive;
                                       },
                                     ),
                                   ),
@@ -4975,4 +5013,48 @@ class _EmptyChartLabel extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 保留未变化单元格的子树，数据变化只触发该单元格的过渡。
+class _OperationalLiveCell extends StatefulWidget {
+  const _OperationalLiveCell({required this.value, required this.builder});
+  final Object value;
+  final Widget Function() builder;
+
+  @override
+  State<_OperationalLiveCell> createState() => _OperationalLiveCellState();
+}
+
+class _OperationalLiveCellState extends State<_OperationalLiveCell> {
+  Object? _identity;
+  Widget? _child;
+
+  @override
+  Widget build(BuildContext context) {
+    final identity = (
+      widget.value,
+      Theme.of(context),
+      Localizations.localeOf(context),
+    );
+    if (_identity != identity) {
+      _identity = identity;
+      _child = KeyedSubtree(key: ValueKey(identity), child: widget.builder());
+    }
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(
+            begin: .97,
+            end: 1,
+          ).chain(CurveTween(curve: kOpenHandEntranceCurve)).animate(animation),
+          child: child,
+        ),
+      ),
+      child: _child,
+    );
+  }
 }

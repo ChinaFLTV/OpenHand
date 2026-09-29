@@ -62,6 +62,7 @@ const _checks =
     '''
 class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTerminalFileService {
   int calls = 0;
+  String lastCommand = "";
   String platform = 'Linux';
   bool powershell = false;
   bool fail = false;
@@ -71,6 +72,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
     expect(windowsScript, platform == 'Windows');
     calls++;
+    lastCommand = command;
     if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
       final samples = jsonDecode(File(Platform.environment['MAINTENANCE_REAL_DATA']!).readAsStringSync()) as Map;
       final key = command.contains('section processes') ? 'processes' : command.contains('section manager') ? 'services' : command.contains('section sockets') ? 'diagnostics' : calls == 1 ? 'overview' : 'overviewNext';
@@ -344,6 +346,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('系统服务'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('nginx.service').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('nginx.service').first);
       await tester.pumpAndSettle();
       expect(find.text('启动服务'), findsOneWidget);
@@ -566,6 +570,45 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('表格只更新变化单元格，减少动画立即应用新值', (tester) async {
+    var value = '10';
+    var reduced = false;
+    final builds = [0, 0];
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+          child: _MaintenanceTable(headers: const ['名称', '数值'], rows: [
+            OpenHandOperationalRankRow(value: 0, rowKey: '设备', cells: ['设备', value], cellWidgets: [
+              Builder(builder: (_) { builds[0]++; return const Text('设备'); }),
+              Builder(builder: (_) { builds[1]++; return Text(value); }),
+            ]),
+          ]));
+      }))));
+    await tester.pumpAndSettle();
+    final initial = List<int>.of(builds);
+    update(() {});
+    await tester.pumpAndSettle();
+    expect(builds, initial);
+    update(() => value = '20');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(builds[0], initial[0]);
+    expect(builds[1], initial[1] + 1);
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('20'), findsOneWidget);
+    await tester.pumpAndSettle();
+    update(() { reduced = true; value = '30'; });
+    await tester.pumpAndSettle();
+    expect(find.text('20'), findsNothing);
+    expect(find.text('30'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('浅深主题卡片四角描边不被内容背景覆盖', (tester) async {
     for (final brightness in [Brightness.light, Brightness.dark]) {
       final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)
@@ -617,16 +660,27 @@ void main() {
       child: const MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
     await tester.pumpAndSettle();
     expect(service.calls, 1);
+    expect(service.lastCommand, contains('oh_workers=4'));
+    await tester.ensureVisible(find.text('最多 4 个采集进程'));
+    await tester.tap(find.text('最多 4 个采集进程'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最多 2 个采集进程').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('开启自动刷新（当前分区）'));
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
     expect(service.calls, 2);
+    expect(service.lastCommand, contains('oh_workers=2'));
+    await tester.ensureVisible(find.text('10 秒'));
     await tester.tap(find.text('10 秒'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('5 秒').last);
+    await tester.tap(find.text('3 秒').last);
     await tester.pumpAndSettle();
     service.pending = Completer<String>();
-    await tester.pump(const Duration(seconds: 5));
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final previousBody = state._body;
+    await tester.pump(const Duration(seconds: 3));
+    expect(identical(previousBody, state._body), isTrue, reason: '刷新开始不应重建已有面板');
     final count = service.calls;
     await tester.pump(const Duration(seconds: 30));
     expect(service.calls, count);

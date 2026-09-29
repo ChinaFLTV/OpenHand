@@ -12122,4 +12122,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceMetricApfsContainer => 'APFS container';
+
+  @override
+  String maintenanceWorkers(String count) {
+    return 'Up to $count workers';
+  }
+
+  @override
+  String get maintenanceWorkersHelp =>
+      'Maximum concurrent collection tasks. Takes effect on the next refresh.';
 }

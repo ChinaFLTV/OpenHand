@@ -8443,5 +8443,14 @@
   "maintenanceMetricGuidScheme": "GUID 分割表",
   "maintenanceMetricApfsVolume": "APFS 卷宗",
   "maintenanceMetricApfsSnapshot": "APFS 快照",
-  "maintenanceMetricApfsContainer": "APFS 容器"
+  "maintenanceMetricApfsContainer": "APFS 容器",
+  "maintenanceWorkers": "最多 {count} 個採集程序",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "平行採集工作上限，下次重新整理生效。"
 }

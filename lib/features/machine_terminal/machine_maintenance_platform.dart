@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance.dart';
+import 'machine_maintenance_parallel.dart';
 
 /// 平台策略只生成目标命令，传输和终端协议由执行层统一处理。
 abstract class MachineMaintenancePlatformAdapter {
@@ -15,7 +16,8 @@ abstract class MachineMaintenancePlatformAdapter {
       };
   bool get windowsScript => false;
   bool canInspectProcess(MachineMaintenanceProcess process) => process.pid >= 1;
-  String collect(int section, {int offset = 0});
+  /// 指定并发数时启用受监管采集；省略时保留原始协议脚本。
+  String collect(int section, {int offset = 0, int? workers});
   String process(MachineMaintenanceProcess process, {String? action});
   Map<String, String> processActions(MachineMaintenanceProcess process) =>
       process.pid <= 1
@@ -29,12 +31,17 @@ abstract class MachineMaintenancePlatformAdapter {
 class _LinuxMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   const _LinuxMaintenanceAdapter();
   @override
-  String collect(int section, {int offset = 0}) => switch (section) {
-    0 => machineMaintenanceOverviewCommand,
-    1 => machineMaintenanceProcessesCommand(offset: offset),
-    2 => machineMaintenanceServicesCommand,
-    _ => machineMaintenanceDiagnosticsCommand,
-  };
+  String collect(int section, {int offset = 0, int? workers}) =>
+      parallelMaintenanceCommand(
+        switch (section) {
+          0 => machineMaintenanceOverviewCommand,
+          1 => machineMaintenanceProcessesCommand(offset: offset),
+          2 => machineMaintenanceServicesCommand,
+          _ => machineMaintenanceDiagnosticsCommand,
+        },
+        workers,
+        section,
+      );
   @override
   String process(MachineMaintenanceProcess process, {String? action}) =>
       machineMaintenanceProcessCommand(process, signal: action);
@@ -63,9 +70,10 @@ class _MacMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   bool canInspectProcess(MachineMaintenanceProcess process) =>
       process.pid >= 1 && process.startToken != null;
   @override
-  String collect(int section, {int offset = 0}) {
+  String collect(int section, {int offset = 0, int? workers}) {
     if (offset < 0) throw ArgumentError('进程偏移无效。');
-    return _macPrelude +
+    final command =
+        _macPrelude +
         switch (section) {
           0 => _macOverview,
           1 =>
@@ -104,6 +112,7 @@ if command -v docker >/dev/null 2>&1; then docker ps -a 2>&1 | head -c 10000; el
 section end
 ''',
         };
+    return parallelMaintenanceCommand(command, workers, section);
   }
 
   @override
@@ -213,14 +222,39 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   @override
   bool get windowsScript => true;
   @override
-  String collect(int section, {int offset = 0}) {
+  String collect(int section, {int offset = 0, int? workers}) {
     if (offset < 0) throw ArgumentError('进程偏移无效。');
-    return '$_windowsPrelude${switch (section) {
+    final body = switch (section) {
       0 => _windowsOverview,
-      1 => _windowsProcesses.replaceAll('__OFFSET__', '$offset').replaceAll('__LIMIT__', '$machineMaintenanceProcessLimit'),
+      1 =>
+        _windowsProcesses
+            .replaceAll('__OFFSET__', '$offset')
+            .replaceAll('__LIMIT__', '$machineMaintenanceProcessLimit'),
       2 => _windowsServices,
       _ => _windowsDiagnostics,
-    }}\nemit("end", "");';
+    };
+    if (workers != null) {
+      final boundaries = section == 0
+          ? RegExp(
+              '^(?:var warningCount=|var drives=|var nets=|var mem=|var adapters=)',
+              multiLine: true,
+            )
+          : RegExp(
+              r'^(?:emit\("routes"|emit\("dns"|var sessions=|emit\("cron"|var logs=|emit\("firewall"|emit\("containers")',
+              multiLine: true,
+            );
+      final starts = [
+        0,
+        if (workers > 1 && (section == 0 || section == 3))
+          ...boundaries.allMatches(body).map((m) => m.start),
+        body.length,
+      ];
+      return parallelWindowsMaintenanceCommand(_windowsPrelude, [
+        for (var i = 0; i + 1 < starts.length; i++)
+          body.substring(starts[i], starts[i + 1]),
+      ], workers);
+    }
+    return '$_windowsPrelude$body\nemit("end", "");';
   }
 
   @override
@@ -269,7 +303,7 @@ function counter(value){return value==null?"-1":fixed(Number(value));}
 function field(item,key){try{return item[key];}catch(e){return null;}}
 var warnings=[];
 var wmi;
-try {wmi=GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2");}catch(e){fail("WMI 不可用或被策略禁用。 "+e.message);}
+try {wmi=GetObject("winmgmts:{impersonationLevel=impersonate}!\\\\.\\root\\cimv2");}catch(e){fail("WMI 不可用或被策略禁用。 "+e.message);}
 function rows(query,limit){var result=[];limit=limit||16384;try{var items=new Enumerator(wmi.ExecQuery(query,"WQL",48));for(;!items.atEnd() && result.length<limit;items.moveNext())result.push(items.item());if(!items.atEnd())warnings.push("查询达到条目上限："+query);}catch(e){warnings.push(query+"："+e.message);}return result;}
 function describe(item){var lines=[];if(!item)return "无数据或权限不足。";var p=new Enumerator(item.Properties_);for(;!p.atEnd();p.moveNext()){var field=p.item();try{lines.push(field.Name+": "+clean(field.Value));}catch(e){}}return lines.join("\n");}
 function time(value){if(!value)return NaN;var s=String(value);return Date.UTC(+s.substr(0,4),+s.substr(4,2)-1,+s.substr(6,2),+s.substr(8,2),+s.substr(10,2),+s.substr(12,2),+s.substr(15,3))-(s.charAt(21)=="-"?-1:1)*Number(s.substr(22,3))*60000;}

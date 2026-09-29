@@ -11869,4 +11869,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceMetricApfsContainer => 'APFS コンテナ';
+
+  @override
+  String maintenanceWorkers(String count) {
+    return '最大 $count 収集プロセス';
+  }
+
+  @override
+  String get maintenanceWorkersHelp => '同時に実行する収集タスクの上限。次の更新から適用します。';
 }

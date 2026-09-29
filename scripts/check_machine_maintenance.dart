@@ -40,6 +40,28 @@ Future<void> main() async {
   final after = MachineMaintenanceSnapshot.parse(
     sample(uptime: 20, user: 50, idle: 150, bytes: 1100),
   );
+  final oldMemory = before.memory;
+  final oldCounters = before.counters('cpu');
+  final oldProcesses = before.processes;
+  final unchanged = MachineMaintenanceSnapshot.parse(
+    sample(),
+    previous: before,
+  );
+  check(
+    identical(unchanged.memory, oldMemory) &&
+        identical(unchanged.counters('cpu'), oldCounters) &&
+        identical(unchanged.processes, oldProcesses),
+    '未变数据没有复用解析结果',
+  );
+  final changed = MachineMaintenanceSnapshot.parse(
+    sample(user: 99),
+    previous: before,
+  );
+  check(
+    !identical(changed.counters('cpu'), oldCounters) &&
+        identical(changed.memory, oldMemory),
+    '数据差异没有局部失效缓存',
+  );
   check(after.cpuUsage(before) == .4, 'CPU 差值或访客时间计算错误');
   check(after.rate(before, 'network', 'eth0', 0) == 100, '网络速率计算错误');
   check(after.memory['MemTotal'] == 1048576, '内存单位换算错误');

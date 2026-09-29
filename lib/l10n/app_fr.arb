@@ -8443,5 +8443,14 @@
   "maintenanceMetricGuidScheme": "Table de partitions GUID",
   "maintenanceMetricApfsVolume": "Volume APFS",
   "maintenanceMetricApfsSnapshot": "Instantané APFS",
-  "maintenanceMetricApfsContainer": "Conteneur APFS"
+  "maintenanceMetricApfsContainer": "Conteneur APFS",
+  "maintenanceWorkers": "Jusqu’à {count} processus",
+  "@maintenanceWorkers": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceWorkersHelp": "Nombre maximal de tâches de collecte simultanées. Appliqué à la prochaine actualisation."
 }

@@ -8,7 +8,10 @@ const _sectionPrefix = '__OH_OPS_';
 class MachineMaintenanceSnapshot {
   MachineMaintenanceSnapshot(this.sections);
 
-  factory MachineMaintenanceSnapshot.parse(String output) {
+  factory MachineMaintenanceSnapshot.parse(
+    String output, {
+    MachineMaintenanceSnapshot? previous,
+  }) {
     final sections = <String, String>{};
     String? section;
     final buffer = StringBuffer();
@@ -34,7 +37,21 @@ class MachineMaintenanceSnapshot {
     if (!const ['Linux', 'Darwin', 'Windows'].contains(sections['platform'])) {
       throw UnsupportedError('目标系统不支持当前运维协议。');
     }
-    return MachineMaintenanceSnapshot(Map.unmodifiable(sections));
+    final result = MachineMaintenanceSnapshot(Map.unmodifiable(sections));
+    if (previous != null && previous.identity == result.identity) {
+      for (final entry in previous._counterCache.entries) {
+        if (previous.text(entry.key) == result.text(entry.key)) {
+          result._counterCache[entry.key] = entry.value;
+        }
+      }
+      if (previous.text('memory') == result.text('memory')) {
+        result._memory = previous._memory;
+      }
+      if (previous.text('processes') == result.text('processes')) {
+        result._processes = previous._processes;
+      }
+    }
+    return result;
   }
 
   final Map<String, String> sections;
@@ -62,7 +79,11 @@ class MachineMaintenanceSnapshot {
     return result;
   }
 
+  Map<String, int>? _memory;
+  List<MachineMaintenanceProcess>? _processes;
+
   Map<String, int> get memory {
+    if (_memory != null) return _memory!;
     final result = <String, int>{};
     for (final line in text('memory').split('\n')) {
       final fields = line.split(RegExp(r'[:\s]+'));
@@ -73,7 +94,7 @@ class MachineMaintenanceSnapshot {
         }
       }
     }
-    return result;
+    return _memory = Map.unmodifiable(result);
   }
 
   double? cpuUsage(MachineMaintenanceSnapshot? previous, [String cpu = 'cpu']) {
@@ -123,11 +144,12 @@ class MachineMaintenanceSnapshot {
     return (current[index] - old[index]) * multiplier / (seconds - oldSeconds);
   }
 
-  List<MachineMaintenanceProcess> get processes => text('processes')
-      .split('\n')
-      .map(MachineMaintenanceProcess.parse)
-      .whereType<MachineMaintenanceProcess>()
-      .toList();
+  List<MachineMaintenanceProcess> get processes =>
+      _processes ??= text('processes')
+          .split('\n')
+          .map(MachineMaintenanceProcess.parse)
+          .whereType<MachineMaintenanceProcess>()
+          .toList();
 }
 
 class MachineMaintenanceProcess {

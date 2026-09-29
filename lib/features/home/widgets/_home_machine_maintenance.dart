@@ -71,6 +71,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   DateTime? _updated;
   int _tab = 0, _sort = 0, _processOffset = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
+  int _workers = machineMaintenanceDefaultWorkers;
+  Object? _bodyIdentity;
+  Widget? _body;
+  final _collecting = ValueNotifier(false);
 
   @override
   void initState() {
@@ -86,6 +90,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _search.dispose();
+    _collecting.dispose();
     super.dispose();
   }
 
@@ -121,6 +126,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     if (_loading || !mounted) return;
     _timer?.cancel();
     final tab = _tab;
+    _collecting.value = true;
     setState(() {
       _loading = true;
       _error = null;
@@ -151,7 +157,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ? target.shell
           : _requestedShell;
       final result = MachineMaintenanceSnapshot.parse(
-        await _run(_platform!.collect(tab, offset: _processOffset)),
+        await _run(
+          _platform!.collect(tab, offset: _processOffset, workers: _workers),
+        ),
+        previous: _snapshots[tab],
       );
       if (!mounted) return;
       setState(() {
@@ -174,6 +183,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       }
     } finally {
       if (mounted) {
+        _collecting.value = false;
         setState(() {
           _loading = false;
         });
@@ -271,144 +281,179 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               LayoutBuilder(
-                builder: (_, constraints) => _MachineTerminalDialogHeader(
-                  icon: Icons.dns_rounded,
-                  title: maintenanceLabel(context, '服务器运维中心'),
-                  subtitle:
-                      '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? maintenanceLabel(context, '正在识别目标系统')}',
-                  onClose: () => Navigator.of(context).pop(),
-                  trailingActions: [
-                    SizedBox(
-                      width: math.min(
-                        580,
-                        math.max(72, constraints.maxWidth - 400),
-                      ),
-                      height: 34,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _MaintenanceToolbarMenu<
-                              MachineTerminalCommandShell
-                            >(
-                              label: switch (_requestedShell) {
-                                MachineTerminalCommandShell.automatic =>
+                builder: (_, constraints) {
+                  final controls = SizedBox(
+                    width: constraints.maxWidth < 900
+                        ? constraints.maxWidth - 36
+                        : math.min(
+                            680,
+                            math.max(72, constraints.maxWidth - 350),
+                          ),
+                    height: 34,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _MaintenanceToolbarMenu<MachineTerminalCommandShell>(
+                            label: switch (_requestedShell) {
+                              MachineTerminalCommandShell.automatic =>
+                                '自动识别 Shell',
+                              MachineTerminalCommandShell.posix =>
+                                'POSIX Shell',
+                              MachineTerminalCommandShell.powershell =>
+                                'PowerShell',
+                              _ => 'CMD',
+                            },
+                            tooltip: maintenanceLabel(context, '终端 Shell'),
+                            enabled: !_loading,
+                            value: _requestedShell,
+                            items: const {
+                              MachineTerminalCommandShell.automatic:
                                   '自动识别 Shell',
-                                MachineTerminalCommandShell.posix =>
-                                  'POSIX Shell',
-                                MachineTerminalCommandShell.powershell =>
+                              MachineTerminalCommandShell.posix: 'POSIX Shell',
+                              MachineTerminalCommandShell.powershell:
                                   'PowerShell',
-                                _ => 'CMD',
-                              },
-                              tooltip: maintenanceLabel(context, '终端 Shell'),
-                              enabled: !_loading,
-                              value: _requestedShell,
-                              items: const {
-                                MachineTerminalCommandShell.automatic:
-                                    '自动识别 Shell',
-                                MachineTerminalCommandShell.posix:
-                                    'POSIX Shell',
-                                MachineTerminalCommandShell.powershell:
-                                    'PowerShell',
-                                MachineTerminalCommandShell.cmd: 'CMD',
-                              },
-                              onSelected: (value) {
-                                setState(() => _requestedShell = value);
-                                _refresh();
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _MaintenanceToolbarMenu<int>(
-                              label: AppLocalizations.of(
+                              MachineTerminalCommandShell.cmd: 'CMD',
+                            },
+                            onSelected: (value) {
+                              setState(() => _requestedShell = value);
+                              _refresh();
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _MaintenanceToolbarMenu<int>(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.maintenanceSeconds('$_intervalSeconds'),
+                            tooltip: maintenanceLabel(context, '自动刷新间隔'),
+                            icon: Icons.timer_outlined,
+                            value: _intervalSeconds,
+                            items: {
+                              3: AppLocalizations.of(
                                 context,
-                              )!.maintenanceSeconds('$_intervalSeconds'),
-                              tooltip: maintenanceLabel(context, '自动刷新间隔'),
-                              icon: Icons.timer_outlined,
-                              value: _intervalSeconds,
-                              items: {
-                                5: AppLocalizations.of(
-                                  context,
-                                )!.maintenanceSeconds('5'),
-                                10: AppLocalizations.of(
-                                  context,
-                                )!.maintenanceSeconds('10'),
-                                30: AppLocalizations.of(
-                                  context,
-                                )!.maintenanceSeconds('30'),
-                                60: AppLocalizations.of(
-                                  context,
-                                )!.maintenanceSeconds('60'),
-                              },
-                              onSelected: (value) {
-                                setState(() => _intervalSeconds = value);
-                                _schedule();
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              height: 34,
-                              alignment: Alignment.center,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: (_error != null ? cs.error : cs.primary)
-                                    .withValues(alpha: .08),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                maintenanceLabel(context, status),
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: _error != null ? cs.error : cs.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              maintenanceLabel(
+                              )!.maintenanceSeconds('3'),
+                              5: AppLocalizations.of(
                                 context,
-                                _updated == null
-                                    ? '等待首次采样'
-                                    : AppLocalizations.of(
-                                        context,
-                                      )!.maintenanceUpdated(
-                                        _updated!
-                                            .toLocal()
-                                            .toString()
-                                            .substring(11, 19),
+                              )!.maintenanceSeconds('5'),
+                              10: AppLocalizations.of(
+                                context,
+                              )!.maintenanceSeconds('10'),
+                              30: AppLocalizations.of(
+                                context,
+                              )!.maintenanceSeconds('30'),
+                              60: AppLocalizations.of(
+                                context,
+                              )!.maintenanceSeconds('60'),
+                            },
+                            onSelected: (value) {
+                              setState(() => _intervalSeconds = value);
+                              _schedule();
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _MaintenanceToolbarMenu<int>(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.maintenanceWorkers('$_workers'),
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.maintenanceWorkersHelp,
+                            icon: Icons.account_tree_outlined,
+                            enabled: !_loading,
+                            value: _workers,
+                            items: {
+                              for (final count in const [1, 2, 4, 8])
+                                count: AppLocalizations.of(
+                                  context,
+                                )!.maintenanceWorkers('$count'),
+                            },
+                            onSelected: (value) =>
+                                setState(() => _workers = value),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            height: 34,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: (_error != null ? cs.error : cs.primary)
+                                  .withValues(alpha: .08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              maintenanceLabel(context, status),
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: _error != null ? cs.error : cs.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            maintenanceLabel(
+                              context,
+                              _updated == null
+                                  ? '等待首次采样'
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.maintenanceUpdated(
+                                      _updated!.toLocal().toString().substring(
+                                        11,
+                                        19,
                                       ),
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
+                                    ),
                             ),
-                          ],
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                  return Column(
+                    children: [
+                      _MachineTerminalDialogHeader(
+                        icon: Icons.dns_rounded,
+                        title: maintenanceLabel(context, '服务器运维中心'),
+                        subtitle:
+                            '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? maintenanceLabel(context, '正在识别目标系统')}',
+                        onClose: () => Navigator.of(context).pop(),
+                        trailingActions: [
+                          if (constraints.maxWidth >= 900) controls,
+                          _MachineTerminalIconButton(
+                            icon: _automatic
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            tooltip: maintenanceLabel(
+                              context,
+                              _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
+                            ),
+                            onPressed: () {
+                              setState(() => _automatic = !_automatic);
+                              _schedule();
+                            },
+                          ),
+                          _MachineTerminalIconButton(
+                            icon: Icons.refresh_rounded,
+                            tooltip: maintenanceLabel(context, '刷新当前分区'),
+                            onPressed: _loading ? null : _refresh,
+                          ),
+                        ],
+                      ),
+                      if (constraints.maxWidth < 900)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: controls,
+                          ),
                         ),
-                      ),
-                    ),
-                    _MachineTerminalIconButton(
-                      icon: _automatic
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                      tooltip: maintenanceLabel(
-                        context,
-                        _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
-                      ),
-                      onPressed: () {
-                        setState(() => _automatic = !_automatic);
-                        _schedule();
-                      },
-                    ),
-                    _MachineTerminalIconButton(
-                      icon: Icons.refresh_rounded,
-                      tooltip: maintenanceLabel(context, '刷新当前分区'),
-                      onPressed: _loading ? null : _refresh,
-                    ),
-                  ],
-                ),
+                    ],
+                  );
+                },
               ),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: DecoratedBox(
@@ -520,23 +565,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       data == null,
                       data == null && _error != null,
                     )),
-                    child: data == null
-                        ? _emptyState()
-                        : switch (_tab) {
-                            0 => _overview(data),
-                            1 => _processes(data),
-                            2 => _services(data),
-                            _ => _sections(data, const [
-                              'sockets',
-                              'routes',
-                              'dns',
-                              'logs',
-                              'users',
-                              'cron',
-                              'firewall',
-                              'containers',
-                            ]),
-                          },
+                    child: _content(data, theme, size, motion),
                   ),
                 ),
               ),
@@ -545,6 +574,49 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ),
     );
+  }
+
+  Widget _content(
+    MachineMaintenanceSnapshot? data,
+    ThemeData theme,
+    Size size,
+    Object motion,
+  ) {
+    final identity = (
+      _tab,
+      data,
+      _sort,
+      _search.text,
+      _processOffset,
+      _automatic,
+      _intervalSeconds,
+      theme,
+      size,
+      Localizations.localeOf(context),
+      motion,
+      data == null ? (_loading, _error) : null,
+    );
+    if (_bodyIdentity != identity) {
+      _bodyIdentity = identity;
+      _body = data == null
+          ? _emptyState()
+          : switch (_tab) {
+              0 => _overview(data),
+              1 => _processes(data),
+              2 => _services(data),
+              _ => _sections(data, const [
+                'sockets',
+                'routes',
+                'dns',
+                'logs',
+                'users',
+                'cron',
+                'firewall',
+                'containers',
+              ]),
+            };
+    }
+    return _body!;
   }
 
   Widget _emptyState() {
@@ -1055,10 +1127,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                _MaintenanceValue(
+                  value: value,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
@@ -1075,12 +1145,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
                 const SizedBox(height: 7),
                 if (progress != null)
-                  LinearProgressIndicator(
-                    value: progress.clamp(0, 1),
-                    color: color,
-                    backgroundColor: color.withValues(alpha: .1),
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(4),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: progress.clamp(0, 1),
+                      end: progress.clamp(0, 1),
+                    ),
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion260,
+                    ),
+                    curve: kOpenHandSwitchInCurve,
+                    builder: (_, value, _) => LinearProgressIndicator(
+                      value: value.clamp(0, 1),
+                      color: color,
+                      backgroundColor: color.withValues(alpha: .1),
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   )
                 else
                   const SizedBox(height: 4),
@@ -1173,28 +1254,31 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final total =
         int.tryParse(countLine?.split('\t').last ?? '') ??
         data.processes.length;
-    final summary = _MaintenanceToolbarMenu<int>(
-      label: '${rows.length} / $total',
-      tooltip: AppLocalizations.of(
-        context,
-      )!.maintenanceMatched('${rows.length}', '$total'),
-      icon: Icons.filter_list_rounded,
-      value: _processOffset,
-      enabled: !_loading && total > machineMaintenanceProcessLimit,
-      items: {
-        for (
-          var offset = 0;
-          offset < total;
-          offset += machineMaintenanceProcessLimit
-        )
-          offset:
-              '${offset + 1}–${math.min(offset + machineMaintenanceProcessLimit, total)} / $total',
-      },
-      onSelected: (offset) {
-        if (offset == _processOffset) return;
-        setState(() => _processOffset = offset);
-        _refresh();
-      },
+    final summary = ValueListenableBuilder<bool>(
+      valueListenable: _collecting,
+      builder: (context, collecting, _) => _MaintenanceToolbarMenu<int>(
+        label: '${rows.length} / $total',
+        tooltip: AppLocalizations.of(
+          context,
+        )!.maintenanceMatched('${rows.length}', '$total'),
+        icon: Icons.filter_list_rounded,
+        value: _processOffset,
+        enabled: !collecting && total > machineMaintenanceProcessLimit,
+        items: {
+          for (
+            var offset = 0;
+            offset < total;
+            offset += machineMaintenanceProcessLimit
+          )
+            offset:
+                '${offset + 1}–${math.min(offset + machineMaintenanceProcessLimit, total)} / $total',
+        },
+        onSelected: (offset) {
+          if (_loading || offset == _processOffset) return;
+          setState(() => _processOffset = offset);
+          _refresh();
+        },
+      ),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -1527,7 +1611,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               for (final line in filtered)
                 OpenHandOperationalRankRow(
                   value: 0,
-                  rowKey: line,
+                  rowKey: line.contains('\t')
+                      ? line.split('\t').first
+                      : line.trim().split(RegExp(r'\s+')).first,
                   data: line,
                   cells: [
                     line.contains('\t')
@@ -1827,15 +1913,36 @@ String _maintenanceRateLabel(double? rate, {required bool bytes}) =>
     ? '${formatByteSize(rate)}/s'
     : rate.toStringAsFixed(1);
 
-class _MaintenanceMetricContent extends StatelessWidget {
+class _MaintenanceMetricContent extends StatefulWidget {
   const _MaintenanceMetricContent({required this.data, required this.section});
   final MachineMaintenanceSnapshot data;
   final String section;
 
   @override
+  State<_MaintenanceMetricContent> createState() =>
+      _MaintenanceMetricContentState();
+}
+
+class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
+  Object? _identity;
+  Widget? _content;
+
+  @override
   Widget build(BuildContext context) {
+    final data = widget.data;
+    final section = widget.section;
+    final identity = (
+      section,
+      data.text(section),
+      data.text('platform'),
+      data.text('memory_note'),
+      Theme.of(context),
+      Localizations.localeOf(context),
+    );
+    if (_identity == identity) return _content!;
+    _identity = identity;
     final metrics = MachineMaintenanceMetrics.parse(data, section);
-    return Column(
+    return _content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (section == 'memory' && data.text('memory_note').isNotEmpty)
@@ -1897,6 +2004,7 @@ class _MaintenanceTable extends StatelessWidget {
     headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
     rows: rows,
     sortByValue: false,
+    animateCellChanges: true,
     onRowTap: onRowTap,
     maxBodyHeight: limitToViewport
         ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
@@ -1946,12 +2054,11 @@ class _MaintenanceFacts extends StatelessWidget {
               Expanded(
                 child: Tooltip(
                   message: entry.value,
-                  child: Text(
-                    entry.value.isEmpty || entry.value == '未提供'
+                  child: _MaintenanceValue(
+                    value: entry.value.isEmpty || entry.value == '未提供'
                         ? maintenanceLabel(context, '未提供')
                         : entry.value,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -2002,6 +2109,45 @@ class _MaintenanceStatus extends StatelessWidget {
   );
 }
 
+class _MaintenanceValue extends StatelessWidget {
+  const _MaintenanceValue({
+    required this.value,
+    this.style,
+    this.maxLines = 1,
+    this.alignment = Alignment.centerLeft,
+  });
+  final String value;
+  final TextStyle? style;
+  final int maxLines;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: openHandMotionDuration(context, kOpenHandMotion260),
+    switchInCurve: kOpenHandSwitchInCurve,
+    switchOutCurve: kOpenHandSwitchOutCurve,
+    layoutBuilder: (current, previous) =>
+        Stack(alignment: alignment, children: [...previous, ?current]),
+    transitionBuilder: (child, animation) => FadeTransition(
+      opacity: animation,
+      child: ScaleTransition(
+        scale: Tween<double>(
+          begin: .97,
+          end: 1,
+        ).chain(CurveTween(curve: kOpenHandEntranceCurve)).animate(animation),
+        child: child,
+      ),
+    ),
+    child: Text(
+      value,
+      key: ValueKey(value),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    ),
+  );
+}
+
 class _MaintenanceUsage extends StatelessWidget {
   const _MaintenanceUsage({
     required this.label,
@@ -2024,19 +2170,27 @@ class _MaintenanceUsage extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: LinearProgressIndicator(
-            value: (value ?? 0).clamp(0, 1),
-            minHeight: 5,
-            color: color,
-            backgroundColor: color.withValues(alpha: .1),
-            borderRadius: BorderRadius.circular(4),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(
+              begin: (value ?? 0).clamp(0, 1),
+              end: (value ?? 0).clamp(0, 1),
+            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
+            curve: kOpenHandSwitchInCurve,
+            builder: (_, progress, _) => LinearProgressIndicator(
+              value: progress.clamp(0, 1),
+              minHeight: 5,
+              color: color,
+              backgroundColor: color.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
         ),
         SizedBox(
           width: 42,
-          child: Text(
-            value == null ? '—' : '${(value! * 100).round()}%',
-            textAlign: TextAlign.right,
+          child: _MaintenanceValue(
+            value: value == null ? '—' : '${(value! * 100).round()}%',
+            alignment: Alignment.centerRight,
             style: const TextStyle(fontSize: 12),
           ),
         ),

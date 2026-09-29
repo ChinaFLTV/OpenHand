@@ -21655,6 +21655,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'APFS 容器'**
   String get maintenanceMetricApfsContainer;
+
+  /// No description provided for @maintenanceWorkers.
+  ///
+  /// In zh, this message translates to:
+  /// **'最多 {count} 个采集进程'**
+  String maintenanceWorkers(String count);
+
+  /// No description provided for @maintenanceWorkersHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'并行采集任务上限，下次刷新生效。'**
+  String get maintenanceWorkersHelp;
 }
 
 class _AppLocalizationsDelegate

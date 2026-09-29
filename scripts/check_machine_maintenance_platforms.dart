@@ -92,6 +92,17 @@ Future<void> main() async {
   final diskError = await utf8.decoder.bind(diskReader.stderr).join();
   check(await diskReader.exitCode == 0, '磁盘采集脚本检查失败：$diskError');
   check(diskRows.last.split(' ')[4] == '-1', '磁盘缺失字段沿用了上一条记录');
+  for (final platform in ['Linux', 'Darwin', 'Windows']) {
+    for (var tab = 0; tab < 4; tab++) {
+      final command = MachineMaintenancePlatformAdapter.forPlatform(
+        platform,
+      ).collect(tab, workers: 8);
+      check(
+        utf8.encode(command).length <= 16 * 1024,
+        '并行脚本超出终端传输上限：$platform / $tab',
+      );
+    }
+  }
   final windows = MachineMaintenancePlatformAdapter.forPlatform('Windows');
   const process = MachineMaintenanceProcess(
     42,
@@ -155,6 +166,44 @@ Future<void> main() async {
         check(
           data.processes.single.startToken == process.startToken,
           'Windows 进程启动标识丢失',
+        );
+      }
+    }
+    final parallelInput = await File('${directory.path}/parallel.json')
+        .writeAsString(
+          jsonEncode([
+            for (var i = 0; i < 4; i++) windows.collect(i, workers: 4),
+          ]),
+        );
+    final parallelRunner = await File('${directory.path}/parallel.cjs')
+        .writeAsString(
+          _windowsHarness.substring(
+                0,
+                _windowsHarness.indexOf('const results=[];'),
+              ) +
+              _windowsParallelHarness,
+        );
+    final parallelOutput = await Process.run('node', [
+      parallelRunner.path,
+      parallelInput.path,
+    ]);
+    check(
+      parallelOutput.exitCode == 0,
+      'Windows 并行采集模拟失败：${parallelOutput.stderr}',
+    );
+    final parallelResults =
+        (jsonDecode(parallelOutput.stdout as String) as List).cast<String>();
+    for (var i = 0; i < 4; i++) {
+      final parallel = MachineMaintenanceSnapshot.parse(parallelResults[i]);
+      final serial = MachineMaintenanceSnapshot.parse(results[i]);
+      check(
+        parallel.sections.keys.toSet().containsAll(serial.sections.keys),
+        'Windows 并行采集遗漏数据段',
+      );
+      for (final key in serial.sections.keys) {
+        check(
+          parallel.text(key) == serial.text(key),
+          'Windows 并行采集结果不一致：$i / $key',
         );
       }
     }
@@ -233,6 +282,83 @@ ActiveXObject:function(){this.Exec=()=>({Status:1,StdOut:{ReadAll:()=>''},StdErr
 WScript:{Echo:s=>output.push(String(s)),Quit:n=>{throw Error('脚本异常退出：'+n+' '+output.join('\n'));},Sleep:()=>{}}
 };
 new vm.Script(script).runInNewContext(context,{timeout:2000});results.push(output.join('\n'));
+}
+process.stdout.write(JSON.stringify(results));
+''';
+
+const _windowsParallelHarness = r'''
+const results=[];
+for(const script of scripts){
+  const files=new Map(),processes=new Map(),pending=[];
+  const killed=[];let nextPid=200,tick=0,peak=0,guard=null,guardSource=null,failGuard=false;
+  const owner={ProcessId:100,ParentProcessId:90,CreationDate:birth,CommandLine:'cscript C:\\ops.js'};
+  processes.set(100,owner);processes.set(90,{ProcessId:90,ParentProcessId:0,CreationDate:'20260929090000.000000+000'});
+  const normalize=p=>String(p).replace(/\\+/g,'\\');
+  function filesystem(){return {
+    BuildPath:(a,b)=>a+'\\'+b,GetSpecialFolder:()=> 'C:\\临时目录',GetTempName:()=> '私有采集',CreateFolder:()=>{},
+    CreateTextFile:(path,overwrite,unicode)=>{path=normalize(path);let value='';files.set(path,{value,unicode});return {Write:s=>{value+=s;files.set(path,{value,unicode});},WriteLine:s=>{value+=s+'\r\n';files.set(path,{value,unicode});},Close:()=>{}};},
+    OpenTextFile:(path,mode,create,format)=>{const entry=files.get(normalize(path));if(!entry)throw Error('文件不存在：'+path);if(format==-1 && !entry.unicode)throw Error('Unicode 文件编码不匹配');return {ReadAll:()=>entry.value,Close:()=>{}};},
+    FileExists:path=>files.has(normalize(path)),
+    GetFolder:dir=>({Files:[...files.keys()].filter(p=>p.startsWith(normalize(dir)+'\\')).map(Path=>({Path}))}),
+    DeleteFolder:dir=>{for(const key of files.keys())if(key.startsWith(normalize(dir)+'\\'))files.delete(key);},
+  };}
+  function wmi(path){
+    if(!path.includes('\\\\.\\root\\cimv2'))throw Error('WMI 命名空间转义错误：'+JSON.stringify(path));
+    return {
+      ExecQuery:q=>q.includes("Name='cscript.exe'") ? [owner] : datasets[(q.match(/FROM\s+(\w+)/i)||[])[1]]||[],
+      Get:q=>{const id=Number((q.match(/Handle='(\d+)'/)||[])[1]);const p=processes.get(id);if(!p)throw Error('进程已退出');return p;},
+    };
+  }
+  function run(code,path,args=[]){
+    const output=[];
+    function Clock(){this.getTime=()=>tick;}Clock.UTC=Date.UTC;
+    const context={
+      JSON:undefined,
+      Date:Clock,
+      VBArray:function(value){this.toArray=()=>value;},
+      Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
+      GetObject:wmi,
+      ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():{Exec:exec};},
+      WScript:{ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
+        tick+=n;
+        for(const p of pending.splice(0)){p.Status=1;processes.delete(p.ProcessID);}
+        if(guard && files.has('C:\\临时目录\\私有采集\\done')){const g=guard;guard=null;run(g.code,g.path);g.process.Status=1;}
+      }},
+    };
+    new vm.Script(code).runInNewContext(context,{timeout:2000});return output.join('\n');
+  }
+  function exec(command){
+    if(command.startsWith('taskkill.exe')){const pid=Number(command.match(/PID (\d+)/)[1]);killed.push(pid);processes.delete(pid);return {Status:1};}
+    const paths=[...command.matchAll(/"([^"]+)"/g)].map(m=>normalize(m[1]));
+    const pid=nextPid++,proc={ProcessID:pid,Status:0,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{proc.Status=1;processes.delete(pid);}};
+    processes.set(pid,{ProcessId:pid,ParentProcessId:100,CreationDate:birth});
+    if(command.includes('guard.js')){
+      if(failGuard)throw Error('模拟守护进程启动失败');
+      const code=files.get(paths[0]).value;new vm.Script(code);guardSource=code;guard={code,path:paths[0],process:proc};return proc;
+    }
+    if(command.startsWith('cscript.exe')){
+      run(files.get(paths[0]).value,paths[0],paths.slice(1));pending.push(proc);peak=Math.max(peak,pending.length);return proc;
+    }
+    proc.Status=1;return proc;
+  }
+  const output=run(script,'C:\\ops.js');
+  if(files.size)throw Error('采集目录未清理');
+  if(peak>4 || peak<1)throw Error('并发上限错误：'+peak);
+  results.push(output);
+  for(const expired of [false,true]){
+    if(!expired)processes.delete(100);else processes.set(100,owner);
+    const root='C:\\临时目录\\私有采集';
+    processes.set(888,{ProcessId:888,CreationDate:birth});
+    processes.set(999,{ProcessId:999,CreationDate:'新的创建时间'});
+    files.set(root+'\\888.pid',{value:'888|'+birth,unicode:true});
+    files.set(root+'\\999.pid',{value:'999|'+birth,unicode:true});
+    run(guardSource,root+'\\guard.js');
+    if(!killed.includes(888) || killed.includes(999))throw Error('父进程退出或超时回收错误，或误杀复用 PID');
+    if(files.size)throw Error('异常结束后采集目录未清理');
+  }
+  failGuard=true;
+  let rejected=false;try{run(script,'C:\\ops.js');}catch(e){rejected=true;}
+  if(!rejected || files.size)throw Error('守护进程启动失败没有收尾');
 }
 process.stdout.write(JSON.stringify(results));
 ''';

@@ -11747,6 +11747,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceMetricApfsContainer => 'APFS 容器';
+
+  @override
+  String maintenanceWorkers(String count) {
+    return '最多 $count 个采集进程';
+  }
+
+  @override
+  String get maintenanceWorkersHelp => '并行采集任务上限，下次刷新生效。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -23474,4 +23482,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceMetricApfsContainer => 'APFS 容器';
+
+  @override
+  String maintenanceWorkers(String count) {
+    return '最多 $count 個採集程序';
+  }
+
+  @override
+  String get maintenanceWorkersHelp => '平行採集工作上限，下次重新整理生效。';
 }
