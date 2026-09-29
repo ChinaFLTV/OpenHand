@@ -3468,6 +3468,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
     this.sortByValue = true,
+    this.compact = false,
     this.maxBodyHeight = _kRankBodyMaxHeight,
     this.minimumColumnWidths = const <int, double>{},
     this.columnAlignments = const <int, Alignment>{},
@@ -3484,6 +3485,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final String emptyLabel;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final bool sortByValue;
+  final bool compact;
   final double maxBodyHeight;
   final Map<int, double> minimumColumnWidths;
   final Map<int, Alignment> columnAlignments;
@@ -3711,9 +3713,14 @@ class _OpenHandOperationalRankTableState
       }
       if (usesMetricRows) break;
     }
-    final rowHeight = usesMetricRows
+    final rowHeight = widget.compact
+        ? math.max(44.0, MediaQuery.textScalerOf(context).scale(14) * 2 + 12)
+        : usesMetricRows
         ? kOpenHandTableMetricRowHeight
         : _kRankRowHeight;
+    final headerHeight = widget.compact
+        ? math.max(34.0, MediaQuery.textScalerOf(context).scale(12) + 16)
+        : _kRankHeaderHeight;
     final defaultBodyMax = usesMetricRows
         ? kOpenHandTableMetricBodyMaxHeight
         : _kRankBodyMaxHeight;
@@ -3943,7 +3950,7 @@ class _OpenHandOperationalRankTableState
                       for (var i = 0; i < columnCount; i++)
                         SizedBox(
                           width: displayWidths[i],
-                          height: header ? _kRankHeaderHeight : rowHeight,
+                          height: header ? headerHeight : rowHeight,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -4027,7 +4034,7 @@ class _OpenHandOperationalRankTableState
                                             ),
                                             curve: kOpenHandSwitchInCurve,
                                             width: 2,
-                                            height: _kRankHeaderHeight - 12,
+                                            height: headerHeight - 12,
                                             decoration: BoxDecoration(
                                               color:
                                                   _dragColumn == i ||
@@ -4149,6 +4156,9 @@ class _OpenHandOperationalRankTableState
                         widget.footer!
                       else if (widget.paginate)
                         OpenHandTablePagination(
+                          controlHeight: widget.compact
+                              ? 34
+                              : kOpenHandTablePagerButtonSize,
                           total: window.total,
                           page: window.page,
                           pageSize: window.pageSize,

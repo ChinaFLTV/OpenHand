@@ -241,6 +241,7 @@ class _OpenHandClientPagerState<T> extends State<OpenHandClientPager<T>> {
 /// Element Plus 风格分页器，配色跟随当前主题。
 class OpenHandTablePagination extends StatefulWidget {
   const OpenHandTablePagination({
+    this.controlHeight = kOpenHandTablePagerButtonSize,
     super.key,
     required this.total,
     required this.page,
@@ -261,6 +262,8 @@ class OpenHandTablePagination extends StatefulWidget {
     this.leading,
     this.bar = false,
   });
+
+  final double controlHeight;
 
   final int total;
   final int page;
@@ -387,6 +390,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           const SizedBox(width: kOpenHandTablePagerClusterGap),
         ],
         _PagerIconButton(
+          controlHeight: widget.controlHeight,
           tooltip: text(
             zh: '上一页',
             zhHant: '上一頁',
@@ -415,7 +419,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
             if (item == _kOpenHandPagerEllipsis)
               SizedBox(
                 width: 22,
-                height: kOpenHandTablePagerButtonSize,
+                height: widget.controlHeight,
                 child: Center(
                   child: Text(
                     '…',
@@ -429,6 +433,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
               )
             else
               _PagerNumberButton(
+                controlHeight: widget.controlHeight,
                 page: item,
                 selected: item == window.page,
                 enabled: widget.enabled,
@@ -439,6 +444,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
         ],
         const SizedBox(width: kOpenHandTablePagerGap),
         _PagerIconButton(
+          controlHeight: widget.controlHeight,
           tooltip: text(
             zh: '下一页',
             zhHant: '下一頁',
@@ -462,6 +468,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
     final rightChildren = <Widget>[
       if (widget.showPageSize && widget.onPageSizeChanged != null)
         _PageSizeSelect(
+          controlHeight: widget.controlHeight,
           value: window.pageSize,
           sizes: sizes,
           enabled: widget.enabled,
@@ -494,7 +501,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           duration: duration,
           curve: kOpenHandSwitchInCurve,
           width: kOpenHandTableJumperWidth,
-          height: kOpenHandTablePagerButtonSize,
+          height: widget.controlHeight,
           alignment: Alignment.center,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
@@ -652,12 +659,15 @@ class _PagerSplitBar extends StatelessWidget {
 
 class _PageSizeSelect extends StatefulWidget {
   const _PageSizeSelect({
+    this.controlHeight = kOpenHandTablePagerButtonSize,
     required this.value,
     required this.sizes,
     required this.enabled,
     required this.labelBuilder,
     required this.onChanged,
   });
+
+  final double controlHeight;
 
   final int value;
   final List<int> sizes;
@@ -682,7 +692,7 @@ class _PageSizeSelectState extends State<_PageSizeSelect> {
           for (final size in widget.sizes)
             PopupMenuItem<int>(
               value: size,
-              height: kOpenHandTablePagerButtonSize + 12,
+              height: widget.controlHeight + 12,
               child: Text(widget.labelBuilder(size)),
             ),
         ],
@@ -716,7 +726,7 @@ class _PageSizeSelectState extends State<_PageSizeSelect> {
             child: AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
               curve: kOpenHandSwitchInCurve,
-              height: kOpenHandTablePagerButtonSize,
+              height: widget.controlHeight,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
@@ -756,11 +766,14 @@ class _PageSizeSelectState extends State<_PageSizeSelect> {
 
 class _PagerIconButton extends StatelessWidget {
   const _PagerIconButton({
+    this.controlHeight = kOpenHandTablePagerButtonSize,
     required this.tooltip,
     required this.icon,
     required this.enabled,
     required this.onPressed,
   });
+
+  final double controlHeight;
 
   final String tooltip;
   final IconData icon;
@@ -773,6 +786,7 @@ class _PagerIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: _PagerChrome(
+        controlHeight: controlHeight,
         selected: false,
         enabled: enabled,
         onPressed: onPressed,
@@ -788,12 +802,15 @@ class _PagerIconButton extends StatelessWidget {
 
 class _PagerNumberButton extends StatelessWidget {
   const _PagerNumberButton({
+    this.controlHeight = kOpenHandTablePagerButtonSize,
     required this.page,
     required this.selected,
     required this.enabled,
     required this.duration,
     required this.onPressed,
   });
+
+  final double controlHeight;
 
   final int page;
   final bool selected;
@@ -811,6 +828,7 @@ class _PagerNumberButton extends StatelessWidget {
       enabled: enabled,
       label: '$page',
       child: _PagerChrome(
+        controlHeight: controlHeight,
         selected: selected,
         enabled: enabled,
         onPressed: onPressed,
@@ -833,6 +851,7 @@ class _PagerNumberButton extends StatelessWidget {
 
 class _PagerChrome extends StatelessWidget {
   const _PagerChrome({
+    this.controlHeight = kOpenHandTablePagerButtonSize,
     required this.selected,
     required this.enabled,
     required this.onPressed,
@@ -840,6 +859,8 @@ class _PagerChrome extends StatelessWidget {
     this.duration,
     this.fitContent = false,
   });
+
+  final double controlHeight;
 
   final bool selected;
   final bool enabled;
@@ -863,11 +884,9 @@ class _PagerChrome extends StatelessWidget {
         child: AnimatedContainer(
           duration: motion,
           curve: kOpenHandSwitchInCurve,
-          width: fitContent ? null : kOpenHandTablePagerButtonSize,
-          height: kOpenHandTablePagerButtonSize,
-          constraints: const BoxConstraints(
-            minWidth: kOpenHandTablePagerButtonSize,
-          ),
+          width: fitContent ? null : controlHeight,
+          height: controlHeight,
+          constraints: BoxConstraints(minWidth: controlHeight),
           padding: fitContent
               ? const EdgeInsets.symmetric(horizontal: 8)
               : null,

@@ -1,5 +1,7 @@
 part of '../openhand_home_page.dart';
 
+const _maintenanceControlHeight = 34.0;
+
 const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断'];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
@@ -258,9 +260,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             filled: true,
             fillColor: cs.surfaceContainerLow,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            isDense: true,
+            constraints: const BoxConstraints.tightFor(
+              height: _maintenanceControlHeight,
+            ),
+            prefixIconConstraints: const BoxConstraints.tightFor(
+              width: _maintenanceControlHeight,
+              height: _maintenanceControlHeight,
             ),
             border: inputBorder,
             enabledBorder: inputBorder,
@@ -295,7 +302,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             680,
                             math.max(72, constraints.maxWidth - 350),
                           ),
-                    height: 34,
+                    height: _maintenanceControlHeight,
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -379,7 +386,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            height: 34,
+                            height: _maintenanceControlHeight,
                             alignment: Alignment.center,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
@@ -479,6 +486,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           padding: const EdgeInsets.all(4),
                           child: TextButton.icon(
                             style: TextButton.styleFrom(
+                              minimumSize: const Size(
+                                0,
+                                _maintenanceControlHeight,
+                              ),
+                              maximumSize: const Size(
+                                double.infinity,
+                                _maintenanceControlHeight,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.standard,
                               foregroundColor: selected
                                   ? cs.primary
                                   : cs.onSurfaceVariant,
@@ -486,8 +503,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   ? cs.surfaceContainerLowest
                                   : Colors.transparent,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
+                                horizontal: 12,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -677,6 +693,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 _MaintenanceNotice(message: _error!, error: true),
                 const SizedBox(height: 16),
                 FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, _maintenanceControlHeight),
+                    maximumSize: const Size(
+                      double.infinity,
+                      _maintenanceControlHeight,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: _loading ? null : _refresh,
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(maintenanceLabel(context, '重新采集')),
@@ -1345,36 +1369,24 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       width: 240,
                       child: TextField(
                         controller: _search,
+                        style: const TextStyle(fontSize: 13, height: 1.2),
+                        textAlignVertical: TextAlignVertical.center,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
-                          prefixIcon: const Icon(Icons.search_rounded),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ),
-                    SizedBox(
-                      width: 156,
-                      child: AnimatedDropdownButtonFormField<int>(
-                        value: _sort,
-                        decoration: const InputDecoration(isDense: true),
-                        items: [
-                          DropdownMenuItem(
-                            value: 0,
-                            child: Text(maintenanceLabel(context, 'CPU 降序')),
-                          ),
-                          DropdownMenuItem(
-                            value: 1,
-                            child: Text(maintenanceLabel(context, '内存降序')),
-                          ),
-                          DropdownMenuItem(
-                            value: 2,
-                            child: Text(maintenanceLabel(context, 'PID 升序')),
-                          ),
-                        ],
-                        onChanged: (value) => setState(() {
-                          _sort = value!;
-                        }),
-                      ),
+                    _MaintenanceToolbarMenu<int>(
+                      label: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                      tooltip: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                      value: _sort,
+                      items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
+                      onSelected: (value) => setState(() => _sort = value),
                     ),
                   ],
                 );
@@ -1564,21 +1576,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final height = math.max(
-              42.0,
-              MediaQuery.textScalerOf(context).scale(14) + 24,
-            );
+            const height = _maintenanceControlHeight;
             final search = SizedBox(
               height: height,
               child: TextField(
                 controller: _search,
+                style: const TextStyle(fontSize: 13, height: 1.2),
+                textAlignVertical: TextAlignVertical.center,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   hintText: maintenanceLabel(context, '筛选服务'),
                   prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 ),
@@ -2268,6 +2276,7 @@ class _MaintenanceTable extends StatelessWidget {
         ),
     ],
     sortByValue: false,
+    compact: true,
     animateCellChanges: true,
     onRowTap: onRowTap,
     maxBodyHeight: limitToViewport
@@ -2637,7 +2646,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: 34,
+        height: _maintenanceControlHeight,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: cs.surface.withValues(alpha: .72),
@@ -3069,8 +3078,14 @@ class _MachineMaintenanceDetailsState
                               message: maintenanceLabel(context, action.key),
                               child: OutlinedButton(
                                 style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 34),
-                                  maximumSize: const Size(180, 34),
+                                  minimumSize: const Size(
+                                    0,
+                                    _maintenanceControlHeight,
+                                  ),
+                                  maximumSize: const Size(
+                                    180,
+                                    _maintenanceControlHeight,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
                                   ),

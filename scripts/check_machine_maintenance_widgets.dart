@@ -641,10 +641,24 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).bottom, lessThanOrEqualTo(dialogBottom - 16));
     final summary = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.filter_list_rounded);
     final search = find.byType(TextField).first;
+    final controlHeight = tester.getSize(find.byType(_MachineTerminalIconButton).first).height;
+    expect(tester.getSize(search).height, controlHeight);
+    expect(tester.getSize(summary).height, controlHeight);
+    final sortMenu = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.label == 'CPU 降序');
+    expect(tester.getSize(sortMenu).height, controlHeight);
+    expect(tester.widget<OpenHandOperationalRankTable>(find.byType(OpenHandOperationalRankTable).first).compact, isTrue);
+    expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination).first).controlHeight, controlHeight);
     expect(tester.getRect(summary).left, greaterThan(tester.getRect(search).right));
     for (final tab in ['运行总览', '系统服务', '网络与诊断']) {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
+      if (tab == '系统服务') {
+        expect(tester.getSize(find.byType(TextField).first).height, controlHeight);
+        for (final label in ['开机启动状态', '系统定时器']) {
+          final button = find.widgetWithText(OutlinedButton, label);
+          if (button.evaluate().isNotEmpty) expect(tester.getSize(button).height, controlHeight);
+        }
+      }
       final viewport = find.byType(ListView).first;
       expect(tester.getRect(viewport).bottom, lessThanOrEqualTo(dialogBottom - 16));
       await tester.drag(viewport, const Offset(0, -600));
