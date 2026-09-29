@@ -31,6 +31,22 @@ void main() {
         sessionId: 'check', terminalId: terminal.id, command: command,
         commandShell: probe ? MachineTerminalCommandShell.probe : MachineTerminalCommandShell.posix,
         isCancelled: () => cancel);
+      expect(service.terminalFor('check', terminal.id), same(terminal));
+      final ready = Completer<void>();
+      final interactive = service.executeCommand(
+        sessionId: 'check', terminalId: terminal.id,
+        command: "printf '交互就绪\\n'; read answer; printf '收到:%s\\n' \"\$answer\"",
+        commandShell: MachineTerminalCommandShell.posix,
+        timeout: const Duration(seconds: 10), recordHistory: false,
+        onOutput: (output) { if (output.contains('交互就绪') && !ready.isCompleted) ready.complete(); },
+      );
+      await ready.future.timeout(const Duration(seconds: 5));
+      await service.writeInput(sessionId: 'check', terminalId: terminal.id, data: '容器交互检查\n');
+      expect((await interactive).output, contains('收到:容器交互检查'));
+      final large = await files.runMaintenanceCommand(sessionId: 'check', terminalId: terminal.id,
+        command: "awk 'BEGIN { for(i=0;i<180000;i++) printf \"x\" }'",
+        maxOutputCharacters: 200000);
+      expect(large.trim().length, 180000, reason: '结构化报告不能沿用工具输出的截断值');
       final target = parseMachineTerminalShellProbe(await run(machineTerminalShellProbe, probe: true));
       expect(target.platform, Platform.isMacOS ? 'Darwin' : 'Linux');
       final shellVersion = parseMachineTerminalShellDetails(

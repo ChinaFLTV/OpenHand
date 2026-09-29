@@ -7,6 +7,9 @@ Future<void> main() async {
   final panel = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_terminal_panel.dart',
   ).readAsString();
+  final containerSource = await File(
+    '${root.path}/lib/features/home/widgets/_home_machine_containers.dart',
+  ).readAsString();
   final source = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_maintenance.dart',
   ).readAsString();
@@ -32,6 +35,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:xterm/xterm.dart';
+import 'package:openhand/shared/util/platform_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:openhand/app/support/silent_log.dart';
 import 'package:flutter/rendering.dart';
@@ -60,6 +65,14 @@ import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 import 'package:openhand/shared/util/localized_text.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
+${containerSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
+class _MachineTerminalFileManagerDialog extends StatelessWidget {
+  const _MachineTerminalFileManagerDialog({required this.sessionId, required this.terminalId, this.targetLabel});
+  final String sessionId, terminalId;
+  final String? targetLabel;
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}
 $header
 $button
 ${_checks.replaceAll('MaterialApp(', '_SettingsApp(')}
@@ -82,7 +95,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   Completer<String>? pending;
   MachineTerminalUploadCancelCheck? cancelled;
   @override
-  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
+  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, Duration timeout = const Duration(seconds: 30), int? maxOutputCharacters, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
@@ -171,6 +184,48 @@ __OH_OPS_end__
 void main() {
   setUp(() async { _testSettings = await SettingsController.create(store: _MemorySettingsStore()); });
   tearDown(() { _testSettings.dispose(); });
+  testWidgets('容器运行时列表、状态菜单和窄屏布局可用', (tester) async {
+    final calls = <String>[];
+    Future<String> run(String command) async {
+      calls.add(command);
+      if (command.contains("'context' 'show'")) return 'default';
+      if (command.contains("'ps'")) return '{"ID":"abc123","Names":"测试容器","State":"running","Image":"nginx"}';
+      return '{}';
+    }
+    for (final width in [1280.0, 420.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+        sessionId: '会话', terminalId: '终端', run: run, windows: false,
+        shell: MachineTerminalCommandShell.automatic))));
+      await tester.pumpAndSettle();
+      expect(find.text('容器 · 1'), findsOneWidget);
+      expect(find.text('连接上下文：default'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    expect(calls.any((c) => c.contains("'--context' 'default' 'stats'")), isTrue);
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('容器报告手动刷新、自动刷新失败停止并清理定时器', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _ContainerReportDialog(
+      title: '容器日志', load: () async { calls++; if (calls > 1) throw StateError('日志不可用'); return '第一行\\n第二行'; }))));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('第一行'), findsOneWidget);
+    await tester.tap(find.byTooltip('自动刷新'));
+    await tester.pump(const Duration(seconds: 11));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    await tester.pump(const Duration(seconds: 20));
+    expect(calls, 2);
+    await tester.tap(find.byTooltip('刷新'));
+    await tester.pumpAndSettle();
+    expect(calls, 3);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 20));
+    expect(calls, 3);
+    expect(tester.takeException(), isNull);
+  });
   test('采集并发数持久化、校验及保存失败回滚', () async {
     final store = _MemorySettingsStore();
     final settings = await SettingsController.create(store: store);

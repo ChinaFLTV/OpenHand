@@ -137,10 +137,12 @@ Future<void> _cleanupMachineTerminalPreviewDirectory(
 
 class _MachineTerminalFileManagerDialog extends StatefulWidget {
   const _MachineTerminalFileManagerDialog({
+    this.targetLabel,
     required this.sessionId,
     required this.terminalId,
   });
 
+  final String? targetLabel;
   final String sessionId;
   final String terminalId;
 
@@ -377,11 +379,13 @@ class _MachineTerminalFileManagerDialogState
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.folder_copy_rounded,
-              title: openHandLocalizedText(
-                context,
-                zh: '终端文件管理',
-                en: 'Terminal File Manager',
-              ),
+              title:
+                  widget.targetLabel ??
+                  openHandLocalizedText(
+                    context,
+                    zh: '终端文件管理',
+                    en: 'Terminal File Manager',
+                  ),
               subtitle:
                   snapshot?.path ??
                   openHandLocalizedText(

@@ -76,6 +76,31 @@ class _CommandTerminal extends Fake implements MachineTerminalService {
 }
 
 void main() {
+  test('容器文件读写、重命名与删除全部经过作用域，保留主机传输记录', () async {
+    if (Platform.isWindows) return;
+    final root = await Directory.systemTemp.createTemp('openhand-container-files-');
+    final terminal = _CommandTerminal(root.path, root.path);
+    final service = MachineTerminalFileService(terminal, scopedCommand: (command) async {
+      final result = await Process.run('/bin/sh', ['-c', command]);
+      if (result.exitCode != 0) throw StateError('${result.stderr}');
+      return result.stdout as String;
+    });
+    try {
+      final path = root.path + '/文件带空格.txt';
+      await service.writeTextFile(sessionId: '会话', terminalId: '终端', path: path, content: '第一行\n第二行😀');
+      final snapshot = await service.listDirectory(sessionId: '会话', terminalId: '终端', path: root.path);
+      final entry = snapshot.entries.singleWhere((entry) => entry.name == '文件带空格.txt');
+      expect(await service.readTextFile(sessionId: '会话', terminalId: '终端', entry: entry), '第一行\n第二行😀');
+      await service.rename(sessionId: '会话', terminalId: '终端', sourcePath: path, newName: '新名称.txt');
+      await service.delete(sessionId: '会话', terminalId: '终端', path: root.path + '/新名称.txt');
+      expect(await root.list().toList(), isEmpty);
+      expect(terminal.commands, isEmpty, reason: '容器操作不应落入主机终端路径');
+    } finally {
+      await service.shutdown();
+      service.dispose();
+      await root.delete(recursive: true);
+    }
+  });
   test('分段参数保留空值、引号、换行和跨分段 Unicode，禁止注入', () async {
     if (Platform.isWindows) return;
     for (final value in ['', List.filled(63, '字').join() + '😀' + List.filled(80, "'美元\$;").join(), '第一行\n第二行']) {

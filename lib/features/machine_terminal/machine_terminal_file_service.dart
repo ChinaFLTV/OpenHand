@@ -269,7 +269,7 @@ class MachineTerminalTransferTask {
 }
 
 class MachineTerminalFileService extends ChangeNotifier {
-  MachineTerminalFileService(this._terminalService) {
+  MachineTerminalFileService(this._terminalService, {this.scopedCommand}) {
     _restoreFuture = _restoreTransferHistory();
     unawaited(
       _restoreFuture.then<void>((_) {
@@ -283,6 +283,8 @@ class MachineTerminalFileService extends ChangeNotifier {
   static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
 
   final MachineTerminalService _terminalService;
+  final Future<String> Function(String command)? scopedCommand;
+  bool get _windowsFiles => scopedCommand == null && Platform.isWindows;
   final Map<String, _MachineTerminalOperationGate> _operationGates =
       <String, _MachineTerminalOperationGate>{};
   final List<_MutableTransferTask> _transferTasks = <_MutableTransferTask>[];
@@ -319,6 +321,8 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String command,
     bool windowsScript = false,
+    Duration timeout = _machineTerminalFileCommandTimeout,
+    int? maxOutputCharacters,
     MachineTerminalUploadCancelCheck? isCancelled,
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.posix,
@@ -326,7 +330,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     if (_operationGates[_terminalKey(sessionId, terminalId)]?.isIdle == false) {
       return Future.error(StateError('终端正在执行文件或运维操作，请稍后刷新。'));
     }
-    return _withTerminalGate(sessionId, terminalId, () {
+    return _withTerminalGate(sessionId, terminalId, () async {
       _throwIfMachineTerminalTransferCancelled(isCancelled);
       if (windowsScript) {
         return _runWindowsMaintenanceScript(
@@ -337,14 +341,27 @@ class MachineTerminalFileService extends ChangeNotifier {
           isCancelled,
         );
       }
-      return _runCommand(
+      String? captured;
+      var overflow = false;
+      final result = await _runCommand(
         sessionId: sessionId,
         terminalId: terminalId,
         command: command,
-        timeout: _machineTerminalFileCommandTimeout,
+        timeout: timeout,
         isCancelled: isCancelled,
         commandShell: commandShell,
+        onOutput: maxOutputCharacters == null
+            ? null
+            : (output) {
+                if (output.length > maxOutputCharacters) {
+                  overflow = true;
+                } else {
+                  captured = output;
+                }
+              },
       );
+      if (overflow) throw const FormatException('命令输出超过读取上限，请缩小查询范围。');
+      return captured ?? result;
     });
   }
 
@@ -457,7 +474,11 @@ class MachineTerminalFileService extends ChangeNotifier {
       );
       for (var index = 0; index < chunkCount; index++) {
         _throwIfMachineTerminalTransferCancelled(isCancelled);
-        final command = _readChunkCommand(entry.path, index);
+        final command = _readChunkCommand(
+          entry.path,
+          index,
+          windows: _windowsFiles,
+        );
         onProgress?.call(
           MachineTerminalFileProgress(
             command: command,
@@ -549,6 +570,70 @@ class MachineTerminalFileService extends ChangeNotifier {
     );
   }
 
+  Future<void> _uploadFile({
+    required String sessionId,
+    required String terminalId,
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+    bool recordHistory = false,
+  }) async {
+    if (scopedCommand == null) {
+      return _terminalService.uploadFile(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        sourcePath: sourcePath,
+        targetDirectory: targetDirectory,
+        targetName: targetName,
+        onProgress: onProgress,
+        waitWhilePaused: waitWhilePaused,
+        isCancelled: isCancelled,
+        recordHistory: recordHistory,
+      );
+    }
+    final destination = p.posix.join(targetDirectory, targetName);
+    final temporary =
+        '$destination.openhand-${DateTime.now().microsecondsSinceEpoch}';
+    final quoted = posixShellQuote(temporary);
+    var completed = false, created = false;
+    var total = 0;
+    try {
+      await scopedCommand!('umask 077; set -C; : > $quoted');
+      created = true;
+      final file = await File(sourcePath).open();
+      try {
+        while (true) {
+          await waitWhilePaused();
+          _throwIfMachineTerminalTransferCancelled(isCancelled);
+          if (_disposed) throw const MachineTerminalUploadCancelled();
+          final bytes = await file.read(4 * 1024);
+          if (bytes.isEmpty) break;
+          await scopedCommand!(
+            'printf %s ${posixShellQuote(base64Encode(bytes))} | base64 -d >> $quoted',
+          );
+          total += bytes.length;
+          onProgress(total);
+        }
+      } finally {
+        await file.close();
+      }
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      await scopedCommand!('mv -f -- $quoted ${posixShellQuote(destination)}');
+      completed = true;
+    } finally {
+      if (created && !completed) {
+        try {
+          await scopedCommand!('rm -f -- $quoted');
+        } catch (error, stack) {
+          silentLog('machine_terminal_file', '清理容器上传临时文件', error, stack);
+        }
+      }
+    }
+  }
+
   Future<void> writeTextFile({
     required String sessionId,
     required String terminalId,
@@ -568,7 +653,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       );
       final temporaryDirectory = localFile.parent;
       try {
-        await _terminalService.uploadFile(
+        await _uploadFile(
           sessionId: sessionId,
           terminalId: terminalId,
           sourcePath: localFile.path,
@@ -577,7 +662,6 @@ class MachineTerminalFileService extends ChangeNotifier {
           onProgress: (_) {},
           waitWhilePaused: () async {},
           isCancelled: () => false,
-          recordHistory: false,
         );
       } finally {
         try {
@@ -621,7 +705,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     return _runMutation(
       sessionId,
       terminalId,
-      _moveCommand(sourcePath, targetPath),
+      _moveCommand(sourcePath, targetPath, windows: _windowsFiles),
     );
   }
 
@@ -634,7 +718,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     return _runMutation(
       sessionId,
       terminalId,
-      _copyCommand(sourcePath, targetPath),
+      _copyCommand(sourcePath, targetPath, windows: _windowsFiles),
     );
   }
 
@@ -643,7 +727,11 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String path,
   }) {
-    return _runMutation(sessionId, terminalId, _deleteCommand(path));
+    return _runMutation(
+      sessionId,
+      terminalId,
+      _deleteCommand(path, windows: _windowsFiles),
+    );
   }
 
   Future<List<String>> enqueueUploads({
@@ -840,10 +928,14 @@ class MachineTerminalFileService extends ChangeNotifier {
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     _throwIfMachineTerminalTransferCancelled(isCancelled);
-    final command = _listDirectoryCommand(path);
+    final command = _listDirectoryCommand(
+      path,
+      windows: _windowsFiles,
+      scoped: scopedCommand != null,
+    );
     final progress = _MachineTerminalDirectoryProgressTracker(onProgress);
     progress.reportPreparing();
-    final output = Platform.isWindows
+    final output = _windowsFiles
         ? await _runWindowsMaintenanceScript(
             sessionId,
             terminalId,
@@ -863,7 +955,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     progress.consume(output, flush: true);
     return parseMachineTerminalDirectoryProtocol(
       output,
-      windowsPath: Platform.isWindows,
+      windowsPath: _windowsFiles,
     );
   }
 
@@ -875,7 +967,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     _throwIfMachineTerminalTransferCancelled(isCancelled);
-    final command = _fileDetailsCommand(path);
+    final command = _fileDetailsCommand(path, windows: _windowsFiles);
     final progressCommand = '读取文件详情：${machineTerminalBaseName(path)}';
     onProgress?.call(
       MachineTerminalFileProgress(
@@ -884,7 +976,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         unit: MachineTerminalFileProgressUnit.steps,
       ),
     );
-    final output = Platform.isWindows
+    final output = _windowsFiles
         ? await _runWindowsMaintenanceScript(
             sessionId,
             terminalId,
@@ -935,7 +1027,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     _throwIfMachineTerminalTransferCancelled(isCancelled);
-    onCommand(_fileDetailsCommand(sourcePath));
+    onCommand(_fileDetailsCommand(sourcePath, windows: _windowsFiles));
     final before = await _fileDetails(
       sessionId,
       terminalId,
@@ -955,7 +1047,11 @@ class MachineTerminalFileService extends ChangeNotifier {
       for (var index = 0; index < chunkCount; index++) {
         await waitWhilePaused();
         _throwIfMachineTerminalTransferCancelled(isCancelled);
-        final command = _readChunkCommand(before.entry.path, index);
+        final command = _readChunkCommand(
+          before.entry.path,
+          index,
+          windows: _windowsFiles,
+        );
         onCommand(command);
         final output = await _runCommand(
           sessionId: sessionId,
@@ -987,7 +1083,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         throw StateError('文件下载期间发生变化，请刷新后重试。');
       }
       _throwIfMachineTerminalTransferCancelled(isCancelled);
-      onCommand(_fileDetailsCommand(sourcePath));
+      onCommand(_fileDetailsCommand(sourcePath, windows: _windowsFiles));
       final after = await _fileDetails(
         sessionId,
         terminalId,
@@ -1036,6 +1132,12 @@ class MachineTerminalFileService extends ChangeNotifier {
         MachineTerminalCommandShell.automatic,
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
+    if (scopedCommand != null) {
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      final output = await scopedCommand!(command);
+      onOutput?.call(output);
+      return output;
+    }
     final commandBytes = utf8ByteLength(command);
     if ((resolveMachineTerminalShell(commandShell) ==
             MachineTerminalCommandShell.posix) &&
@@ -1248,7 +1350,7 @@ class MachineTerminalFileService extends ChangeNotifier {
               _disposed ||
               task.status == MachineTerminalTransferStatus.canceled;
           if (task.direction == MachineTerminalTransferDirection.upload) {
-            await _terminalService.uploadFile(
+            await _uploadFile(
               sessionId: task.sessionId,
               terminalId: task.terminalId,
               sourcePath: task.sourcePath,
@@ -1257,7 +1359,6 @@ class MachineTerminalFileService extends ChangeNotifier {
               onProgress: onProgress,
               waitWhilePaused: () => _waitWhilePaused(task),
               isCancelled: isCancelled,
-              recordHistory: false,
             );
           } else {
             await _downloadFile(
@@ -1345,6 +1446,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   }
 
   Future<void> _restoreTransferHistory() async {
+    if (scopedCommand != null) return;
     final file = _transferHistoryFile;
     try {
       await recoverAtomicWriteBackupIfNeeded(file);
@@ -1413,7 +1515,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   );
 
   void _scheduleTransferPersist({bool immediately = false}) {
-    if (_disposed) return;
+    if (_disposed || scopedCommand != null) return;
     if (immediately) {
       _transferPersistTimer?.cancel();
       _transferPersistTimer = null;
@@ -1468,6 +1570,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   }
 
   Future<void> _persistTransferHistoryNow() async {
+    if (scopedCommand != null) return;
     final records = _transferTasks
         .map((task) => task.toJson())
         .toList(growable: false);
@@ -2098,8 +2201,12 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}
   rawOutput: true,
 );
 
-String _listDirectoryCommand(String? path) {
-  if (Platform.isWindows) {
+String _listDirectoryCommand(
+  String? path, {
+  bool? windows,
+  bool scoped = false,
+}) {
+  if (windows ?? Platform.isWindows) {
     const entryLimitWithSentinel = _machineTerminalDirectoryEntryLimit + 1;
     final pathLiteral = path == null
         ? '(Get-Location).ProviderPath'
@@ -2194,6 +2301,9 @@ if (\$worker -eq 0 -and \$items.Count -gt $_machineTerminalDirectoryEntryLimit) 
       '}\n'
       '__oh_list\n'
       'unset -f __oh_list 2>/dev/null || true\n';
+  if (scoped) {
+    return '__oh_worker=0\n${command.replaceAll('% $_machineTerminalFileWorkers', '% 1')}';
+  }
   return supervisedPosixCommands(
     [
       for (var worker = 0; worker < _machineTerminalFileWorkers; worker++)
@@ -2204,8 +2314,8 @@ if (\$worker -eq 0 -and \$items.Count -gt $_machineTerminalDirectoryEntryLimit) 
   );
 }
 
-String _fileDetailsCommand(String path) {
-  if (Platform.isWindows) {
+String _fileDetailsCommand(String path, {bool? windows}) {
+  if (windows ?? Platform.isWindows) {
     final escapedPath = escapePowerShellSingleQuotedString(path);
     final script =
         '''
@@ -2262,8 +2372,8 @@ Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$it
       '"\$__oh_child_dirs" "\$__oh_child_files"\n';
 }
 
-String _readChunkCommand(String path, int chunkIndex) {
-  if (Platform.isWindows) {
+String _readChunkCommand(String path, int chunkIndex, {bool? windows}) {
+  if (windows ?? Platform.isWindows) {
     final offset = chunkIndex * _machineTerminalReadChunkBytes;
     final script =
         '''
@@ -2284,8 +2394,8 @@ try {
       'printf "\\t$_machineTerminalReadChunkEnd\\n"';
 }
 
-String _moveCommand(String sourcePath, String targetPath) {
-  if (Platform.isWindows) {
+String _moveCommand(String sourcePath, String targetPath, {bool? windows}) {
+  if (windows ?? Platform.isWindows) {
     return powerShellEncodedCommand(
       "Move-Item -LiteralPath '${escapePowerShellSingleQuotedString(sourcePath)}' "
       "-Destination '${escapePowerShellSingleQuotedString(targetPath)}' -Force",
@@ -2294,8 +2404,8 @@ String _moveCommand(String sourcePath, String targetPath) {
   return 'mv -f -- ${posixShellQuote(sourcePath)} ${posixShellQuote(targetPath)}';
 }
 
-String _copyCommand(String sourcePath, String targetPath) {
-  if (Platform.isWindows) {
+String _copyCommand(String sourcePath, String targetPath, {bool? windows}) {
+  if (windows ?? Platform.isWindows) {
     return powerShellEncodedCommand(
       "Copy-Item -LiteralPath '${escapePowerShellSingleQuotedString(sourcePath)}' "
       "-Destination '${escapePowerShellSingleQuotedString(targetPath)}' -Recurse -Force",
@@ -2304,8 +2414,8 @@ String _copyCommand(String sourcePath, String targetPath) {
   return 'cp -a -- ${posixShellQuote(sourcePath)} ${posixShellQuote(targetPath)}';
 }
 
-String _deleteCommand(String path) {
-  if (Platform.isWindows) {
+String _deleteCommand(String path, {bool? windows}) {
+  if (windows ?? Platform.isWindows) {
     return powerShellEncodedCommand(
       "Remove-Item -LiteralPath '${escapePowerShellSingleQuotedString(path)}' -Recurse -Force",
     );

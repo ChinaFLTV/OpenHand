@@ -646,6 +646,9 @@ class MachineTerminalService extends ChangeNotifier {
     return _workspaces[sessionId.trim()]?.snapshot();
   }
 
+  MachineTerminalSession? terminalFor(String sessionId, String terminalId) =>
+      _workspaces[sessionId.trim()]?.terminalById(terminalId);
+
   MachineTerminalSession? activeTerminal(String sessionId) {
     return _workspaces[sessionId.trim()]?.activeTerminal;
   }

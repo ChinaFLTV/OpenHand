@@ -14,6 +14,7 @@ const _maintenanceTabs = [
   'GPU 管理',
   '日志管理',
   '账户与健康',
+  '容器管理',
 ];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
@@ -72,6 +73,7 @@ const _maintenanceTabIcons = <IconData>[
   Icons.developer_board_rounded,
   Icons.article_outlined,
   Icons.health_and_safety_outlined,
+  Icons.inventory_2_outlined,
 ];
 const _maintenanceCardRadius = kOpenHandRadius12;
 const _maintenanceNoOverlay = WidgetStatePropertyAll<Color?>(
@@ -147,6 +149,7 @@ class _MachineMaintenanceDialog extends StatefulWidget {
 
 class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     with WidgetsBindingObserver {
+  final _containersKey = GlobalKey<_MachineContainerPanelState>();
   final _snapshots = <int, MachineMaintenanceSnapshot>{};
   final _previous = <int, MachineMaintenanceSnapshot>{};
   final _logBuffers = <String, MachineLogBuffer>{};
@@ -232,6 +235,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
   Future<void> _refresh({bool manual = false, bool detectShell = true}) async {
     if (_loading || !mounted || _closing) return;
+    if (_tab == 7 && _platformName != null) {
+      _timer?.cancel();
+      await _containersKey.currentState?.refresh();
+      if (!mounted || _closing) return;
+      if (_containersKey.currentState?._client == null) {
+        setState(() => _automatic = false);
+      }
+      _schedule();
+      return;
+    }
     _timer?.cancel();
     final tab = _tab;
     setState(() {
@@ -790,6 +803,25 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       motion,
       data == null ? (_loading, _error) : null,
     );
+    if (_tab == 7 && _platformName != null) {
+      return _MachineContainerPanel(
+        key: _containersKey,
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        windows: _platformName == 'Windows',
+        shell: _commandShell,
+        run: (command) =>
+            context.read<MachineTerminalFileService>().runMaintenanceCommand(
+              sessionId: widget.sessionId,
+              terminalId: widget.terminalId,
+              command: command,
+              commandShell: _commandShell,
+              timeout: const Duration(seconds: 20),
+              maxOutputCharacters: machineContainerOutputLimit,
+              isCancelled: () => !mounted || _closing,
+            ),
+      );
+    }
     if (_bodyIdentity != identity) {
       _bodyIdentity = identity;
       _body = data == null
