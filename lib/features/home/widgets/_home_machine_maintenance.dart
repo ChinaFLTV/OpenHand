@@ -5534,7 +5534,9 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
   String _metadataKind = 'rotation';
   bool _follow = true;
   List<MachineLogEntry> _visible = [];
-  static const _rowHeight = 64.0;
+  bool _selecting = false;
+  int _selectionRevision = 0;
+  Object? _filter;
 
   @override
   void initState() {
@@ -5556,8 +5558,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
   void didUpdateWidget(covariant _MaintenanceLogBrowser oldWidget) {
     super.didUpdateWidget(oldWidget);
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-    final index = (offset / _rowHeight).floor();
-    final anchor = index < _visible.length ? _visible[index].id : null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       if (_follow) {
@@ -5571,14 +5571,8 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             curve: Curves.easeOutCubic,
           );
         }
-      } else if (anchor != null) {
-        final next = _visible.indexWhere((entry) => entry.id == anchor);
-        _scroll.jumpTo(
-          (next < 0 ? 0.0 : next * _rowHeight + offset % _rowHeight).clamp(
-            0,
-            _scroll.position.maxScrollExtent,
-          ),
-        );
+      } else {
+        _scroll.jumpTo(offset.clamp(0, _scroll.position.maxScrollExtent));
       }
     });
   }
@@ -5588,13 +5582,19 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
     final l = AppLocalizations.of(context)!;
     final buffer = widget.buffers[_source];
     final entries = buffer?.entries ?? const <MachineLogEntry>[];
-    _visible = entries
-        .where(
-          (e) =>
-              (_level < 0 || e.level == _level) &&
-              e.message.toLowerCase().contains(_query),
-        )
-        .toList();
+    final filter = (_source, _query, _level);
+    if (_filter != filter) _selecting = false;
+    _filter = filter;
+    // 选区存在时保留当前文本快照，避免后台追加改变复制范围。
+    if (!_selecting) {
+      _visible = entries
+          .where(
+            (e) =>
+                (_level < 0 || e.level == _level) &&
+                e.message.toLowerCase().contains(_query),
+          )
+          .toList();
+    }
     final names = [
       l.maintenanceLogError,
       l.maintenanceLogWarning,
@@ -5715,8 +5715,14 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   selected: _follow,
                   onSelected: (value) => setState(() {
                     _follow = value;
-                    if (value && _scroll.hasClients) {
-                      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+                    if (value) {
+                      _selecting = false;
+                      _selectionRevision++;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && _follow && _scroll.hasClients) {
+                          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+                        }
+                      });
                     }
                   }),
                 ),
@@ -5810,75 +5816,26 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                             }
                             return false;
                           },
-                          child: ListView.builder(
-                            controller: _scroll,
-                            itemExtent: _rowHeight,
-                            itemCount: _visible.length,
-                            itemBuilder: (context, index) {
-                              final entry = _visible[index];
-                              return InkWell(
-                                key: ValueKey(entry.id),
-                                hoverColor: Colors.transparent,
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                overlayColor: _maintenanceNoOverlay,
-                                onTap: () => _showEntry(entry),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: colors[entry.level],
-                                        width: 3,
-                                      ),
-                                      bottom: const BorderSide(
-                                        color:
-                                            OpenHandConsolePalette.githubBorder,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      SizedBox(
-                                        width:
-                                            MediaQuery.sizeOf(context).width <
-                                                600
-                                            ? 90
-                                            : 145,
-                                        child: Text(
-                                          entry.time.isEmpty
-                                              ? names[entry.level]
-                                              : entry.time.replaceFirst(
-                                                  'T',
-                                                  ' ',
-                                                ),
-                                          maxLines: 2,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: colors[entry.level],
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          entry.message,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontFamily: 'monospace',
-                                            color: OpenHandConsolePalette.text,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
+                          child: OpenHandConsoleText(
+                            key: ValueKey((filter, _selectionRevision)),
+                            title: l.maintenanceLogsTab,
+                            framed: false,
+                            maxHeight: double.infinity,
+                            scrollController: _scroll,
+                            text: _visible
+                                .map(
+                                  (entry) => entry.time.isEmpty
+                                      ? entry.message
+                                      : '${entry.time}  ${entry.message}',
+                                )
+                                .join('\n'),
+                            onSelectionChanged: (selection, cause) {
+                              final selecting = !selection.isCollapsed;
+                              if (_selecting == selecting) return;
+                              setState(() {
+                                _selecting = selecting;
+                                if (selecting) _follow = false;
+                              });
                             },
                           ),
                         ),
@@ -5951,86 +5908,101 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            _MaintenanceTable(
-                              key: ValueKey(_metadataKind),
-                              maxBodyHeight: 160,
-                              paginate: false,
-                              limitToViewport: false,
-                              headers: [
-                                maintenanceLabel(context, '路径'),
-                                if (_metadataKind == 'rotation' &&
-                                    canGroupRotation)
-                                  ...rotationFields.map(
-                                    (field) => field == '字节'
-                                        ? l.listCardMetricSize
-                                        : maintenanceHealthLabel(
-                                            context,
-                                            field,
-                                          ),
-                                  )
-                                else if (_metadataKind == 'storage')
-                                  l.maintenanceLogStorage
-                                else ...[
-                                  maintenanceLabel(context, '名称'),
-                                  maintenanceLabel(context, '数值'),
+                            if (_metadataKind == 'config')
+                              OpenHandConsoleText(
+                                title: titles['config']!,
+                                text:
+                                    widget.data
+                                        .text('log_config')
+                                        .trim()
+                                        .isEmpty
+                                    ? l.maintenanceLogEmpty
+                                    : widget.data.text('log_config'),
+                                maxHeight: 240,
+                              )
+                            else
+                              _MaintenanceTable(
+                                key: ValueKey(_metadataKind),
+                                maxBodyHeight: 160,
+                                paginate: false,
+                                limitToViewport: false,
+                                headers: [
+                                  maintenanceLabel(context, '路径'),
+                                  if (_metadataKind == 'rotation' &&
+                                      canGroupRotation)
+                                    ...rotationFields.map(
+                                      (field) => field == '字节'
+                                          ? l.listCardMetricSize
+                                          : maintenanceHealthLabel(
+                                              context,
+                                              field,
+                                            ),
+                                    )
+                                  else if (_metadataKind == 'storage')
+                                    l.maintenanceLogStorage
+                                  else ...[
+                                    maintenanceLabel(context, '名称'),
+                                    maintenanceLabel(context, '数值'),
+                                  ],
                                 ],
-                              ],
-                              rows:
-                                  _metadataKind == 'rotation' &&
-                                      canGroupRotation
-                                  ? [
-                                      for (final entry in groups.entries)
-                                        OpenHandOperationalRankRow(
-                                          value: 0,
-                                          cells: [
-                                            entry.key,
-                                            for (final field in rotationFields)
-                                              field == '字节' &&
-                                                      int.tryParse(
+                                rows:
+                                    _metadataKind == 'rotation' &&
+                                        canGroupRotation
+                                    ? [
+                                        for (final entry in groups.entries)
+                                          OpenHandOperationalRankRow(
+                                            value: 0,
+                                            cells: [
+                                              entry.key,
+                                              for (final field
+                                                  in rotationFields)
+                                                field == '字节' &&
+                                                        int.tryParse(
+                                                              entry.value[field] ??
+                                                                  '',
+                                                            ) !=
+                                                            null
+                                                    ? formatByteSize(
+                                                        int.parse(
+                                                          entry.value[field]!,
+                                                        ),
+                                                      )
+                                                    : maintenanceEnglishTimestamp(
                                                             entry.value[field] ??
                                                                 '',
-                                                          ) !=
-                                                          null
-                                                  ? formatByteSize(
-                                                      int.parse(
-                                                        entry.value[field]!,
-                                                      ),
-                                                    )
-                                                  : maintenanceEnglishTimestamp(
+                                                          ) ??
                                                           entry.value[field] ??
-                                                              '',
-                                                        ) ??
-                                                        entry.value[field] ??
-                                                        '—',
-                                          ],
-                                        ),
-                                    ]
-                                  : [
-                                      for (final row in selectedRows)
-                                        OpenHandOperationalRankRow(
-                                          value: 0,
-                                          cells: [
-                                            row[0],
-                                            if (_metadataKind == 'storage')
-                                              int.tryParse(row[2]) == null
-                                                  ? row[2]
-                                                  : formatByteSize(
-                                                      int.parse(row[2]) * 1024,
-                                                    )
-                                            else ...[
-                                              maintenanceHealthLabel(
-                                                context,
-                                                row[1],
-                                              ),
-                                              maintenanceHealthValue(
-                                                context,
-                                                row[2],
-                                              ),
+                                                          '—',
                                             ],
-                                          ],
-                                        ),
-                                    ],
-                            ),
+                                          ),
+                                      ]
+                                    : [
+                                        for (final row in selectedRows)
+                                          OpenHandOperationalRankRow(
+                                            value: 0,
+                                            cells: [
+                                              row[0],
+                                              if (_metadataKind == 'storage')
+                                                int.tryParse(row[2]) == null
+                                                    ? row[2]
+                                                    : formatByteSize(
+                                                        int.parse(row[2]) *
+                                                            1024,
+                                                      )
+                                              else ...[
+                                                maintenanceHealthLabel(
+                                                  context,
+                                                  row[1],
+                                                ),
+                                                maintenanceHealthValue(
+                                                  context,
+                                                  row[2],
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                      ],
+                              ),
                           ],
                         ),
                       ),
@@ -6040,27 +6012,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showEntry(MachineLogEntry entry) {
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (context) => buildOpenHandAlertDialog(
-        title: Text(
-          entry.time.isEmpty
-              ? AppLocalizations.of(context)!.maintenanceLogsTab
-              : entry.time,
-        ),
-        content: SizedBox(
-          width: 720,
-          child: OpenHandConsoleText(
-            title: AppLocalizations.of(context)!.maintenanceLogsTab,
-            text: entry.message,
-            maxHeight: MediaQuery.sizeOf(context).height * .55,
-          ),
         ),
       ),
     );

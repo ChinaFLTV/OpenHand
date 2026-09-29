@@ -4,6 +4,7 @@ import 'package:xml/xml.dart';
 
 const machineLogSources = ['system', 'kernel', 'security'];
 const machineLogLimit = 1000;
+const machineLogTextLimit = 512 * 1024;
 
 const machineLogsLinuxCollection = r'''
 log_limit() { awk 'length($0) <= 16000 { total += length($0); if (total > 60000) exit; print }'; }
@@ -213,9 +214,17 @@ class MachineLogBuffer {
         ),
       );
     }
-    if (entries.length > machineLogLimit) {
-      entries.removeRange(0, entries.length - machineLogLimit);
+    var textLength = 0;
+    var keepFrom = entries.length;
+    for (var i = entries.length - 1; i >= 0; i--) {
+      textLength += entries[i].time.length + entries[i].message.length + 3;
+      if (entries.length - i > machineLogLimit ||
+          textLength > machineLogTextLimit) {
+        break;
+      }
+      keepFrom = i;
     }
+    if (keepFrom > 0) entries.removeRange(0, keepFrom);
     _previous = signatures;
   }
 

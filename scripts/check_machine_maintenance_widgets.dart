@@ -360,7 +360,7 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('控制台日志暗色正文、全文详情与窄屏折叠滚动稳定', (tester) async {
+  testWidgets('控制台连续文本支持跨行选择且窄屏折叠滚动稳定', (tester) async {
     await tester.binding.setSurfaceSize(const Size(760, 700));
     await tester.runAsync(() async {
       if (Platform.environment['MAINTENANCE_FONT'] != null) await (FontLoader('monospace')..addFont(File(Platform.environment['MAINTENANCE_FONT']!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
@@ -373,7 +373,18 @@ void main() {
         child: Material(child: _MaintenanceLogBrowser(buffers: {'system': buffer}, data: MachineMaintenanceSnapshot({'platform': 'Linux'})))))));
     await tester.pumpAndSettle();
     expect(find.byType(OpenHandConsoleFrame), findsOneWidget);
-    expect(tester.widget<Text>(find.text('[error] 请求超时')).style!.color, OpenHandConsolePalette.text);
+    final logText = tester.widget<SelectableText>(find.byType(SelectableText));
+    expect(logText.textSpan!.toPlainText(), '[info] 服务已启动\\n[warning] 连接重试\\n[error] 请求超时');
+    expect(find.byType(ListView), findsNothing);
+    logText.onSelectionChanged!(const TextSelection(baseOffset: 7, extentOffset: 25), SelectionChangedCause.drag);
+    await tester.pumpAndSettle();
+    final logState = tester.state<_MaintenanceLogBrowserState>(find.byType(_MaintenanceLogBrowser));
+    expect(logState._follow, isFalse);
+    expect(logState._selecting, isTrue);
+    buffer.append('追加日志');
+    logState.setState(() {});
+    await tester.pumpAndSettle();
+    expect(tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!.toPlainText(), logText.textSpan!.toPlainText());
     if (Platform.environment['MAINTENANCE_FONT'] != null) {
       final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('日志预览')));
       await tester.runAsync(() async {
@@ -383,9 +394,6 @@ void main() {
       image.dispose();
       });
     }
-    await tester.tap(find.text('[error] 请求超时')); await tester.pumpAndSettle();
-    expect(find.byType(OpenHandConsoleText), findsOneWidget);
-    expect(tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!.toPlainText(), '[error] 请求超时');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: SizedBox(width: 300, child: ExpansionTile(
@@ -422,7 +430,7 @@ void main() {
       });
     }
     await tester.tap(find.text('轮转策略 · 2')); await tester.pumpAndSettle();
-    expect(find.text('/etc/logrotate.conf'), findsWidgets);
+    expect(find.byWidgetPredicate((widget) => widget is SelectableText && (widget.textSpan?.toPlainText() ?? widget.data ?? '').contains('/etc/logrotate.conf')), findsOneWidget);
     await tester.tap(find.text('日志目录大小 · 1')); await tester.pumpAndSettle();
     expect(find.text(formatByteSize(4096 * 1024)), findsOneWidget);
     expect(find.text('/var/log'), findsOneWidget);
@@ -458,6 +466,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(ExpansionTile)); await tester.pumpAndSettle();
     expect(find.text('/var/log/app.log'), findsOneWidget);
+    state.setState(() => state._metadataKind = 'config');
+    await tester.pumpAndSettle();
+    final config = tester.widgetList<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).where((w) => w.text.contains('/etc/logrotate.conf'));
+    expect(config.single.text, '/etc/logrotate.conf\\nweekly\\nrotate 7');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });

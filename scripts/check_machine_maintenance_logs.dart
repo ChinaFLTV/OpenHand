@@ -53,5 +53,16 @@ void main() {
         buffer.entries.last.message == '记录 1999',
     '缓存上限失效',
   );
+  final large = MachineLogBuffer();
+  large.append(List.generate(200, (i) => '$i ${'x' * 7000}').join('\n'));
+  check(
+    large.entries.fold<int>(
+          0,
+          (sum, entry) => sum + entry.time.length + entry.message.length + 3,
+        ) <=
+        machineLogTextLimit,
+    '长日志文本缓存超过上限',
+  );
+  check(large.entries.last.message.startsWith('199 '), '长日志缓存必须保留最新记录');
   stdout.writeln('日志解析、追加合并、重复记录、异常保留及缓存边界检查通过。');
 }

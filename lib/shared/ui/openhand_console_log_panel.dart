@@ -397,10 +397,16 @@ class OpenHandConsoleText extends StatefulWidget {
     required this.title,
     required this.text,
     this.maxHeight = 280,
+    this.framed = true,
+    this.scrollController,
+    this.onSelectionChanged,
   });
 
   final String title, text;
   final double maxHeight;
+  final bool framed;
+  final ScrollController? scrollController;
+  final SelectionChangedCallback? onSelectionChanged;
 
   @override
   State<OpenHandConsoleText> createState() => _OpenHandConsoleTextState();
@@ -420,31 +426,32 @@ class _OpenHandConsoleTextState extends State<OpenHandConsoleText> {
   @override
   Widget build(BuildContext context) {
     final lines = widget.text.split('\n');
-    return PageStorage(
-      bucket: _storage,
-      child: OpenHandConsoleFrame(
-        title: widget.title,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: widget.maxHeight),
-          child: SingleChildScrollView(
-            controller: _scroll,
-            primary: false,
-            padding: const EdgeInsets.all(12),
-            child: SelectableText.rich(
-              TextSpan(
-                children: [
-                  for (var i = 0; i < lines.length; i++)
-                    TextSpan(
-                      text: '${lines[i]}${i + 1 < lines.length ? '\n' : ''}',
-                      style: TextStyle(color: _consoleLogLineColor(lines[i])),
-                    ),
-                ],
-              ),
-              style: _consoleLogTextStyle(OpenHandConsolePalette.text),
-            ),
+    final body = ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      child: SingleChildScrollView(
+        controller: widget.scrollController ?? _scroll,
+        primary: false,
+        padding: const EdgeInsets.all(12),
+        child: SelectableText.rich(
+          onSelectionChanged: widget.onSelectionChanged,
+          TextSpan(
+            children: [
+              for (var i = 0; i < lines.length; i++)
+                TextSpan(
+                  text: '${lines[i]}${i + 1 < lines.length ? '\n' : ''}',
+                  style: TextStyle(color: _consoleLogLineColor(lines[i])),
+                ),
+            ],
           ),
+          style: _consoleLogTextStyle(OpenHandConsolePalette.text),
         ),
       ),
+    );
+    return PageStorage(
+      bucket: _storage,
+      child: widget.framed
+          ? OpenHandConsoleFrame(title: widget.title, child: body)
+          : body,
     );
   }
 }
