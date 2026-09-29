@@ -12929,4 +12929,88 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceTreeDependencies => 'Dépendances';
+
+  @override
+  String get maintenanceGpuTab => 'Gestion GPU';
+
+  @override
+  String get maintenanceGpuUtil => 'Utilisation GPU';
+
+  @override
+  String get maintenanceGpuMemoryUsed => 'VRAM utilisée';
+
+  @override
+  String get maintenanceGpuMemoryTotal => 'VRAM totale';
+
+  @override
+  String get maintenanceGpuTemperature => 'Température';
+
+  @override
+  String get maintenanceGpuPower => 'Puissance';
+
+  @override
+  String get maintenanceGpuPowerLimit => 'Limite de puissance';
+
+  @override
+  String get maintenanceGpuCoreClock => 'Fréquence du cœur';
+
+  @override
+  String get maintenanceGpuMemoryClock => 'Fréquence mémoire';
+
+  @override
+  String get maintenanceGpuFan => 'Vitesse relative du ventilateur';
+
+  @override
+  String get maintenanceGpuFanRpm => 'Vitesse du ventilateur';
+
+  @override
+  String get maintenanceGpuRenderer => 'Utilisation du moteur de rendu';
+
+  @override
+  String get maintenanceGpuTiler => 'Utilisation du moteur de tuilage';
+
+  @override
+  String get maintenanceGpuSharedUsed => 'Mémoire partagée utilisée';
+
+  @override
+  String get maintenanceGpuSharedAllocated => 'Mémoire partagée allouée';
+
+  @override
+  String get maintenanceGpuRecoveries => 'Récupérations';
+
+  @override
+  String get maintenanceGpuCores => 'Cœurs GPU';
+
+  @override
+  String get maintenanceGpuEmpty => 'Aucune donnée GPU disponible';
+
+  @override
+  String get maintenanceGpuTrend => 'Évolution de l’utilisation GPU';
+
+  @override
+  String get maintenanceGpuMemoryFree => 'VRAM libre';
+
+  @override
+  String get maintenanceGpuSource => 'Source';
+
+  @override
+  String get maintenanceGpuVendor => 'Fabricant';
+
+  @override
+  String get maintenanceGpuDriver => 'Version du pilote';
+
+  @override
+  String get maintenanceGpuBus => 'Bus';
+
+  @override
+  String get maintenanceGpuProcesses => 'Processus de calcul GPU';
+
+  @override
+  String get maintenanceGpuDisplays => 'Écrans connectés';
+
+  @override
+  String get maintenanceGpuPixels => 'Pixels physiques';
+
+  @override
+  String get maintenanceGpuResolution => 'Mode d’affichage';
 }

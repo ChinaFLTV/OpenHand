@@ -87,6 +87,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     }
     if (fail) throw StateError('模拟连接中断');
     if (pending != null) return pending!.future;
+    if (command.contains('section gpu_nvidia')) return '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\nGPU主机\\n__OH_OPS_gpu_nvidia__\\nGPU-1,NVIDIA Test,550.1,00000000:01:00.0,45,1024,8192,60,80.5,150,1800,7000,0,P2\\n__OH_OPS_gpu_processes__\\nGPU-1,42,compute,128\\n__OH_OPS_end__\\n';
     return '''
     "r'''"
     '''
@@ -1121,6 +1122,40 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+
+  testWidgets('GPU 分区按需采集并显示指标、显存图与连续趋势', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1100));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    expect(service.lastCommand, isNot(contains('section gpu_nvidia')));
+    await tester.tap(find.text('GPU 管理'));
+    await tester.pumpAndSettle();
+    expect(service.lastCommand, contains('section gpu_nvidia'));
+    expect(find.text('NVIDIA Test'), findsOneWidget);
+    expect(find.text('45%'), findsWidgets);
+    expect(find.text('80.5 W'), findsWidgets);
+    await tester.tap(find.byTooltip('刷新当前分区'));
+    await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceTrend), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(const Size(520, 900));
+    for (final locale in [const Locale('zh'), const Locale('zh', 'Hant'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja')]) {
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: MaterialApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      expect(find.text('NVIDIA Test'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
 

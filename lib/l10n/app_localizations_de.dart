@@ -12889,4 +12889,88 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTreeDependencies => 'Abhängigkeiten';
+
+  @override
+  String get maintenanceGpuTab => 'GPU-Verwaltung';
+
+  @override
+  String get maintenanceGpuUtil => 'GPU-Auslastung';
+
+  @override
+  String get maintenanceGpuMemoryUsed => 'VRAM belegt';
+
+  @override
+  String get maintenanceGpuMemoryTotal => 'VRAM gesamt';
+
+  @override
+  String get maintenanceGpuTemperature => 'Temperatur';
+
+  @override
+  String get maintenanceGpuPower => 'Leistung';
+
+  @override
+  String get maintenanceGpuPowerLimit => 'Leistungsgrenze';
+
+  @override
+  String get maintenanceGpuCoreClock => 'Kerntakt';
+
+  @override
+  String get maintenanceGpuMemoryClock => 'Speichertakt';
+
+  @override
+  String get maintenanceGpuFan => 'Lüfterleistung';
+
+  @override
+  String get maintenanceGpuFanRpm => 'Lüfterdrehzahl';
+
+  @override
+  String get maintenanceGpuRenderer => 'Renderer-Auslastung';
+
+  @override
+  String get maintenanceGpuTiler => 'Tiler-Auslastung';
+
+  @override
+  String get maintenanceGpuSharedUsed => 'Gemeinsamer Speicher belegt';
+
+  @override
+  String get maintenanceGpuSharedAllocated => 'Gemeinsamer Speicher zugewiesen';
+
+  @override
+  String get maintenanceGpuRecoveries => 'Wiederherstellungen';
+
+  @override
+  String get maintenanceGpuCores => 'GPU-Kerne';
+
+  @override
+  String get maintenanceGpuEmpty => 'Keine GPU-Daten verfügbar';
+
+  @override
+  String get maintenanceGpuTrend => 'GPU-Auslastungsverlauf';
+
+  @override
+  String get maintenanceGpuMemoryFree => 'VRAM frei';
+
+  @override
+  String get maintenanceGpuSource => 'Quelle';
+
+  @override
+  String get maintenanceGpuVendor => 'Hersteller';
+
+  @override
+  String get maintenanceGpuDriver => 'Treiberversion';
+
+  @override
+  String get maintenanceGpuBus => 'Bus';
+
+  @override
+  String get maintenanceGpuProcesses => 'GPU-Rechenprozesse';
+
+  @override
+  String get maintenanceGpuDisplays => 'Angeschlossene Bildschirme';
+
+  @override
+  String get maintenanceGpuPixels => 'Physische Pixel';
+
+  @override
+  String get maintenanceGpuResolution => 'Anzeigemodus';
 }

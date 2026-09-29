@@ -12753,4 +12753,88 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceTreeDependencies => 'Dependencies';
+
+  @override
+  String get maintenanceGpuTab => 'GPU management';
+
+  @override
+  String get maintenanceGpuUtil => 'GPU utilization';
+
+  @override
+  String get maintenanceGpuMemoryUsed => 'VRAM used';
+
+  @override
+  String get maintenanceGpuMemoryTotal => 'VRAM total';
+
+  @override
+  String get maintenanceGpuTemperature => 'Temperature';
+
+  @override
+  String get maintenanceGpuPower => 'Power';
+
+  @override
+  String get maintenanceGpuPowerLimit => 'Power limit';
+
+  @override
+  String get maintenanceGpuCoreClock => 'Core clock';
+
+  @override
+  String get maintenanceGpuMemoryClock => 'Memory clock';
+
+  @override
+  String get maintenanceGpuFan => 'Fan speed ratio';
+
+  @override
+  String get maintenanceGpuFanRpm => 'Fan speed';
+
+  @override
+  String get maintenanceGpuRenderer => 'Renderer utilization';
+
+  @override
+  String get maintenanceGpuTiler => 'Tiler utilization';
+
+  @override
+  String get maintenanceGpuSharedUsed => 'Shared memory used';
+
+  @override
+  String get maintenanceGpuSharedAllocated => 'Shared memory allocated';
+
+  @override
+  String get maintenanceGpuRecoveries => 'Recoveries';
+
+  @override
+  String get maintenanceGpuCores => 'GPU cores';
+
+  @override
+  String get maintenanceGpuEmpty => 'No GPU data available';
+
+  @override
+  String get maintenanceGpuTrend => 'GPU utilization trend';
+
+  @override
+  String get maintenanceGpuMemoryFree => 'VRAM free';
+
+  @override
+  String get maintenanceGpuSource => 'Source';
+
+  @override
+  String get maintenanceGpuVendor => 'Vendor';
+
+  @override
+  String get maintenanceGpuDriver => 'Driver version';
+
+  @override
+  String get maintenanceGpuBus => 'Bus';
+
+  @override
+  String get maintenanceGpuProcesses => 'GPU compute processes';
+
+  @override
+  String get maintenanceGpuDisplays => 'Connected displays';
+
+  @override
+  String get maintenanceGpuPixels => 'Physical pixels';
+
+  @override
+  String get maintenanceGpuResolution => 'Display mode';
 }

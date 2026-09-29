@@ -1,4 +1,7 @@
 import '../../shared/util/platform_shell.dart';
+import 'machine_maintenance_gpu.dart';
+
+export 'machine_maintenance_gpu.dart';
 
 const machineMaintenanceProcessLimit = 512;
 const machineMaintenanceInterval = Duration(seconds: 10);
@@ -542,3 +545,7 @@ class _SysVMaintenanceAdapter extends MachineMaintenanceServiceAdapter {
       'if command -v service >/dev/null 2>&1; then service ${posixShellQuote(name)} $action; '
       'else ${posixShellQuote('/etc/init.d/$name')} $action; fi';
 }
+
+final machineMaintenanceGpuCommand =
+    _linuxPrelude +
+    machineGpuLinuxCollection.replaceAll('__GPU_QUERY__', machineGpuQuery);

@@ -12354,6 +12354,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTreeDependencies => '依赖';
+
+  @override
+  String get maintenanceGpuTab => 'GPU 管理';
+
+  @override
+  String get maintenanceGpuUtil => 'GPU 利用率';
+
+  @override
+  String get maintenanceGpuMemoryUsed => '已用显存';
+
+  @override
+  String get maintenanceGpuMemoryTotal => '显存总量';
+
+  @override
+  String get maintenanceGpuTemperature => '温度';
+
+  @override
+  String get maintenanceGpuPower => '功耗';
+
+  @override
+  String get maintenanceGpuPowerLimit => '功率上限';
+
+  @override
+  String get maintenanceGpuCoreClock => '核心频率';
+
+  @override
+  String get maintenanceGpuMemoryClock => '显存频率';
+
+  @override
+  String get maintenanceGpuFan => '风扇转速比例';
+
+  @override
+  String get maintenanceGpuFanRpm => '风扇转速';
+
+  @override
+  String get maintenanceGpuRenderer => '渲染器利用率';
+
+  @override
+  String get maintenanceGpuTiler => '平铺器利用率';
+
+  @override
+  String get maintenanceGpuSharedUsed => '共享内存用量';
+
+  @override
+  String get maintenanceGpuSharedAllocated => '共享内存分配量';
+
+  @override
+  String get maintenanceGpuRecoveries => '恢复次数';
+
+  @override
+  String get maintenanceGpuCores => 'GPU 核心数';
+
+  @override
+  String get maintenanceGpuEmpty => '未获取到可用的 GPU 数据';
+
+  @override
+  String get maintenanceGpuTrend => 'GPU 利用率趋势';
+
+  @override
+  String get maintenanceGpuMemoryFree => '可用显存';
+
+  @override
+  String get maintenanceGpuSource => '采集来源';
+
+  @override
+  String get maintenanceGpuVendor => '厂商';
+
+  @override
+  String get maintenanceGpuDriver => '驱动版本';
+
+  @override
+  String get maintenanceGpuBus => '总线';
+
+  @override
+  String get maintenanceGpuProcesses => 'GPU 计算进程';
+
+  @override
+  String get maintenanceGpuDisplays => '连接显示器';
+
+  @override
+  String get maintenanceGpuPixels => '物理像素';
+
+  @override
+  String get maintenanceGpuResolution => '显示模式';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24688,4 +24772,88 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTreeDependencies => '相依';
+
+  @override
+  String get maintenanceGpuTab => 'GPU 管理';
+
+  @override
+  String get maintenanceGpuUtil => 'GPU 使用率';
+
+  @override
+  String get maintenanceGpuMemoryUsed => '已用顯示記憶體';
+
+  @override
+  String get maintenanceGpuMemoryTotal => '顯示記憶體總量';
+
+  @override
+  String get maintenanceGpuTemperature => '溫度';
+
+  @override
+  String get maintenanceGpuPower => '功耗';
+
+  @override
+  String get maintenanceGpuPowerLimit => '功率上限';
+
+  @override
+  String get maintenanceGpuCoreClock => '核心頻率';
+
+  @override
+  String get maintenanceGpuMemoryClock => '顯示記憶體頻率';
+
+  @override
+  String get maintenanceGpuFan => '風扇轉速比例';
+
+  @override
+  String get maintenanceGpuFanRpm => '風扇轉速';
+
+  @override
+  String get maintenanceGpuRenderer => '繪製器使用率';
+
+  @override
+  String get maintenanceGpuTiler => '平鋪器使用率';
+
+  @override
+  String get maintenanceGpuSharedUsed => '共享記憶體用量';
+
+  @override
+  String get maintenanceGpuSharedAllocated => '共享記憶體配置量';
+
+  @override
+  String get maintenanceGpuRecoveries => '復原次數';
+
+  @override
+  String get maintenanceGpuCores => 'GPU 核心數';
+
+  @override
+  String get maintenanceGpuEmpty => '未取得可用的 GPU 資料';
+
+  @override
+  String get maintenanceGpuTrend => 'GPU 使用率趨勢';
+
+  @override
+  String get maintenanceGpuMemoryFree => '可用顯示記憶體';
+
+  @override
+  String get maintenanceGpuSource => '採集來源';
+
+  @override
+  String get maintenanceGpuVendor => '廠商';
+
+  @override
+  String get maintenanceGpuDriver => '驅動程式版本';
+
+  @override
+  String get maintenanceGpuBus => '匯流排';
+
+  @override
+  String get maintenanceGpuProcesses => 'GPU 計算程序';
+
+  @override
+  String get maintenanceGpuDisplays => '連接顯示器';
+
+  @override
+  String get maintenanceGpuPixels => '實體像素';
+
+  @override
+  String get maintenanceGpuResolution => '顯示模式';
 }

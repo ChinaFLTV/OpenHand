@@ -38,6 +38,7 @@ class _LinuxMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
           0 => machineMaintenanceOverviewCommand,
           1 => machineMaintenanceProcessesCommand(offset: offset),
           2 => machineMaintenanceServicesCommand,
+          4 => machineMaintenanceGpuCommand,
           _ => machineMaintenanceDiagnosticsCommand,
         },
         workers,
@@ -96,6 +97,7 @@ for d in /Library/LaunchDaemons /Library/LaunchAgents "$HOME/Library/LaunchAgent
 done | head -c 12000
 section end
 ''',
+          4 => machineGpuMacCollection,
           _ =>
             r'''
 section sockets
@@ -237,6 +239,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
             .replaceAll('__OFFSET__', '$offset')
             .replaceAll('__LIMIT__', '$machineMaintenanceProcessLimit'),
       2 => _windowsServices,
+      4 => _windowsGpu.replaceAll('__GPU_QUERY__', machineGpuQuery),
       _ => _windowsDiagnostics,
     };
     if (workers != null) {
@@ -421,3 +424,11 @@ class _WindowsServiceMaintenanceAdapter
   String detail(String name) =>
       '$_windowsPrelude\nemit("status",describe(wmi.Get(${jsonEncode('Win32_Service.Name="$name"')})));emit("end","");';
 }
+
+const _windowsGpu = r'''
+var cards=rows("SELECT DeviceID,Name,AdapterCompatibility,DriverVersion,Status,PNPDeviceID FROM Win32_VideoController"),gpu=[];
+for(var i=0;i<cards.length;i++){var c=cards[i];gpu.push([clean(c.DeviceID),clean(c.Name),clean(c.AdapterCompatibility),clean(c.DriverVersion),clean(c.Status),clean(c.PNPDeviceID)].join("\t"));}
+emit("gpu_windows",gpu.join("\n").substr(0,16000));
+emit("gpu_nvidia",command("nvidia-smi --query-gpu=__GPU_QUERY__ --format=csv,noheader,nounits",40000));
+emit("gpu_processes",command("nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory --format=csv,noheader,nounits",20000));
+''';

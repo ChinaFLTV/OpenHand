@@ -22861,6 +22861,174 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'依赖'**
   String get maintenanceTreeDependencies;
+
+  /// No description provided for @maintenanceGpuTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 管理'**
+  String get maintenanceGpuTab;
+
+  /// No description provided for @maintenanceGpuUtil.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 利用率'**
+  String get maintenanceGpuUtil;
+
+  /// No description provided for @maintenanceGpuMemoryUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用显存'**
+  String get maintenanceGpuMemoryUsed;
+
+  /// No description provided for @maintenanceGpuMemoryTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'显存总量'**
+  String get maintenanceGpuMemoryTotal;
+
+  /// No description provided for @maintenanceGpuTemperature.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度'**
+  String get maintenanceGpuTemperature;
+
+  /// No description provided for @maintenanceGpuPower.
+  ///
+  /// In zh, this message translates to:
+  /// **'功耗'**
+  String get maintenanceGpuPower;
+
+  /// No description provided for @maintenanceGpuPowerLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'功率上限'**
+  String get maintenanceGpuPowerLimit;
+
+  /// No description provided for @maintenanceGpuCoreClock.
+  ///
+  /// In zh, this message translates to:
+  /// **'核心频率'**
+  String get maintenanceGpuCoreClock;
+
+  /// No description provided for @maintenanceGpuMemoryClock.
+  ///
+  /// In zh, this message translates to:
+  /// **'显存频率'**
+  String get maintenanceGpuMemoryClock;
+
+  /// No description provided for @maintenanceGpuFan.
+  ///
+  /// In zh, this message translates to:
+  /// **'风扇转速比例'**
+  String get maintenanceGpuFan;
+
+  /// No description provided for @maintenanceGpuFanRpm.
+  ///
+  /// In zh, this message translates to:
+  /// **'风扇转速'**
+  String get maintenanceGpuFanRpm;
+
+  /// No description provided for @maintenanceGpuRenderer.
+  ///
+  /// In zh, this message translates to:
+  /// **'渲染器利用率'**
+  String get maintenanceGpuRenderer;
+
+  /// No description provided for @maintenanceGpuTiler.
+  ///
+  /// In zh, this message translates to:
+  /// **'平铺器利用率'**
+  String get maintenanceGpuTiler;
+
+  /// No description provided for @maintenanceGpuSharedUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存用量'**
+  String get maintenanceGpuSharedUsed;
+
+  /// No description provided for @maintenanceGpuSharedAllocated.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存分配量'**
+  String get maintenanceGpuSharedAllocated;
+
+  /// No description provided for @maintenanceGpuRecoveries.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复次数'**
+  String get maintenanceGpuRecoveries;
+
+  /// No description provided for @maintenanceGpuCores.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 核心数'**
+  String get maintenanceGpuCores;
+
+  /// No description provided for @maintenanceGpuEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'未获取到可用的 GPU 数据'**
+  String get maintenanceGpuEmpty;
+
+  /// No description provided for @maintenanceGpuTrend.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 利用率趋势'**
+  String get maintenanceGpuTrend;
+
+  /// No description provided for @maintenanceGpuMemoryFree.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用显存'**
+  String get maintenanceGpuMemoryFree;
+
+  /// No description provided for @maintenanceGpuSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集来源'**
+  String get maintenanceGpuSource;
+
+  /// No description provided for @maintenanceGpuVendor.
+  ///
+  /// In zh, this message translates to:
+  /// **'厂商'**
+  String get maintenanceGpuVendor;
+
+  /// No description provided for @maintenanceGpuDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'驱动版本'**
+  String get maintenanceGpuDriver;
+
+  /// No description provided for @maintenanceGpuBus.
+  ///
+  /// In zh, this message translates to:
+  /// **'总线'**
+  String get maintenanceGpuBus;
+
+  /// No description provided for @maintenanceGpuProcesses.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 计算进程'**
+  String get maintenanceGpuProcesses;
+
+  /// No description provided for @maintenanceGpuDisplays.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接显示器'**
+  String get maintenanceGpuDisplays;
+
+  /// No description provided for @maintenanceGpuPixels.
+  ///
+  /// In zh, this message translates to:
+  /// **'物理像素'**
+  String get maintenanceGpuPixels;
+
+  /// No description provided for @maintenanceGpuResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示模式'**
+  String get maintenanceGpuResolution;
 }
 
 class _AppLocalizationsDelegate

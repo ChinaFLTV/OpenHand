@@ -12479,4 +12479,88 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTreeDependencies => '依存関係';
+
+  @override
+  String get maintenanceGpuTab => 'GPU 管理';
+
+  @override
+  String get maintenanceGpuUtil => 'GPU 使用率';
+
+  @override
+  String get maintenanceGpuMemoryUsed => '使用中の VRAM';
+
+  @override
+  String get maintenanceGpuMemoryTotal => 'VRAM 合計';
+
+  @override
+  String get maintenanceGpuTemperature => '温度';
+
+  @override
+  String get maintenanceGpuPower => '消費電力';
+
+  @override
+  String get maintenanceGpuPowerLimit => '電力上限';
+
+  @override
+  String get maintenanceGpuCoreClock => 'コアクロック';
+
+  @override
+  String get maintenanceGpuMemoryClock => 'メモリクロック';
+
+  @override
+  String get maintenanceGpuFan => 'ファン速度比率';
+
+  @override
+  String get maintenanceGpuFanRpm => 'ファン回転数';
+
+  @override
+  String get maintenanceGpuRenderer => 'レンダラー使用率';
+
+  @override
+  String get maintenanceGpuTiler => 'タイラー使用率';
+
+  @override
+  String get maintenanceGpuSharedUsed => '共有メモリ使用量';
+
+  @override
+  String get maintenanceGpuSharedAllocated => '共有メモリ割当量';
+
+  @override
+  String get maintenanceGpuRecoveries => '復旧回数';
+
+  @override
+  String get maintenanceGpuCores => 'GPU コア数';
+
+  @override
+  String get maintenanceGpuEmpty => 'GPU データを取得できません';
+
+  @override
+  String get maintenanceGpuTrend => 'GPU 使用率の推移';
+
+  @override
+  String get maintenanceGpuMemoryFree => '空き VRAM';
+
+  @override
+  String get maintenanceGpuSource => '取得元';
+
+  @override
+  String get maintenanceGpuVendor => 'メーカー';
+
+  @override
+  String get maintenanceGpuDriver => 'ドライバーバージョン';
+
+  @override
+  String get maintenanceGpuBus => 'バス';
+
+  @override
+  String get maintenanceGpuProcesses => 'GPU 計算プロセス';
+
+  @override
+  String get maintenanceGpuDisplays => '接続ディスプレイ';
+
+  @override
+  String get maintenanceGpuPixels => '物理ピクセル';
+
+  @override
+  String get maintenanceGpuResolution => '表示モード';
 }
