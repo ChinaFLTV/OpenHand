@@ -2387,6 +2387,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         _MaintenanceCard(
           title: maintenanceLabel(context, '诊断项目'),
+          contentPadding: EdgeInsets.zero,
           maxHeight: 360,
           icon: Icons.fact_check_outlined,
           child: Column(
@@ -2396,7 +2397,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ))
                 ListTile(
                   hoverColor: Colors.transparent,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   leading: Icon(
                     Icons.fact_check_outlined,
                     color: cs.primary,
@@ -3780,6 +3784,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.onOpen,
     this.maxHeight = 280,
     this.scrollBody = true,
+    this.contentPadding = const EdgeInsets.all(12),
   });
   final String title;
   final Widget child;
@@ -3787,6 +3792,7 @@ class _MaintenanceCard extends StatelessWidget {
   final VoidCallback? onOpen;
   final double maxHeight;
   final bool scrollBody;
+  final EdgeInsetsGeometry contentPadding;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -3841,7 +3847,7 @@ class _MaintenanceCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: contentPadding,
             // 列表自行约束数据区，外层不能再次截断分页栏。
             child:
                 !scrollBody ||

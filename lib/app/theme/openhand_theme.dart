@@ -223,9 +223,7 @@ abstract final class OpenHandTheme {
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kOpenHandRadius24),
-        ),
+        shape: const RoundedRectangleBorder(),
         selectedTileColor: colorScheme.secondaryContainer.withValues(
           alpha: isDark ? 0.34 : 0.72,
         ),

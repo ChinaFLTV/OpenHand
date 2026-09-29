@@ -10781,9 +10781,6 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       final selected = effectiveSelected.contains(option.key);
                       return CheckboxListTile(
                         dense: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: kOpenHandBorderRadius14,
-                        ),
                         tileColor: selected
                             ? colorScheme.primaryContainer.withValues(
                                 alpha: 0.30,
@@ -24070,9 +24067,6 @@ class _DingTalkAddConversationDialogState
                           final target = _targetSearch.results[index];
                           return ListTile(
                             dense: true,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: kOpenHandBorderRadius12,
-                            ),
                             leading: Icon(
                               target.type == DingTalkConversationType.group
                                   ? Icons.groups_rounded

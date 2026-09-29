@@ -794,6 +794,47 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('列表长按反馈填满条目且不覆盖相邻行', (tester) async {
+    for (final theme in [OpenHandTheme.light(OpenHandThemePreset.values.first), OpenHandTheme.dark(OpenHandThemePreset.values.first)]) {
+      await tester.pumpWidget(MaterialApp(theme: theme, locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Align(alignment: Alignment.topLeft,
+        child: RepaintBoundary(key: const ValueKey('整行反馈'), child: SizedBox(width: 320,
+          child: _MaintenanceCard(title: '诊断项目', contentPadding: EdgeInsets.zero, child: Column(children: [
+            ListTile(title: const Text('第一行'), onTap: () {}),
+            ListTile(title: const Text('第二行'), onTap: () {}),
+          ]))))))));
+      await tester.pumpAndSettle();
+      final row = find.byType(ListTile).first;
+      final ink = tester.widget<InkWell>(find.descendant(of: row, matching: find.byType(InkWell)));
+      expect(ink.customBorder, const RoundedRectangleBorder());
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('整行反馈')));
+      final origin = tester.getTopLeft(find.byKey(const ValueKey('整行反馈')));
+      final rowRect = tester.getRect(row).shift(-origin);
+      final otherRect = tester.getRect(find.byType(ListTile).last).shift(-origin);
+      expect(rowRect.left, 1);
+      expect(rowRect.right, 319);
+      Future<List<int>> colors() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+        final points = [Offset(3, rowRect.top + 3), Offset(316, rowRect.top + 3), Offset(3, otherRect.top + 3)];
+        final values = [for (final p in points) bytes.getUint32((p.dy.toInt() * image.width + p.dx.toInt()) * 4)];
+        image.dispose();
+        return values;
+      }
+      final before = (await tester.runAsync(colors))!;
+      final gesture = await tester.startGesture(tester.getCenter(row));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
+      final pressed = (await tester.runAsync(colors))!;
+      expect(pressed[0], isNot(before[0]));
+      expect(pressed[1], isNot(before[1]));
+      expect(pressed[2], before[2]);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(await tester.runAsync(colors), before);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('浅深主题条目与输入框无悬停底色且保留点击和焦点反馈', (tester) async {
     for (final theme in [OpenHandTheme.light(OpenHandThemePreset.values.first), OpenHandTheme.dark(OpenHandThemePreset.values.first)]) {
       var taps = 0;
