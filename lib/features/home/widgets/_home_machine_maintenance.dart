@@ -983,6 +983,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
       _MaintenanceCard(
         title: maintenanceLabel(context, '网络吞吐'),
+        scrollBody: false,
         icon: Icons.swap_vert_rounded,
         onOpen: () => _showCollected('网卡详情', data.text('interfaces')),
         child: _rateTable(
@@ -1150,6 +1151,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         _MaintenanceCard(
           title: maintenanceLabel(context, '磁盘 IO'),
+          scrollBody: false,
           icon: Icons.speed_rounded,
           child: _rateTable(
             data,
@@ -3789,7 +3791,13 @@ class _MaintenanceCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: !scrollBody || child is _MaintenanceTable
+            // 列表自行约束数据区，外层不能再次截断分页栏。
+            child:
+                !scrollBody ||
+                    child is _MaintenanceTable ||
+                    child is _MaintenanceBrowser ||
+                    child is _MaintenanceReadout ||
+                    child is _MaintenanceLogTimeline
                 ? child
                 : ConstrainedBox(
                     constraints: BoxConstraints(

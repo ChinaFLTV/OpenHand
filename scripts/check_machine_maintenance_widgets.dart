@@ -1421,6 +1421,43 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('磁盘复合列表与详情列表分页完整位于卡片内', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    state.setState(() {
+      state._snapshots[0] = MachineMaintenanceSnapshot({...state._snapshots[0]!.sections,
+        'disks': List.generate(24, (i) => 'disk\$i 100 0 2048 30 80 0 4096 40 0 70 80').join('\\n'),
+        'network': List.generate(24, (i) => 'eth\$i: 1048576 100 0 0 0 0 0 0 524288 80 0 0 0 0 0 0').join('\\n'),
+      });
+    });
+    await tester.pumpAndSettle();
+    final overview = state._overview(state._snapshots[0]!) as ListView;
+    final disk = (overview.childrenDelegate as SliverChildListDelegate).children.whereType<_MaintenanceCard>().firstWhere((card) => card.title == '磁盘 IO');
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(child: disk))));
+    await tester.pumpAndSettle();
+    final diskFooter = find.byType(OpenHandTablePagination);
+    expect(diskFooter, findsOneWidget);
+    expect(tester.getRect(diskFooter).bottom, lessThanOrEqualTo(tester.getRect(find.byType(_MaintenanceCard)).bottom - 10));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 480,
+        child: _MaintenanceCard(title: '详情', child: _MaintenanceReadout(section: 'startup', text: List.generate(40, (i) => 'entry\$i enabled').join('\\n'))))))));
+    await tester.pumpAndSettle();
+    final card = find.byType(_MaintenanceCard);
+    final footer = find.byType(OpenHandTablePagination);
+    expect(footer, findsOneWidget);
+    expect(tester.getRect(footer).bottom, lessThanOrEqualTo(tester.getRect(card).bottom - 10));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('长列表卡片高度有界且可滚动到底部', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 900));
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Center(child: SizedBox(width: 600,
