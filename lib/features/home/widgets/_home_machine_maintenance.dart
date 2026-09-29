@@ -207,6 +207,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String command, {
     bool probe = false,
     MachineTerminalCommandShell? shell,
+    bool Function()? isCancelled,
   }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
     sessionId: widget.sessionId,
     terminalId: widget.terminalId,
@@ -215,7 +216,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         !probe && shell == null && (_platform?.windowsScript ?? false),
     commandShell:
         shell ?? (probe ? MachineTerminalCommandShell.probe : _commandShell),
-    isCancelled: () => !mounted || _closing,
+    isCancelled: () => !mounted || _closing || (isCancelled?.call() ?? false),
   );
 
   Future<void> _refresh({bool manual = false, bool detectShell = true}) async {
@@ -354,23 +355,33 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String title,
     String command, {
     Map<String, String> actions = const {},
+    bool service = false,
   }) async {
     if (_loading || _platform == null) return;
     final platform = _platform!;
     final snapshot = _snapshots[_tab]!;
     _detailOpen = true;
     _timer?.cancel();
-    await showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => _MachineMaintenanceDetails(
-        title: title,
-        load: () => _run(platform.bind(snapshot, command)),
-        actions: actions,
-        execute: (command) => _run(platform.bind(snapshot, command)),
-      ),
-    );
-    _detailOpen = false;
-    if (mounted) _schedule();
+    var active = true;
+    try {
+      await showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => _MachineMaintenanceDetails(
+          title: title,
+          load: () => _run(
+            platform.bind(snapshot, command),
+            isCancelled: () => !active,
+          ),
+          refreshInterval: service ? Duration(seconds: _intervalSeconds) : null,
+          actions: actions,
+          execute: (command) => _run(platform.bind(snapshot, command)),
+        ),
+      );
+    } finally {
+      active = false;
+      _detailOpen = false;
+      if (mounted) _schedule();
+    }
   }
 
   @override
@@ -2116,6 +2127,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         serviceMetrics[name] = values;
       }
     }
+    final processMetrics = <String, List<String>>{
+      for (final line in data.text('service_processes').split('\n'))
+        if (line.split('\t').length >= 7)
+          line.split('\t').first: line.split('\t'),
+    };
     final serviceHeaders = switch (manager) {
       'systemd' => const [
         '名称',
@@ -2130,8 +2146,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         '任务数',
         '重启次数',
         '退出代码',
+        '用户',
+        '配置文件',
+        '启动时间',
+        '结果',
       ],
-      'launchd' => const ['名称', '状态', 'PID', '退出代码'],
+      'launchd' => const [
+        '名称',
+        '状态',
+        'PID',
+        '退出代码',
+        '用户',
+        'CPU / 单核',
+        '驻留内存',
+        '运行时长',
+        '累计 CPU 时间',
+        '启动命令',
+      ],
       'Windows SCM' => const [
         '名称',
         '状态',
@@ -2141,6 +2172,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         '用户',
         '退出代码',
         '路径',
+        '服务类型',
+        '允许停止',
+        '允许暂停',
+        '服务退出代码',
       ],
       _ => const ['名称', '状态', '状态详情'],
     };
@@ -2180,6 +2215,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           counter('TasksCurrent'),
           counter('NRestarts'),
           counter('ExecMainStatus'),
+          for (final key in [
+            'User',
+            'FragmentPath',
+            'ActiveEnterTimestamp',
+            'Result',
+          ])
+            metrics[key]?.isNotEmpty == true ? metrics[key]! : '—',
         ];
       }
       if (manager == 'launchd') {
@@ -2188,6 +2230,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           status,
           fields.length > 1 ? fields[1] : '—',
           fields.length > 2 ? fields[2] : '—',
+          for (var i = 1; i < 7; i++)
+            if (processMetrics[fields.length > 1 ? fields[1] : '']
+                case final values?)
+              i == 3
+                  ? formatByteSize((int.tryParse(values[i]) ?? 0) * 1024)
+                  : i == 2
+                  ? '${values[i]}%'
+                  : values[i]
+            else
+              '—',
         ];
       }
       if (manager == 'Windows SCM') {
@@ -2196,7 +2248,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           status,
           columns.length > 2 ? columns[2] : '—',
           maintenanceDetailValue(context, startup[name] ?? '—'),
-          for (var i = 3; i < 7; i++)
+          for (var i = 3; i < 11; i++)
             columns.length > i && columns[i].isNotEmpty ? columns[i] : '—',
         ];
       }
@@ -2401,6 +2453,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 _details(
                   name,
                   adapter!.command(name),
+                  service: true,
                   actions: {
                     for (final action in adapter.actions.entries)
                       action.key: adapter.command(name, action.value),
@@ -2556,6 +2609,27 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       maintenanceLabel(context, row[3]),
                       ...row.skip(4),
                     ],
+                    cellWidgets: [
+                      null,
+                      null,
+                      null,
+                      _MaintenanceStatus(
+                        label: maintenanceLabel(context, row[3]),
+                        color: switch (row[3].toUpperCase()) {
+                          'LISTENING' ||
+                          'LISTEN' ||
+                          'ESTABLISHED' => OpenHandStatusColors.success,
+                          'TIME_WAIT' ||
+                          'CLOSE_WAIT' ||
+                          'SYN_SENT' ||
+                          'FIN_WAIT' => OpenHandStatusColors.warning,
+                          _ => _maintenanceStateColor(
+                            cs,
+                            maintenanceLabel(context, row[3]),
+                          ),
+                        },
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -2595,52 +2669,61 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 final status = empty
                     ? '暂无数据'
                     : _maintenanceOutputStatus(data.text(name));
-                return Material(
-                  type: MaterialType.transparency,
-                  child: ListTile(
-                    hoverColor: Colors.transparent,
-                    splashColor: Colors.transparent,
-                    selectedTileColor: Colors.transparent,
-                    mouseCursor: SystemMouseCursors.click,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    leading: _MaintenanceIconBadge(
-                      icon: Icons.fact_check_outlined,
-                      color: empty
-                          ? cs.onSurfaceVariant
-                          : status.startsWith('部分不可用')
-                          ? OpenHandStatusColors.warning
-                          : OpenHandStatusColors.success,
-                      size: 32,
-                      iconSize: 16,
-                    ),
-                    title: Text(
-                      maintenanceLabel(
-                        context,
-                        _maintenanceSectionLabels[name] ?? name,
+                return Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: DecoratedBox(
+                    decoration: _maintenanceTileDecoration(cs),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: ListTile(
+                        hoverColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        selectedTileColor: Colors.transparent,
+                        mouseCursor: SystemMouseCursors.click,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        leading: _MaintenanceIconBadge(
+                          icon: Icons.fact_check_outlined,
+                          color: empty
+                              ? cs.onSurfaceVariant
+                              : status.startsWith('部分不可用')
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.success,
+                          size: 32,
+                          iconSize: 16,
+                        ),
+                        title: Text(
+                          maintenanceLabel(
+                            context,
+                            _maintenanceSectionLabels[name] ?? name,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          maintenanceLabel(context, status),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: empty
+                                ? cs.onSurfaceVariant
+                                : status.startsWith('部分不可用')
+                                ? OpenHandStatusColors.warning
+                                : OpenHandStatusColors.success,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                        ),
+                        onTap: () => _showCollected(
+                          _maintenanceSectionLabels[name] ?? name,
+                          data.text(name),
+                        ),
                       ),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      maintenanceLabel(context, status),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: empty
-                            ? cs.onSurfaceVariant
-                            : status.startsWith('部分不可用')
-                            ? OpenHandStatusColors.warning
-                            : OpenHandStatusColors.success,
-                      ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-                    onTap: () => _showCollected(
-                      _maintenanceSectionLabels[name] ?? name,
-                      data.text(name),
                     ),
                   ),
                 );
@@ -3363,71 +3446,126 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                     : () => widget.table.onRowTap?.call(row),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
+                                    vertical: 6,
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        maintenanceDetailValue(
-                                          context,
-                                          row == null
-                                              ? id.substring(6)
-                                              : row.cells[widget.nameColumn],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: row == null
-                                              ? cs.primary
-                                              : cs.onSurface,
-                                        ),
-                                      ),
-                                      if (row != null) ...[
-                                        const SizedBox(height: 4),
-                                        Wrap(
-                                          spacing: 16,
-                                          runSpacing: 4,
-                                          children: [
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            maintenanceDetailValue(
+                                              context,
+                                              row == null
+                                                  ? id.substring(6)
+                                                  : row.cells[widget
+                                                        .nameColumn],
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: row == null
+                                                  ? cs.primary
+                                                  : cs.onSurface,
+                                            ),
+                                          ),
+                                          if (row != null)
                                             for (final i
                                                 in widget.nameColumn == 1
                                                     ? const [0, 2, 3, 4, 6]
                                                     : const [1, 2, 3, 4])
-                                              if (i < row.cells.length)
-                                                Text(
-                                                  '${maintenanceLabel(context, widget.table.headers[i])}: ${row.cells[i]}',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: cs.onSurfaceVariant,
-                                                  ),
-                                                ),
-                                          ],
-                                        ),
-                                        if (widget.nameColumn == 0 &&
-                                            !widget.groupNames &&
-                                            (widget.parents[id]?.isNotEmpty ??
-                                                false))
-                                          Text(
-                                            '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: cs.onSurfaceVariant,
-                                            ),
+                                              if (i < row.cells.length &&
+                                                  i <
+                                                      widget
+                                                          .table
+                                                          .headers
+                                                          .length)
+                                                widget.table.headers[i] == '状态'
+                                                    ? _MaintenanceStatus(
+                                                        label: row.cells[i],
+                                                        color:
+                                                            _maintenanceStateColor(
+                                                              cs,
+                                                              row.cells[i],
+                                                            ),
+                                                      )
+                                                    : Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 1,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: cs
+                                                              .surfaceContainerHighest
+                                                              .withValues(
+                                                                alpha: .5,
+                                                              ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          border: Border.all(
+                                                            color: cs
+                                                                .outlineVariant
+                                                                .withValues(
+                                                                  alpha: .45,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: cs
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                        ),
+                                                      ),
+                                        ],
+                                      ),
+                                      if (row != null &&
+                                          widget.nameColumn == 0 &&
+                                          !widget.groupNames &&
+                                          (widget.parents[id]?.isNotEmpty ??
+                                              false))
+                                        Text(
+                                          '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: cs.onSurfaceVariant,
                                           ),
-                                      ],
+                                        ),
                                     ],
                                   ),
                                 ),
                               ),
                             ),
                             if (branches.isNotEmpty)
-                              Text(
-                                '${branches.length}',
-                                style: TextStyle(
-                                  color: cs.primary,
-                                  fontSize: 12,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.primary.withValues(alpha: .1),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${branches.length}',
+                                  style: TextStyle(
+                                    color: cs.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
                           ],
@@ -5380,7 +5518,9 @@ class _MachineMaintenanceDetails extends StatefulWidget {
     required this.load,
     required this.actions,
     required this.execute,
+    this.refreshInterval,
   });
+  final Duration? refreshInterval;
   final String title;
   final Future<String> Function() load;
   final Future<String> Function(String) execute;
@@ -5394,7 +5534,32 @@ class _MachineMaintenanceDetailsState
     extends State<_MachineMaintenanceDetails> {
   MachineMaintenanceSnapshot? _data;
   String? _error, _result;
-  bool _busy = false;
+  bool _busy = false, _automatic = false;
+  Timer? _refreshTimer;
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRefresh() {
+    _refreshTimer?.cancel();
+    if (!_automatic || !mounted || widget.refreshInterval == null) return;
+    _refreshTimer = startSafeTimer(widget.refreshInterval!, () {
+      if (!mounted) return;
+      if (!_busy &&
+          (ModalRoute.of(context)?.isCurrent ?? true) &&
+          (WidgetsBinding.instance.lifecycleState == null ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed)) {
+        _load();
+      } else {
+        _scheduleRefresh();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -5402,6 +5567,8 @@ class _MachineMaintenanceDetailsState
   }
 
   Future<void> _load() async {
+    if (_busy || !mounted) return;
+    _refreshTimer?.cancel();
     setState(() {
       _busy = true;
       _error = null;
@@ -5417,6 +5584,7 @@ class _MachineMaintenanceDetailsState
       if (mounted) {
         setState(() {
           _error = '$error';
+          _automatic = false;
         });
       }
     } finally {
@@ -5424,11 +5592,13 @@ class _MachineMaintenanceDetailsState
         setState(() {
           _busy = false;
         });
+        _scheduleRefresh();
       }
     }
   }
 
   Future<void> _act(MapEntry<String, String> action) async {
+    _refreshTimer?.cancel();
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: maintenanceLabel(context, action.key),
@@ -5442,7 +5612,10 @@ class _MachineMaintenanceDetailsState
         ),
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) {
+      _scheduleRefresh();
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -5466,6 +5639,7 @@ class _MachineMaintenanceDetailsState
         setState(() {
           _busy = false;
         });
+        _scheduleRefresh();
       }
     }
   }
@@ -5525,9 +5699,24 @@ class _MachineMaintenanceDetailsState
                         ],
                       ),
                     ),
+                  if (widget.refreshInterval != null)
+                    _MachineTerminalIconButton(
+                      icon: _automatic
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      tooltip: _automatic
+                          ? '暂停自动刷新服务与日志'
+                          : '自动刷新服务与日志（${widget.refreshInterval!.inSeconds} 秒）',
+                      onPressed: () {
+                        setState(() => _automatic = !_automatic);
+                        _scheduleRefresh();
+                      },
+                    ),
                   _MachineTerminalIconButton(
                     icon: Icons.refresh_rounded,
-                    tooltip: maintenanceLabel(context, '刷新详情'),
+                    tooltip: widget.refreshInterval == null
+                        ? maintenanceLabel(context, '刷新详情')
+                        : '刷新服务与日志',
                     onPressed: _busy ? null : _load,
                   ),
                 ],
