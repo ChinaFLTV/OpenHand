@@ -351,6 +351,16 @@ String maintenanceLabel(BuildContext context, String label) {
     "launchd" => l10n.maintenanceLaunchd,
     "充电状态" => l10n.maintenanceChargeState,
     "彩色液晶" => l10n.maintenanceColorLcd,
+    "启用事务" => l10n.maintenanceTransactions,
+    "会话类型" => l10n.maintenanceSessionType,
+    "Mach 服务" => l10n.maintenanceMachServices,
+    "按需启动" => l10n.maintenanceOnDemand,
+    "保持运行" => l10n.maintenanceKeepAlive,
+    "载入时启动" => l10n.maintenanceRunAtLoad,
+    "进程类型" => l10n.maintenanceProcessType,
+    "节流间隔" => l10n.maintenanceThrottle,
+    "启动参数" => l10n.maintenanceArguments,
+    "控制台" => l10n.maintenanceConsole,
     "可用内存" => l10n.maintenanceAvailableMemory,
     "空闲内存" => l10n.maintenanceFreeMemory,
     "内存总量" => l10n.maintenanceTotalMemory,
@@ -786,6 +796,15 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'Physical footprint (peak)': '驻留内存',
     'Load Address': '加载地址',
     'Reason': '描述',
+    'EnableTransactions': '启用事务',
+    'LimitLoadToSessionType': '会话类型',
+    'MachServices': 'Mach 服务',
+    'OnDemand': '按需启动',
+    'KeepAlive': '保持运行',
+    'RunAtLoad': '载入时启动',
+    'ProcessType': '进程类型',
+    'ThrottleInterval': '节流间隔',
+    'ProgramArguments': '启动参数',
     'CREATED': '创建时间',
     'STATUS': '状态',
     'PORTS': '端口',
@@ -799,7 +818,6 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'label': '名称',
     'DisplayName': '名称',
     'Program': '启动命令',
-    'ProgramArguments': '启动命令',
     'WorkingDirectory': '工作目录',
     'UserName': '用户',
     'GroupName': '组',
@@ -937,7 +955,17 @@ String? maintenanceEnglishTimestamp(String value) {
 
 String maintenanceDetailValue(BuildContext context, String value) {
   final l10n = AppLocalizations.of(context)!;
-  final trimmed = value.trim();
+  var trimmed = value.trim();
+  if (!trimmed.contains('\n')) {
+    if (trimmed.endsWith(';')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1).trim();
+    }
+    if (trimmed.length >= 2 &&
+        trimmed.startsWith('"') &&
+        trimmed.endsWith('"')) {
+      trimmed = trimmed.substring(1, trimmed.length - 1);
+    }
+  }
   final metal = RegExp(r'^[Mm]etal\s*(\d+)$').firstMatch(trimmed);
   if (metal != null) return 'Metal ${metal[1]}';
   final stamp = maintenanceEnglishTimestamp(trimmed);
@@ -949,6 +977,7 @@ String maintenanceDetailValue(BuildContext context, String value) {
   }
   if (lower == 'launchd') return l10n.maintenanceLaunchd;
   if (lower == 'color lcd') return l10n.maintenanceColorLcd;
+  if (lower == 'console') return l10n.maintenanceConsole;
   final label = switch (trimmed) {
     'indirect' => '间接启用',
     'generated' => '自动生成',

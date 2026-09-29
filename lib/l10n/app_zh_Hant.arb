@@ -8910,5 +8910,15 @@
   "maintenanceToolVmStat": "虛擬記憶體",
   "maintenanceToolIoreg": "裝置樹",
   "maintenanceToolNetstat": "網路連線",
-  "maintenanceToolLaunchctl": "啟動項目"
+  "maintenanceToolLaunchctl": "啟動項目",
+  "maintenanceTransactions": "啟用事務",
+  "maintenanceSessionType": "工作階段類型",
+  "maintenanceMachServices": "Mach 服務",
+  "maintenanceOnDemand": "按需啟動",
+  "maintenanceKeepAlive": "保持執行",
+  "maintenanceRunAtLoad": "載入時啟動",
+  "maintenanceProcessType": "行程類型",
+  "maintenanceThrottle": "節流間隔",
+  "maintenanceArguments": "啟動參數",
+  "maintenanceConsole": "主控台"
 }

@@ -13120,6 +13120,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceToolLaunchctl => '启动项';
+
+  @override
+  String get maintenanceTransactions => '启用事务';
+
+  @override
+  String get maintenanceSessionType => '会话类型';
+
+  @override
+  String get maintenanceMachServices => 'Mach 服务';
+
+  @override
+  String get maintenanceOnDemand => '按需启动';
+
+  @override
+  String get maintenanceKeepAlive => '保持运行';
+
+  @override
+  String get maintenanceRunAtLoad => '载入时启动';
+
+  @override
+  String get maintenanceProcessType => '进程类型';
+
+  @override
+  String get maintenanceThrottle => '节流间隔';
+
+  @override
+  String get maintenanceArguments => '启动参数';
+
+  @override
+  String get maintenanceConsole => '控制台';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26220,4 +26250,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceToolLaunchctl => '啟動項目';
+
+  @override
+  String get maintenanceTransactions => '啟用事務';
+
+  @override
+  String get maintenanceSessionType => '工作階段類型';
+
+  @override
+  String get maintenanceMachServices => 'Mach 服務';
+
+  @override
+  String get maintenanceOnDemand => '按需啟動';
+
+  @override
+  String get maintenanceKeepAlive => '保持執行';
+
+  @override
+  String get maintenanceRunAtLoad => '載入時啟動';
+
+  @override
+  String get maintenanceProcessType => '行程類型';
+
+  @override
+  String get maintenanceThrottle => '節流間隔';
+
+  @override
+  String get maintenanceArguments => '啟動參數';
+
+  @override
+  String get maintenanceConsole => '主控台';
 }

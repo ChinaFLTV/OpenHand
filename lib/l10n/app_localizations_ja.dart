@@ -13246,4 +13246,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceToolLaunchctl => '起動項目';
+
+  @override
+  String get maintenanceTransactions => 'トランザクション';
+
+  @override
+  String get maintenanceSessionType => 'セッション種別';
+
+  @override
+  String get maintenanceMachServices => 'Mach サービス';
+
+  @override
+  String get maintenanceOnDemand => 'オンデマンド';
+
+  @override
+  String get maintenanceKeepAlive => '常駐';
+
+  @override
+  String get maintenanceRunAtLoad => '読み込み時に起動';
+
+  @override
+  String get maintenanceProcessType => 'プロセス種別';
+
+  @override
+  String get maintenanceThrottle => 'スロットル間隔';
+
+  @override
+  String get maintenanceArguments => '起動引数';
+
+  @override
+  String get maintenanceConsole => 'コンソール';
 }

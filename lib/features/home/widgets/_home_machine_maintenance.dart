@@ -2777,23 +2777,41 @@ String _maintenanceReadoutValue(
   String value,
 ) {
   final normalized = key.trim();
-  if (const {'STAT', 'STATE', 'State', '状态', 'state'}.contains(normalized)) {
-    final token = value.trim();
-    if (token.length == 1 || RegExp(r'^[RSIZTD]\b').hasMatch(token)) {
-      return maintenanceLabel(context, _maintenanceProcessState(token));
-    }
+  final plain = value.trim();
+  if (const {'STAT', 'STATE', 'State', '状态', 'state'}.contains(normalized) &&
+      RegExp('^[RSIZTD]').hasMatch(plain)) {
+    return maintenanceLabel(context, _maintenanceProcessState(plain));
+  }
+  if (const {'RSS', 'VSZ', '驻留内存', '虚拟内存'}.contains(normalized)) {
+    final bytes = int.tryParse(plain);
+    if (bytes != null && bytes >= 0) return formatByteSize(bytes * 1024);
+  }
+  if (const {'%CPU', '%MEM', 'CPU / 单核', '内存使用率'}.contains(normalized) &&
+      num.tryParse(plain) != null &&
+      !plain.contains('%')) {
+    return '$plain%';
   }
   return maintenanceDetailValue(context, value);
 }
 
 IconData _maintenanceFieldIcon(String key) => switch (key) {
-  'Path' || 'NAME' || '路径' || 'Program' || 'COMMAND' => Icons.route_outlined,
-  'Process' || '进程' => Icons.memory_rounded,
-  'PID' || 'PPID' || 'Parent Process' => Icons.tag_rounded,
-  'USER' || '用户' || 'UserName' => Icons.person_outline,
-  'STAT' || 'STATE' || '状态' || 'State' => Icons.circle,
-  'Version' || 'OS Version' || '系统版本' => Icons.info_outline,
-  'Load Address' || '加载地址' => Icons.place_outlined,
+  '路径' ||
+  '启动命令' ||
+  '启动参数' ||
+  'Path' ||
+  'NAME' ||
+  'Program' ||
+  'COMMAND' => Icons.route_outlined,
+  '进程' || '名称' || '进程类型' || 'Process' => Icons.memory_rounded,
+  'PID' || '父进程 ID' || 'PPID' => Icons.tag_rounded,
+  '用户' || 'USER' || 'UserName' => Icons.person_outline,
+  '状态' || 'STAT' || 'STATE' || 'State' => Icons.circle,
+  '系统版本' || 'Version' || 'OS Version' => Icons.info_outline,
+  '加载地址' || 'Load Address' => Icons.place_outlined,
+  '驻留内存' || '虚拟内存' || 'RSS' || 'VSZ' => Icons.sd_storage_outlined,
+  'CPU / 单核' || '累计 CPU 时间' || '%CPU' || 'TIME' => Icons.speed_rounded,
+  '创建时间' || '本地时间' || '登录时间' || 'STARTED' => Icons.schedule_rounded,
+  '控制台' || '终端' => Icons.terminal_rounded,
   _ => Icons.data_object_outlined,
 };
 
@@ -3313,9 +3331,12 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        row == null
-                                            ? id.substring(6)
-                                            : row.cells[widget.nameColumn],
+                                        maintenanceDetailValue(
+                                          context,
+                                          row == null
+                                              ? id.substring(6)
+                                              : row.cells[widget.nameColumn],
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                         maxLines: 2,
                                         style: TextStyle(
@@ -4158,6 +4179,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
         if (report.data.rows.isNotEmpty && !report.data.fields)
           _MaintenanceTable(
             maxBodyHeight: 300,
+            paginate: report.data.rows.length > 20,
             headers: report.data.headers
                 .map((s) => maintenanceHealthLabel(context, s))
                 .toList(),
@@ -4232,25 +4254,53 @@ class _MaintenanceFields extends StatelessWidget {
               SizedBox(
                 width: widths[i],
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: .04),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: _maintenanceTileDecoration(theme.colorScheme),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          rows[i][0],
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                        _MaintenanceIconBadge(
+                          icon: _maintenanceFieldIcon(rows[i][0]),
+                          color: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.tertiary,
+                            theme.colorScheme.secondary,
+                            OpenHandStatusColors.info,
+                          ][i % 4],
                         ),
-                        const SizedBox(height: 6),
-                        SelectableText(
-                          rows[i][1].isEmpty ? '—' : rows[i][1],
-                          style: theme.textTheme.bodyMedium,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                rows[i][0],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              SelectableText(
+                                rows[i][1].isEmpty ? '—' : rows[i][1],
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color:
+                                      rows[i][1].contains('\n') ||
+                                          rows[i][1].length > 48
+                                      ? theme.colorScheme.onSurface
+                                      : [
+                                          theme.colorScheme.primary,
+                                          theme.colorScheme.tertiary,
+                                          theme.colorScheme.secondary,
+                                          OpenHandStatusColors.info,
+                                        ][i % 4],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -5562,11 +5612,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
       l.maintenanceLogError,
       l.maintenanceLogWarning,
       l.maintenanceLogInfo,
-    ];
-    const colors = [
-      OpenHandConsolePalette.error,
-      OpenHandConsolePalette.warning,
-      OpenHandConsolePalette.notice,
     ];
     final platform = widget.data.sections['platform']?.trim();
     final metadata = {

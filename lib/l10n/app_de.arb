@@ -8910,5 +8910,15 @@
   "maintenanceToolVmStat": "Virtueller Speicher",
   "maintenanceToolIoreg": "Gerätebaum",
   "maintenanceToolNetstat": "Netzwerkverbindungen",
-  "maintenanceToolLaunchctl": "Startobjekte"
+  "maintenanceToolLaunchctl": "Startobjekte",
+  "maintenanceTransactions": "Transaktionen",
+  "maintenanceSessionType": "Sitzungstyp",
+  "maintenanceMachServices": "Mach-Dienste",
+  "maintenanceOnDemand": "Bei Bedarf",
+  "maintenanceKeepAlive": "Aktiv halten",
+  "maintenanceRunAtLoad": "Beim Laden starten",
+  "maintenanceProcessType": "Prozesstyp",
+  "maintenanceThrottle": "Drosselintervall",
+  "maintenanceArguments": "Argumente",
+  "maintenanceConsole": "Konsole"
 }

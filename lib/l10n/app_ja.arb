@@ -8910,5 +8910,15 @@
   "maintenanceToolVmStat": "仮想メモリ",
   "maintenanceToolIoreg": "デバイスツリー",
   "maintenanceToolNetstat": "ネットワーク接続",
-  "maintenanceToolLaunchctl": "起動項目"
+  "maintenanceToolLaunchctl": "起動項目",
+  "maintenanceTransactions": "トランザクション",
+  "maintenanceSessionType": "セッション種別",
+  "maintenanceMachServices": "Mach サービス",
+  "maintenanceOnDemand": "オンデマンド",
+  "maintenanceKeepAlive": "常駐",
+  "maintenanceRunAtLoad": "読み込み時に起動",
+  "maintenanceProcessType": "プロセス種別",
+  "maintenanceThrottle": "スロットル間隔",
+  "maintenanceArguments": "起動引数",
+  "maintenanceConsole": "コンソール"
 }

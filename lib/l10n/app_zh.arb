@@ -9986,5 +9986,45 @@
   "maintenanceToolLaunchctl": "启动项",
   "@maintenanceToolLaunchctl": {
     "description": "服务器运维界面文案"
+  },
+  "maintenanceTransactions": "启用事务",
+  "@maintenanceTransactions": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceSessionType": "会话类型",
+  "@maintenanceSessionType": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceMachServices": "Mach 服务",
+  "@maintenanceMachServices": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceOnDemand": "按需启动",
+  "@maintenanceOnDemand": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceKeepAlive": "保持运行",
+  "@maintenanceKeepAlive": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceRunAtLoad": "载入时启动",
+  "@maintenanceRunAtLoad": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceProcessType": "进程类型",
+  "@maintenanceProcessType": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceThrottle": "节流间隔",
+  "@maintenanceThrottle": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceArguments": "启动参数",
+  "@maintenanceArguments": {
+    "description": "服务器运维界面文案"
+  },
+  "maintenanceConsole": "控制台",
+  "@maintenanceConsole": {
+    "description": "服务器运维界面文案"
   }
 }

@@ -8915,5 +8915,15 @@
   "maintenanceToolVmStat": "Virtual memory",
   "maintenanceToolIoreg": "Device tree",
   "maintenanceToolNetstat": "Network connections",
-  "maintenanceToolLaunchctl": "Startup items"
+  "maintenanceToolLaunchctl": "Startup items",
+  "maintenanceTransactions": "Transactions",
+  "maintenanceSessionType": "Session type",
+  "maintenanceMachServices": "Mach services",
+  "maintenanceOnDemand": "On demand",
+  "maintenanceKeepAlive": "Keep alive",
+  "maintenanceRunAtLoad": "Run at load",
+  "maintenanceProcessType": "Process type",
+  "maintenanceThrottle": "Throttle interval",
+  "maintenanceArguments": "Arguments",
+  "maintenanceConsole": "Console"
 }

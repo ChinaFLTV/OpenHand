@@ -24376,6 +24376,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'启动项'**
   String get maintenanceToolLaunchctl;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启用事务'**
+  String get maintenanceTransactions;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'会话类型'**
+  String get maintenanceSessionType;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'Mach 服务'**
+  String get maintenanceMachServices;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'按需启动'**
+  String get maintenanceOnDemand;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'保持运行'**
+  String get maintenanceKeepAlive;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'载入时启动'**
+  String get maintenanceRunAtLoad;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'进程类型'**
+  String get maintenanceProcessType;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'节流间隔'**
+  String get maintenanceThrottle;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'启动参数'**
+  String get maintenanceArguments;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'控制台'**
+  String get maintenanceConsole;
 }
 
 class _AppLocalizationsDelegate

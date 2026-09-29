@@ -8910,5 +8910,15 @@
   "maintenanceToolVmStat": "Mémoire virtuelle",
   "maintenanceToolIoreg": "Arborescence matérielle",
   "maintenanceToolNetstat": "Connexions réseau",
-  "maintenanceToolLaunchctl": "Éléments de démarrage"
+  "maintenanceToolLaunchctl": "Éléments de démarrage",
+  "maintenanceTransactions": "Transactions",
+  "maintenanceSessionType": "Type de session",
+  "maintenanceMachServices": "Services Mach",
+  "maintenanceOnDemand": "À la demande",
+  "maintenanceKeepAlive": "Maintenir actif",
+  "maintenanceRunAtLoad": "Lancer au chargement",
+  "maintenanceProcessType": "Type de processus",
+  "maintenanceThrottle": "Intervalle de limitation",
+  "maintenanceArguments": "Arguments",
+  "maintenanceConsole": "Console"
 }

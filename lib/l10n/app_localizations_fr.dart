@@ -13735,4 +13735,34 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceToolLaunchctl => 'Éléments de démarrage';
+
+  @override
+  String get maintenanceTransactions => 'Transactions';
+
+  @override
+  String get maintenanceSessionType => 'Type de session';
+
+  @override
+  String get maintenanceMachServices => 'Services Mach';
+
+  @override
+  String get maintenanceOnDemand => 'À la demande';
+
+  @override
+  String get maintenanceKeepAlive => 'Maintenir actif';
+
+  @override
+  String get maintenanceRunAtLoad => 'Lancer au chargement';
+
+  @override
+  String get maintenanceProcessType => 'Type de processus';
+
+  @override
+  String get maintenanceThrottle => 'Intervalle de limitation';
+
+  @override
+  String get maintenanceArguments => 'Arguments';
+
+  @override
+  String get maintenanceConsole => 'Console';
 }
