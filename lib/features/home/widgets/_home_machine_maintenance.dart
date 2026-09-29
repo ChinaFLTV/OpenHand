@@ -5759,87 +5759,81 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            Flexible(
-              fit: _visible.isEmpty ? FlexFit.loose : FlexFit.tight,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: _visible.isEmpty ? 220 : double.infinity,
-                ),
-                child: OpenHandConsoleFrame(
-                  title:
-                      '${l.maintenanceLogsTab} / ${switch (_source) {
-                        'kernel' => platform == 'Windows' ? l.maintenanceLogApplication : l.maintenanceLogKernel,
-                        'security' => platform == 'Darwin' ? l.maintenanceLogSystem : l.maintenanceLogSecurity,
-                        _ => l.maintenanceLogSystem,
-                      }} · ${_visible.length}',
-                  expandBody: true,
-                  child: _visible.isEmpty
-                      ? Center(
-                          child: SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    buffer?.error != null
-                                        ? Icons.cloud_off_rounded
-                                        : Icons.terminal_rounded,
-                                    color: buffer?.error != null
-                                        ? OpenHandConsolePalette.warning
-                                        : OpenHandConsolePalette.notice,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    buffer?.error != null
-                                        ? l.maintenanceLogUnavailable
-                                        : l.maintenanceLogEmpty,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
+            Expanded(
+              child: OpenHandConsoleFrame(
+                title:
+                    '${l.maintenanceLogsTab} / ${switch (_source) {
+                      'kernel' => platform == 'Windows' ? l.maintenanceLogApplication : l.maintenanceLogKernel,
+                      'security' => platform == 'Darwin' ? l.maintenanceLogSystem : l.maintenanceLogSecurity,
+                      _ => l.maintenanceLogSystem,
+                    }} · ${_visible.length}',
+                expandBody: true,
+                child: _visible.isEmpty
+                    ? Center(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  buffer?.error != null
+                                      ? Icons.cloud_off_rounded
+                                      : Icons.terminal_rounded,
+                                  color: buffer?.error != null
+                                      ? OpenHandConsolePalette.warning
+                                      : OpenHandConsolePalette.notice,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  buffer?.error != null
+                                      ? l.maintenanceLogUnavailable
+                                      : l.maintenanceLogEmpty,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
                             ),
                           ),
-                        )
-                      : NotificationListener<ScrollNotification>(
-                          onNotification: (event) {
-                            if (event is ScrollUpdateNotification &&
-                                event.dragDetails != null &&
-                                _follow) {
-                              setState(() => _follow = false);
-                            }
-                            if (event is UserScrollNotification &&
-                                event.direction != ScrollDirection.idle &&
-                                _follow) {
-                              setState(() => _follow = false);
-                            }
-                            return false;
-                          },
-                          child: OpenHandConsoleText(
-                            key: ValueKey((filter, _selectionRevision)),
-                            title: l.maintenanceLogsTab,
-                            framed: false,
-                            maxHeight: double.infinity,
-                            scrollController: _scroll,
-                            text: _visible
-                                .map(
-                                  (entry) => entry.time.isEmpty
-                                      ? entry.message
-                                      : '${entry.time}  ${entry.message}',
-                                )
-                                .join('\n'),
-                            onSelectionChanged: (selection, cause) {
-                              final selecting = !selection.isCollapsed;
-                              if (_selecting == selecting) return;
-                              setState(() {
-                                _selecting = selecting;
-                                if (selecting) _follow = false;
-                              });
-                            },
-                          ),
                         ),
-                ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (event) {
+                          if (event is ScrollUpdateNotification &&
+                              event.dragDetails != null &&
+                              _follow) {
+                            setState(() => _follow = false);
+                          }
+                          if (event is UserScrollNotification &&
+                              event.direction != ScrollDirection.idle &&
+                              _follow) {
+                            setState(() => _follow = false);
+                          }
+                          return false;
+                        },
+                        child: OpenHandConsoleText(
+                          key: ValueKey((filter, _selectionRevision)),
+                          title: l.maintenanceLogsTab,
+                          framed: false,
+                          maxHeight: double.infinity,
+                          scrollController: _scroll,
+                          text: _visible
+                              .map(
+                                (entry) => entry.time.isEmpty
+                                    ? entry.message
+                                    : '${entry.time}  ${entry.message}',
+                              )
+                              .join('\n'),
+                          onSelectionChanged: (selection, cause) {
+                            final selecting = !selection.isCollapsed;
+                            if (_selecting == selecting) return;
+                            setState(() {
+                              _selecting = selecting;
+                              if (selecting) _follow = false;
+                            });
+                          },
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 8),

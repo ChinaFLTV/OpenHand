@@ -438,6 +438,43 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('日志空态、错误和筛选空态均填满折叠区剩余高度', (tester) async {
+    for (final size in [const Size(760, 700), const Size(420, 900)]) {
+      await tester.binding.setSurfaceSize(size);
+      for (final mode in ['empty', 'error', 'filtered', 'content']) {
+        final buffer = MachineLogBuffer();
+        if (mode == 'error') buffer.append('dmesg: Operation not permitted');
+        if (mode == 'filtered' || mode == 'content') buffer.append('完整日志');
+        await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: _MaintenanceLogBrowser(buffers: {'system': buffer},
+            data: MachineMaintenanceSnapshot({'platform': 'Linux', 'log_config': '/etc/logrotate.conf\\nweekly'})))));
+        await tester.pumpAndSettle();
+        if (mode == 'filtered') {
+          await tester.enterText(find.byType(TextField), '不存在');
+          await tester.pumpAndSettle();
+        }
+        final panel = find.byType(OpenHandConsoleFrame).first;
+        final fold = find.byType(ExpansionTile);
+        final collapsedHeight = tester.getSize(panel).height;
+        for (final expanded in [true, false]) {
+          expect(tester.getRect(fold).bottom, closeTo(size.height - _maintenancePanelBottomInset, 1));
+          expect(tester.getRect(fold).top - tester.getRect(panel).bottom, closeTo(8, 1));
+          await tester.tap(find.text('轮转记录与配置'));
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(tester.takeException(), isNull);
+          await tester.pumpAndSettle();
+          expect(tester.getSize(panel).height, expanded ? lessThan(collapsedHeight) : closeTo(collapsedHeight, 1));
+          expect(tester.getRect(fold).bottom, closeTo(size.height - _maintenancePanelBottomInset, 1));
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
     final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
     var revision = 0;
