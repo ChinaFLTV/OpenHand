@@ -53,6 +53,7 @@ import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:openhand/shared/ui/openhand_ops_charts.dart';
+import 'package:openhand/shared/ui/openhand_console_log_panel.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 import 'package:openhand/shared/util/localized_text.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
@@ -325,6 +326,43 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('控制台日志暗色正文、全文详情与窄屏折叠滚动稳定', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(760, 700));
+    await tester.runAsync(() async {
+      if (Platform.environment['MAINTENANCE_FONT'] != null) await (FontLoader('monospace')..addFont(File(Platform.environment['MAINTENANCE_FONT']!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+    });
+    final buffer = MachineLogBuffer()..append('[info] 服务已启动\\n[warning] 连接重试\\n[error] 请求超时');
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'), locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => LayoutBuilder(builder: (context, box) => MediaQuery(data: MediaQuery.of(context).copyWith(size: box.biggest), child: child!)),
+      home: Scaffold(body: RepaintBoundary(key: const ValueKey('日志预览'),
+        child: Material(child: _MaintenanceLogBrowser(buffers: {'system': buffer}, data: MachineMaintenanceSnapshot({'platform': 'Linux'})))))));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandConsoleFrame), findsOneWidget);
+    expect(tester.widget<Text>(find.text('[error] 请求超时')).style!.color, OpenHandConsolePalette.text);
+    if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('日志预览')));
+      await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 1.5);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/maintenance-log-console-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+      });
+    }
+    await tester.tap(find.text('[error] 请求超时')); await tester.pumpAndSettle();
+    expect(find.byType(OpenHandConsoleText), findsOneWidget);
+    expect(tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!.toPlainText(), '[error] 请求超时');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SizedBox(width: 300, child: ExpansionTile(
+      key: const PageStorageKey('详情展开'), title: const Text('详情'), children: [
+        OpenHandConsoleText(title: '日志', text: List.filled(100, '完整日志').join('\\n')),
+      ])))));
+    await tester.tap(find.text('详情')); await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
     final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
     var revision = 0;
@@ -451,9 +489,11 @@ void main() {
     expect(find.text('2'), findsOneWidget);
     expect(find.text('*:80'), findsNothing);
     expect(find.text('*:53'), findsNothing);
-    final list = find.descendant(of: find.byType(_MaintenanceLogTimeline), matching: find.byType(Scrollable)).first;
-    await tester.scrollUntilVisible(find.text('完整日志消息 29'), 200, scrollable: list);
-    expect(find.text('完整日志消息 29'), findsOneWidget);
+    final logText = tester.widget<SelectableText>(find.descendant(
+      of: find.byType(_MaintenanceLogTimeline), matching: find.byType(SelectableText)));
+    expect(logText.textSpan!.toPlainText(), contains('完整日志消息 29'));
+    expect(logText.textSpan!.toPlainText(), contains('完整日志消息 0'));
+    expect(logText.maxLines, isNull);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

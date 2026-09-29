@@ -329,3 +329,122 @@ class OpenHandTerminalHintCard extends StatelessWidget {
     );
   }
 }
+
+/// 日志与诊断输出共用的控制台外框，不接管内部滚动和刷新状态。
+class OpenHandConsoleFrame extends StatelessWidget {
+  const OpenHandConsoleFrame({
+    super.key,
+    required this.title,
+    required this.child,
+    this.expandBody = false,
+  });
+
+  final String title;
+  final Widget child;
+  final bool expandBody;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: OpenHandConsolePalette.deepSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius8,
+        side: BorderSide(color: OpenHandConsolePalette.githubBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: DefaultTextStyle.merge(
+        style: _consoleLogTextStyle(OpenHandConsolePalette.text),
+        child: Column(
+          mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              color: OpenHandConsolePalette.githubSurface,
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.terminal_rounded,
+                    size: 16,
+                    color: OpenHandConsolePalette.notice,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: _consoleLogTextStyle(
+                        OpenHandConsolePalette.githubText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (expandBody) Expanded(child: child) else child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 静态日志详情保留全文选择与换行，长输出在限定高度内滚动。
+class OpenHandConsoleText extends StatefulWidget {
+  const OpenHandConsoleText({
+    super.key,
+    required this.title,
+    required this.text,
+    this.maxHeight = 280,
+  });
+
+  final String title, text;
+  final double maxHeight;
+
+  @override
+  State<OpenHandConsoleText> createState() => _OpenHandConsoleTextState();
+}
+
+class _OpenHandConsoleTextState extends State<OpenHandConsoleText> {
+  // 不与外层折叠条目的布尔展开状态共用 PageStorage。
+  final _storage = PageStorageBucket();
+  final _scroll = ScrollController(keepScrollOffset: false);
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = widget.text.split('\n');
+    return PageStorage(
+      bucket: _storage,
+      child: OpenHandConsoleFrame(
+        title: widget.title,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: widget.maxHeight),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            primary: false,
+            padding: const EdgeInsets.all(12),
+            child: SelectableText.rich(
+              TextSpan(
+                children: [
+                  for (var i = 0; i < lines.length; i++)
+                    TextSpan(
+                      text: '${lines[i]}${i + 1 < lines.length ? '\n' : ''}',
+                      style: TextStyle(color: _consoleLogLineColor(lines[i])),
+                    ),
+                ],
+              ),
+              style: _consoleLogTextStyle(OpenHandConsolePalette.text),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

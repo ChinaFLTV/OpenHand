@@ -3989,14 +3989,10 @@ class _MaintenanceHealthContent extends StatelessWidget {
               title: Text(maintenanceHealthLabel(context, 'diagnostic')),
               tilePadding: EdgeInsets.zero,
               children: [
-                SizedBox(
-                  height: 160,
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      raw,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
+                OpenHandConsoleText(
+                  title: maintenanceHealthLabel(context, 'diagnostic'),
+                  text: raw,
+                  maxHeight: 160,
                 ),
               ],
             ),
@@ -4540,71 +4536,15 @@ class _MaintenanceEdgePainter extends CustomPainter {
 class _MaintenanceLogTimeline extends StatelessWidget {
   const _MaintenanceLogTimeline({required this.rows});
   final List<List<String>> rows;
+
   @override
-  Widget build(BuildContext context) {
-    if (rows.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
-    final cs = Theme.of(context).colorScheme;
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 300),
-      child: ListView.builder(
-        shrinkWrap: true,
-        primary: false,
-        itemCount: rows.length,
-        itemBuilder: (_, index) {
-          final row = rows[index];
-          return Container(
-            margin: const EdgeInsets.only(left: 5),
-            padding: const EdgeInsets.fromLTRB(12, 4, 6, 12),
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: cs.primary.withValues(alpha: .3),
-                  width: 2,
-                ),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.schedule_rounded, size: 12, color: cs.primary),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: _MaintenanceValue(
-                        value: row.first,
-                        style: TextStyle(fontSize: 11, color: cs.primary),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                AnimatedSwitcher(
-                  duration: motion.disablesAnimation
-                      ? Duration.zero
-                      : motion.entranceDuration,
-                  switchInCurve: motion.curve.curve,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, ?current],
-                  ),
-                  child: SelectableText(
-                    row.skip(1).join(' · '),
-                    key: ValueKey(row.join(' · ')),
-                    style: const TextStyle(fontSize: 12, height: 1.5),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => OpenHandConsoleText(
+    title: maintenanceLabel(context, '最近日志'),
+    text: rows.isEmpty
+        ? maintenanceLabel(context, '暂无可用数据')
+        : rows.map((row) => row.join('  ')).join('\n'),
+    maxHeight: 260,
+  );
 }
 
 class _MaintenanceTrend extends StatefulWidget {
@@ -5213,7 +5153,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final cs = Theme.of(context).colorScheme;
     final buffer = widget.buffers[_source];
     final entries = buffer?.entries ?? const <MachineLogEntry>[];
     _visible = entries
@@ -5228,7 +5167,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
       l.maintenanceLogWarning,
       l.maintenanceLogInfo,
     ];
-    final colors = [cs.error, cs.tertiary, cs.primary];
+    const colors = [
+      OpenHandConsolePalette.error,
+      OpenHandConsolePalette.warning,
+      OpenHandConsolePalette.notice,
+    ];
     final platform = widget.data.sections['platform']?.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -5319,7 +5262,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                         ? Icons.warning_amber_rounded
                         : Icons.info_outline,
                     size: 16,
-                    color: colors[i],
+                    color: [
+                      Theme.of(context).colorScheme.error,
+                      Theme.of(context).colorScheme.tertiary,
+                      Theme.of(context).colorScheme.primary,
+                    ][i],
                   ),
                   label: Text(
                     '${names[i]} ${entries.where((e) => e.level == i).length}',
@@ -5328,24 +5275,45 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             ],
           ),
           const SizedBox(height: 8),
-          if (buffer?.error != null)
+          if (buffer?.error != null && _visible.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 l.maintenanceLogUnavailable,
-                style: TextStyle(color: cs.error),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
           Expanded(
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLowest,
-                border: Border.all(color: cs.outlineVariant),
-                borderRadius: BorderRadius.circular(12),
-              ),
+            child: OpenHandConsoleFrame(
+              title: '${l.maintenanceLogsTab} / $_source · ${_visible.length}',
+              expandBody: true,
               child: _visible.isEmpty
-                  ? Center(child: Text(l.maintenanceLogEmpty))
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              buffer?.error != null
+                                  ? Icons.cloud_off_rounded
+                                  : Icons.terminal_rounded,
+                              color: buffer?.error != null
+                                  ? OpenHandConsolePalette.warning
+                                  : OpenHandConsolePalette.notice,
+                              size: 28,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              buffer?.error != null
+                                  ? l.maintenanceLogUnavailable
+                                  : l.maintenanceLogEmpty,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   : NotificationListener<ScrollNotification>(
                       onNotification: (event) {
                         if (event is ScrollUpdateNotification &&
@@ -5380,17 +5348,18 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                     color: colors[entry.level],
                                     width: 3,
                                   ),
-                                  bottom: BorderSide(
-                                    color: cs.outlineVariant.withValues(
-                                      alpha: .35,
-                                    ),
+                                  bottom: const BorderSide(
+                                    color: OpenHandConsolePalette.githubBorder,
                                   ),
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   SizedBox(
-                                    width: 145,
+                                    width:
+                                        MediaQuery.sizeOf(context).width < 600
+                                        ? 90
+                                        : 145,
                                     child: Text(
                                       entry.time.isEmpty
                                           ? names[entry.level]
@@ -5411,6 +5380,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontFamily: 'monospace',
+                                        color: OpenHandConsolePalette.text,
                                       ),
                                     ),
                                   ),
@@ -5467,7 +5437,14 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
               ? AppLocalizations.of(context)!.maintenanceLogsTab
               : entry.time,
         ),
-        content: SingleChildScrollView(child: SelectableText(entry.message)),
+        content: SizedBox(
+          width: 720,
+          child: OpenHandConsoleText(
+            title: AppLocalizations.of(context)!.maintenanceLogsTab,
+            text: entry.message,
+            maxHeight: MediaQuery.sizeOf(context).height * .55,
+          ),
+        ),
       ),
     );
   }

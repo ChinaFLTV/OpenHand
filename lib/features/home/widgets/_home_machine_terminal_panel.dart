@@ -1844,16 +1844,13 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
           onPressed: () => _copyCommandRecord(context, record),
         ),
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SelectableText(
-              output,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                height: 1.35,
-                fontFamily: kOpenHandMonospaceFontFamily,
-              ),
+          OpenHandConsoleText(
+            title: openHandLocalizedText(
+              context,
+              zh: '命令输出',
+              en: 'Command output',
             ),
+            text: output,
           ),
         ],
       ),

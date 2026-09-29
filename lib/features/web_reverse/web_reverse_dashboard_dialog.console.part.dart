@@ -42,10 +42,6 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   static const int _kConsoleCollapsedLines = 4;
   static const double _kConsoleReplControlHeight = 40;
   static const double _kConsoleActionIconSize = 18;
-  static const Color _kWarningContainerLight = Color(0xFFFFF1D2);
-  static const Color _kWarningOnContainerLight = Color(0xFF5C3A00);
-  static const Color _kWarningContainerDark = Color(0xFF4A3412);
-  static const Color _kWarningOnContainerDark = Color(0xFFFFD99A);
 
   List<String> get _history => widget.controller.replHistory;
 
@@ -213,31 +209,16 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     );
   }
 
-  ({Color color, Color onColor}) _consoleEntryColors(
-    ThemeData theme,
-    ColorScheme cs,
-    String level,
-  ) {
-    final warningColor = theme.brightness == Brightness.dark
-        ? _kWarningContainerDark
-        : _kWarningContainerLight;
-    final warningOnColor = theme.brightness == Brightness.dark
-        ? _kWarningOnContainerDark
-        : _kWarningOnContainerLight;
-    return switch (level) {
-      'error' => (color: cs.errorContainer, onColor: cs.onErrorContainer),
-      'warning' || 'warn' => (color: warningColor, onColor: warningOnColor),
-      'repl-input' => (
-        color: cs.primaryContainer,
-        onColor: cs.onPrimaryContainer,
-      ),
-      'repl-result' => (
-        color: cs.secondaryContainer,
-        onColor: cs.onSecondaryContainer,
-      ),
-      _ => (color: cs.surfaceContainerHigh, onColor: cs.onSurface),
-    };
-  }
+  ({Color color, Color onColor}) _consoleEntryColors(String level) => (
+    color: OpenHandConsolePalette.deepSurface,
+    onColor: switch (level) {
+      'error' => OpenHandConsolePalette.error,
+      'warning' || 'warn' => OpenHandConsolePalette.warning,
+      'repl-input' => OpenHandConsolePalette.notice,
+      'repl-result' => OpenHandConsolePalette.success,
+      _ => OpenHandConsolePalette.text,
+    },
+  );
 
   int _consoleFingerprint(List<CdpConsoleEntry> entries) {
     if (entries.isEmpty) return 0;
@@ -458,7 +439,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                       itemBuilder: (_, idx) {
                         final slot = visible[idx];
                         final e = slot.entry;
-                        final palette = _consoleEntryColors(theme, cs, e.level);
+                        final palette = _consoleEntryColors(e.level);
                         final color = palette.color;
                         final onColor = palette.onColor;
                         final longText = _isLongConsoleText(e.text);

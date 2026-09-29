@@ -8,6 +8,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -1440,21 +1441,9 @@ class _ServiceDetailDashboard extends StatelessWidget {
           ],
         ),
         kOpenHandGap12,
-        Container(
-          constraints: const BoxConstraints(minHeight: 96),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerLowest,
-            borderRadius: kServiceInteractiveBorderRadius,
-            border: Border.all(color: tone.withValues(alpha: 0.24)),
-          ),
-          child: SelectableText(
-            message,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              height: 1.55,
-            ),
-          ),
+        OpenHandConsoleText(
+          title: openHandLocalizedText(context, zh: '实时事件', en: 'Live event'),
+          text: message,
         ),
       ],
     );
