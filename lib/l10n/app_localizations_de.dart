@@ -12237,4 +12237,449 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceWorkersHelp =>
       'Maximale Anzahl gleichzeitiger Erfassungsaufgaben. Gilt ab der nächsten Aktualisierung.';
+
+  @override
+  String get maintenanceCounterPgalloc => 'Seitenzuweisungen';
+
+  @override
+  String get maintenanceCounterPgfree => 'Freigegebene Seiten';
+
+  @override
+  String get maintenanceCounterPgactivate => 'Aktivierte Seiten';
+
+  @override
+  String get maintenanceCounterPgdeactivate => 'Deaktivierte Seiten';
+
+  @override
+  String get maintenanceCounterPgfault => 'Seitenfehler';
+
+  @override
+  String get maintenanceCounterPgmajfault => 'Schwere Seitenfehler';
+
+  @override
+  String get maintenanceCounterPglazyfree => 'Verzögerte Freigabeanforderungen';
+
+  @override
+  String get maintenanceCounterPglazyfreed => 'Verzögert freigegebene Seiten';
+
+  @override
+  String get maintenanceCounterPgrefill => 'Seitenauffüllungen';
+
+  @override
+  String get maintenanceCounterPgsteal => 'Zurückgewonnene Seiten';
+
+  @override
+  String get maintenanceCounterPgscan => 'Gescannte Seiten';
+
+  @override
+  String get maintenanceCounterAllocstall => 'Zuweisungsblockaden';
+
+  @override
+  String get maintenanceCounterPgskip => 'Übersprungene Seiten';
+
+  @override
+  String get maintenanceCounterPgrotated => 'Rotierte Seiten';
+
+  @override
+  String get maintenanceCounterPginodesteal => 'Zurückgewonnene Inode-Seiten';
+
+  @override
+  String get maintenanceCounterSlabsScanned => 'Slab-Scans';
+
+  @override
+  String get maintenanceCounterKswapdInodesteal =>
+      'Inode-Rückgewinnung im Hintergrund';
+
+  @override
+  String get maintenanceCounterKswapdLowWmarkHitQuickly =>
+      'Schnelle Unterschreitungen des unteren Schwellwerts';
+
+  @override
+  String get maintenanceCounterKswapdHighWmarkHitQuickly =>
+      'Schnelle Erreichungen des oberen Schwellwerts';
+
+  @override
+  String get maintenanceCounterPageoutrun => 'Hintergrund-Rückgewinnungsläufe';
+
+  @override
+  String get maintenanceCounterPgmigrateSuccess =>
+      'Erfolgreiche Seitenmigrationen';
+
+  @override
+  String get maintenanceCounterPgmigrateFail =>
+      'Fehlgeschlagene Seitenmigrationen';
+
+  @override
+  String get maintenanceCounterCompactStall => 'Kompaktierungsblockaden';
+
+  @override
+  String get maintenanceCounterCompactFail => 'Kompaktierungsfehler';
+
+  @override
+  String get maintenanceCounterCompactSuccess => 'Erfolgreiche Kompaktierungen';
+
+  @override
+  String get maintenanceCounterCompactMigrateScanned =>
+      'Migrationsscans zur Kompaktierung';
+
+  @override
+  String get maintenanceCounterCompactFreeScanned =>
+      'Freiseitenscans zur Kompaktierung';
+
+  @override
+  String get maintenanceCounterCompactIsolated =>
+      'Zur Kompaktierung isolierte Seiten';
+
+  @override
+  String get maintenanceCounterUnevictable => 'Nicht verdrängbarer Speicher';
+
+  @override
+  String get maintenanceCounterMlocked => 'Gesperrter Speicher';
+
+  @override
+  String get maintenanceCounterAnon => 'Anonyme Seiten';
+
+  @override
+  String get maintenanceCounterFile => 'Dateiseiten';
+
+  @override
+  String get maintenanceCounterActive => 'Aktiv';
+
+  @override
+  String get maintenanceCounterInactive => 'Inaktiv';
+
+  @override
+  String get maintenanceCounterIsolated => 'Isolierte Seiten';
+
+  @override
+  String get maintenanceCounterSlabReclaimable => 'Rückgewinnbarer Slab';
+
+  @override
+  String get maintenanceCounterSlabUnreclaimable =>
+      'Nicht rückgewinnbarer Slab';
+
+  @override
+  String get maintenanceCounterKernelStack => 'Kernel-Stack';
+
+  @override
+  String get maintenanceCounterPageTablePages => 'Seitentabellen';
+
+  @override
+  String get maintenanceCounterBounce => 'Bounce-Puffer';
+
+  @override
+  String get maintenanceCounterWritebackTemp => 'Temporäres Zurückschreiben';
+
+  @override
+  String get maintenanceCounterWriteback => 'Zurückzuschreibende Seiten';
+
+  @override
+  String get maintenanceCounterDirtied => 'Verschmutzte Seiten';
+
+  @override
+  String get maintenanceCounterWritten => 'Geschriebene Seiten';
+
+  @override
+  String get maintenanceCounterDirtyThreshold =>
+      'Schwellwert für schmutzige Seiten';
+
+  @override
+  String get maintenanceCounterDirtyBackgroundThreshold =>
+      'Hintergrund-Schreibschwellwert';
+
+  @override
+  String get maintenanceCounterNumaHit => 'NUMA-Zuweisungstreffer';
+
+  @override
+  String get maintenanceCounterNumaMiss => 'NUMA-Zuweisungsfehltreffer';
+
+  @override
+  String get maintenanceCounterNumaForeign => 'Fremde NUMA-Zuweisungen';
+
+  @override
+  String get maintenanceCounterNumaInterleave =>
+      'Verschachtelte NUMA-Zuweisungen';
+
+  @override
+  String get maintenanceCounterNumaLocal => 'Lokale NUMA-Zuweisungen';
+
+  @override
+  String get maintenanceCounterNumaOther => 'NUMA-Zuweisungen anderer Knoten';
+
+  @override
+  String get maintenanceCounterNormal => 'Normaler Bereich';
+
+  @override
+  String get maintenanceCounterMovable => 'Verschiebbarer Bereich';
+
+  @override
+  String get maintenanceCounterHigh => 'Hochspeicherbereich';
+
+  @override
+  String get maintenanceCounterKswapd => 'Hintergrund-Rückgewinnung';
+
+  @override
+  String get maintenanceCounterDirect => 'Direkte Rückgewinnung';
+
+  @override
+  String get maintenanceCounterThrottle => 'Drosselung';
+
+  @override
+  String get maintenanceCounterSwapcached => 'Swap-Cache';
+
+  @override
+  String get maintenanceCounterCommitlimit => 'Zusicherungslimit';
+
+  @override
+  String get maintenanceCounterVmalloctotal =>
+      'Gesamter virtueller Kernel-Speicher';
+
+  @override
+  String get maintenanceCounterVmallocused =>
+      'Belegter virtueller Kernel-Speicher';
+
+  @override
+  String get maintenanceCounterVmallocchunk =>
+      'Größter virtueller Kernel-Block';
+
+  @override
+  String get maintenanceCounterAnonhugepages => 'Anonyme Großseiten';
+
+  @override
+  String get maintenanceCounterShmemhugepages =>
+      'Großseiten im gemeinsamen Speicher';
+
+  @override
+  String get maintenanceCounterShmempmdmapped =>
+      'PMD-Abbildungen gemeinsamen Speichers';
+
+  @override
+  String get maintenanceCounterHugepagesTotal => 'Großseiten insgesamt';
+
+  @override
+  String get maintenanceCounterHugepagesFree => 'Freie Großseiten';
+
+  @override
+  String get maintenanceCounterHugepagesRsvd => 'Reservierte Großseiten';
+
+  @override
+  String get maintenanceCounterHugepagesSurp => 'Überschüssige Großseiten';
+
+  @override
+  String get maintenanceCounterHugepagesize => 'Großseitengröße';
+
+  @override
+  String get maintenanceCounterHugetlb => 'Großseitenspeicher';
+
+  @override
+  String get maintenanceCounterPercpu => 'Speicher pro CPU';
+
+  @override
+  String get maintenanceCounterHardwarecorrupted =>
+      'Hardwarebeschädigter Speicher';
+
+  @override
+  String get maintenanceCounterKreclaimable =>
+      'Rückgewinnbarer Kernel-Speicher';
+
+  @override
+  String get maintenanceCounterNfsUnstable => 'Instabile NFS-Seiten';
+
+  @override
+  String get maintenanceCounterWorkingsetRefault =>
+      'Erneute Working-Set-Seitenfehler';
+
+  @override
+  String get maintenanceCounterWorkingsetActivate =>
+      'Working-Set-Aktivierungen';
+
+  @override
+  String get maintenanceCounterWorkingsetRestore =>
+      'Working-Set-Wiederherstellungen';
+
+  @override
+  String get maintenanceCounterWorkingsetNodereclaim =>
+      'Working-Set-Knotenrückgewinnung';
+
+  @override
+  String get maintenanceCounterThpFaultAlloc =>
+      'THP-Zuweisungen bei Seitenfehlern';
+
+  @override
+  String get maintenanceCounterThpFaultFallback =>
+      'THP-Rückfälle bei Seitenfehlern';
+
+  @override
+  String get maintenanceCounterThpCollapseAlloc =>
+      'THP-Zuweisungen durch Zusammenfassung';
+
+  @override
+  String get maintenanceCounterThpCollapseAllocFailed =>
+      'Fehlgeschlagene THP-Zusammenfassungen';
+
+  @override
+  String get maintenanceCounterThpSplitPage => 'THP-Seitenaufteilungen';
+
+  @override
+  String get maintenanceCounterThpSplitPageFailed =>
+      'Fehlgeschlagene THP-Aufteilungen';
+
+  @override
+  String get maintenanceCounterThpSplitPmd => 'THP-PMD-Aufteilungen';
+
+  @override
+  String get maintenanceCounterThpZeroPageAlloc => 'THP-Nullseitenzuweisungen';
+
+  @override
+  String get maintenanceCounterThpZeroPageAllocFailed =>
+      'Fehlgeschlagene THP-Nullseitenzuweisungen';
+
+  @override
+  String get maintenanceCounterThpDeferredSplitPage =>
+      'Verzögerte THP-Aufteilungen';
+
+  @override
+  String get maintenanceCounterThpSwpout => 'THP-Auslagerungen';
+
+  @override
+  String get maintenanceCounterThpSwpoutFallback => 'THP-Auslagerungsrückfälle';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCulled =>
+      'Nicht verdrängbar gewordene Seiten';
+
+  @override
+  String get maintenanceCounterUnevictablePgsScanned =>
+      'Gescannte nicht verdrängbare Seiten';
+
+  @override
+  String get maintenanceCounterUnevictablePgsRescued =>
+      'Wieder verdrängbare Seiten';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMlocked => 'Gesperrte Seiten';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMunlocked => 'Entsperrte Seiten';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCleared =>
+      'Gelöschte Nicht-verdrängbar-Markierungen';
+
+  @override
+  String get maintenanceCounterUnevictablePgsStranded =>
+      'Verbliebene nicht verdrängbare Seiten';
+
+  @override
+  String get maintenanceCounterOomKill => 'Beendigungen bei Speichermangel';
+
+  @override
+  String get maintenanceCounterNumaPteUpdates => 'NUMA-PTE-Aktualisierungen';
+
+  @override
+  String get maintenanceCounterNumaHugePteUpdates =>
+      'NUMA-Großseiten-PTE-Aktualisierungen';
+
+  @override
+  String get maintenanceCounterNumaHintFaults => 'NUMA-Hinweisseitenfehler';
+
+  @override
+  String get maintenanceCounterNumaHintFaultsLocal =>
+      'Lokale NUMA-Hinweisseitenfehler';
+
+  @override
+  String get maintenanceCounterNumaPagesMigrated => 'Migrierte NUMA-Seiten';
+
+  @override
+  String get maintenanceCounterCompactDaemonWake =>
+      'Aufweckvorgänge des Kompaktierungsdienstes';
+
+  @override
+  String get maintenanceCounterCompactDaemonMigrateScanned =>
+      'Hintergrund-Kompaktierungsmigrationsscans';
+
+  @override
+  String get maintenanceCounterCompactDaemonFreeScanned =>
+      'Hintergrund-Kompaktierungsfreiseitenscans';
+
+  @override
+  String get maintenanceCounterVmscanWrite =>
+      'Schreibvorgänge bei Rückgewinnungsscans';
+
+  @override
+  String get maintenanceCounterVmscanImmediateReclaim =>
+      'Sofortige Rückgewinnung nach Scan';
+
+  @override
+  String get maintenanceCounterFollPinAcquired => 'Erworbene Seitenfixierungen';
+
+  @override
+  String get maintenanceCounterFollPinReleased =>
+      'Freigegebene Seitenfixierungen';
+
+  @override
+  String get maintenanceCounterAnonTransparentHugepages =>
+      'Anonyme transparente Großseiten';
+
+  @override
+  String get maintenanceCounterShmemHugepages =>
+      'Großseiten gemeinsamen Speichers';
+
+  @override
+  String get maintenanceCounterShmemPmdmapped =>
+      'PMD-Abbildungen gemeinsamen Speichers';
+
+  @override
+  String get maintenanceCounterFileHugepages => 'Dateigroßseiten';
+
+  @override
+  String get maintenanceCounterFilePmdmapped => 'Datei-PMD-Abbildungen';
+
+  @override
+  String get maintenanceCounterFreeCma => 'Freier CMA-Speicher';
+
+  @override
+  String get maintenanceCounterCmatotal => 'CMA-Speicher insgesamt';
+
+  @override
+  String get maintenanceCounterPagereadspersec => 'Seitenleserate';
+
+  @override
+  String get maintenanceCounterPagewritespersec => 'Seitenschreibrate';
+
+  @override
+  String get maintenanceCounterPagesinputpersec => 'Seiteneinlagerungsrate';
+
+  @override
+  String get maintenanceCounterPagesoutputpersec => 'Seitenauslagerungsrate';
+
+  @override
+  String get maintenanceCounterPagespersec => 'Auslagerungsrate';
+
+  @override
+  String get maintenanceCounterPoolpagedbytes => 'Auslagerbarer Poolspeicher';
+
+  @override
+  String get maintenanceCounterPoolnonpagedbytes =>
+      'Nicht auslagerbarer Poolspeicher';
+
+  @override
+  String get maintenanceCounterCachebytes => 'Cache-Bytes';
+
+  @override
+  String get maintenanceCounterPercentcommittedbytesinuse =>
+      'Zugesicherte Speichernutzung';
+
+  @override
+  String get maintenanceCounterSystemcodetotalbytes =>
+      'Gesamter Systemcodespeicher';
+
+  @override
+  String get maintenanceCounterSystemdrivertotalbytes =>
+      'Gesamter Systemtreiberspeicher';
+
+  @override
+  String maintenanceExtendedMetric(String name) {
+    return 'Erweiterte Kennzahl: $name';
+  }
 }

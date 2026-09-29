@@ -21667,6 +21667,792 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'并行采集任务上限，下次刷新生效。'**
   String get maintenanceWorkersHelp;
+
+  /// No description provided for @maintenanceCounterPgalloc.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面分配'**
+  String get maintenanceCounterPgalloc;
+
+  /// No description provided for @maintenanceCounterPgfree.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面释放'**
+  String get maintenanceCounterPgfree;
+
+  /// No description provided for @maintenanceCounterPgactivate.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面激活'**
+  String get maintenanceCounterPgactivate;
+
+  /// No description provided for @maintenanceCounterPgdeactivate.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面停用'**
+  String get maintenanceCounterPgdeactivate;
+
+  /// No description provided for @maintenanceCounterPgfault.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺页异常'**
+  String get maintenanceCounterPgfault;
+
+  /// No description provided for @maintenanceCounterPgmajfault.
+  ///
+  /// In zh, this message translates to:
+  /// **'主缺页异常'**
+  String get maintenanceCounterPgmajfault;
+
+  /// No description provided for @maintenanceCounterPglazyfree.
+  ///
+  /// In zh, this message translates to:
+  /// **'延迟释放请求'**
+  String get maintenanceCounterPglazyfree;
+
+  /// No description provided for @maintenanceCounterPglazyfreed.
+  ///
+  /// In zh, this message translates to:
+  /// **'延迟释放完成'**
+  String get maintenanceCounterPglazyfreed;
+
+  /// No description provided for @maintenanceCounterPgrefill.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面重新填充'**
+  String get maintenanceCounterPgrefill;
+
+  /// No description provided for @maintenanceCounterPgsteal.
+  ///
+  /// In zh, this message translates to:
+  /// **'回收页面'**
+  String get maintenanceCounterPgsteal;
+
+  /// No description provided for @maintenanceCounterPgscan.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描页面'**
+  String get maintenanceCounterPgscan;
+
+  /// No description provided for @maintenanceCounterAllocstall.
+  ///
+  /// In zh, this message translates to:
+  /// **'分配停顿'**
+  String get maintenanceCounterAllocstall;
+
+  /// No description provided for @maintenanceCounterPgskip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过页面'**
+  String get maintenanceCounterPgskip;
+
+  /// No description provided for @maintenanceCounterPgrotated.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转页面'**
+  String get maintenanceCounterPgrotated;
+
+  /// No description provided for @maintenanceCounterPginodesteal.
+  ///
+  /// In zh, this message translates to:
+  /// **'索引节点页面回收'**
+  String get maintenanceCounterPginodesteal;
+
+  /// No description provided for @maintenanceCounterSlabsScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核缓存扫描'**
+  String get maintenanceCounterSlabsScanned;
+
+  /// No description provided for @maintenanceCounterKswapdInodesteal.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台索引节点回收'**
+  String get maintenanceCounterKswapdInodesteal;
+
+  /// No description provided for @maintenanceCounterKswapdLowWmarkHitQuickly.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台回收低水位触发'**
+  String get maintenanceCounterKswapdLowWmarkHitQuickly;
+
+  /// No description provided for @maintenanceCounterKswapdHighWmarkHitQuickly.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台回收高水位触发'**
+  String get maintenanceCounterKswapdHighWmarkHitQuickly;
+
+  /// No description provided for @maintenanceCounterPageoutrun.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台回收轮次'**
+  String get maintenanceCounterPageoutrun;
+
+  /// No description provided for @maintenanceCounterPgmigrateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面迁移成功'**
+  String get maintenanceCounterPgmigrateSuccess;
+
+  /// No description provided for @maintenanceCounterPgmigrateFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面迁移失败'**
+  String get maintenanceCounterPgmigrateFail;
+
+  /// No description provided for @maintenanceCounterCompactStall.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存规整停顿'**
+  String get maintenanceCounterCompactStall;
+
+  /// No description provided for @maintenanceCounterCompactFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存规整失败'**
+  String get maintenanceCounterCompactFail;
+
+  /// No description provided for @maintenanceCounterCompactSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存规整成功'**
+  String get maintenanceCounterCompactSuccess;
+
+  /// No description provided for @maintenanceCounterCompactMigrateScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'规整迁移扫描'**
+  String get maintenanceCounterCompactMigrateScanned;
+
+  /// No description provided for @maintenanceCounterCompactFreeScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'规整空闲页扫描'**
+  String get maintenanceCounterCompactFreeScanned;
+
+  /// No description provided for @maintenanceCounterCompactIsolated.
+  ///
+  /// In zh, this message translates to:
+  /// **'规整隔离页面'**
+  String get maintenanceCounterCompactIsolated;
+
+  /// No description provided for @maintenanceCounterUnevictable.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可回收内存'**
+  String get maintenanceCounterUnevictable;
+
+  /// No description provided for @maintenanceCounterMlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定内存'**
+  String get maintenanceCounterMlocked;
+
+  /// No description provided for @maintenanceCounterAnon.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名页'**
+  String get maintenanceCounterAnon;
+
+  /// No description provided for @maintenanceCounterFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件页'**
+  String get maintenanceCounterFile;
+
+  /// No description provided for @maintenanceCounterActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'活跃'**
+  String get maintenanceCounterActive;
+
+  /// No description provided for @maintenanceCounterInactive.
+  ///
+  /// In zh, this message translates to:
+  /// **'非活跃'**
+  String get maintenanceCounterInactive;
+
+  /// No description provided for @maintenanceCounterIsolated.
+  ///
+  /// In zh, this message translates to:
+  /// **'隔离页面'**
+  String get maintenanceCounterIsolated;
+
+  /// No description provided for @maintenanceCounterSlabReclaimable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可回收内核缓存'**
+  String get maintenanceCounterSlabReclaimable;
+
+  /// No description provided for @maintenanceCounterSlabUnreclaimable.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可回收内核缓存'**
+  String get maintenanceCounterSlabUnreclaimable;
+
+  /// No description provided for @maintenanceCounterKernelStack.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核栈'**
+  String get maintenanceCounterKernelStack;
+
+  /// No description provided for @maintenanceCounterPageTablePages.
+  ///
+  /// In zh, this message translates to:
+  /// **'页表'**
+  String get maintenanceCounterPageTablePages;
+
+  /// No description provided for @maintenanceCounterBounce.
+  ///
+  /// In zh, this message translates to:
+  /// **'回弹缓冲区'**
+  String get maintenanceCounterBounce;
+
+  /// No description provided for @maintenanceCounterWritebackTemp.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时写回'**
+  String get maintenanceCounterWritebackTemp;
+
+  /// No description provided for @maintenanceCounterWriteback.
+  ///
+  /// In zh, this message translates to:
+  /// **'写回页面'**
+  String get maintenanceCounterWriteback;
+
+  /// No description provided for @maintenanceCounterDirtied.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计脏页'**
+  String get maintenanceCounterDirtied;
+
+  /// No description provided for @maintenanceCounterWritten.
+  ///
+  /// In zh, this message translates to:
+  /// **'累计写回页'**
+  String get maintenanceCounterWritten;
+
+  /// No description provided for @maintenanceCounterDirtyThreshold.
+  ///
+  /// In zh, this message translates to:
+  /// **'脏页阈值'**
+  String get maintenanceCounterDirtyThreshold;
+
+  /// No description provided for @maintenanceCounterDirtyBackgroundThreshold.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台写回阈值'**
+  String get maintenanceCounterDirtyBackgroundThreshold;
+
+  /// No description provided for @maintenanceCounterNumaHit.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地节点分配命中'**
+  String get maintenanceCounterNumaHit;
+
+  /// No description provided for @maintenanceCounterNumaMiss.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地节点分配未命中'**
+  String get maintenanceCounterNumaMiss;
+
+  /// No description provided for @maintenanceCounterNumaForeign.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部节点分配'**
+  String get maintenanceCounterNumaForeign;
+
+  /// No description provided for @maintenanceCounterNumaInterleave.
+  ///
+  /// In zh, this message translates to:
+  /// **'交错节点分配'**
+  String get maintenanceCounterNumaInterleave;
+
+  /// No description provided for @maintenanceCounterNumaLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地节点访问'**
+  String get maintenanceCounterNumaLocal;
+
+  /// No description provided for @maintenanceCounterNumaOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他节点访问'**
+  String get maintenanceCounterNumaOther;
+
+  /// No description provided for @maintenanceCounterNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'常规区域'**
+  String get maintenanceCounterNormal;
+
+  /// No description provided for @maintenanceCounterMovable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可迁移区域'**
+  String get maintenanceCounterMovable;
+
+  /// No description provided for @maintenanceCounterHigh.
+  ///
+  /// In zh, this message translates to:
+  /// **'高端区域'**
+  String get maintenanceCounterHigh;
+
+  /// No description provided for @maintenanceCounterKswapd.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台回收'**
+  String get maintenanceCounterKswapd;
+
+  /// No description provided for @maintenanceCounterDirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接回收'**
+  String get maintenanceCounterDirect;
+
+  /// No description provided for @maintenanceCounterThrottle.
+  ///
+  /// In zh, this message translates to:
+  /// **'限流'**
+  String get maintenanceCounterThrottle;
+
+  /// No description provided for @maintenanceCounterSwapcached.
+  ///
+  /// In zh, this message translates to:
+  /// **'交换缓存'**
+  String get maintenanceCounterSwapcached;
+
+  /// No description provided for @maintenanceCounterCommitlimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交内存上限'**
+  String get maintenanceCounterCommitlimit;
+
+  /// No description provided for @maintenanceCounterVmalloctotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核虚拟空间总量'**
+  String get maintenanceCounterVmalloctotal;
+
+  /// No description provided for @maintenanceCounterVmallocused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用内核虚拟空间'**
+  String get maintenanceCounterVmallocused;
+
+  /// No description provided for @maintenanceCounterVmallocchunk.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大连续内核虚拟空间'**
+  String get maintenanceCounterVmallocchunk;
+
+  /// No description provided for @maintenanceCounterAnonhugepages.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名大页'**
+  String get maintenanceCounterAnonhugepages;
+
+  /// No description provided for @maintenanceCounterShmemhugepages.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存大页'**
+  String get maintenanceCounterShmemhugepages;
+
+  /// No description provided for @maintenanceCounterShmempmdmapped.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存大页映射'**
+  String get maintenanceCounterShmempmdmapped;
+
+  /// No description provided for @maintenanceCounterHugepagesTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'大页总数'**
+  String get maintenanceCounterHugepagesTotal;
+
+  /// No description provided for @maintenanceCounterHugepagesFree.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲大页'**
+  String get maintenanceCounterHugepagesFree;
+
+  /// No description provided for @maintenanceCounterHugepagesRsvd.
+  ///
+  /// In zh, this message translates to:
+  /// **'预留大页'**
+  String get maintenanceCounterHugepagesRsvd;
+
+  /// No description provided for @maintenanceCounterHugepagesSurp.
+  ///
+  /// In zh, this message translates to:
+  /// **'额外大页'**
+  String get maintenanceCounterHugepagesSurp;
+
+  /// No description provided for @maintenanceCounterHugepagesize.
+  ///
+  /// In zh, this message translates to:
+  /// **'大页大小'**
+  String get maintenanceCounterHugepagesize;
+
+  /// No description provided for @maintenanceCounterHugetlb.
+  ///
+  /// In zh, this message translates to:
+  /// **'大页占用'**
+  String get maintenanceCounterHugetlb;
+
+  /// No description provided for @maintenanceCounterPercpu.
+  ///
+  /// In zh, this message translates to:
+  /// **'每处理器内存'**
+  String get maintenanceCounterPercpu;
+
+  /// No description provided for @maintenanceCounterHardwarecorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'硬件损坏内存'**
+  String get maintenanceCounterHardwarecorrupted;
+
+  /// No description provided for @maintenanceCounterKreclaimable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可回收内核内存'**
+  String get maintenanceCounterKreclaimable;
+
+  /// No description provided for @maintenanceCounterNfsUnstable.
+  ///
+  /// In zh, this message translates to:
+  /// **'未稳定写入网络文件页'**
+  String get maintenanceCounterNfsUnstable;
+
+  /// No description provided for @maintenanceCounterWorkingsetRefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作集重新缺页'**
+  String get maintenanceCounterWorkingsetRefault;
+
+  /// No description provided for @maintenanceCounterWorkingsetActivate.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作集激活'**
+  String get maintenanceCounterWorkingsetActivate;
+
+  /// No description provided for @maintenanceCounterWorkingsetRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作集恢复'**
+  String get maintenanceCounterWorkingsetRestore;
+
+  /// No description provided for @maintenanceCounterWorkingsetNodereclaim.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作集节点回收'**
+  String get maintenanceCounterWorkingsetNodereclaim;
+
+  /// No description provided for @maintenanceCounterThpFaultAlloc.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺页分配透明大页'**
+  String get maintenanceCounterThpFaultAlloc;
+
+  /// No description provided for @maintenanceCounterThpFaultFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺页大页分配回退'**
+  String get maintenanceCounterThpFaultFallback;
+
+  /// No description provided for @maintenanceCounterThpCollapseAlloc.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并分配透明大页'**
+  String get maintenanceCounterThpCollapseAlloc;
+
+  /// No description provided for @maintenanceCounterThpCollapseAllocFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并大页分配失败'**
+  String get maintenanceCounterThpCollapseAllocFailed;
+
+  /// No description provided for @maintenanceCounterThpSplitPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页拆分'**
+  String get maintenanceCounterThpSplitPage;
+
+  /// No description provided for @maintenanceCounterThpSplitPageFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页拆分失败'**
+  String get maintenanceCounterThpSplitPageFailed;
+
+  /// No description provided for @maintenanceCounterThpSplitPmd.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页映射拆分'**
+  String get maintenanceCounterThpSplitPmd;
+
+  /// No description provided for @maintenanceCounterThpZeroPageAlloc.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页零页分配'**
+  String get maintenanceCounterThpZeroPageAlloc;
+
+  /// No description provided for @maintenanceCounterThpZeroPageAllocFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页零页分配失败'**
+  String get maintenanceCounterThpZeroPageAllocFailed;
+
+  /// No description provided for @maintenanceCounterThpDeferredSplitPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页延迟拆分'**
+  String get maintenanceCounterThpDeferredSplitPage;
+
+  /// No description provided for @maintenanceCounterThpSwpout.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页换出'**
+  String get maintenanceCounterThpSwpout;
+
+  /// No description provided for @maintenanceCounterThpSwpoutFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明大页换出回退'**
+  String get maintenanceCounterThpSwpoutFallback;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsCulled.
+  ///
+  /// In zh, this message translates to:
+  /// **'移入不可回收队列'**
+  String get maintenanceCounterUnevictablePgsCulled;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可回收页面扫描'**
+  String get maintenanceCounterUnevictablePgsScanned;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsRescued.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复可回收页面'**
+  String get maintenanceCounterUnevictablePgsRescued;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsMlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面加锁'**
+  String get maintenanceCounterUnevictablePgsMlocked;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsMunlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面解锁'**
+  String get maintenanceCounterUnevictablePgsMunlocked;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除不可回收标记'**
+  String get maintenanceCounterUnevictablePgsCleared;
+
+  /// No description provided for @maintenanceCounterUnevictablePgsStranded.
+  ///
+  /// In zh, this message translates to:
+  /// **'滞留不可回收页面'**
+  String get maintenanceCounterUnevictablePgsStranded;
+
+  /// No description provided for @maintenanceCounterOomKill.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存不足终止进程'**
+  String get maintenanceCounterOomKill;
+
+  /// No description provided for @maintenanceCounterNumaPteUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点页表更新'**
+  String get maintenanceCounterNumaPteUpdates;
+
+  /// No description provided for @maintenanceCounterNumaHugePteUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点大页表更新'**
+  String get maintenanceCounterNumaHugePteUpdates;
+
+  /// No description provided for @maintenanceCounterNumaHintFaults.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点提示缺页'**
+  String get maintenanceCounterNumaHintFaults;
+
+  /// No description provided for @maintenanceCounterNumaHintFaultsLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地节点提示缺页'**
+  String get maintenanceCounterNumaHintFaultsLocal;
+
+  /// No description provided for @maintenanceCounterNumaPagesMigrated.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点迁移页面'**
+  String get maintenanceCounterNumaPagesMigrated;
+
+  /// No description provided for @maintenanceCounterCompactDaemonWake.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台规整唤醒'**
+  String get maintenanceCounterCompactDaemonWake;
+
+  /// No description provided for @maintenanceCounterCompactDaemonMigrateScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台规整迁移扫描'**
+  String get maintenanceCounterCompactDaemonMigrateScanned;
+
+  /// No description provided for @maintenanceCounterCompactDaemonFreeScanned.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台规整空闲页扫描'**
+  String get maintenanceCounterCompactDaemonFreeScanned;
+
+  /// No description provided for @maintenanceCounterVmscanWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'回收扫描写入'**
+  String get maintenanceCounterVmscanWrite;
+
+  /// No description provided for @maintenanceCounterVmscanImmediateReclaim.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描后立即回收'**
+  String get maintenanceCounterVmscanImmediateReclaim;
+
+  /// No description provided for @maintenanceCounterFollPinAcquired.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面固定获取'**
+  String get maintenanceCounterFollPinAcquired;
+
+  /// No description provided for @maintenanceCounterFollPinReleased.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面固定释放'**
+  String get maintenanceCounterFollPinReleased;
+
+  /// No description provided for @maintenanceCounterAnonTransparentHugepages.
+  ///
+  /// In zh, this message translates to:
+  /// **'匿名透明大页'**
+  String get maintenanceCounterAnonTransparentHugepages;
+
+  /// No description provided for @maintenanceCounterShmemHugepages.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存大页'**
+  String get maintenanceCounterShmemHugepages;
+
+  /// No description provided for @maintenanceCounterShmemPmdmapped.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享内存大页映射'**
+  String get maintenanceCounterShmemPmdmapped;
+
+  /// No description provided for @maintenanceCounterFileHugepages.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大页'**
+  String get maintenanceCounterFileHugepages;
+
+  /// No description provided for @maintenanceCounterFilePmdmapped.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大页映射'**
+  String get maintenanceCounterFilePmdmapped;
+
+  /// No description provided for @maintenanceCounterFreeCma.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲连续内存'**
+  String get maintenanceCounterFreeCma;
+
+  /// No description provided for @maintenanceCounterCmatotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'连续内存总量'**
+  String get maintenanceCounterCmatotal;
+
+  /// No description provided for @maintenanceCounterPagereadspersec.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页读取速率'**
+  String get maintenanceCounterPagereadspersec;
+
+  /// No description provided for @maintenanceCounterPagewritespersec.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页写入速率'**
+  String get maintenanceCounterPagewritespersec;
+
+  /// No description provided for @maintenanceCounterPagesinputpersec.
+  ///
+  /// In zh, this message translates to:
+  /// **'换入页面速率'**
+  String get maintenanceCounterPagesinputpersec;
+
+  /// No description provided for @maintenanceCounterPagesoutputpersec.
+  ///
+  /// In zh, this message translates to:
+  /// **'换出页面速率'**
+  String get maintenanceCounterPagesoutputpersec;
+
+  /// No description provided for @maintenanceCounterPagespersec.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页速率'**
+  String get maintenanceCounterPagespersec;
+
+  /// No description provided for @maintenanceCounterPoolpagedbytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'分页池内存'**
+  String get maintenanceCounterPoolpagedbytes;
+
+  /// No description provided for @maintenanceCounterPoolnonpagedbytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'非分页池内存'**
+  String get maintenanceCounterPoolnonpagedbytes;
+
+  /// No description provided for @maintenanceCounterCachebytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存字节'**
+  String get maintenanceCounterCachebytes;
+
+  /// No description provided for @maintenanceCounterPercentcommittedbytesinuse.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交内存使用率'**
+  String get maintenanceCounterPercentcommittedbytesinuse;
+
+  /// No description provided for @maintenanceCounterSystemcodetotalbytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统代码内存总量'**
+  String get maintenanceCounterSystemcodetotalbytes;
+
+  /// No description provided for @maintenanceCounterSystemdrivertotalbytes.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统驱动内存总量'**
+  String get maintenanceCounterSystemdrivertotalbytes;
+
+  /// No description provided for @maintenanceExtendedMetric.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展指标：{name}'**
+  String maintenanceExtendedMetric(String name);
 }
 
 class _AppLocalizationsDelegate

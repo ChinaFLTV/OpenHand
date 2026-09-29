@@ -12131,4 +12131,419 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceWorkersHelp =>
       'Maximum concurrent collection tasks. Takes effect on the next refresh.';
+
+  @override
+  String get maintenanceCounterPgalloc => 'Page allocations';
+
+  @override
+  String get maintenanceCounterPgfree => 'Pages freed';
+
+  @override
+  String get maintenanceCounterPgactivate => 'Pages activated';
+
+  @override
+  String get maintenanceCounterPgdeactivate => 'Pages deactivated';
+
+  @override
+  String get maintenanceCounterPgfault => 'Page faults';
+
+  @override
+  String get maintenanceCounterPgmajfault => 'Major page faults';
+
+  @override
+  String get maintenanceCounterPglazyfree => 'Lazy-free requests';
+
+  @override
+  String get maintenanceCounterPglazyfreed => 'Lazy-freed pages';
+
+  @override
+  String get maintenanceCounterPgrefill => 'Page refills';
+
+  @override
+  String get maintenanceCounterPgsteal => 'Pages reclaimed';
+
+  @override
+  String get maintenanceCounterPgscan => 'Pages scanned';
+
+  @override
+  String get maintenanceCounterAllocstall => 'Allocation stalls';
+
+  @override
+  String get maintenanceCounterPgskip => 'Pages skipped';
+
+  @override
+  String get maintenanceCounterPgrotated => 'Pages rotated';
+
+  @override
+  String get maintenanceCounterPginodesteal => 'Inode pages reclaimed';
+
+  @override
+  String get maintenanceCounterSlabsScanned => 'Slab scans';
+
+  @override
+  String get maintenanceCounterKswapdInodesteal => 'Background inode reclaim';
+
+  @override
+  String get maintenanceCounterKswapdLowWmarkHitQuickly =>
+      'Rapid low-watermark hits';
+
+  @override
+  String get maintenanceCounterKswapdHighWmarkHitQuickly =>
+      'Rapid high-watermark hits';
+
+  @override
+  String get maintenanceCounterPageoutrun => 'Background reclaim runs';
+
+  @override
+  String get maintenanceCounterPgmigrateSuccess => 'Successful page migrations';
+
+  @override
+  String get maintenanceCounterPgmigrateFail => 'Failed page migrations';
+
+  @override
+  String get maintenanceCounterCompactStall => 'Compaction stalls';
+
+  @override
+  String get maintenanceCounterCompactFail => 'Compaction failures';
+
+  @override
+  String get maintenanceCounterCompactSuccess => 'Compaction successes';
+
+  @override
+  String get maintenanceCounterCompactMigrateScanned =>
+      'Compaction migration scans';
+
+  @override
+  String get maintenanceCounterCompactFreeScanned =>
+      'Compaction free-page scans';
+
+  @override
+  String get maintenanceCounterCompactIsolated =>
+      'Pages isolated for compaction';
+
+  @override
+  String get maintenanceCounterUnevictable => 'Unevictable memory';
+
+  @override
+  String get maintenanceCounterMlocked => 'Locked memory';
+
+  @override
+  String get maintenanceCounterAnon => 'Anonymous pages';
+
+  @override
+  String get maintenanceCounterFile => 'File pages';
+
+  @override
+  String get maintenanceCounterActive => 'Active';
+
+  @override
+  String get maintenanceCounterInactive => 'Inactive';
+
+  @override
+  String get maintenanceCounterIsolated => 'Isolated pages';
+
+  @override
+  String get maintenanceCounterSlabReclaimable => 'Reclaimable slab';
+
+  @override
+  String get maintenanceCounterSlabUnreclaimable => 'Unreclaimable slab';
+
+  @override
+  String get maintenanceCounterKernelStack => 'Kernel stack';
+
+  @override
+  String get maintenanceCounterPageTablePages => 'Page tables';
+
+  @override
+  String get maintenanceCounterBounce => 'Bounce buffers';
+
+  @override
+  String get maintenanceCounterWritebackTemp => 'Temporary writeback';
+
+  @override
+  String get maintenanceCounterWriteback => 'Writeback pages';
+
+  @override
+  String get maintenanceCounterDirtied => 'Pages dirtied';
+
+  @override
+  String get maintenanceCounterWritten => 'Pages written';
+
+  @override
+  String get maintenanceCounterDirtyThreshold => 'Dirty-page threshold';
+
+  @override
+  String get maintenanceCounterDirtyBackgroundThreshold =>
+      'Background writeback threshold';
+
+  @override
+  String get maintenanceCounterNumaHit => 'NUMA allocation hits';
+
+  @override
+  String get maintenanceCounterNumaMiss => 'NUMA allocation misses';
+
+  @override
+  String get maintenanceCounterNumaForeign => 'Foreign NUMA allocations';
+
+  @override
+  String get maintenanceCounterNumaInterleave => 'Interleaved NUMA allocations';
+
+  @override
+  String get maintenanceCounterNumaLocal => 'Local NUMA allocations';
+
+  @override
+  String get maintenanceCounterNumaOther => 'Other-node NUMA allocations';
+
+  @override
+  String get maintenanceCounterNormal => 'Normal zone';
+
+  @override
+  String get maintenanceCounterMovable => 'Movable zone';
+
+  @override
+  String get maintenanceCounterHigh => 'High-memory zone';
+
+  @override
+  String get maintenanceCounterKswapd => 'Background reclaim';
+
+  @override
+  String get maintenanceCounterDirect => 'Direct reclaim';
+
+  @override
+  String get maintenanceCounterThrottle => 'Throttling';
+
+  @override
+  String get maintenanceCounterSwapcached => 'Swap cache';
+
+  @override
+  String get maintenanceCounterCommitlimit => 'Commit limit';
+
+  @override
+  String get maintenanceCounterVmalloctotal => 'Total kernel virtual space';
+
+  @override
+  String get maintenanceCounterVmallocused => 'Used kernel virtual space';
+
+  @override
+  String get maintenanceCounterVmallocchunk => 'Largest kernel virtual block';
+
+  @override
+  String get maintenanceCounterAnonhugepages => 'Anonymous huge pages';
+
+  @override
+  String get maintenanceCounterShmemhugepages => 'Shared-memory huge pages';
+
+  @override
+  String get maintenanceCounterShmempmdmapped => 'Shared-memory PMD mappings';
+
+  @override
+  String get maintenanceCounterHugepagesTotal => 'Total huge pages';
+
+  @override
+  String get maintenanceCounterHugepagesFree => 'Free huge pages';
+
+  @override
+  String get maintenanceCounterHugepagesRsvd => 'Reserved huge pages';
+
+  @override
+  String get maintenanceCounterHugepagesSurp => 'Surplus huge pages';
+
+  @override
+  String get maintenanceCounterHugepagesize => 'Huge-page size';
+
+  @override
+  String get maintenanceCounterHugetlb => 'Huge-page memory';
+
+  @override
+  String get maintenanceCounterPercpu => 'Per-CPU memory';
+
+  @override
+  String get maintenanceCounterHardwarecorrupted => 'Hardware-corrupted memory';
+
+  @override
+  String get maintenanceCounterKreclaimable => 'Reclaimable kernel memory';
+
+  @override
+  String get maintenanceCounterNfsUnstable => 'Unstable NFS pages';
+
+  @override
+  String get maintenanceCounterWorkingsetRefault => 'Working-set refaults';
+
+  @override
+  String get maintenanceCounterWorkingsetActivate => 'Working-set activations';
+
+  @override
+  String get maintenanceCounterWorkingsetRestore => 'Working-set restores';
+
+  @override
+  String get maintenanceCounterWorkingsetNodereclaim =>
+      'Working-set node reclaim';
+
+  @override
+  String get maintenanceCounterThpFaultAlloc => 'THP fault allocations';
+
+  @override
+  String get maintenanceCounterThpFaultFallback => 'THP fault fallbacks';
+
+  @override
+  String get maintenanceCounterThpCollapseAlloc => 'THP collapse allocations';
+
+  @override
+  String get maintenanceCounterThpCollapseAllocFailed =>
+      'THP collapse allocation failures';
+
+  @override
+  String get maintenanceCounterThpSplitPage => 'THP page splits';
+
+  @override
+  String get maintenanceCounterThpSplitPageFailed => 'THP split failures';
+
+  @override
+  String get maintenanceCounterThpSplitPmd => 'THP PMD splits';
+
+  @override
+  String get maintenanceCounterThpZeroPageAlloc => 'THP zero-page allocations';
+
+  @override
+  String get maintenanceCounterThpZeroPageAllocFailed =>
+      'THP zero-page allocation failures';
+
+  @override
+  String get maintenanceCounterThpDeferredSplitPage => 'Deferred THP splits';
+
+  @override
+  String get maintenanceCounterThpSwpout => 'THP swap-outs';
+
+  @override
+  String get maintenanceCounterThpSwpoutFallback => 'THP swap-out fallbacks';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCulled => 'Pages made unevictable';
+
+  @override
+  String get maintenanceCounterUnevictablePgsScanned =>
+      'Unevictable pages scanned';
+
+  @override
+  String get maintenanceCounterUnevictablePgsRescued =>
+      'Pages made evictable again';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMlocked => 'Pages locked';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMunlocked => 'Pages unlocked';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCleared =>
+      'Unevictable flags cleared';
+
+  @override
+  String get maintenanceCounterUnevictablePgsStranded =>
+      'Stranded unevictable pages';
+
+  @override
+  String get maintenanceCounterOomKill => 'Out-of-memory kills';
+
+  @override
+  String get maintenanceCounterNumaPteUpdates => 'NUMA PTE updates';
+
+  @override
+  String get maintenanceCounterNumaHugePteUpdates => 'NUMA huge-PTE updates';
+
+  @override
+  String get maintenanceCounterNumaHintFaults => 'NUMA hint faults';
+
+  @override
+  String get maintenanceCounterNumaHintFaultsLocal => 'Local NUMA hint faults';
+
+  @override
+  String get maintenanceCounterNumaPagesMigrated => 'NUMA pages migrated';
+
+  @override
+  String get maintenanceCounterCompactDaemonWake => 'Compaction daemon wakeups';
+
+  @override
+  String get maintenanceCounterCompactDaemonMigrateScanned =>
+      'Background compaction migration scans';
+
+  @override
+  String get maintenanceCounterCompactDaemonFreeScanned =>
+      'Background compaction free-page scans';
+
+  @override
+  String get maintenanceCounterVmscanWrite => 'Reclaim scan writes';
+
+  @override
+  String get maintenanceCounterVmscanImmediateReclaim =>
+      'Immediate scan reclaim';
+
+  @override
+  String get maintenanceCounterFollPinAcquired => 'Page pins acquired';
+
+  @override
+  String get maintenanceCounterFollPinReleased => 'Page pins released';
+
+  @override
+  String get maintenanceCounterAnonTransparentHugepages =>
+      'Anonymous transparent huge pages';
+
+  @override
+  String get maintenanceCounterShmemHugepages => 'Shared-memory huge pages';
+
+  @override
+  String get maintenanceCounterShmemPmdmapped => 'Shared-memory PMD mappings';
+
+  @override
+  String get maintenanceCounterFileHugepages => 'File huge pages';
+
+  @override
+  String get maintenanceCounterFilePmdmapped => 'File PMD mappings';
+
+  @override
+  String get maintenanceCounterFreeCma => 'Free CMA memory';
+
+  @override
+  String get maintenanceCounterCmatotal => 'Total CMA memory';
+
+  @override
+  String get maintenanceCounterPagereadspersec => 'Page read rate';
+
+  @override
+  String get maintenanceCounterPagewritespersec => 'Page write rate';
+
+  @override
+  String get maintenanceCounterPagesinputpersec => 'Page input rate';
+
+  @override
+  String get maintenanceCounterPagesoutputpersec => 'Page output rate';
+
+  @override
+  String get maintenanceCounterPagespersec => 'Paging rate';
+
+  @override
+  String get maintenanceCounterPoolpagedbytes => 'Paged pool memory';
+
+  @override
+  String get maintenanceCounterPoolnonpagedbytes => 'Nonpaged pool memory';
+
+  @override
+  String get maintenanceCounterCachebytes => 'Cache bytes';
+
+  @override
+  String get maintenanceCounterPercentcommittedbytesinuse =>
+      'Committed memory usage';
+
+  @override
+  String get maintenanceCounterSystemcodetotalbytes =>
+      'Total system code memory';
+
+  @override
+  String get maintenanceCounterSystemdrivertotalbytes =>
+      'Total system driver memory';
+
+  @override
+  String maintenanceExtendedMetric(String name) {
+    return 'Extended metric: $name';
+  }
 }

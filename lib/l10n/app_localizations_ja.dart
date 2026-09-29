@@ -11877,4 +11877,401 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceWorkersHelp => '同時に実行する収集タスクの上限。次の更新から適用します。';
+
+  @override
+  String get maintenanceCounterPgalloc => 'ページ割り当て';
+
+  @override
+  String get maintenanceCounterPgfree => '解放ページ';
+
+  @override
+  String get maintenanceCounterPgactivate => 'アクティブ化ページ';
+
+  @override
+  String get maintenanceCounterPgdeactivate => '非アクティブ化ページ';
+
+  @override
+  String get maintenanceCounterPgfault => 'ページフォールト';
+
+  @override
+  String get maintenanceCounterPgmajfault => 'メジャーページフォールト';
+
+  @override
+  String get maintenanceCounterPglazyfree => '遅延解放要求';
+
+  @override
+  String get maintenanceCounterPglazyfreed => '遅延解放済みページ';
+
+  @override
+  String get maintenanceCounterPgrefill => 'ページ再補充';
+
+  @override
+  String get maintenanceCounterPgsteal => '回収ページ';
+
+  @override
+  String get maintenanceCounterPgscan => '走査ページ';
+
+  @override
+  String get maintenanceCounterAllocstall => '割り当て待機';
+
+  @override
+  String get maintenanceCounterPgskip => 'スキップページ';
+
+  @override
+  String get maintenanceCounterPgrotated => 'ローテーションページ';
+
+  @override
+  String get maintenanceCounterPginodesteal => 'inode 回収ページ';
+
+  @override
+  String get maintenanceCounterSlabsScanned => 'slab 走査';
+
+  @override
+  String get maintenanceCounterKswapdInodesteal => 'バックグラウンド inode 回収';
+
+  @override
+  String get maintenanceCounterKswapdLowWmarkHitQuickly => '低ウォーターマーク再到達';
+
+  @override
+  String get maintenanceCounterKswapdHighWmarkHitQuickly => '高ウォーターマーク再到達';
+
+  @override
+  String get maintenanceCounterPageoutrun => 'バックグラウンド回収回数';
+
+  @override
+  String get maintenanceCounterPgmigrateSuccess => 'ページ移行成功';
+
+  @override
+  String get maintenanceCounterPgmigrateFail => 'ページ移行失敗';
+
+  @override
+  String get maintenanceCounterCompactStall => 'メモリコンパクション待機';
+
+  @override
+  String get maintenanceCounterCompactFail => 'メモリコンパクション失敗';
+
+  @override
+  String get maintenanceCounterCompactSuccess => 'メモリコンパクション成功';
+
+  @override
+  String get maintenanceCounterCompactMigrateScanned => 'コンパクション移行走査';
+
+  @override
+  String get maintenanceCounterCompactFreeScanned => 'コンパクション空きページ走査';
+
+  @override
+  String get maintenanceCounterCompactIsolated => 'コンパクション隔離ページ';
+
+  @override
+  String get maintenanceCounterUnevictable => '回収不可メモリ';
+
+  @override
+  String get maintenanceCounterMlocked => 'ロック済みメモリ';
+
+  @override
+  String get maintenanceCounterAnon => '匿名ページ';
+
+  @override
+  String get maintenanceCounterFile => 'ファイルページ';
+
+  @override
+  String get maintenanceCounterActive => 'アクティブ';
+
+  @override
+  String get maintenanceCounterInactive => '非アクティブ';
+
+  @override
+  String get maintenanceCounterIsolated => '隔離ページ';
+
+  @override
+  String get maintenanceCounterSlabReclaimable => '回収可能 slab';
+
+  @override
+  String get maintenanceCounterSlabUnreclaimable => '回収不可 slab';
+
+  @override
+  String get maintenanceCounterKernelStack => 'カーネルスタック';
+
+  @override
+  String get maintenanceCounterPageTablePages => 'ページテーブル';
+
+  @override
+  String get maintenanceCounterBounce => 'バウンスバッファ';
+
+  @override
+  String get maintenanceCounterWritebackTemp => '一時ライトバック';
+
+  @override
+  String get maintenanceCounterWriteback => 'ライトバックページ';
+
+  @override
+  String get maintenanceCounterDirtied => 'ダーティ化ページ';
+
+  @override
+  String get maintenanceCounterWritten => '書き込み済みページ';
+
+  @override
+  String get maintenanceCounterDirtyThreshold => 'ダーティページ閾値';
+
+  @override
+  String get maintenanceCounterDirtyBackgroundThreshold => 'バックグラウンド書き戻し閾値';
+
+  @override
+  String get maintenanceCounterNumaHit => 'NUMA 割り当てヒット';
+
+  @override
+  String get maintenanceCounterNumaMiss => 'NUMA 割り当てミス';
+
+  @override
+  String get maintenanceCounterNumaForeign => '外部 NUMA 割り当て';
+
+  @override
+  String get maintenanceCounterNumaInterleave => 'NUMA インターリーブ割り当て';
+
+  @override
+  String get maintenanceCounterNumaLocal => 'ローカル NUMA 割り当て';
+
+  @override
+  String get maintenanceCounterNumaOther => '他ノード NUMA 割り当て';
+
+  @override
+  String get maintenanceCounterNormal => '通常ゾーン';
+
+  @override
+  String get maintenanceCounterMovable => '移動可能ゾーン';
+
+  @override
+  String get maintenanceCounterHigh => '高位メモリゾーン';
+
+  @override
+  String get maintenanceCounterKswapd => 'バックグラウンド回収';
+
+  @override
+  String get maintenanceCounterDirect => '直接回収';
+
+  @override
+  String get maintenanceCounterThrottle => 'スロットリング';
+
+  @override
+  String get maintenanceCounterSwapcached => 'スワップキャッシュ';
+
+  @override
+  String get maintenanceCounterCommitlimit => 'コミット上限';
+
+  @override
+  String get maintenanceCounterVmalloctotal => 'カーネル仮想空間合計';
+
+  @override
+  String get maintenanceCounterVmallocused => '使用中カーネル仮想空間';
+
+  @override
+  String get maintenanceCounterVmallocchunk => '最大連続カーネル仮想領域';
+
+  @override
+  String get maintenanceCounterAnonhugepages => '匿名ヒュージページ';
+
+  @override
+  String get maintenanceCounterShmemhugepages => '共有メモリヒュージページ';
+
+  @override
+  String get maintenanceCounterShmempmdmapped => '共有メモリ PMD マッピング';
+
+  @override
+  String get maintenanceCounterHugepagesTotal => 'ヒュージページ総数';
+
+  @override
+  String get maintenanceCounterHugepagesFree => '空きヒュージページ';
+
+  @override
+  String get maintenanceCounterHugepagesRsvd => '予約ヒュージページ';
+
+  @override
+  String get maintenanceCounterHugepagesSurp => '余剰ヒュージページ';
+
+  @override
+  String get maintenanceCounterHugepagesize => 'ヒュージページサイズ';
+
+  @override
+  String get maintenanceCounterHugetlb => 'ヒュージページメモリ';
+
+  @override
+  String get maintenanceCounterPercpu => 'CPU ごとのメモリ';
+
+  @override
+  String get maintenanceCounterHardwarecorrupted => 'ハードウェア破損メモリ';
+
+  @override
+  String get maintenanceCounterKreclaimable => '回収可能カーネルメモリ';
+
+  @override
+  String get maintenanceCounterNfsUnstable => '未確定 NFS ページ';
+
+  @override
+  String get maintenanceCounterWorkingsetRefault => 'ワーキングセット再フォールト';
+
+  @override
+  String get maintenanceCounterWorkingsetActivate => 'ワーキングセット活性化';
+
+  @override
+  String get maintenanceCounterWorkingsetRestore => 'ワーキングセット復元';
+
+  @override
+  String get maintenanceCounterWorkingsetNodereclaim => 'ワーキングセットノード回収';
+
+  @override
+  String get maintenanceCounterThpFaultAlloc => 'フォールト時 THP 割り当て';
+
+  @override
+  String get maintenanceCounterThpFaultFallback => 'フォールト時 THP フォールバック';
+
+  @override
+  String get maintenanceCounterThpCollapseAlloc => '統合時 THP 割り当て';
+
+  @override
+  String get maintenanceCounterThpCollapseAllocFailed => '統合時 THP 割り当て失敗';
+
+  @override
+  String get maintenanceCounterThpSplitPage => 'THP ページ分割';
+
+  @override
+  String get maintenanceCounterThpSplitPageFailed => 'THP 分割失敗';
+
+  @override
+  String get maintenanceCounterThpSplitPmd => 'THP PMD 分割';
+
+  @override
+  String get maintenanceCounterThpZeroPageAlloc => 'THP ゼロページ割り当て';
+
+  @override
+  String get maintenanceCounterThpZeroPageAllocFailed => 'THP ゼロページ割り当て失敗';
+
+  @override
+  String get maintenanceCounterThpDeferredSplitPage => 'THP 遅延分割';
+
+  @override
+  String get maintenanceCounterThpSwpout => 'THP スワップアウト';
+
+  @override
+  String get maintenanceCounterThpSwpoutFallback => 'THP スワップアウトフォールバック';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCulled => '回収不可キューへの移動';
+
+  @override
+  String get maintenanceCounterUnevictablePgsScanned => '回収不可ページ走査';
+
+  @override
+  String get maintenanceCounterUnevictablePgsRescued => '回収可能に復帰したページ';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMlocked => 'ロックされたページ';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMunlocked => 'ロック解除ページ';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCleared => '回収不可フラグ解除';
+
+  @override
+  String get maintenanceCounterUnevictablePgsStranded => '滞留回収不可ページ';
+
+  @override
+  String get maintenanceCounterOomKill => 'メモリ不足による強制終了';
+
+  @override
+  String get maintenanceCounterNumaPteUpdates => 'NUMA PTE 更新';
+
+  @override
+  String get maintenanceCounterNumaHugePteUpdates => 'NUMA 大ページ PTE 更新';
+
+  @override
+  String get maintenanceCounterNumaHintFaults => 'NUMA ヒントフォールト';
+
+  @override
+  String get maintenanceCounterNumaHintFaultsLocal => 'ローカル NUMA ヒントフォールト';
+
+  @override
+  String get maintenanceCounterNumaPagesMigrated => 'NUMA 移行ページ';
+
+  @override
+  String get maintenanceCounterCompactDaemonWake => 'コンパクションデーモン起動';
+
+  @override
+  String get maintenanceCounterCompactDaemonMigrateScanned =>
+      'バックグラウンドコンパクション移行走査';
+
+  @override
+  String get maintenanceCounterCompactDaemonFreeScanned =>
+      'バックグラウンドコンパクション空きページ走査';
+
+  @override
+  String get maintenanceCounterVmscanWrite => '回収走査書き込み';
+
+  @override
+  String get maintenanceCounterVmscanImmediateReclaim => '走査後即時回収';
+
+  @override
+  String get maintenanceCounterFollPinAcquired => 'ページ固定取得';
+
+  @override
+  String get maintenanceCounterFollPinReleased => 'ページ固定解放';
+
+  @override
+  String get maintenanceCounterAnonTransparentHugepages => '匿名透過ヒュージページ';
+
+  @override
+  String get maintenanceCounterShmemHugepages => '共有メモリヒュージページ';
+
+  @override
+  String get maintenanceCounterShmemPmdmapped => '共有メモリ PMD マッピング';
+
+  @override
+  String get maintenanceCounterFileHugepages => 'ファイルヒュージページ';
+
+  @override
+  String get maintenanceCounterFilePmdmapped => 'ファイル PMD マッピング';
+
+  @override
+  String get maintenanceCounterFreeCma => '空き CMA メモリ';
+
+  @override
+  String get maintenanceCounterCmatotal => 'CMA メモリ合計';
+
+  @override
+  String get maintenanceCounterPagereadspersec => 'ページ読み取りレート';
+
+  @override
+  String get maintenanceCounterPagewritespersec => 'ページ書き込みレート';
+
+  @override
+  String get maintenanceCounterPagesinputpersec => 'ページ入力レート';
+
+  @override
+  String get maintenanceCounterPagesoutputpersec => 'ページ出力レート';
+
+  @override
+  String get maintenanceCounterPagespersec => 'ページングレート';
+
+  @override
+  String get maintenanceCounterPoolpagedbytes => 'ページプールメモリ';
+
+  @override
+  String get maintenanceCounterPoolnonpagedbytes => '非ページプールメモリ';
+
+  @override
+  String get maintenanceCounterCachebytes => 'キャッシュバイト';
+
+  @override
+  String get maintenanceCounterPercentcommittedbytesinuse => 'コミットメモリ使用率';
+
+  @override
+  String get maintenanceCounterSystemcodetotalbytes => 'システムコードメモリ合計';
+
+  @override
+  String get maintenanceCounterSystemdrivertotalbytes => 'システムドライバメモリ合計';
+
+  @override
+  String maintenanceExtendedMetric(String name) {
+    return '拡張指標：$name';
+  }
 }

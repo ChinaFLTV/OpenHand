@@ -428,8 +428,9 @@ String maintenanceLocalizedOutput(BuildContext context, String output) {
 String maintenanceMetricLabel(
   BuildContext context,
   String value,
-  String header,
-) {
+  String header, {
+  String? section,
+}) {
   if (!const ['名称', '类型', '状态', '资源', '范围', '单位', '数值'].contains(header)) {
     return value;
   }
@@ -494,5 +495,220 @@ String maintenanceMetricLabel(
     'synthesized': '合成磁盘',
     'disk image': '磁盘映像',
   };
-  return maintenanceLabel(context, fields[value] ?? value);
+  if (header == '名称') {
+    final counter = _maintenanceCounterLabel(
+      AppLocalizations.of(context)!,
+      value,
+    );
+    if (counter != null) return counter;
+  }
+  final translated = maintenanceLabel(context, fields[value] ?? value);
+  if (header == '名称' &&
+      translated == value &&
+      RegExp('^[A-Za-z_/]').hasMatch(value) &&
+      const [
+        'memory',
+        'memory_details',
+        'vm',
+        'kernel',
+        'sensors',
+      ].contains(section)) {
+    return AppLocalizations.of(context)!.maintenanceExtendedMetric(value);
+  }
+  return translated;
+}
+
+/// 先匹配完整指标，再组合已知区域与回收方式；不翻译任意机器数据。
+String? _maintenanceCounterLabel(
+  AppLocalizations l10n,
+  String name, {
+  int depth = 0,
+}) {
+  if (depth > 4) return null;
+  final exact = switch (name) {
+    'pgalloc' => l10n.maintenanceCounterPgalloc,
+    'pgfree' => l10n.maintenanceCounterPgfree,
+    'pgactivate' => l10n.maintenanceCounterPgactivate,
+    'pgdeactivate' => l10n.maintenanceCounterPgdeactivate,
+    'pgfault' => l10n.maintenanceCounterPgfault,
+    'PageFaultsPersec' => '${l10n.maintenanceCounterPgfault}/s',
+    'pgmajfault' => l10n.maintenanceCounterPgmajfault,
+    'pglazyfree' => l10n.maintenanceCounterPglazyfree,
+    'pglazyfreed' => l10n.maintenanceCounterPglazyfreed,
+    'pgrefill' => l10n.maintenanceCounterPgrefill,
+    'pgsteal' => l10n.maintenanceCounterPgsteal,
+    'pgscan' => l10n.maintenanceCounterPgscan,
+    'allocstall' => l10n.maintenanceCounterAllocstall,
+    'pgskip' => l10n.maintenanceCounterPgskip,
+    'pgrotated' => l10n.maintenanceCounterPgrotated,
+    'pginodesteal' => l10n.maintenanceCounterPginodesteal,
+    'slabs_scanned' => l10n.maintenanceCounterSlabsScanned,
+    'kswapd_inodesteal' => l10n.maintenanceCounterKswapdInodesteal,
+    'kswapd_low_wmark_hit_quickly' =>
+      l10n.maintenanceCounterKswapdLowWmarkHitQuickly,
+    'kswapd_high_wmark_hit_quickly' =>
+      l10n.maintenanceCounterKswapdHighWmarkHitQuickly,
+    'pageoutrun' => l10n.maintenanceCounterPageoutrun,
+    'pgmigrate_success' => l10n.maintenanceCounterPgmigrateSuccess,
+    'pgmigrate_fail' => l10n.maintenanceCounterPgmigrateFail,
+    'compact_stall' => l10n.maintenanceCounterCompactStall,
+    'compact_fail' => l10n.maintenanceCounterCompactFail,
+    'compact_success' => l10n.maintenanceCounterCompactSuccess,
+    'compact_migrate_scanned' => l10n.maintenanceCounterCompactMigrateScanned,
+    'compact_free_scanned' => l10n.maintenanceCounterCompactFreeScanned,
+    'compact_isolated' => l10n.maintenanceCounterCompactIsolated,
+    'unevictable' => l10n.maintenanceCounterUnevictable,
+    'mlocked' => l10n.maintenanceCounterMlocked,
+    'anon' => l10n.maintenanceCounterAnon,
+    'file' => l10n.maintenanceCounterFile,
+    'active' => l10n.maintenanceCounterActive,
+    'inactive' => l10n.maintenanceCounterInactive,
+    'isolated' => l10n.maintenanceCounterIsolated,
+    'slab_reclaimable' ||
+    'SReclaimable' => l10n.maintenanceCounterSlabReclaimable,
+    'slab_unreclaimable' ||
+    'SUnreclaim' => l10n.maintenanceCounterSlabUnreclaimable,
+    'kernel_stack' || 'KernelStack' => l10n.maintenanceCounterKernelStack,
+    'page_table_pages' || 'PageTables' => l10n.maintenanceCounterPageTablePages,
+    'bounce' || 'Bounce' => l10n.maintenanceCounterBounce,
+    'writeback_temp' || 'WritebackTmp' => l10n.maintenanceCounterWritebackTemp,
+    'writeback' => l10n.maintenanceCounterWriteback,
+    'dirtied' => l10n.maintenanceCounterDirtied,
+    'written' => l10n.maintenanceCounterWritten,
+    'dirty_threshold' => l10n.maintenanceCounterDirtyThreshold,
+    'dirty_background_threshold' =>
+      l10n.maintenanceCounterDirtyBackgroundThreshold,
+    'numa_hit' => l10n.maintenanceCounterNumaHit,
+    'numa_miss' => l10n.maintenanceCounterNumaMiss,
+    'numa_foreign' => l10n.maintenanceCounterNumaForeign,
+    'numa_interleave' => l10n.maintenanceCounterNumaInterleave,
+    'numa_local' => l10n.maintenanceCounterNumaLocal,
+    'numa_other' => l10n.maintenanceCounterNumaOther,
+    'normal' => l10n.maintenanceCounterNormal,
+    'movable' => l10n.maintenanceCounterMovable,
+    'high' => l10n.maintenanceCounterHigh,
+    'kswapd' => l10n.maintenanceCounterKswapd,
+    'direct' => l10n.maintenanceCounterDirect,
+    'throttle' => l10n.maintenanceCounterThrottle,
+    'SwapCached' => l10n.maintenanceCounterSwapcached,
+    'CommitLimit' => l10n.maintenanceCounterCommitlimit,
+    'VmallocTotal' => l10n.maintenanceCounterVmalloctotal,
+    'VmallocUsed' => l10n.maintenanceCounterVmallocused,
+    'VmallocChunk' => l10n.maintenanceCounterVmallocchunk,
+    'AnonHugePages' => l10n.maintenanceCounterAnonhugepages,
+    'ShmemHugePages' => l10n.maintenanceCounterShmemhugepages,
+    'ShmemPmdMapped' => l10n.maintenanceCounterShmempmdmapped,
+    'HugePages_Total' => l10n.maintenanceCounterHugepagesTotal,
+    'HugePages_Free' => l10n.maintenanceCounterHugepagesFree,
+    'HugePages_Rsvd' => l10n.maintenanceCounterHugepagesRsvd,
+    'HugePages_Surp' => l10n.maintenanceCounterHugepagesSurp,
+    'Hugepagesize' => l10n.maintenanceCounterHugepagesize,
+    'Hugetlb' => l10n.maintenanceCounterHugetlb,
+    'Percpu' => l10n.maintenanceCounterPercpu,
+    'HardwareCorrupted' => l10n.maintenanceCounterHardwarecorrupted,
+    'KReclaimable' => l10n.maintenanceCounterKreclaimable,
+    'NFS_Unstable' => l10n.maintenanceCounterNfsUnstable,
+    'Mlocked' => l10n.maintenanceCounterMlocked,
+    'Unevictable' => l10n.maintenanceCounterUnevictable,
+    'workingset_refault' => l10n.maintenanceCounterWorkingsetRefault,
+    'workingset_activate' => l10n.maintenanceCounterWorkingsetActivate,
+    'workingset_restore' => l10n.maintenanceCounterWorkingsetRestore,
+    'workingset_nodereclaim' => l10n.maintenanceCounterWorkingsetNodereclaim,
+    'thp_fault_alloc' => l10n.maintenanceCounterThpFaultAlloc,
+    'thp_fault_fallback' => l10n.maintenanceCounterThpFaultFallback,
+    'thp_collapse_alloc' => l10n.maintenanceCounterThpCollapseAlloc,
+    'thp_collapse_alloc_failed' =>
+      l10n.maintenanceCounterThpCollapseAllocFailed,
+    'thp_split_page' => l10n.maintenanceCounterThpSplitPage,
+    'thp_split_page_failed' => l10n.maintenanceCounterThpSplitPageFailed,
+    'thp_split_pmd' => l10n.maintenanceCounterThpSplitPmd,
+    'thp_zero_page_alloc' => l10n.maintenanceCounterThpZeroPageAlloc,
+    'thp_zero_page_alloc_failed' =>
+      l10n.maintenanceCounterThpZeroPageAllocFailed,
+    'thp_deferred_split_page' => l10n.maintenanceCounterThpDeferredSplitPage,
+    'thp_swpout' => l10n.maintenanceCounterThpSwpout,
+    'thp_swpout_fallback' => l10n.maintenanceCounterThpSwpoutFallback,
+    'unevictable_pgs_culled' => l10n.maintenanceCounterUnevictablePgsCulled,
+    'unevictable_pgs_scanned' => l10n.maintenanceCounterUnevictablePgsScanned,
+    'unevictable_pgs_rescued' => l10n.maintenanceCounterUnevictablePgsRescued,
+    'unevictable_pgs_mlocked' => l10n.maintenanceCounterUnevictablePgsMlocked,
+    'unevictable_pgs_munlocked' =>
+      l10n.maintenanceCounterUnevictablePgsMunlocked,
+    'unevictable_pgs_cleared' => l10n.maintenanceCounterUnevictablePgsCleared,
+    'unevictable_pgs_stranded' => l10n.maintenanceCounterUnevictablePgsStranded,
+    'oom_kill' => l10n.maintenanceCounterOomKill,
+    'numa_pte_updates' => l10n.maintenanceCounterNumaPteUpdates,
+    'numa_huge_pte_updates' => l10n.maintenanceCounterNumaHugePteUpdates,
+    'numa_hint_faults' => l10n.maintenanceCounterNumaHintFaults,
+    'numa_hint_faults_local' => l10n.maintenanceCounterNumaHintFaultsLocal,
+    'numa_pages_migrated' => l10n.maintenanceCounterNumaPagesMigrated,
+    'compact_daemon_wake' => l10n.maintenanceCounterCompactDaemonWake,
+    'compact_daemon_migrate_scanned' =>
+      l10n.maintenanceCounterCompactDaemonMigrateScanned,
+    'compact_daemon_free_scanned' =>
+      l10n.maintenanceCounterCompactDaemonFreeScanned,
+    'vmscan_write' => l10n.maintenanceCounterVmscanWrite,
+    'vmscan_immediate_reclaim' => l10n.maintenanceCounterVmscanImmediateReclaim,
+    'foll_pin_acquired' => l10n.maintenanceCounterFollPinAcquired,
+    'foll_pin_released' => l10n.maintenanceCounterFollPinReleased,
+    'anon_transparent_hugepages' =>
+      l10n.maintenanceCounterAnonTransparentHugepages,
+    'shmem_hugepages' => l10n.maintenanceCounterShmemHugepages,
+    'shmem_pmdmapped' => l10n.maintenanceCounterShmemPmdmapped,
+    'file_hugepages' || 'FileHugePages' => l10n.maintenanceCounterFileHugepages,
+    'file_pmdmapped' || 'FilePmdMapped' => l10n.maintenanceCounterFilePmdmapped,
+    'free_cma' || 'CmaFree' => l10n.maintenanceCounterFreeCma,
+    'CmaTotal' => l10n.maintenanceCounterCmatotal,
+    'PageReadsPersec' => l10n.maintenanceCounterPagereadspersec,
+    'PageWritesPersec' => l10n.maintenanceCounterPagewritespersec,
+    'PagesInputPersec' => l10n.maintenanceCounterPagesinputpersec,
+    'PagesOutputPersec' => l10n.maintenanceCounterPagesoutputpersec,
+    'PagesPersec' => l10n.maintenanceCounterPagespersec,
+    'PoolPagedBytes' => l10n.maintenanceCounterPoolpagedbytes,
+    'PoolNonpagedBytes' => l10n.maintenanceCounterPoolnonpagedbytes,
+    'CacheBytes' => l10n.maintenanceCounterCachebytes,
+    'PercentCommittedBytesInUse' =>
+      l10n.maintenanceCounterPercentcommittedbytesinuse,
+    'SystemCodeTotalBytes' => l10n.maintenanceCounterSystemcodetotalbytes,
+    'SystemDriverTotalBytes' => l10n.maintenanceCounterSystemdrivertotalbytes,
+    'anon_pages' => l10n.maintenanceCounterAnon,
+    'file_pages' => l10n.maintenanceCounterFile,
+    'free_pages' =>
+      '${l10n.maintenanceFreeMemory} · ${l10n.maintenanceMetricPages}',
+    'dma' => 'DMA',
+    'dma32' => 'DMA32',
+    _ => null,
+  };
+  if (exact != null) return exact;
+  for (final suffix in const [
+    '_dma32',
+    '_dma',
+    '_normal',
+    '_movable',
+    '_high',
+    '_kswapd',
+    '_direct',
+    '_throttle',
+    '_anon',
+    '_file',
+  ]) {
+    if (!name.endsWith(suffix)) continue;
+    final base = _maintenanceCounterLabel(
+      l10n,
+      name.substring(0, name.length - suffix.length),
+      depth: depth + 1,
+    );
+    final qualifier = _maintenanceCounterLabel(l10n, suffix.substring(1));
+    if (base != null && qualifier != null) return '$base · $qualifier';
+  }
+  final category = RegExp(
+    r'^(Active|Inactive)\((anon|file)\)$',
+  ).firstMatch(name);
+  if (category != null) {
+    return '${_maintenanceCounterLabel(l10n, category[1]!.toLowerCase())} · ${_maintenanceCounterLabel(l10n, category[2]!)}';
+  }
+  if (name.startsWith('nr_')) {
+    return _maintenanceCounterLabel(l10n, name.substring(3), depth: depth + 1);
+  }
+  return null;
 }

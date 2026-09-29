@@ -11755,6 +11755,401 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceWorkersHelp => '并行采集任务上限，下次刷新生效。';
+
+  @override
+  String get maintenanceCounterPgalloc => '页面分配';
+
+  @override
+  String get maintenanceCounterPgfree => '页面释放';
+
+  @override
+  String get maintenanceCounterPgactivate => '页面激活';
+
+  @override
+  String get maintenanceCounterPgdeactivate => '页面停用';
+
+  @override
+  String get maintenanceCounterPgfault => '缺页异常';
+
+  @override
+  String get maintenanceCounterPgmajfault => '主缺页异常';
+
+  @override
+  String get maintenanceCounterPglazyfree => '延迟释放请求';
+
+  @override
+  String get maintenanceCounterPglazyfreed => '延迟释放完成';
+
+  @override
+  String get maintenanceCounterPgrefill => '页面重新填充';
+
+  @override
+  String get maintenanceCounterPgsteal => '回收页面';
+
+  @override
+  String get maintenanceCounterPgscan => '扫描页面';
+
+  @override
+  String get maintenanceCounterAllocstall => '分配停顿';
+
+  @override
+  String get maintenanceCounterPgskip => '跳过页面';
+
+  @override
+  String get maintenanceCounterPgrotated => '轮转页面';
+
+  @override
+  String get maintenanceCounterPginodesteal => '索引节点页面回收';
+
+  @override
+  String get maintenanceCounterSlabsScanned => '内核缓存扫描';
+
+  @override
+  String get maintenanceCounterKswapdInodesteal => '后台索引节点回收';
+
+  @override
+  String get maintenanceCounterKswapdLowWmarkHitQuickly => '后台回收低水位触发';
+
+  @override
+  String get maintenanceCounterKswapdHighWmarkHitQuickly => '后台回收高水位触发';
+
+  @override
+  String get maintenanceCounterPageoutrun => '后台回收轮次';
+
+  @override
+  String get maintenanceCounterPgmigrateSuccess => '页面迁移成功';
+
+  @override
+  String get maintenanceCounterPgmigrateFail => '页面迁移失败';
+
+  @override
+  String get maintenanceCounterCompactStall => '内存规整停顿';
+
+  @override
+  String get maintenanceCounterCompactFail => '内存规整失败';
+
+  @override
+  String get maintenanceCounterCompactSuccess => '内存规整成功';
+
+  @override
+  String get maintenanceCounterCompactMigrateScanned => '规整迁移扫描';
+
+  @override
+  String get maintenanceCounterCompactFreeScanned => '规整空闲页扫描';
+
+  @override
+  String get maintenanceCounterCompactIsolated => '规整隔离页面';
+
+  @override
+  String get maintenanceCounterUnevictable => '不可回收内存';
+
+  @override
+  String get maintenanceCounterMlocked => '锁定内存';
+
+  @override
+  String get maintenanceCounterAnon => '匿名页';
+
+  @override
+  String get maintenanceCounterFile => '文件页';
+
+  @override
+  String get maintenanceCounterActive => '活跃';
+
+  @override
+  String get maintenanceCounterInactive => '非活跃';
+
+  @override
+  String get maintenanceCounterIsolated => '隔离页面';
+
+  @override
+  String get maintenanceCounterSlabReclaimable => '可回收内核缓存';
+
+  @override
+  String get maintenanceCounterSlabUnreclaimable => '不可回收内核缓存';
+
+  @override
+  String get maintenanceCounterKernelStack => '内核栈';
+
+  @override
+  String get maintenanceCounterPageTablePages => '页表';
+
+  @override
+  String get maintenanceCounterBounce => '回弹缓冲区';
+
+  @override
+  String get maintenanceCounterWritebackTemp => '临时写回';
+
+  @override
+  String get maintenanceCounterWriteback => '写回页面';
+
+  @override
+  String get maintenanceCounterDirtied => '累计脏页';
+
+  @override
+  String get maintenanceCounterWritten => '累计写回页';
+
+  @override
+  String get maintenanceCounterDirtyThreshold => '脏页阈值';
+
+  @override
+  String get maintenanceCounterDirtyBackgroundThreshold => '后台写回阈值';
+
+  @override
+  String get maintenanceCounterNumaHit => '本地节点分配命中';
+
+  @override
+  String get maintenanceCounterNumaMiss => '本地节点分配未命中';
+
+  @override
+  String get maintenanceCounterNumaForeign => '外部节点分配';
+
+  @override
+  String get maintenanceCounterNumaInterleave => '交错节点分配';
+
+  @override
+  String get maintenanceCounterNumaLocal => '本地节点访问';
+
+  @override
+  String get maintenanceCounterNumaOther => '其他节点访问';
+
+  @override
+  String get maintenanceCounterNormal => '常规区域';
+
+  @override
+  String get maintenanceCounterMovable => '可迁移区域';
+
+  @override
+  String get maintenanceCounterHigh => '高端区域';
+
+  @override
+  String get maintenanceCounterKswapd => '后台回收';
+
+  @override
+  String get maintenanceCounterDirect => '直接回收';
+
+  @override
+  String get maintenanceCounterThrottle => '限流';
+
+  @override
+  String get maintenanceCounterSwapcached => '交换缓存';
+
+  @override
+  String get maintenanceCounterCommitlimit => '提交内存上限';
+
+  @override
+  String get maintenanceCounterVmalloctotal => '内核虚拟空间总量';
+
+  @override
+  String get maintenanceCounterVmallocused => '已用内核虚拟空间';
+
+  @override
+  String get maintenanceCounterVmallocchunk => '最大连续内核虚拟空间';
+
+  @override
+  String get maintenanceCounterAnonhugepages => '匿名大页';
+
+  @override
+  String get maintenanceCounterShmemhugepages => '共享内存大页';
+
+  @override
+  String get maintenanceCounterShmempmdmapped => '共享内存大页映射';
+
+  @override
+  String get maintenanceCounterHugepagesTotal => '大页总数';
+
+  @override
+  String get maintenanceCounterHugepagesFree => '空闲大页';
+
+  @override
+  String get maintenanceCounterHugepagesRsvd => '预留大页';
+
+  @override
+  String get maintenanceCounterHugepagesSurp => '额外大页';
+
+  @override
+  String get maintenanceCounterHugepagesize => '大页大小';
+
+  @override
+  String get maintenanceCounterHugetlb => '大页占用';
+
+  @override
+  String get maintenanceCounterPercpu => '每处理器内存';
+
+  @override
+  String get maintenanceCounterHardwarecorrupted => '硬件损坏内存';
+
+  @override
+  String get maintenanceCounterKreclaimable => '可回收内核内存';
+
+  @override
+  String get maintenanceCounterNfsUnstable => '未稳定写入网络文件页';
+
+  @override
+  String get maintenanceCounterWorkingsetRefault => '工作集重新缺页';
+
+  @override
+  String get maintenanceCounterWorkingsetActivate => '工作集激活';
+
+  @override
+  String get maintenanceCounterWorkingsetRestore => '工作集恢复';
+
+  @override
+  String get maintenanceCounterWorkingsetNodereclaim => '工作集节点回收';
+
+  @override
+  String get maintenanceCounterThpFaultAlloc => '缺页分配透明大页';
+
+  @override
+  String get maintenanceCounterThpFaultFallback => '缺页大页分配回退';
+
+  @override
+  String get maintenanceCounterThpCollapseAlloc => '合并分配透明大页';
+
+  @override
+  String get maintenanceCounterThpCollapseAllocFailed => '合并大页分配失败';
+
+  @override
+  String get maintenanceCounterThpSplitPage => '透明大页拆分';
+
+  @override
+  String get maintenanceCounterThpSplitPageFailed => '透明大页拆分失败';
+
+  @override
+  String get maintenanceCounterThpSplitPmd => '透明大页映射拆分';
+
+  @override
+  String get maintenanceCounterThpZeroPageAlloc => '透明大页零页分配';
+
+  @override
+  String get maintenanceCounterThpZeroPageAllocFailed => '透明大页零页分配失败';
+
+  @override
+  String get maintenanceCounterThpDeferredSplitPage => '透明大页延迟拆分';
+
+  @override
+  String get maintenanceCounterThpSwpout => '透明大页换出';
+
+  @override
+  String get maintenanceCounterThpSwpoutFallback => '透明大页换出回退';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCulled => '移入不可回收队列';
+
+  @override
+  String get maintenanceCounterUnevictablePgsScanned => '不可回收页面扫描';
+
+  @override
+  String get maintenanceCounterUnevictablePgsRescued => '恢复可回收页面';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMlocked => '页面加锁';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMunlocked => '页面解锁';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCleared => '清除不可回收标记';
+
+  @override
+  String get maintenanceCounterUnevictablePgsStranded => '滞留不可回收页面';
+
+  @override
+  String get maintenanceCounterOomKill => '内存不足终止进程';
+
+  @override
+  String get maintenanceCounterNumaPteUpdates => '节点页表更新';
+
+  @override
+  String get maintenanceCounterNumaHugePteUpdates => '节点大页表更新';
+
+  @override
+  String get maintenanceCounterNumaHintFaults => '节点提示缺页';
+
+  @override
+  String get maintenanceCounterNumaHintFaultsLocal => '本地节点提示缺页';
+
+  @override
+  String get maintenanceCounterNumaPagesMigrated => '节点迁移页面';
+
+  @override
+  String get maintenanceCounterCompactDaemonWake => '后台规整唤醒';
+
+  @override
+  String get maintenanceCounterCompactDaemonMigrateScanned => '后台规整迁移扫描';
+
+  @override
+  String get maintenanceCounterCompactDaemonFreeScanned => '后台规整空闲页扫描';
+
+  @override
+  String get maintenanceCounterVmscanWrite => '回收扫描写入';
+
+  @override
+  String get maintenanceCounterVmscanImmediateReclaim => '扫描后立即回收';
+
+  @override
+  String get maintenanceCounterFollPinAcquired => '页面固定获取';
+
+  @override
+  String get maintenanceCounterFollPinReleased => '页面固定释放';
+
+  @override
+  String get maintenanceCounterAnonTransparentHugepages => '匿名透明大页';
+
+  @override
+  String get maintenanceCounterShmemHugepages => '共享内存大页';
+
+  @override
+  String get maintenanceCounterShmemPmdmapped => '共享内存大页映射';
+
+  @override
+  String get maintenanceCounterFileHugepages => '文件大页';
+
+  @override
+  String get maintenanceCounterFilePmdmapped => '文件大页映射';
+
+  @override
+  String get maintenanceCounterFreeCma => '空闲连续内存';
+
+  @override
+  String get maintenanceCounterCmatotal => '连续内存总量';
+
+  @override
+  String get maintenanceCounterPagereadspersec => '分页读取速率';
+
+  @override
+  String get maintenanceCounterPagewritespersec => '分页写入速率';
+
+  @override
+  String get maintenanceCounterPagesinputpersec => '换入页面速率';
+
+  @override
+  String get maintenanceCounterPagesoutputpersec => '换出页面速率';
+
+  @override
+  String get maintenanceCounterPagespersec => '分页速率';
+
+  @override
+  String get maintenanceCounterPoolpagedbytes => '分页池内存';
+
+  @override
+  String get maintenanceCounterPoolnonpagedbytes => '非分页池内存';
+
+  @override
+  String get maintenanceCounterCachebytes => '缓存字节';
+
+  @override
+  String get maintenanceCounterPercentcommittedbytesinuse => '提交内存使用率';
+
+  @override
+  String get maintenanceCounterSystemcodetotalbytes => '系统代码内存总量';
+
+  @override
+  String get maintenanceCounterSystemdrivertotalbytes => '系统驱动内存总量';
+
+  @override
+  String maintenanceExtendedMetric(String name) {
+    return '扩展指标：$name';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -23490,4 +23885,399 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceWorkersHelp => '平行採集工作上限，下次重新整理生效。';
+
+  @override
+  String get maintenanceCounterPgalloc => '頁面配置';
+
+  @override
+  String get maintenanceCounterPgfree => '頁面釋放';
+
+  @override
+  String get maintenanceCounterPgactivate => '頁面啟用';
+
+  @override
+  String get maintenanceCounterPgdeactivate => '頁面停用';
+
+  @override
+  String get maintenanceCounterPgfault => '分頁錯誤';
+
+  @override
+  String get maintenanceCounterPgmajfault => '主要分頁錯誤';
+
+  @override
+  String get maintenanceCounterPglazyfree => '延遲釋放請求';
+
+  @override
+  String get maintenanceCounterPglazyfreed => '延遲釋放完成';
+
+  @override
+  String get maintenanceCounterPgrefill => '頁面重新填入';
+
+  @override
+  String get maintenanceCounterPgsteal => '回收頁面';
+
+  @override
+  String get maintenanceCounterPgscan => '掃描頁面';
+
+  @override
+  String get maintenanceCounterAllocstall => '配置停頓';
+
+  @override
+  String get maintenanceCounterPgskip => '略過頁面';
+
+  @override
+  String get maintenanceCounterPgrotated => '輪替頁面';
+
+  @override
+  String get maintenanceCounterPginodesteal => '索引節點頁面回收';
+
+  @override
+  String get maintenanceCounterSlabsScanned => '核心快取掃描';
+
+  @override
+  String get maintenanceCounterKswapdInodesteal => '背景索引節點回收';
+
+  @override
+  String get maintenanceCounterKswapdLowWmarkHitQuickly => '背景回收低水位觸發';
+
+  @override
+  String get maintenanceCounterKswapdHighWmarkHitQuickly => '背景回收高水位觸發';
+
+  @override
+  String get maintenanceCounterPageoutrun => '背景回收輪次';
+
+  @override
+  String get maintenanceCounterPgmigrateSuccess => '頁面遷移成功';
+
+  @override
+  String get maintenanceCounterPgmigrateFail => '頁面遷移失敗';
+
+  @override
+  String get maintenanceCounterCompactStall => '記憶體整理停頓';
+
+  @override
+  String get maintenanceCounterCompactFail => '記憶體整理失敗';
+
+  @override
+  String get maintenanceCounterCompactSuccess => '記憶體整理成功';
+
+  @override
+  String get maintenanceCounterCompactMigrateScanned => '整理遷移掃描';
+
+  @override
+  String get maintenanceCounterCompactFreeScanned => '整理閒置頁掃描';
+
+  @override
+  String get maintenanceCounterCompactIsolated => '整理隔離頁面';
+
+  @override
+  String get maintenanceCounterUnevictable => '不可回收記憶體';
+
+  @override
+  String get maintenanceCounterMlocked => '鎖定記憶體';
+
+  @override
+  String get maintenanceCounterAnon => '匿名頁';
+
+  @override
+  String get maintenanceCounterFile => '檔案頁';
+
+  @override
+  String get maintenanceCounterActive => '作用中';
+
+  @override
+  String get maintenanceCounterInactive => '非作用中';
+
+  @override
+  String get maintenanceCounterIsolated => '隔離頁面';
+
+  @override
+  String get maintenanceCounterSlabReclaimable => '可回收核心快取';
+
+  @override
+  String get maintenanceCounterSlabUnreclaimable => '不可回收核心快取';
+
+  @override
+  String get maintenanceCounterKernelStack => '核心堆疊';
+
+  @override
+  String get maintenanceCounterPageTablePages => '頁表';
+
+  @override
+  String get maintenanceCounterBounce => '彈跳緩衝區';
+
+  @override
+  String get maintenanceCounterWritebackTemp => '暫存寫回';
+
+  @override
+  String get maintenanceCounterWriteback => '寫回頁面';
+
+  @override
+  String get maintenanceCounterDirtied => '累計髒頁';
+
+  @override
+  String get maintenanceCounterWritten => '累計寫回頁';
+
+  @override
+  String get maintenanceCounterDirtyThreshold => '髒頁閾值';
+
+  @override
+  String get maintenanceCounterDirtyBackgroundThreshold => '背景寫回閾值';
+
+  @override
+  String get maintenanceCounterNumaHit => '本機節點配置命中';
+
+  @override
+  String get maintenanceCounterNumaMiss => '本機節點配置未命中';
+
+  @override
+  String get maintenanceCounterNumaForeign => '外部節點配置';
+
+  @override
+  String get maintenanceCounterNumaInterleave => '交錯節點配置';
+
+  @override
+  String get maintenanceCounterNumaLocal => '本機節點存取';
+
+  @override
+  String get maintenanceCounterNumaOther => '其他節點存取';
+
+  @override
+  String get maintenanceCounterNormal => '一般區域';
+
+  @override
+  String get maintenanceCounterMovable => '可遷移區域';
+
+  @override
+  String get maintenanceCounterHigh => '高階區域';
+
+  @override
+  String get maintenanceCounterKswapd => '背景回收';
+
+  @override
+  String get maintenanceCounterDirect => '直接回收';
+
+  @override
+  String get maintenanceCounterThrottle => '流量限制';
+
+  @override
+  String get maintenanceCounterSwapcached => '交換快取';
+
+  @override
+  String get maintenanceCounterCommitlimit => '認可記憶體上限';
+
+  @override
+  String get maintenanceCounterVmalloctotal => '核心虛擬空間總量';
+
+  @override
+  String get maintenanceCounterVmallocused => '已用核心虛擬空間';
+
+  @override
+  String get maintenanceCounterVmallocchunk => '最大連續核心虛擬空間';
+
+  @override
+  String get maintenanceCounterAnonhugepages => '匿名大頁';
+
+  @override
+  String get maintenanceCounterShmemhugepages => '共享記憶體大頁';
+
+  @override
+  String get maintenanceCounterShmempmdmapped => '共享記憶體大頁映射';
+
+  @override
+  String get maintenanceCounterHugepagesTotal => '大頁總數';
+
+  @override
+  String get maintenanceCounterHugepagesFree => '閒置大頁';
+
+  @override
+  String get maintenanceCounterHugepagesRsvd => '預留大頁';
+
+  @override
+  String get maintenanceCounterHugepagesSurp => '額外大頁';
+
+  @override
+  String get maintenanceCounterHugepagesize => '大頁大小';
+
+  @override
+  String get maintenanceCounterHugetlb => '大頁用量';
+
+  @override
+  String get maintenanceCounterPercpu => '每處理器記憶體';
+
+  @override
+  String get maintenanceCounterHardwarecorrupted => '硬體損壞記憶體';
+
+  @override
+  String get maintenanceCounterKreclaimable => '可回收核心記憶體';
+
+  @override
+  String get maintenanceCounterNfsUnstable => '未穩定寫入網路檔案頁';
+
+  @override
+  String get maintenanceCounterWorkingsetRefault => '工作集重新分頁錯誤';
+
+  @override
+  String get maintenanceCounterWorkingsetActivate => '工作集啟用';
+
+  @override
+  String get maintenanceCounterWorkingsetRestore => '工作集還原';
+
+  @override
+  String get maintenanceCounterWorkingsetNodereclaim => '工作集節點回收';
+
+  @override
+  String get maintenanceCounterThpFaultAlloc => '分頁錯誤配置透明大頁';
+
+  @override
+  String get maintenanceCounterThpFaultFallback => '分頁錯誤大頁配置回退';
+
+  @override
+  String get maintenanceCounterThpCollapseAlloc => '合併配置透明大頁';
+
+  @override
+  String get maintenanceCounterThpCollapseAllocFailed => '合併大頁配置失敗';
+
+  @override
+  String get maintenanceCounterThpSplitPage => '透明大頁分割';
+
+  @override
+  String get maintenanceCounterThpSplitPageFailed => '透明大頁分割失敗';
+
+  @override
+  String get maintenanceCounterThpSplitPmd => '透明大頁映射分割';
+
+  @override
+  String get maintenanceCounterThpZeroPageAlloc => '透明大頁零頁配置';
+
+  @override
+  String get maintenanceCounterThpZeroPageAllocFailed => '透明大頁零頁配置失敗';
+
+  @override
+  String get maintenanceCounterThpDeferredSplitPage => '透明大頁延遲分割';
+
+  @override
+  String get maintenanceCounterThpSwpout => '透明大頁換出';
+
+  @override
+  String get maintenanceCounterThpSwpoutFallback => '透明大頁換出回退';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCulled => '移入不可回收佇列';
+
+  @override
+  String get maintenanceCounterUnevictablePgsScanned => '不可回收頁面掃描';
+
+  @override
+  String get maintenanceCounterUnevictablePgsRescued => '恢復可回收頁面';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMlocked => '頁面鎖定';
+
+  @override
+  String get maintenanceCounterUnevictablePgsMunlocked => '頁面解鎖';
+
+  @override
+  String get maintenanceCounterUnevictablePgsCleared => '清除不可回收標記';
+
+  @override
+  String get maintenanceCounterUnevictablePgsStranded => '滯留不可回收頁面';
+
+  @override
+  String get maintenanceCounterOomKill => '記憶體不足終止程序';
+
+  @override
+  String get maintenanceCounterNumaPteUpdates => '節點頁表更新';
+
+  @override
+  String get maintenanceCounterNumaHugePteUpdates => '節點大頁表更新';
+
+  @override
+  String get maintenanceCounterNumaHintFaults => '節點提示分頁錯誤';
+
+  @override
+  String get maintenanceCounterNumaHintFaultsLocal => '本機節點提示分頁錯誤';
+
+  @override
+  String get maintenanceCounterNumaPagesMigrated => '節點遷移頁面';
+
+  @override
+  String get maintenanceCounterCompactDaemonWake => '背景整理喚醒';
+
+  @override
+  String get maintenanceCounterCompactDaemonMigrateScanned => '背景整理遷移掃描';
+
+  @override
+  String get maintenanceCounterCompactDaemonFreeScanned => '背景整理閒置頁掃描';
+
+  @override
+  String get maintenanceCounterVmscanWrite => '回收掃描寫入';
+
+  @override
+  String get maintenanceCounterVmscanImmediateReclaim => '掃描後立即回收';
+
+  @override
+  String get maintenanceCounterFollPinAcquired => '頁面固定取得';
+
+  @override
+  String get maintenanceCounterFollPinReleased => '頁面固定釋放';
+
+  @override
+  String get maintenanceCounterAnonTransparentHugepages => '匿名透明大頁';
+
+  @override
+  String get maintenanceCounterShmemHugepages => '共享記憶體大頁';
+
+  @override
+  String get maintenanceCounterShmemPmdmapped => '共享記憶體大頁映射';
+
+  @override
+  String get maintenanceCounterFileHugepages => '檔案大頁';
+
+  @override
+  String get maintenanceCounterFilePmdmapped => '檔案大頁映射';
+
+  @override
+  String get maintenanceCounterFreeCma => '閒置連續記憶體';
+
+  @override
+  String get maintenanceCounterCmatotal => '連續記憶體總量';
+
+  @override
+  String get maintenanceCounterPagereadspersec => '分頁讀取速率';
+
+  @override
+  String get maintenanceCounterPagewritespersec => '分頁寫入速率';
+
+  @override
+  String get maintenanceCounterPagesinputpersec => '換入頁面速率';
+
+  @override
+  String get maintenanceCounterPagesoutputpersec => '換出頁面速率';
+
+  @override
+  String get maintenanceCounterPagespersec => '分頁速率';
+
+  @override
+  String get maintenanceCounterPoolpagedbytes => '分頁集區記憶體';
+
+  @override
+  String get maintenanceCounterPoolnonpagedbytes => '非分頁集區記憶體';
+
+  @override
+  String get maintenanceCounterCachebytes => '快取位元組';
+
+  @override
+  String get maintenanceCounterPercentcommittedbytesinuse => '認可記憶體使用率';
+
+  @override
+  String get maintenanceCounterSystemcodetotalbytes => '系統程式碼記憶體總量';
+
+  @override
+  String get maintenanceCounterSystemdrivertotalbytes => '系統驅動記憶體總量';
+
+  @override
+  String maintenanceExtendedMetric(String name) {
+    return '擴充指標：$name';
+  }
 }

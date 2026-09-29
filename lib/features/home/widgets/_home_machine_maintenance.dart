@@ -2007,6 +2007,7 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
             _MaintenanceMetricTiles(
               key: ValueKey((section, t)),
               table: metrics.tables[t],
+              section: section,
               pressure: metrics.tables[t].headers.contains('10 秒平均'),
             )
           else
@@ -2048,9 +2049,11 @@ class _MaintenanceMetricTiles extends StatelessWidget {
   const _MaintenanceMetricTiles({
     super.key,
     required this.table,
+    this.section,
     this.pressure = false,
   });
   final MachineMaintenanceMetricTable table;
+  final String? section;
   final bool pressure;
 
   @override
@@ -2155,7 +2158,12 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              maintenanceMetricLabel(context, row.first, '名称'),
+                              maintenanceMetricLabel(
+                                context,
+                                row.first,
+                                '名称',
+                                section: section,
+                              ),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurfaceVariant,

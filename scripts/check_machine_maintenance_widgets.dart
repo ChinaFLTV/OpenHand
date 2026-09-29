@@ -273,13 +273,33 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(OpenHandOperationalRankTable), findsNothing);
         expect(find.text('30.2 GB'), findsOneWidget);
-        expect(find.text('metric44'), findsOneWidget);
+        expect(find.text('扩展指标：metric44'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
         expect(find.byType(Chip), findsNWidgets(3));
         expect(tester.takeException(), isNull);
 
       }
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('动态指标卡片随语言切换更新并保留原始标识', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    final data = MachineMaintenanceSnapshot({'platform': 'Linux',
+      'vm': 'pgscan_direct_normal 2803403851\\nnr_active_anon 1234\\nthp_fault_alloc 20'});
+    for (final locale in [const Locale('zh'), const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'), const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')]) {
+      final l10n = lookupAppLocalizations(locale);
+      await tester.pumpWidget(MaterialApp(locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceMetricContent(data: data, section: 'vm')))));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.maintenanceCounterPgscan + ' · ' + l10n.maintenanceCounterDirect + ' · ' + l10n.maintenanceCounterNormal), findsOneWidget);
+      expect(find.text('pgscan_direct_normal'), findsNothing);
+      expect(find.byTooltip('pgscan_direct_normal · 2803403851 · —'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
 
@@ -304,6 +324,29 @@ void main() {
       expect(maintenanceLabel(context, 'LISTENING'), l10n.maintenanceListening);
       expect(maintenanceLabel(context, 'Running'), l10n.maintenanceRunning);
       expect(maintenanceLabel(context, 'ProductVersion'), l10n.maintenanceProductVersion);
+      for (final field in [
+        'pgalloc_dma32', 'pgalloc_normal', 'pgalloc_movable', 'pgfree', 'pgactivate',
+        'pgdeactivate', 'pgfault', 'pgmajfault', 'pglazyfreed', 'pgrefill_dma',
+        'pgrefill_dma32', 'pgrefill_normal', 'pgrefill_movable', 'pgsteal_kswapd_dma',
+        'pgsteal_kswapd_dma32', 'pgsteal_kswapd_normal', 'pgsteal_direct_normal',
+        'pgscan_direct_throttle', 'nr_active_anon', 'Active(file)', 'SwapCached',
+        'HugePages_Total', 'workingset_refault_file', 'thp_fault_alloc',
+        'PageReadsPersec', 'PoolPagedBytes',
+      ]) {
+        final translated = maintenanceMetricLabel(context, field, '名称', section: 'vm');
+        expect(translated, isNot(field), reason: field);
+        expect(translated, isNot(contains(field)), reason: '已知指标应有语义翻译：' + field);
+        expect(translated, isNot(contains('null')));
+      }
+      expect(maintenanceMetricLabel(context, 'pgscan_direct_normal', '名称'),
+        l10n.maintenanceCounterPgscan + ' · ' + l10n.maintenanceCounterDirect + ' · ' + l10n.maintenanceCounterNormal);
+      expect(maintenanceMetricLabel(context, '文件上限', '名称', section: 'kernel'), l10n.maintenanceMetricFileLimit);
+      expect(maintenanceMetricLabel(context, 'vendor_new_counter', '名称', section: 'vm'),
+        l10n.maintenanceExtendedMetric('vendor_new_counter'));
+      expect(maintenanceMetricLabel(context, '/dev/sda1', '名称', section: 'blocks'), '/dev/sda1');
+      expect(maintenanceMetricLabel(context, 'pgfault', '数值'), 'pgfault');
+      expect(maintenanceMetricLabel(context, '10.0.0.1', '地址'), '10.0.0.1');
+
       const raw = 'ProductVersion: 27.0.1\\nnameserver[0] : 2001:db8::1\\nCommandLine: /bin/Name --host=State\\nlog: ProductVersion: original';
       final translated = maintenanceLocalizedOutput(context, raw);
       expect(translated, contains(l10n.maintenanceProductVersion));
