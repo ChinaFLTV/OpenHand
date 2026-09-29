@@ -3400,10 +3400,10 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                // 选中配色交给全局分段按钮主题统一管理。
                 backgroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.selected)
-                      ? cs.secondaryContainer
-                      : cs.surface,
+                  (states) =>
+                      states.contains(WidgetState.selected) ? null : cs.surface,
                 ),
                 side: WidgetStatePropertyAll(
                   BorderSide(color: cs.outlineVariant),
