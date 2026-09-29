@@ -703,6 +703,32 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('四张指标卡均分父布局，窄屏按可用宽度换行', (tester) async {
+    final data = MachineMaintenanceSnapshot({'platform': 'Darwin', 'memory': 'MemTotal: 33554432 kB\\nMemAvailable: 9835648 kB\\nSwapTotal: 0 kB\\nSwapFree: 0 kB'});
+    for (final width in [1400.0, 600.0, 360.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceCard(title: '内存详情', scrollBody: false,
+          child: _MaintenanceMetricContent(data: data, section: 'memory'))))));
+      await tester.pumpAndSettle();
+      final grid = tester.widget<_MaintenanceGrid>(find.byType(_MaintenanceGrid).last);
+      expect(grid.children.length, 4);
+      final rects = [for (final child in grid.children) tester.getRect(find.byWidget(child))];
+      final parent = tester.getRect(find.byType(_MaintenanceGrid).last);
+      final columns = width == 1400 ? 4 : width == 600 ? 2 : 1;
+      final expectedWidth = (parent.width - 12 * (columns - 1)) / columns;
+      for (var i = 0; i < rects.length; i++) {
+        expect(rects[i].width, closeTo(expectedWidth, .01));
+        if (i % columns == 0) expect(rects[i].left, closeTo(parent.left, .01));
+        if (i % columns == columns - 1) expect(rects[i].right, closeTo(parent.right, .01));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('动态指标卡片随语言切换更新并保留原始标识', (tester) async {
     await tester.binding.setSurfaceSize(const Size(360, 900));
     final data = MachineMaintenanceSnapshot({'platform': 'Linux',
