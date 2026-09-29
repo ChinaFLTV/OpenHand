@@ -13058,4 +13058,52 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceLogStorage => 'Taille du dossier des journaux';
+
+  @override
+  String get maintenanceHealthTab => 'Accès et santé';
+
+  @override
+  String get maintenanceHealthSessions => 'Sessions actives';
+
+  @override
+  String get maintenanceHealthLogins => 'Connexions récentes';
+
+  @override
+  String get maintenanceHealthAccounts => 'Comptes locaux';
+
+  @override
+  String get maintenanceHealthPassword => 'État et règles des mots de passe';
+
+  @override
+  String get maintenanceHealthSsh => 'Configuration SSH';
+
+  @override
+  String get maintenanceHealthTemperature => 'Température et état thermique';
+
+  @override
+  String get maintenanceHealthPower => 'Alimentation et batterie';
+
+  @override
+  String get maintenanceHealthClock => 'Synchronisation horaire';
+
+  @override
+  String get maintenanceHealthUnavailable => 'Actuellement indisponible';
+
+  @override
+  String get maintenanceHealthUnsupported => 'Non fourni par cette plateforme';
+
+  @override
+  String get maintenanceHealthSensor => 'Capteur';
+
+  @override
+  String get maintenanceHealthUser => 'Compte';
+
+  @override
+  String get maintenanceHealthHome => 'Dossier personnel';
+
+  @override
+  String get maintenanceHealthDate => 'Date, heure et fuseau horaire';
+
+  @override
+  String get maintenanceHealthNtp => 'Services et sources NTP / Chrony';
 }

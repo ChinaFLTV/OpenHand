@@ -8706,5 +8706,21 @@
   "maintenanceLogRotation": "Rotation records and configuration",
   "maintenanceLogUnavailable": "Log source unavailable",
   "maintenanceLogEmpty": "No log entries",
-  "maintenanceLogStorage": "Log directory size"
+  "maintenanceLogStorage": "Log directory size",
+  "maintenanceHealthTab": "Access & health",
+  "maintenanceHealthSessions": "Active login sessions",
+  "maintenanceHealthLogins": "Recent logins",
+  "maintenanceHealthAccounts": "Local accounts",
+  "maintenanceHealthPassword": "Password status and policy",
+  "maintenanceHealthSsh": "SSH access configuration",
+  "maintenanceHealthTemperature": "Temperature and thermal status",
+  "maintenanceHealthPower": "Power and battery",
+  "maintenanceHealthClock": "Time synchronization",
+  "maintenanceHealthUnavailable": "Currently unavailable",
+  "maintenanceHealthUnsupported": "Not provided by this platform",
+  "maintenanceHealthSensor": "Sensor",
+  "maintenanceHealthUser": "Account",
+  "maintenanceHealthHome": "Home directory",
+  "maintenanceHealthDate": "Date, time and timezone",
+  "maintenanceHealthNtp": "NTP / Chrony services and sources"
 }

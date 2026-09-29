@@ -8701,5 +8701,21 @@
   "maintenanceLogRotation": "ローテーションと設定",
   "maintenanceLogUnavailable": "ログソースを利用できません",
   "maintenanceLogEmpty": "ログがありません",
-  "maintenanceLogStorage": "ログディレクトリのサイズ"
+  "maintenanceLogStorage": "ログディレクトリのサイズ",
+  "maintenanceHealthTab": "アクセスと状態",
+  "maintenanceHealthSessions": "アクティブログイン",
+  "maintenanceHealthLogins": "最近のログイン",
+  "maintenanceHealthAccounts": "ローカルアカウント",
+  "maintenanceHealthPassword": "パスワード状態とポリシー",
+  "maintenanceHealthSsh": "SSHログイン設定",
+  "maintenanceHealthTemperature": "温度とサーマル状態",
+  "maintenanceHealthPower": "電源とバッテリー",
+  "maintenanceHealthClock": "時刻同期",
+  "maintenanceHealthUnavailable": "現在利用不可",
+  "maintenanceHealthUnsupported": "このプラットフォームでは未提供",
+  "maintenanceHealthSensor": "センサー",
+  "maintenanceHealthUser": "アカウント",
+  "maintenanceHealthHome": "ホームディレクトリ",
+  "maintenanceHealthDate": "日付・時刻・タイムゾーン",
+  "maintenanceHealthNtp": "NTP / Chrony サービスと同期元"
 }

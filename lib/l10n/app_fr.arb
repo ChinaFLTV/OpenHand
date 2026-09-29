@@ -8701,5 +8701,21 @@
   "maintenanceLogRotation": "Rotation et configuration",
   "maintenanceLogUnavailable": "Source de journaux indisponible",
   "maintenanceLogEmpty": "Aucun événement",
-  "maintenanceLogStorage": "Taille du dossier des journaux"
+  "maintenanceLogStorage": "Taille du dossier des journaux",
+  "maintenanceHealthTab": "Accès et santé",
+  "maintenanceHealthSessions": "Sessions actives",
+  "maintenanceHealthLogins": "Connexions récentes",
+  "maintenanceHealthAccounts": "Comptes locaux",
+  "maintenanceHealthPassword": "État et règles des mots de passe",
+  "maintenanceHealthSsh": "Configuration SSH",
+  "maintenanceHealthTemperature": "Température et état thermique",
+  "maintenanceHealthPower": "Alimentation et batterie",
+  "maintenanceHealthClock": "Synchronisation horaire",
+  "maintenanceHealthUnavailable": "Actuellement indisponible",
+  "maintenanceHealthUnsupported": "Non fourni par cette plateforme",
+  "maintenanceHealthSensor": "Capteur",
+  "maintenanceHealthUser": "Compte",
+  "maintenanceHealthHome": "Dossier personnel",
+  "maintenanceHealthDate": "Date, heure et fuseau horaire",
+  "maintenanceHealthNtp": "Services et sources NTP / Chrony"
 }

@@ -23119,6 +23119,102 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'日志目录大小'**
   String get maintenanceLogStorage;
+
+  /// No description provided for @maintenanceHealthTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户与健康'**
+  String get maintenanceHealthTab;
+
+  /// No description provided for @maintenanceHealthSessions.
+  ///
+  /// In zh, this message translates to:
+  /// **'活跃登录会话'**
+  String get maintenanceHealthSessions;
+
+  /// No description provided for @maintenanceHealthLogins.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近登录记录'**
+  String get maintenanceHealthLogins;
+
+  /// No description provided for @maintenanceHealthAccounts.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机账户'**
+  String get maintenanceHealthAccounts;
+
+  /// No description provided for @maintenanceHealthPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码状态与策略'**
+  String get maintenanceHealthPassword;
+
+  /// No description provided for @maintenanceHealthSsh.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 登录配置'**
+  String get maintenanceHealthSsh;
+
+  /// No description provided for @maintenanceHealthTemperature.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度与热状态'**
+  String get maintenanceHealthTemperature;
+
+  /// No description provided for @maintenanceHealthPower.
+  ///
+  /// In zh, this message translates to:
+  /// **'电源与电池'**
+  String get maintenanceHealthPower;
+
+  /// No description provided for @maintenanceHealthClock.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间同步'**
+  String get maintenanceHealthClock;
+
+  /// No description provided for @maintenanceHealthUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前不可用'**
+  String get maintenanceHealthUnavailable;
+
+  /// No description provided for @maintenanceHealthUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台未提供此数据'**
+  String get maintenanceHealthUnsupported;
+
+  /// No description provided for @maintenanceHealthSensor.
+  ///
+  /// In zh, this message translates to:
+  /// **'传感器'**
+  String get maintenanceHealthSensor;
+
+  /// No description provided for @maintenanceHealthUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户'**
+  String get maintenanceHealthUser;
+
+  /// No description provided for @maintenanceHealthHome.
+  ///
+  /// In zh, this message translates to:
+  /// **'主目录'**
+  String get maintenanceHealthHome;
+
+  /// No description provided for @maintenanceHealthDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期、时间与时区'**
+  String get maintenanceHealthDate;
+
+  /// No description provided for @maintenanceHealthNtp.
+  ///
+  /// In zh, this message translates to:
+  /// **'NTP / Chrony 服务与同步源'**
+  String get maintenanceHealthNtp;
 }
 
 class _AppLocalizationsDelegate

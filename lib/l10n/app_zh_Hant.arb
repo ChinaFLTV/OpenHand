@@ -8701,5 +8701,21 @@
   "maintenanceLogRotation": "輪替記錄與設定",
   "maintenanceLogUnavailable": "日誌來源暫不可用",
   "maintenanceLogEmpty": "暫無日誌記錄",
-  "maintenanceLogStorage": "日誌目錄大小"
+  "maintenanceLogStorage": "日誌目錄大小",
+  "maintenanceHealthTab": "帳戶與健康",
+  "maintenanceHealthSessions": "作用中登入工作階段",
+  "maintenanceHealthLogins": "最近登入記錄",
+  "maintenanceHealthAccounts": "本機帳戶",
+  "maintenanceHealthPassword": "密碼狀態與原則",
+  "maintenanceHealthSsh": "SSH 登入設定",
+  "maintenanceHealthTemperature": "溫度與熱狀態",
+  "maintenanceHealthPower": "電源與電池",
+  "maintenanceHealthClock": "時間同步",
+  "maintenanceHealthUnavailable": "目前無法使用",
+  "maintenanceHealthUnsupported": "平台未提供此資料",
+  "maintenanceHealthSensor": "感測器",
+  "maintenanceHealthUser": "帳戶",
+  "maintenanceHealthHome": "主目錄",
+  "maintenanceHealthDate": "日期、時間與時區",
+  "maintenanceHealthNtp": "NTP / Chrony 服務與同步來源"
 }

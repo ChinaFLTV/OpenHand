@@ -40,6 +40,7 @@ class _LinuxMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
           2 => machineMaintenanceServicesCommand,
           4 => machineMaintenanceGpuCommand,
           5 => machineMaintenanceLogsCommand,
+          6 => machineMaintenanceHealthCommand,
           _ => machineMaintenanceDiagnosticsCommand,
         },
         workers,
@@ -100,6 +101,7 @@ section end
 ''',
           4 => machineGpuMacCollection,
           5 => machineLogsMacCollection,
+          6 => machineHealthMacCollection,
           _ =>
             r'''
 section sockets
@@ -243,6 +245,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
       2 => _windowsServices,
       4 => _windowsGpu.replaceAll('__GPU_QUERY__', machineGpuQuery),
       5 => machineLogsWindowsCollection,
+      6 => machineHealthWindowsCollection,
       _ => _windowsDiagnostics,
     };
     if (workers != null) {

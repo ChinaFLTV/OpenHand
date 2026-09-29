@@ -12882,4 +12882,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceLogStorage => 'Log directory size';
+
+  @override
+  String get maintenanceHealthTab => 'Access & health';
+
+  @override
+  String get maintenanceHealthSessions => 'Active login sessions';
+
+  @override
+  String get maintenanceHealthLogins => 'Recent logins';
+
+  @override
+  String get maintenanceHealthAccounts => 'Local accounts';
+
+  @override
+  String get maintenanceHealthPassword => 'Password status and policy';
+
+  @override
+  String get maintenanceHealthSsh => 'SSH access configuration';
+
+  @override
+  String get maintenanceHealthTemperature => 'Temperature and thermal status';
+
+  @override
+  String get maintenanceHealthPower => 'Power and battery';
+
+  @override
+  String get maintenanceHealthClock => 'Time synchronization';
+
+  @override
+  String get maintenanceHealthUnavailable => 'Currently unavailable';
+
+  @override
+  String get maintenanceHealthUnsupported => 'Not provided by this platform';
+
+  @override
+  String get maintenanceHealthSensor => 'Sensor';
+
+  @override
+  String get maintenanceHealthUser => 'Account';
+
+  @override
+  String get maintenanceHealthHome => 'Home directory';
+
+  @override
+  String get maintenanceHealthDate => 'Date, time and timezone';
+
+  @override
+  String get maintenanceHealthNtp => 'NTP / Chrony services and sources';
 }

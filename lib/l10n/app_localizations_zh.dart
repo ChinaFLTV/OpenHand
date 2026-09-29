@@ -12483,6 +12483,54 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceLogStorage => '日志目录大小';
+
+  @override
+  String get maintenanceHealthTab => '账户与健康';
+
+  @override
+  String get maintenanceHealthSessions => '活跃登录会话';
+
+  @override
+  String get maintenanceHealthLogins => '最近登录记录';
+
+  @override
+  String get maintenanceHealthAccounts => '本机账户';
+
+  @override
+  String get maintenanceHealthPassword => '密码状态与策略';
+
+  @override
+  String get maintenanceHealthSsh => 'SSH 登录配置';
+
+  @override
+  String get maintenanceHealthTemperature => '温度与热状态';
+
+  @override
+  String get maintenanceHealthPower => '电源与电池';
+
+  @override
+  String get maintenanceHealthClock => '时间同步';
+
+  @override
+  String get maintenanceHealthUnavailable => '当前不可用';
+
+  @override
+  String get maintenanceHealthUnsupported => '平台未提供此数据';
+
+  @override
+  String get maintenanceHealthSensor => '传感器';
+
+  @override
+  String get maintenanceHealthUser => '账户';
+
+  @override
+  String get maintenanceHealthHome => '主目录';
+
+  @override
+  String get maintenanceHealthDate => '日期、时间与时区';
+
+  @override
+  String get maintenanceHealthNtp => 'NTP / Chrony 服务与同步源';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24946,4 +24994,52 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceLogStorage => '日誌目錄大小';
+
+  @override
+  String get maintenanceHealthTab => '帳戶與健康';
+
+  @override
+  String get maintenanceHealthSessions => '作用中登入工作階段';
+
+  @override
+  String get maintenanceHealthLogins => '最近登入記錄';
+
+  @override
+  String get maintenanceHealthAccounts => '本機帳戶';
+
+  @override
+  String get maintenanceHealthPassword => '密碼狀態與原則';
+
+  @override
+  String get maintenanceHealthSsh => 'SSH 登入設定';
+
+  @override
+  String get maintenanceHealthTemperature => '溫度與熱狀態';
+
+  @override
+  String get maintenanceHealthPower => '電源與電池';
+
+  @override
+  String get maintenanceHealthClock => '時間同步';
+
+  @override
+  String get maintenanceHealthUnavailable => '目前無法使用';
+
+  @override
+  String get maintenanceHealthUnsupported => '平台未提供此資料';
+
+  @override
+  String get maintenanceHealthSensor => '感測器';
+
+  @override
+  String get maintenanceHealthUser => '帳戶';
+
+  @override
+  String get maintenanceHealthHome => '主目錄';
+
+  @override
+  String get maintenanceHealthDate => '日期、時間與時區';
+
+  @override
+  String get maintenanceHealthNtp => 'NTP / Chrony 服務與同步來源';
 }

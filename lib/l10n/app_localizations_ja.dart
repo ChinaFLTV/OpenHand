@@ -12608,4 +12608,52 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceLogStorage => 'ログディレクトリのサイズ';
+
+  @override
+  String get maintenanceHealthTab => 'アクセスと状態';
+
+  @override
+  String get maintenanceHealthSessions => 'アクティブログイン';
+
+  @override
+  String get maintenanceHealthLogins => '最近のログイン';
+
+  @override
+  String get maintenanceHealthAccounts => 'ローカルアカウント';
+
+  @override
+  String get maintenanceHealthPassword => 'パスワード状態とポリシー';
+
+  @override
+  String get maintenanceHealthSsh => 'SSHログイン設定';
+
+  @override
+  String get maintenanceHealthTemperature => '温度とサーマル状態';
+
+  @override
+  String get maintenanceHealthPower => '電源とバッテリー';
+
+  @override
+  String get maintenanceHealthClock => '時刻同期';
+
+  @override
+  String get maintenanceHealthUnavailable => '現在利用不可';
+
+  @override
+  String get maintenanceHealthUnsupported => 'このプラットフォームでは未提供';
+
+  @override
+  String get maintenanceHealthSensor => 'センサー';
+
+  @override
+  String get maintenanceHealthUser => 'アカウント';
+
+  @override
+  String get maintenanceHealthHome => 'ホームディレクトリ';
+
+  @override
+  String get maintenanceHealthDate => '日付・時刻・タイムゾーン';
+
+  @override
+  String get maintenanceHealthNtp => 'NTP / Chrony サービスと同期元';
 }

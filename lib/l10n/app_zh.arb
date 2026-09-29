@@ -9675,5 +9675,21 @@
   "maintenanceLogRotation": "轮转记录与配置",
   "maintenanceLogUnavailable": "日志源暂不可用",
   "maintenanceLogEmpty": "暂无日志记录",
-  "maintenanceLogStorage": "日志目录大小"
+  "maintenanceLogStorage": "日志目录大小",
+  "maintenanceHealthTab": "账户与健康",
+  "maintenanceHealthSessions": "活跃登录会话",
+  "maintenanceHealthLogins": "最近登录记录",
+  "maintenanceHealthAccounts": "本机账户",
+  "maintenanceHealthPassword": "密码状态与策略",
+  "maintenanceHealthSsh": "SSH 登录配置",
+  "maintenanceHealthTemperature": "温度与热状态",
+  "maintenanceHealthPower": "电源与电池",
+  "maintenanceHealthClock": "时间同步",
+  "maintenanceHealthUnavailable": "当前不可用",
+  "maintenanceHealthUnsupported": "平台未提供此数据",
+  "maintenanceHealthSensor": "传感器",
+  "maintenanceHealthUser": "账户",
+  "maintenanceHealthHome": "主目录",
+  "maintenanceHealthDate": "日期、时间与时区",
+  "maintenanceHealthNtp": "NTP / Chrony 服务与同步源"
 }

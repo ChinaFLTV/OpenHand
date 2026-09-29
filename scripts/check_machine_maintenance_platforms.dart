@@ -155,7 +155,7 @@ Future<void> main() async {
   check(await diskReader.exitCode == 0, '磁盘采集脚本检查失败：$diskError');
   check(diskRows.last.split(' ')[4] == '-1', '磁盘缺失字段沿用了上一条记录');
   for (final platform in ['Linux', 'Darwin', 'Windows']) {
-    for (var tab = 0; tab < 6; tab++) {
+    for (var tab = 0; tab < 7; tab++) {
       final command = MachineMaintenancePlatformAdapter.forPlatform(
         platform,
       ).collect(tab, workers: 8);
@@ -186,7 +186,7 @@ Future<void> main() async {
     'boot': '20260929080000.000000+000',
   });
   final scripts = [
-    for (var i = 0; i < 6; i++) windows.collect(i),
+    for (var i = 0; i < 7; i++) windows.collect(i),
     windows.process(process),
     windows.bind(snapshot, service.command('带 空格服务')),
     for (final action in service.actions.values)
@@ -205,7 +205,7 @@ Future<void> main() async {
     check(output.exitCode == 0, 'Windows 脚本执行检查失败：${output.stderr}');
     final results = (jsonDecode(output.stdout as String) as List)
         .cast<String>();
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 7; i++) {
       final data = MachineMaintenanceSnapshot.parse(results[i]);
       check(
         data.text('host') == '测试主机' && data.text('platform') == 'Windows',
@@ -234,7 +234,7 @@ Future<void> main() async {
     final parallelInput = await File('${directory.path}/parallel.json')
         .writeAsString(
           jsonEncode([
-            for (var i = 0; i < 6; i++) windows.collect(i, workers: 4),
+            for (var i = 0; i < 7; i++) windows.collect(i, workers: 4),
             parallelWindowsMaintenanceCommand(
               r'''var wmi=GetObject("winmgmts:!\\\\.\\root\\cimv2");
 function fail(message){throw Error(message);}
@@ -268,7 +268,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
           parallelResults.last.contains('文件记录7'),
       'Windows 文件读取协议混入运维标记或遗漏分片',
     );
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 7; i++) {
       final parallel = MachineMaintenanceSnapshot.parse(parallelResults[i]);
       final serial = MachineMaintenanceSnapshot.parse(results[i]);
       check(
@@ -289,7 +289,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
     check(windows.processActions(process).length == 1, 'Windows 显示了不支持的进程动作');
     for (final platform in ['Linux', 'Darwin']) {
       final adapter = MachineMaintenancePlatformAdapter.forPlatform(platform);
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 7; i++) {
         final shell = await Process.start('/bin/sh', ['-n']);
         shell.stdin.write(adapter.collect(i));
         await shell.stdin.close();
@@ -298,7 +298,7 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
     }
     if (Platform.isMacOS) {
       final adapter = MachineMaintenancePlatformAdapter.forPlatform('Darwin');
-      for (final i in [0, 1, 2, 4, 5]) {
+      for (final i in [0, 1, 2, 4, 5, 6]) {
         final result = await Process.run('/bin/sh', [
           '-c',
           adapter.collect(i),
@@ -312,6 +312,14 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
         if (i == 0) {
           check((data.memory['MemTotal'] ?? 0) > 0, 'macOS 内存采集失败');
           check(data.cpuUsage(null) != null, 'macOS CPU 采集失败');
+        }
+        if (i == 6) {
+          for (final key in machineHealthSections) {
+            check(
+              int.tryParse(data.text('health_${key}_status').trim()) != null,
+              '健康采集缺少明确状态：$key',
+            );
+          }
         }
         if (i == 4) {
           final gpu = MachineGpuSnapshot.parse(data.sections);
@@ -357,7 +365,7 @@ const context={
 VBArray:function(value){this.toArray=()=>value;},
 Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
 GetObject:()=>({ExecQuery:(q)=>datasets[(q.match(/FROM\s+(\w+)/i)||[])[1]]||[],Get:()=>datasets.Win32_Service[0]}),
-ActiveXObject:function(){this.Exec=()=>({Status:1,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},
+ActiveXObject:function(){this.Exec=()=>({Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},
 WScript:{Echo:s=>output.push(String(s)),Quit:n=>{throw Error('脚本异常退出：'+n+' '+output.join('\n'));},Sleep:()=>{}}
 };
 new vm.Script(script).runInNewContext(context,{timeout:2000});results.push(output.join('\n'));

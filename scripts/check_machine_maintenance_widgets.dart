@@ -157,6 +157,32 @@ __OH_OPS_end__
 }
 
 void main() {
+  testWidgets('账户健康板块显示结构化账户、时区与不可用状态', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(
+      value: service, child: const MaterialApp(locale: Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    state.setState(() {
+      state._tab = 6;
+      state._snapshots[6] = MachineMaintenanceSnapshot({
+        'platform': 'Linux', 'health_accounts': '@user\\tuid\\thome\\tshell\\nreader\\t1000\\t/home/reader\\t/bin/bash',
+        'health_accounts_status': '0', 'health_temperature_status': '125',
+        'health_clock': '2026-09-29 22:00:00 CST +0800', 'health_clock_status': '0',
+      });
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('账户与健康'), findsOneWidget);
+    expect(find.text('reader'), findsOneWidget);
+    expect(find.text('平台未提供此数据'), findsOneWidget);
+    expect(find.textContaining('+0800'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('日志追加保留阅读锚点并适配窄屏，损坏数据不清空记录', (tester) async {
     final buffer = MachineLogBuffer()..append(List.generate(120, (i) => '记录 \$i').join('\\n'));
     var revision = 0;

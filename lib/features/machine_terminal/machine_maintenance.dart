@@ -1,9 +1,11 @@
-import 'machine_maintenance_logs.dart';
-export 'machine_maintenance_logs.dart';
 import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance_gpu.dart';
+import 'machine_maintenance_health.dart';
+import 'machine_maintenance_logs.dart';
 
 export 'machine_maintenance_gpu.dart';
+export 'machine_maintenance_health.dart';
+export 'machine_maintenance_logs.dart';
 
 const machineMaintenanceProcessLimit = 512;
 const machineMaintenanceInterval = Duration(seconds: 10);
@@ -554,3 +556,6 @@ final machineMaintenanceGpuCommand =
 
 const machineMaintenanceLogsCommand =
     _linuxPrelude + machineLogsLinuxCollection;
+
+const machineMaintenanceHealthCommand =
+    _linuxPrelude + machineHealthLinuxCollection;

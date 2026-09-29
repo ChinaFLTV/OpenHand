@@ -8701,5 +8701,21 @@
   "maintenanceLogRotation": "Rotation und Konfiguration",
   "maintenanceLogUnavailable": "Protokollquelle nicht verfügbar",
   "maintenanceLogEmpty": "Keine Protokolleinträge",
-  "maintenanceLogStorage": "Größe des Protokollverzeichnisses"
+  "maintenanceLogStorage": "Größe des Protokollverzeichnisses",
+  "maintenanceHealthTab": "Zugriff & Zustand",
+  "maintenanceHealthSessions": "Aktive Anmeldesitzungen",
+  "maintenanceHealthLogins": "Letzte Anmeldungen",
+  "maintenanceHealthAccounts": "Lokale Konten",
+  "maintenanceHealthPassword": "Passwortstatus und Richtlinien",
+  "maintenanceHealthSsh": "SSH-Anmeldekonfiguration",
+  "maintenanceHealthTemperature": "Temperatur und thermischer Zustand",
+  "maintenanceHealthPower": "Stromversorgung und Akku",
+  "maintenanceHealthClock": "Zeitsynchronisierung",
+  "maintenanceHealthUnavailable": "Derzeit nicht verfügbar",
+  "maintenanceHealthUnsupported": "Von dieser Plattform nicht bereitgestellt",
+  "maintenanceHealthSensor": "Sensor",
+  "maintenanceHealthUser": "Konto",
+  "maintenanceHealthHome": "Home-Verzeichnis",
+  "maintenanceHealthDate": "Datum, Uhrzeit und Zeitzone",
+  "maintenanceHealthNtp": "NTP / Chrony: Dienste und Quellen"
 }

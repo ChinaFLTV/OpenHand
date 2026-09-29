@@ -3,7 +3,15 @@ part of '../openhand_home_page.dart';
 const _maintenanceControlHeight = 34.0;
 const _maintenancePanelBottomInset = 8.0;
 
-const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断', 'GPU 管理', '日志管理'];
+const _maintenanceTabs = [
+  '运行总览',
+  '进程管理',
+  '系统服务',
+  '网络与诊断',
+  'GPU 管理',
+  '日志管理',
+  '账户与健康',
+];
 const _maintenanceSectionLabels = {
   'system': '系统与内核',
   'disks': '磁盘 IO',
@@ -540,6 +548,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 Icons.hub_outlined,
                                 Icons.developer_board_rounded,
                                 Icons.article_outlined,
+                                Icons.health_and_safety_outlined,
                               ][index],
                               size: 18,
                             ),
@@ -659,6 +668,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               2 => _services(data),
               4 => _gpu(data),
               5 => _MaintenanceLogBrowser(buffers: _logBuffers, data: data),
+              6 => _health(data),
               _ => _sections(data, const [
                 'sockets',
                 'routes',
@@ -2164,6 +2174,126 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
         ),
         const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _health(MachineMaintenanceSnapshot data) {
+    final l = AppLocalizations.of(context)!;
+    final titles = [
+      maintenanceLabel(context, '系统与内核'),
+      l.maintenanceHealthSessions,
+      l.maintenanceHealthLogins,
+      l.maintenanceHealthAccounts,
+      l.maintenanceHealthPassword,
+      l.maintenanceHealthSsh,
+      l.maintenanceHealthTemperature,
+      l.maintenanceHealthPower,
+      l.maintenanceHealthDate,
+      l.maintenanceHealthClock,
+      l.maintenanceHealthNtp,
+    ];
+    const icons = [
+      Icons.computer_outlined,
+      Icons.people_outline,
+      Icons.login,
+      Icons.manage_accounts_outlined,
+      Icons.password,
+      Icons.key_outlined,
+      Icons.thermostat,
+      Icons.battery_charging_full,
+      Icons.schedule,
+      Icons.sync,
+      Icons.access_time_filled,
+    ];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        12,
+        12,
+        _maintenancePanelBottomInset,
+      ),
+      children: [
+        _MaintenanceGrid(
+          minWidth: 420,
+          maxColumns: 2,
+          children: [
+            for (var i = 0; i < machineHealthSections.length; i++)
+              Builder(
+                builder: (context) {
+                  final key = machineHealthSections[i];
+                  final raw = data.text('health_$key').trim();
+                  final status = data.text('health_${key}_status').trim();
+                  final lines = const LineSplitter().convert(raw);
+                  final structured =
+                      status == '0' &&
+                      lines.isNotEmpty &&
+                      lines.first.startsWith('@');
+                  String label(String value) => switch (value) {
+                    'user' => l.maintenanceHealthUser,
+                    'home' => l.maintenanceHealthHome,
+                    'sensor' => l.maintenanceHealthSensor,
+                    'celsius' => '°C',
+                    'uid' => 'UID',
+                    'shell' => 'Shell',
+                    _ => value,
+                  };
+                  return _MaintenanceCard(
+                    title: titles[i],
+                    icon: icons[i],
+                    maxHeight: 260,
+                    child: status == '125'
+                        ? Text(l.maintenanceHealthUnsupported)
+                        : status != '0'
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                l.maintenanceHealthUnavailable,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                              if (raw.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                SelectableText(
+                                  raw,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ],
+                          )
+                        : structured
+                        ? _MaintenanceTable(
+                            headers: lines.first
+                                .substring(1)
+                                .split('\t')
+                                .map(label)
+                                .toList(),
+                            rows: [
+                              for (final line in lines.skip(1))
+                                OpenHandOperationalRankRow(
+                                  value: 0,
+                                  cells: line.split('\t'),
+                                ),
+                            ],
+                          )
+                        : raw.isEmpty
+                        ? Text(maintenanceLabel(context, '暂无数据'))
+                        : SelectableText(
+                            raw,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              height: 1.5,
+                            ),
+                          ),
+                  );
+                },
+              ),
+          ],
+        ),
       ],
     );
   }
