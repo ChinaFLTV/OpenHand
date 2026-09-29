@@ -928,8 +928,8 @@ void main() {
     expect(table.limitToViewport, isFalse);
     expect(table.headers, containsAll(['父进程 ID', '优先级', '虚拟内存', '累计 CPU 时间']));
     expect(table.maxBodyHeight, greaterThan(1100 * .45));
-    final dialogBottom = tester.getRect(find.byType(Dialog).first).bottom;
-    expect(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).bottom, lessThanOrEqualTo(dialogBottom - 16));
+    final dialogBottom = tester.getRect(find.descendant(of: find.byType(Dialog).first, matching: find.byType(Column)).first).bottom;
+    expect(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).bottom, closeTo(dialogBottom - _maintenancePanelBottomInset, 1));
     final summary = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.filter_list_rounded);
     final search = find.byType(TextField).first;
     final controlHeight = tester.getSize(find.byType(_MachineTerminalIconButton).first).height;
@@ -955,10 +955,10 @@ void main() {
         }
       }
       final viewport = find.byType(ListView).first;
-      expect(tester.getRect(viewport).bottom, lessThanOrEqualTo(dialogBottom - 16));
+      expect(tester.getRect(viewport).bottom, closeTo(dialogBottom - _maintenancePanelBottomInset, 1));
       await tester.drag(viewport, const Offset(0, -600));
       await tester.pumpAndSettle();
-      expect(tester.getRect(viewport).bottom, lessThanOrEqualTo(dialogBottom - 16));
+      expect(tester.getRect(viewport).bottom, closeTo(dialogBottom - _maintenancePanelBottomInset, 1));
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

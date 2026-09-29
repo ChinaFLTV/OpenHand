@@ -1,6 +1,7 @@
 part of '../openhand_home_page.dart';
 
 const _maintenanceControlHeight = 34.0;
+const _maintenancePanelBottomInset = 8.0;
 
 const _maintenanceTabs = ['运行总览', '进程管理', '系统服务', '网络与诊断'];
 const _maintenanceSectionLabels = {
@@ -561,7 +562,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(
+                    bottom: _maintenancePanelBottomInset,
+                  ),
                   child: AnimatedSwitcher(
                     duration: motion.entranceDuration,
                     reverseDuration: motion.exitDuration,
