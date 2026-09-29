@@ -885,8 +885,49 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   return l10n.maintenanceExtendedMetric(field);
 }
 
+const _englishMonths = <String, int>{
+  'Jan': 1,
+  'Feb': 2,
+  'Mar': 3,
+  'Apr': 4,
+  'May': 5,
+  'Jun': 6,
+  'Jul': 7,
+  'Aug': 8,
+  'Sep': 9,
+  'Oct': 10,
+  'Nov': 11,
+  'Dec': 12,
+};
+
+String? maintenanceEnglishTimestamp(String value) {
+  final match = RegExp(
+    r'^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?'
+    r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+'
+    r'(\d{1,2})\s+(\d{2}:\d{2}(?::\d{2})?)(?:\s+(\d{4}))?$',
+  ).firstMatch(value.trim());
+  if (match == null) return null;
+  final month = _englishMonths[match[1]!]!;
+  final day = int.parse(match[2]!);
+  final year = int.parse(match[4] ?? '${DateTime.now().year}');
+  return '${year.toString().padLeft(4, '0')}-'
+      '${month.toString().padLeft(2, '0')}-'
+      '${day.toString().padLeft(2, '0')} ${match[3]}';
+}
+
 String maintenanceDetailValue(BuildContext context, String value) {
-  final label = switch (value) {
+  final l10n = AppLocalizations.of(context)!;
+  final trimmed = value.trim();
+  final metal = RegExp(r'^[Mm]etal\s*(\d+)$').firstMatch(trimmed);
+  if (metal != null) return 'Metal ${metal[1]}';
+  final stamp = maintenanceEnglishTimestamp(trimmed);
+  if (stamp != null) return stamp;
+  final lower = trimmed.toLowerCase();
+  if (lower == 'darwin') return l10n.maintenanceMacos;
+  if (lower == 'builtin' || lower == 'built-in') {
+    return l10n.maintenanceBusBuiltin;
+  }
+  final label = switch (trimmed) {
     'indirect' => '间接启用',
     'generated' => '自动生成',
     'transient' => '临时',
@@ -910,10 +951,10 @@ String maintenanceDetailValue(BuildContext context, String value) {
     'S (sleeping)' => '休眠',
     'R (running)' => '运行',
     'Z (zombie)' => '僵尸',
-    _ => value,
+    _ => trimmed,
   };
-  return label == value && !const ['系统代理', '用户代理', '系统守护进程'].contains(value)
-      ? value
+  return label == trimmed && !const ['系统代理', '用户代理', '系统守护进程'].contains(trimmed)
+      ? trimmed
       : maintenanceDetailLabel(context, label);
 }
 
@@ -1146,8 +1187,18 @@ String maintenanceHealthValue(BuildContext context, String value) {
     final offset = int.parse(timestamp[8]!);
     return '${timestamp[1]}-${timestamp[2]}-${timestamp[3]} ${timestamp[4]}:${timestamp[5]}:${timestamp[6]} UTC${timestamp[7]}${(offset ~/ 60).toString().padLeft(2, '0')}:${(offset % 60).toString().padLeft(2, '0')}';
   }
+  final english = maintenanceEnglishTimestamp(value);
+  if (english != null) return english;
   final l = AppLocalizations.of(context)!;
-  return switch (value.trim()) {
+  final trimmed = value.trim();
+  final logout = RegExp(
+    r'^-\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+\(([^)]+)\)$',
+  ).firstMatch(trimmed);
+  if (logout != null) {
+    return '${l.maintenanceExited} ${logout[1]} · ${logout[2]}';
+  }
+  return switch (trimmed) {
+    'Darwin' || 'darwin' => l.maintenanceMacos,
     'P' || 'PS' => l.maintenanceHealthParsedPasswordSet,
     'L' || 'LK' => l.maintenanceHealthParsedPasswordLocked,
     'NP' => l.maintenanceHealthParsedPasswordEmpty,

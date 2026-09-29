@@ -9942,5 +9942,9 @@
   "maintenanceMacos": "macOS",
   "@maintenanceMacos": {
     "description": "服务器运维界面文案"
+  },
+  "maintenanceBusBuiltin": "内置",
+  "@maintenanceBusBuiltin": {
+    "description": "服务器运维界面文案"
   }
 }

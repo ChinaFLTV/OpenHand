@@ -13213,4 +13213,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceMacos => 'macOS';
+
+  @override
+  String get maintenanceBusBuiltin => '内蔵';
 }

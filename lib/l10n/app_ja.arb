@@ -8899,5 +8899,6 @@
   "maintenanceGpuMemoryUtil": "VRAM 使用率",
   "maintenanceGpuProductBrand": "製品シリーズ",
   "maintenanceHealthy": "正常",
-  "maintenanceMacos": "macOS"
+  "maintenanceMacos": "macOS",
+  "maintenanceBusBuiltin": "内蔵"
 }

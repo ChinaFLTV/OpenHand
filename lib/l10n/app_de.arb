@@ -8899,5 +8899,6 @@
   "maintenanceGpuMemoryUtil": "Videospeicher-Auslastung",
   "maintenanceGpuProductBrand": "Produktfamilie",
   "maintenanceHealthy": "Gesund",
-  "maintenanceMacos": "macOS"
+  "maintenanceMacos": "macOS",
+  "maintenanceBusBuiltin": "Integriert"
 }

@@ -13087,6 +13087,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceMacos => 'macOS';
+
+  @override
+  String get maintenanceBusBuiltin => '内置';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26154,4 +26157,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceMacos => 'macOS';
+
+  @override
+  String get maintenanceBusBuiltin => '內建';
 }

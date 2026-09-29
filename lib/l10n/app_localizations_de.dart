@@ -13652,4 +13652,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceMacos => 'macOS';
+
+  @override
+  String get maintenanceBusBuiltin => 'Integriert';
 }

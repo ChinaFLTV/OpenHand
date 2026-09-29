@@ -24310,6 +24310,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'macOS'**
   String get maintenanceMacos;
+
+  /// 服务器运维界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'内置'**
+  String get maintenanceBusBuiltin;
 }
 
 class _AppLocalizationsDelegate

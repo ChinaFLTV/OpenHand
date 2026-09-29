@@ -1132,6 +1132,13 @@ void main() {
       expect(maintenanceMetricLabel(context, '/dev/sda1', '名称', section: 'blocks'), '/dev/sda1');
       expect(maintenanceMetricLabel(context, 'pgfault', '数值'), 'pgfault');
       expect(maintenanceMetricLabel(context, '10.0.0.1', '地址'), '10.0.0.1');
+      expect(maintenanceDetailValue(context, 'Darwin'), l10n.maintenanceMacos);
+      expect(maintenanceDetailValue(context, 'builtin'), l10n.maintenanceBusBuiltin);
+      expect(maintenanceDetailValue(context, 'metal4'), 'Metal 4');
+      expect(maintenanceEnglishTimestamp('Tue Sep 29 19:22 2026'), '2026-09-29 19:22');
+      expect(maintenanceHealthValue(context, 'Darwin'), l10n.maintenanceMacos);
+      expect(maintenanceHealthValue(context, 'Sep 29 18:41:39 2026'), '2026-09-29 18:41:39');
+      expect(maintenanceHealthValue(context, '- 10:26 (00:00)'), l10n.maintenanceExited + ' 10:26 · 00:00');
 
       const raw = 'ProductVersion: 27.0.1\\nnameserver[0] : 2001:db8::1\\nCommandLine: /bin/Name --host=State\\nlog: ProductVersion: original';
       final translated = maintenanceLocalizedOutput(context, raw);

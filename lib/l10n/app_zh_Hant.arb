@@ -8899,5 +8899,6 @@
   "maintenanceGpuMemoryUtil": "顯示記憶體使用率",
   "maintenanceGpuProductBrand": "產品系列",
   "maintenanceHealthy": "健康",
-  "maintenanceMacos": "macOS"
+  "maintenanceMacos": "macOS",
+  "maintenanceBusBuiltin": "內建"
 }

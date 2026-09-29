@@ -13702,4 +13702,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceMacos => 'macOS';
+
+  @override
+  String get maintenanceBusBuiltin => 'Intégré';
 }

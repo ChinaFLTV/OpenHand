@@ -8904,5 +8904,6 @@
   "maintenanceGpuMemoryUtil": "VRAM utilization",
   "maintenanceGpuProductBrand": "Product family",
   "maintenanceHealthy": "Healthy",
-  "maintenanceMacos": "macOS"
+  "maintenanceMacos": "macOS",
+  "maintenanceBusBuiltin": "Built-in"
 }

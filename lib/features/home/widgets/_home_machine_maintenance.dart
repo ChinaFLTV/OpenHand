@@ -103,6 +103,27 @@ String _maintenanceShellChoice(
   MachineTerminalCommandShell.cmd => 'CMD',
 };
 
+IconData _maintenanceSectionIcon(String? section) => switch (section) {
+  'disks' || 'blocks' || 'inodes' => Icons.storage_rounded,
+  'memory' || 'memory_details' || 'vm' => Icons.memory_rounded,
+  'interfaces' => Icons.lan_outlined,
+  'pressure' || 'sensors' => Icons.monitor_heart_outlined,
+  'kernel' || 'cgroup_limits' => Icons.tune_rounded,
+  'capabilities' => Icons.verified_outlined,
+  _ => Icons.analytics_outlined,
+};
+
+BoxDecoration _maintenanceTileDecoration(ColorScheme cs) => BoxDecoration(
+  color: cs.surfaceContainerLowest,
+  borderRadius: BorderRadius.circular(_maintenanceCardRadius),
+  border: Border.all(color: cs.outlineVariant.withValues(alpha: .6)),
+);
+
+bool _maintenanceLogUnreadable(String text) => RegExp(
+  'Could not open local log store|not refer to a valid log archive',
+  caseSensitive: false,
+).hasMatch(text);
+
 class _MachineMaintenanceDialog extends StatefulWidget {
   const _MachineMaintenanceDialog({
     required this.sessionId,
@@ -375,6 +396,28 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
       child: Theme(
         data: theme.copyWith(
+          shadowColor: Colors.transparent,
+          splashColor: cs.primary.withValues(alpha: .12),
+          highlightColor: Colors.transparent,
+          chipTheme: theme.chipTheme.copyWith(
+            elevation: 0,
+            pressElevation: 0,
+            shadowColor: Colors.transparent,
+            selectedShadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+          ),
+          iconButtonTheme: IconButtonThemeData(
+            style: (theme.iconButtonTheme.style ?? const ButtonStyle())
+                .copyWith(
+                  elevation: const WidgetStatePropertyAll(0),
+                  shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+                  overlayColor: _maintenanceNoOverlay,
+                ),
+          ),
+          expansionTileTheme: const ExpansionTileThemeData(
+            shape: Border(),
+            collapsedShape: Border(),
+          ),
           textTheme: theme.textTheme.copyWith(
             bodyMedium: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
             bodySmall: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
@@ -1020,9 +1063,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         icon: Icons.storage_rounded,
         onOpen: () => _showCollected('文件系统', data.text('filesystems')),
         child: visibleVolumes.isEmpty
-            ? Text(
-                maintenanceLabel(context, '暂无可读的文件系统'),
-                style: const TextStyle(fontSize: 12),
+            ? _MaintenanceEmptyHint(
+                message: maintenanceLabel(context, '暂无可读的文件系统'),
               )
             : Column(
                 children: [
@@ -1261,13 +1303,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ? '磁盘累计计数'
                       : _maintenanceSectionLabels[section] ?? section,
                 ),
-                icon: switch (section) {
-                  'disks' || 'blocks' || 'inodes' => Icons.storage_rounded,
-                  'memory' || 'memory_details' || 'vm' => Icons.memory_rounded,
-                  'interfaces' => Icons.lan_outlined,
-                  'pressure' || 'sensors' => Icons.monitor_heart_outlined,
-                  _ => Icons.tune_rounded,
-                },
+                icon: _maintenanceSectionIcon(section),
                 scrollBody: false,
                 child: _MaintenanceMetricContent(data: data, section: section),
               ),
@@ -1288,21 +1324,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(_maintenanceCardRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: .6)),
-      ),
+      decoration: _maintenanceTileDecoration(cs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: .11),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 21, color: color),
+          _MaintenanceIconBadge(
+            icon: icon,
+            color: color,
+            size: 40,
+            iconSize: 20,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1488,7 +1518,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(l10n.maintenanceGpuEmpty),
+          child: _MaintenanceEmptyHint(message: l10n.maintenanceGpuEmpty),
         ),
       );
     }
@@ -1685,10 +1715,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 for (final report in reports)
                   Material(
                     color: Colors.transparent,
-                    elevation: 0,
                     shadowColor: Colors.transparent,
                     child: ExpansionTile(
                       key: ValueKey('gpu-component-${report.title}'),
+                      shape: const Border(),
+                      collapsedShape: const Border(),
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 8),
                       leading: Icon(
                         report.issue.isEmpty
                             ? Icons.developer_board_outlined
@@ -2464,10 +2496,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       onOpen: () => _showCollected('连接与监听端口', data.text('sockets')),
       maxHeight: 470,
       child: connections.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(18),
-              child: Text(maintenanceLabel(context, '暂无可用数据')),
-            )
+          ? _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据'))
           : _MaintenanceTable(
               maxBodyHeight: 360,
               headers: const ['协议', '本地地址', '远端地址', '状态', '接收队列', '发送队列', '进程'],
@@ -2494,9 +2523,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           icon: Icons.language_rounded,
           onOpen: () => _showCollected('DNS 配置', data.text('dns')),
           child: dns.isEmpty
-              ? Text(
-                  maintenanceLabel(context, '暂无可解析的服务器地址'),
-                  style: const TextStyle(fontSize: 12),
+              ? _MaintenanceEmptyHint(
+                  message: maintenanceLabel(context, '暂无可解析的服务器地址'),
                 )
               : _MaintenanceFacts(
                   values: {
@@ -2518,46 +2546,62 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               for (final name in names.where(
                 (name) => name != 'sockets' && name != 'dns',
               ))
-                ListTile(
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  selectedTileColor: Colors.transparent,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  leading: _MaintenanceIconBadge(
-                    icon: Icons.fact_check_outlined,
-                    color: data.text(name).trim().isEmpty
-                        ? cs.onSurfaceVariant
-                        : cs.primary,
-                    size: 32,
-                    iconSize: 16,
-                  ),
-                  title: Text(
-                    maintenanceLabel(
-                      context,
-                      _maintenanceSectionLabels[name] ?? name,
-                    ),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    maintenanceLabel(
-                      context,
-                      data.text(name).trim().isEmpty
-                          ? '暂无数据'
-                          : _maintenanceOutputStatus(data.text(name)),
-                    ),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-                  onTap: () => _showCollected(
-                    _maintenanceSectionLabels[name] ?? name,
-                    data.text(name),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final empty = data.text(name).trim().isEmpty;
+                    final status = empty
+                        ? '暂无数据'
+                        : _maintenanceOutputStatus(data.text(name));
+                    return ListTile(
+                      hoverColor: Colors.transparent,
+                      splashColor: Colors.transparent,
+                      selectedTileColor: Colors.transparent,
+                      mouseCursor: SystemMouseCursors.click,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      leading: _MaintenanceIconBadge(
+                        icon: Icons.fact_check_outlined,
+                        color: empty
+                            ? cs.onSurfaceVariant
+                            : status.startsWith('部分不可用')
+                            ? OpenHandStatusColors.warning
+                            : OpenHandStatusColors.success,
+                        size: 32,
+                        iconSize: 16,
+                      ),
+                      title: Text(
+                        maintenanceLabel(
+                          context,
+                          _maintenanceSectionLabels[name] ?? name,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        maintenanceLabel(context, status),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: empty
+                              ? cs.onSurfaceVariant
+                              : status.startsWith('部分不可用')
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.success,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                      ),
+                      onTap: () => _showCollected(
+                        _maintenanceSectionLabels[name] ?? name,
+                        data.text(name),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
@@ -2769,7 +2813,7 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
       children: [
         for (var t = 0; t < metrics.tables.length; t++)
           if (metrics.tables[t].rows.isEmpty)
-            Text(maintenanceLabel(context, '暂无可用数据'))
+            _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据'))
           else if (section == 'capabilities')
             Wrap(
               spacing: 8,
@@ -2779,6 +2823,9 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
                   Tooltip(
                     message: maintenanceMetricLabel(context, row.first, '类型'),
                     child: Chip(
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
                       avatar: Icon(
                         Icons.check_circle_outline_rounded,
                         size: 16,
@@ -2837,153 +2884,199 @@ class _MaintenanceMetricTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final locale = Localizations.localeOf(context);
+    final icon = _maintenanceSectionIcon(section);
+    final tones = [
+      cs.primary,
+      cs.tertiary,
+      cs.secondary,
+      OpenHandStatusColors.info,
+    ];
     return _MaintenanceGrid(
       minWidth: pressure ? 280 : 200,
-      maxColumns: pressure ? 3 : 5,
+      maxColumns: pressure ? 3 : 4,
       children: [
-        for (final row in table.rows)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: .45),
-              ),
-            ),
-            child: pressure
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '${maintenanceMetricLabel(context, row[0], '资源')} · ${maintenanceMetricLabel(context, row[1], '范围')}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      for (var i = 2; i < 5; i++) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                maintenanceLabel(context, table.headers[i]),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant,
-                                ),
+        for (var i = 0; i < table.rows.length; i++)
+          Builder(
+            builder: (context) {
+              final row = table.rows[i];
+              final tone = tones[i % tones.length];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: _maintenanceTileDecoration(cs),
+                child: pressure
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              _MaintenanceIconBadge(
+                                icon: icon,
+                                color: tone,
+                                size: 32,
+                                iconSize: 16,
                               ),
-                            ),
-                            _MaintenanceValue(value: row[i]),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(
-                            end:
-                                ((double.tryParse(row[i].replaceAll('%', '')) ??
-                                            0) /
-                                        100)
-                                    .clamp(0, 1),
-                          ),
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion260,
-                          ),
-                          curve: kOpenHandSwitchInCurve,
-                          builder: (_, value, _) => LinearProgressIndicator(
-                            value: value.clamp(0, 1),
-                            color: switch (row.first) {
-                              'memory' => cs.secondary,
-                              'io' => cs.tertiary,
-                              _ => cs.primary,
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            backgroundColor: cs.surfaceContainerHighest,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Text(
-                        maintenanceLabel(context, table.headers.last),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      _MaintenanceNumber(
-                        raw: row.last,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  )
-                : Builder(
-                    builder: (context) {
-                      final unit = row.length > 2 ? row[2] : '—';
-                      final number = num.tryParse(row[1]);
-                      final multiplier = const {
-                        'B': 1,
-                        'KiB': 1024,
-                        'MiB': 1048576,
-                      }[unit];
-                      final value =
-                          number != null && multiplier != null && number >= 0
-                          ? formatByteSize(
-                              number * multiplier,
-                              languageCode: locale.languageCode,
-                              scriptCode: locale.scriptCode,
-                              countryCode: locale.countryCode,
-                            )
-                          : '${maintenanceMetricLabel(context, row[1], '数值')}${unit == '—' || number == null ? '' : ' ${maintenanceMetricLabel(context, unit, '单位')}'}';
-                      return Tooltip(
-                        message: row.join(' · '),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              maintenanceMetricLabel(
-                                context,
-                                row.first,
-                                '名称',
-                                section: section,
-                              ),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _MaintenanceNumber(
-                              raw: row[1],
-                              unit: unit == '—'
-                                  ? ''
-                                  : maintenanceMetricLabel(context, unit, '单位'),
-                              readable: multiplier != null ? value : null,
-                              maxLines: 2,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: cs.primary,
-                              ),
-                            ),
-                            if (row.length > 3) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                row[3],
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurfaceVariant,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '${maintenanceMetricLabel(context, row[0], '资源')} · ${maintenanceMetricLabel(context, row[1], '范围')}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
+                          ),
+                          for (var i = 2; i < 5; i++) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    maintenanceLabel(context, table.headers[i]),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                _MaintenanceValue(value: row[i]),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(
+                                end:
+                                    ((double.tryParse(
+                                                  row[i].replaceAll('%', ''),
+                                                ) ??
+                                                0) /
+                                            100)
+                                        .clamp(0, 1),
+                              ),
+                              duration: openHandMotionDuration(
+                                context,
+                                kOpenHandMotion260,
+                              ),
+                              curve: kOpenHandSwitchInCurve,
+                              builder: (_, value, _) => LinearProgressIndicator(
+                                value: value.clamp(0, 1),
+                                color: _maintenanceUsageColor(cs, value),
+                                minHeight: 6,
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius4,
+                                ),
+                                backgroundColor: cs.surfaceContainerHighest,
+                              ),
+                            ),
                           ],
-                        ),
-                      );
-                    },
-                  ),
+                          const SizedBox(height: 10),
+                          Text(
+                            maintenanceLabel(context, table.headers.last),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          _MaintenanceNumber(
+                            raw: row.last,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Builder(
+                        builder: (context) {
+                          final unit = row.length > 2 ? row[2] : '—';
+                          final number = num.tryParse(row[1]);
+                          final multiplier = const {
+                            'B': 1,
+                            'KiB': 1024,
+                            'MiB': 1048576,
+                          }[unit];
+                          final value =
+                              number != null &&
+                                  multiplier != null &&
+                                  number >= 0
+                              ? formatByteSize(
+                                  number * multiplier,
+                                  languageCode: locale.languageCode,
+                                  scriptCode: locale.scriptCode,
+                                  countryCode: locale.countryCode,
+                                )
+                              : '${maintenanceMetricLabel(context, row[1], '数值')}${unit == '—' || number == null ? '' : ' ${maintenanceMetricLabel(context, unit, '单位')}'}';
+                          return Tooltip(
+                            message: row.join(' · '),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _MaintenanceIconBadge(icon: icon, color: tone),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        maintenanceMetricLabel(
+                                          context,
+                                          row.first,
+                                          '名称',
+                                          section: section,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      _MaintenanceNumber(
+                                        raw: row[1],
+                                        unit: unit == '—'
+                                            ? ''
+                                            : maintenanceMetricLabel(
+                                                context,
+                                                unit,
+                                                '单位',
+                                              ),
+                                        readable: multiplier != null
+                                            ? value
+                                            : null,
+                                        maxLines: 2,
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w800,
+                                          color: tone,
+                                        ),
+                                      ),
+                                      if (row.length > 3) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          row[3],
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              );
+            },
           ),
       ],
     );
@@ -3155,6 +3248,10 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                         maximumSize: const Size.square(32),
                                         padding: EdgeInsets.zero,
                                         backgroundColor: Colors.transparent,
+                                        hoverColor: Colors.transparent,
+                                        highlightColor: Colors.transparent,
+                                        overlayColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
                                         tapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                         shape: RoundedRectangleBorder(
@@ -3309,6 +3406,12 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                   BorderSide(color: cs.outlineVariant),
                 ),
                 elevation: const WidgetStatePropertyAll(0),
+                shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+                overlayColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.pressed)
+                      ? cs.primary.withValues(alpha: .12)
+                      : Colors.transparent,
+                ),
                 visualDensity: VisualDensity.standard,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
@@ -4018,16 +4121,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (issue.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              issue,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
+        if (issue.isNotEmpty) _MaintenanceEmptyHint(message: issue),
         if (report.data.rows.isNotEmpty && report.data.fields)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 340),
@@ -4106,6 +4200,8 @@ class _MaintenanceHealthContent extends StatelessWidget {
             child: ExpansionTile(
               title: Text(maintenanceHealthLabel(context, 'diagnostic')),
               tilePadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
               children: [
                 OpenHandConsoleText(
                   title: maintenanceHealthLabel(context, 'diagnostic'),
@@ -4146,7 +4242,11 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
 
   @override
   Widget build(BuildContext context) {
-    if (_data.rows.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    if (_data.rows.isEmpty) {
+      return _MaintenanceEmptyHint(
+        message: maintenanceLabel(context, '暂无可用数据'),
+      );
+    }
     if (widget.section == 'logs') {
       return _MaintenanceLogTimeline(rows: _data.rows);
     }
@@ -4189,6 +4289,36 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
           ),
       ],
       maxBodyHeight: 480,
+    );
+  }
+}
+
+class _MaintenanceEmptyHint extends StatelessWidget {
+  const _MaintenanceEmptyHint({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          _MaintenanceIconBadge(
+            icon: Icons.inbox_outlined,
+            color: cs.onSurfaceVariant,
+            size: 32,
+            iconSize: 16,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4414,7 +4544,11 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
 
   @override
   Widget build(BuildContext context) {
-    if (segments.isEmpty) return Text(maintenanceLabel(context, '暂无可用数据'));
+    if (segments.isEmpty) {
+      return _MaintenanceEmptyHint(
+        message: maintenanceLabel(context, '暂无可用数据'),
+      );
+    }
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
@@ -4704,13 +4838,21 @@ class _MaintenanceLogTimeline extends StatelessWidget {
   final List<List<String>> rows;
 
   @override
-  Widget build(BuildContext context) => OpenHandConsoleText(
-    title: maintenanceLabel(context, '最近日志'),
-    text: rows.isEmpty
-        ? maintenanceLabel(context, '暂无可用数据')
-        : rows.map((row) => row.join('  ')).join('\n'),
-    maxHeight: 260,
-  );
+  Widget build(BuildContext context) {
+    final text = rows.isEmpty
+        ? ''
+        : rows.map((row) => row.join('  ')).join('\n');
+    if (text.isNotEmpty && _maintenanceLogUnreadable(text)) {
+      return _MaintenanceEmptyHint(
+        message: AppLocalizations.of(context)!.maintenanceLogUnavailable,
+      );
+    }
+    return OpenHandConsoleText(
+      title: maintenanceLabel(context, '最近日志'),
+      text: rows.isEmpty ? maintenanceLabel(context, '暂无可用数据') : text,
+      maxHeight: 260,
+    );
+  }
 }
 
 class _MaintenanceTrend extends StatefulWidget {
@@ -5440,6 +5582,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   onSelected: (value) => setState(() => _level = value),
                 ),
                 FilterChip(
+                  elevation: 0,
+                  pressElevation: 0,
+                  shadowColor: Colors.transparent,
+                  selectedShadowColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
                   label: Text(l.maintenanceLogFollow),
                   selected: _follow,
                   onSelected: (value) => setState(() {
@@ -5451,6 +5598,9 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                 ),
                 for (var i = 0; i < names.length; i++)
                   Chip(
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
                     avatar: Icon(
                       i == 0
                           ? Icons.error_outline
@@ -5604,7 +5754,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
             const SizedBox(height: 8),
             Material(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              elevation: 0,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -5653,6 +5802,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                               children: [
                                 for (final kind in titles.keys)
                                   ChoiceChip(
+                                    elevation: 0,
+                                    pressElevation: 0,
+                                    shadowColor: Colors.transparent,
+                                    selectedShadowColor: Colors.transparent,
+                                    surfaceTintColor: Colors.transparent,
                                     label: Text(
                                       '${titles[kind]} · ${kind == 'rotation' && canGroupRotation ? groups.length : metadata[kind]!.length}',
                                     ),
@@ -5708,7 +5862,12 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                                         entry.value[field]!,
                                                       ),
                                                     )
-                                                  : entry.value[field] ?? '—',
+                                                  : maintenanceEnglishTimestamp(
+                                                          entry.value[field] ??
+                                                              '',
+                                                        ) ??
+                                                        entry.value[field] ??
+                                                        '—',
                                           ],
                                         ),
                                     ]
