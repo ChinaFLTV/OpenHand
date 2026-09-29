@@ -1432,14 +1432,82 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: maintenanceLabel(context, '筛选服务'),
-            prefixIcon: const Icon(Icons.search_rounded, size: 18),
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final height = math.max(
+              42.0,
+              MediaQuery.textScalerOf(context).scale(14) + 24,
+            );
+            final search = SizedBox(
+              height: height,
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  hintText: maintenanceLabel(context, '筛选服务'),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                ),
+              ),
+            );
+            final buttons = [
+              for (final name in const ['startup', 'timers'])
+                if (data.text(name).isNotEmpty)
+                  SizedBox(
+                    height: height,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      onPressed: () => _showCollected(
+                        _maintenanceSectionLabels[name]!,
+                        data.text(name),
+                      ),
+                      icon: const Icon(Icons.article_outlined, size: 16),
+                      label: Text(
+                        maintenanceLabel(
+                          context,
+                          _maintenanceSectionLabels[name]!,
+                        ),
+                      ),
+                    ),
+                  ),
+            ];
+            if (buttons.isEmpty) return search;
+            final actions = Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 10,
+              runSpacing: 8,
+              children: buttons,
+            );
+            if (constraints.maxWidth <
+                720 * MediaQuery.textScalerOf(context).scale(14) / 14) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  search,
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerRight, child: actions),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: search),
+                const SizedBox(width: 12),
+                actions,
+              ],
+            );
+          },
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
@@ -1490,25 +1558,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               );
             },
           ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 8,
-          children: [
-            for (final name in const ['startup', 'timers'])
-              if (data.text(name).isNotEmpty)
-                OutlinedButton.icon(
-                  onPressed: () => _showCollected(
-                    _maintenanceSectionLabels[name]!,
-                    data.text(name),
-                  ),
-                  icon: const Icon(Icons.article_outlined, size: 16),
-                  label: Text(
-                    maintenanceLabel(context, _maintenanceSectionLabels[name]!),
-                  ),
-                ),
-          ],
         ),
       ],
     );
