@@ -550,6 +550,46 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('共用分页器按实际宽度换行，适配页数、语言和字体', (tester) async {
+    for (final locale in ['zh', 'en', 'de']) {
+      for (final scale in [1.0, 1.5]) {
+        for (final total in [26, 26000]) {
+          await tester.binding.setSurfaceSize(const Size(1600, 400));
+          await tester.pumpWidget(MaterialApp(locale: Locale(locale),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(body: MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Align(alignment: Alignment.topLeft, child: OpenHandTablePagination(
+                total: total, page: 1, pageSize: 20, bar: true,
+                onPageChanged: (_) {}, onPageSizeChanged: (_) {}))))));
+          await tester.pumpAndSettle();
+          final groups = find.descendant(of: find.byType(OpenHandTablePagination),
+            matching: find.byType(SingleChildScrollView));
+          expect(groups, findsNWidgets(2));
+          final requiredWidth = tester.getSize(groups.at(0)).width +
+            tester.getSize(groups.at(1)).width + kOpenHandTablePagerClusterGap + 24;
+          for (final extra in [1.0, -1.0, 1.0]) {
+            await tester.binding.setSurfaceSize(Size(requiredWidth + extra, 400));
+            await tester.pumpAndSettle();
+            final first = tester.getRect(groups.at(0));
+            final second = tester.getRect(groups.at(1));
+            if (extra > 0) {
+              expect(first.center.dy, closeTo(second.center.dy, .1));
+            } else {
+              expect(second.top, greaterThanOrEqualTo(first.bottom));
+            }
+            expect(tester.takeException(), isNull);
+          }
+          await tester.binding.setSurfaceSize(const Size(240, 400));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('分页跳页数字在主题约束、字号和焦点变化下保持居中', (tester) async {
     for (final height in [32.0, 34.0]) {
       for (final scale in [1.0, 1.5]) {

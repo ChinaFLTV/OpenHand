@@ -16,7 +16,6 @@ const double kOpenHandTablePagerButtonSize = 32;
 const double kOpenHandTableJumperWidth = 48;
 const double kOpenHandTablePagerGap = 6;
 const double kOpenHandTablePagerClusterGap = 12;
-const double kOpenHandTablePagerStackBreakpoint = 560;
 const List<int> kOpenHandTablePageSizes = <int>[10, 20, 50, 100];
 const int _kOpenHandPagerEllipsis = -1;
 
@@ -607,56 +606,15 @@ class _PagerSplitBar extends StatelessWidget {
   final Widget right;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (!constraints.maxWidth.isFinite) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              left,
-              const SizedBox(width: kOpenHandTablePagerClusterGap),
-              right,
-            ],
-          );
-        }
-        if (constraints.maxWidth < kOpenHandTablePagerStackBreakpoint) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: left,
-              ),
-              const SizedBox(height: kOpenHandTablePagerGap),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: right,
-              ),
-            ],
-          );
-        }
-        return SizedBox(
-          width: constraints.maxWidth,
-          child: Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: left,
-                  ),
-                ),
-              ),
-              const SizedBox(width: kOpenHandTablePagerClusterGap),
-              right,
-            ],
-          ),
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => OverflowBar(
+    alignment: MainAxisAlignment.spaceBetween,
+    spacing: kOpenHandTablePagerClusterGap,
+    overflowSpacing: kOpenHandTablePagerGap,
+    children: [
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: left),
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: right),
+    ],
+  );
 }
 
 class _PageSizeSelect extends StatefulWidget {
