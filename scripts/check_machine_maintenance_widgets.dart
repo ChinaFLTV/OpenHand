@@ -390,6 +390,52 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('二级弹窗操作靠右等高，进度条留白且加载结束不跳动', (tester) async {
+    for (final width in [1100.0, 580.0]) {
+      for (final actions in [
+        {'终止进程': 'stop', '暂停进程': 'pause', '恢复进程': 'resume'},
+        {'启动服务': 'start', '停止服务': 'stop', '重启服务': 'restart', '自动启动': 'auto', '手动启动': 'manual', '禁用服务': 'disable'},
+      ]) {
+        await tester.binding.setSurfaceSize(Size(width, 850));
+        final pending = Completer<String>();
+        await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MediaQuery(data: MediaQueryData(size: Size(width, 850), textScaler: TextScaler.linear(width < 600 ? 1.5 : 1)),
+            child: Scaffold(body: _MachineMaintenanceDetails(title: '很长的进程或服务名称 /usr/libexec/remoted',
+              load: () => pending.future, execute: (_) async => '', actions: actions)))));
+        await tester.pump();
+        final header = find.byType(_MachineTerminalDialogHeader);
+        final refresh = find.byTooltip('刷新详情');
+        final progress = find.byType(LinearProgressIndicator);
+        final headerRect = tester.getRect(header);
+        final refreshRect = tester.getRect(refresh);
+        final progressRect = tester.getRect(progress);
+        for (final label in actions.keys) {
+          final button = find.widgetWithText(OutlinedButton, label);
+          final rect = tester.getRect(button);
+          expect(rect.height, 34);
+          expect(rect.right, lessThan(refreshRect.left));
+          expect(rect.bottom, lessThan(headerRect.bottom));
+          expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+        }
+        expect(progressRect.top, greaterThan(headerRect.bottom));
+        expect(progressRect.left, greaterThan(headerRect.left));
+        expect(tester.takeException(), isNull);
+        pending.complete('__OH_OPS_platform__\\nLinux\\n__OH_OPS_end__\\n');
+        await tester.pumpAndSettle();
+        expect(tester.getRect(header), headerRect);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        for (final label in actions.keys) {
+          expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, label)).onPressed, isNotNull);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('首次加载与分区加载仅显示居中进度，刷新保留已有数据', (tester) async {
     final service = _MaintenanceFixture()..pending = Completer<String>();
     await tester.binding.setSurfaceSize(const Size(1280, 900));

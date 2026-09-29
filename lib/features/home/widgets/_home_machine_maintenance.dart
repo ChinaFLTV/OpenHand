@@ -2428,36 +2428,74 @@ class _MachineMaintenanceDetailsState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _MachineTerminalDialogHeader(
-              icon: Icons.analytics_outlined,
-              title: widget.title,
-              subtitle: maintenanceLabel(context, '实时详情 · 部分字段需要更高权限'),
-              onClose: () => Navigator.of(context).pop(),
-              trailingActions: [
-                _MachineTerminalIconButton(
-                  icon: Icons.refresh_rounded,
-                  tooltip: maintenanceLabel(context, '刷新详情'),
-                  onPressed: _busy ? null : _load,
-                ),
-              ],
-            ),
-            if (widget.actions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: widget.actions.entries
-                      .map(
-                        (action) => OutlinedButton(
-                          onPressed: _busy ? null : () => _act(action),
-                          child: Text(maintenanceLabel(context, action.key)),
-                        ),
-                      )
-                      .toList(),
-                ),
+            LayoutBuilder(
+              builder: (context, constraints) => _MachineTerminalDialogHeader(
+                icon: Icons.analytics_outlined,
+                title: widget.title,
+                subtitle: maintenanceLabel(context, '实时详情 · 部分字段需要更高权限'),
+                onClose: () => Navigator.of(context).pop(),
+                trailingActions: [
+                  if (widget.actions.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.max(100, constraints.maxWidth - 330),
+                      ),
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          for (final action in widget.actions.entries)
+                            Tooltip(
+                              message: maintenanceLabel(context, action.key),
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 34),
+                                  maximumSize: const Size(180, 34),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.standard,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                onPressed: _busy ? null : () => _act(action),
+                                child: Text(
+                                  maintenanceLabel(context, action.key),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  _MachineTerminalIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: maintenanceLabel(context, '刷新详情'),
+                    onPressed: _busy ? null : _load,
+                  ),
+                ],
               ),
-            if (_busy) const LinearProgressIndicator(),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
+              child: SizedBox(
+                height: 3,
+                child: _busy
+                    ? LinearProgressIndicator(
+                        borderRadius: BorderRadius.circular(3),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
             if (_error != null || _result != null)
               Padding(
                 padding: const EdgeInsets.all(16),
