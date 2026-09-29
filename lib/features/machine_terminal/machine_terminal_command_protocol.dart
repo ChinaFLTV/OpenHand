@@ -42,6 +42,21 @@ String machineTerminalCommandPayload({
   }
 }
 
+/// 将一个参数拆成短物理行，避免 macOS 规范模式的行缓冲丢弃输入。
+String machineTerminalPosixArgument(String value) {
+  const runesPerLine = 64;
+  final runes = value.runes.toList(growable: false);
+  if (runes.isEmpty) return "''";
+  return [
+    for (var start = 0; start < runes.length; start += runesPerLine)
+      posixShellQuote(
+        String.fromCharCodes(
+          runes.sublist(start, (start + runesPerLine).clamp(0, runes.length)),
+        ),
+      ),
+  ].join('\\\n');
+}
+
 const machineTerminalShellProbe = r'''
 echo OH_PS_$env:OS
 echo OH_CMD_%OS%

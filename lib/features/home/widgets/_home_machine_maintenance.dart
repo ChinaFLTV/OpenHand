@@ -297,6 +297,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
         }
       });
+    } on MachineTerminalUploadCancelled {
+      // 关闭弹窗后停止传输，不将主动取消报告为采集故障。
+      return;
     } catch (error, stack) {
       silentLog('machine_maintenance', '采集运维数据', error, stack);
       _detectedTarget = null;

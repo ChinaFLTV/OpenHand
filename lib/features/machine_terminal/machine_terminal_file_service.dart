@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
@@ -55,6 +56,7 @@ const String _machineTerminalReadChunkEnd = '__OPENHAND_FILE_CHUNK_END__';
 const String _machineTerminalStagedPathBegin = '__OPENHAND_STAGED_PATH_BEGIN__';
 const String _machineTerminalStagedPathEnd = '__OPENHAND_STAGED_PATH_END__';
 const Duration _machineTerminalFileCommandTimeout = Duration(seconds: 30);
+const Duration _machineTerminalScriptTransferTimeout = Duration(minutes: 2);
 const Duration _machineTerminalMutationTimeout = Duration(minutes: 5);
 const Duration _machineTerminalDownloadTimeout = Duration(minutes: 30);
 const Duration _machineTerminalTransferShutdownTimeout = Duration(seconds: 8);
@@ -360,21 +362,23 @@ class MachineTerminalFileService extends ChangeNotifier {
       '${DateTime.now().microsecondsSinceEpoch}-${math.Random.secure().nextInt(0x7fffffff)}',
       shell,
     );
-    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    final deadline = MonotonicDeadline(
+      _machineTerminalScriptTransferTimeout,
+      timeoutMessage: '运维脚本传输超时。',
+    );
     Future<String> run(String command, {bool cleanup = false}) {
-      if (!cleanup) _throwIfMachineTerminalTransferCancelled(isCancelled);
-      final remaining = deadline.difference(DateTime.now());
-      if (!cleanup && remaining <= Duration.zero) {
-        throw TimeoutException('运维脚本传输超时。');
+      if (!cleanup) {
+        _ensureAvailable();
+        _throwIfMachineTerminalTransferCancelled(isCancelled);
       }
       return _runInlineCommand(
         sessionId: sessionId,
         terminalId: terminalId,
         command: command,
         commandShell: shell,
-        timeout: cleanup || remaining > _machineTerminalFileCommandTimeout
+        timeout: cleanup
             ? _machineTerminalFileCommandTimeout
-            : remaining,
+            : deadline.limit(_machineTerminalFileCommandTimeout),
       );
     }
 
@@ -384,6 +388,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       }
       return await run(transport.execute);
     } finally {
+      deadline.stop();
       try {
         await run(transport.cleanup, cleanup: true);
       } catch (error, stack) {
@@ -1067,63 +1072,76 @@ class MachineTerminalFileService extends ChangeNotifier {
         MachineTerminalCommandShell.automatic,
     MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
-    final temporaryOutput = await _runInlineCommand(
-      sessionId: sessionId,
-      terminalId: terminalId,
-      commandShell: commandShell,
-      command:
-          '__oh_tmp=\$(mktemp "\${TMPDIR:-/tmp}/openhand-command.XXXXXX") || exit 1; '
-          'printf "$_machineTerminalStagedPathBegin%s$_machineTerminalStagedPathEnd\\n" '
-          '"\$(printf "%s" "\$__oh_tmp" | base64 | tr -d "\\r\\n")"',
-      timeout: _machineTerminalFileCommandTimeout,
+    final deadline = MonotonicDeadline(
+      _machineTerminalScriptTransferTimeout,
+      timeoutMessage: '远端脚本传输超时。',
     );
-    final temporaryPath = parseMachineTerminalStagedPathProtocol(
-      temporaryOutput,
-    );
-    final encoded = base64Encode(utf8.encode(command));
+    String? pathArgument;
+    Future<String> transfer(String command) {
+      _ensureAvailable();
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      return _runInlineCommand(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        commandShell: commandShell,
+        command: command,
+        timeout: deadline.limit(_machineTerminalFileCommandTimeout),
+      );
+    }
+
     try {
+      final temporaryOutput = await transfer(
+        '__oh_tmp=\$(mktemp "\${TMPDIR:-/tmp}/openhand-command.XXXXXX") || exit 1; '
+        'printf "$_machineTerminalStagedPathBegin%s$_machineTerminalStagedPathEnd\\n" '
+        '"\$(printf "%s" "\$__oh_tmp" | base64 | tr -d "\\r\\n")"',
+      );
+      pathArgument = machineTerminalPosixArgument(
+        parseMachineTerminalStagedPathProtocol(temporaryOutput),
+      );
+      final encoded = base64Encode(utf8.encode(command));
       for (
         var offset = 0;
         offset < encoded.length;
         offset += _machineTerminalStagedCommandChunkCharacters
       ) {
-        _throwIfMachineTerminalTransferCancelled(isCancelled);
         final end = math.min(
           offset + _machineTerminalStagedCommandChunkCharacters,
           encoded.length,
         );
-        await _runInlineCommand(
-          sessionId: sessionId,
-          terminalId: terminalId,
-          commandShell: commandShell,
-          command:
-              "printf '%s' '${encoded.substring(offset, end)}' >> ${posixShellQuote(temporaryPath)}",
-          timeout: _machineTerminalFileCommandTimeout,
+        await transfer(
+          "printf '%s' ${machineTerminalPosixArgument(encoded.substring(offset, end))} >> $pathArgument",
         );
       }
+      _ensureAvailable();
       _throwIfMachineTerminalTransferCancelled(isCancelled);
-      return await _runInlineCommand(
+      deadline.remaining();
+      final output = await _runInlineCommand(
         sessionId: sessionId,
         terminalId: terminalId,
         commandShell: commandShell,
         command:
-            '__oh_script=${posixShellQuote(temporaryPath)}; '
-            'base64 -d < "\$__oh_script" | sh; '
-            '__oh_status=\$?; rm -f -- "\$__oh_script"; exit "\$__oh_status"',
+            '__oh_script=$pathArgument; '
+            "trap 'rm -f -- \"\$__oh_script\"' EXIT; "
+            'base64 -d < "\$__oh_script" | sh',
         timeout: timeout,
         onOutput: onOutput,
       );
+      pathArgument = null;
+      return output;
     } finally {
-      try {
-        await _runInlineCommand(
-          sessionId: sessionId,
-          terminalId: terminalId,
-          commandShell: commandShell,
-          command: 'rm -f -- ${posixShellQuote(temporaryPath)}',
-          timeout: _machineTerminalFileCommandTimeout,
-        );
-      } catch (error, stack) {
-        silentLog('machine_terminal_file', '清理远端命令临时文件', error, stack);
+      deadline.stop();
+      if (pathArgument != null) {
+        try {
+          await _runInlineCommand(
+            sessionId: sessionId,
+            terminalId: terminalId,
+            commandShell: commandShell,
+            command: 'rm -f -- $pathArgument',
+            timeout: _machineTerminalFileCommandTimeout,
+          );
+        } catch (error, stack) {
+          silentLog('machine_terminal_file', '清理远端命令临时文件', error, stack);
+        }
       }
     }
   }
