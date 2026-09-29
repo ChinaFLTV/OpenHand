@@ -256,29 +256,121 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _MachineTerminalDialogHeader(
-                icon: Icons.dns_rounded,
-                title: '服务器运维中心',
-                subtitle:
-                    '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? '正在识别目标系统'}',
-                onClose: () => Navigator.of(context).pop(),
-                trailingActions: [
-                  _MachineTerminalIconButton(
-                    icon: _automatic
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    tooltip: _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
-                    onPressed: () {
-                      setState(() => _automatic = !_automatic);
-                      _schedule();
-                    },
-                  ),
-                  _MachineTerminalIconButton(
-                    icon: Icons.refresh_rounded,
-                    tooltip: '刷新当前分区',
-                    onPressed: _loading ? null : _refresh,
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (_, constraints) => _MachineTerminalDialogHeader(
+                  icon: Icons.dns_rounded,
+                  title: '服务器运维中心',
+                  subtitle:
+                      '${data?.text('host') ?? widget.terminalId}  /  ${_platformName ?? '正在识别目标系统'}',
+                  onClose: () => Navigator.of(context).pop(),
+                  trailingActions: [
+                    SizedBox(
+                      width: math.min(
+                        580,
+                        math.max(72, constraints.maxWidth - 400),
+                      ),
+                      height: 34,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: true,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _MaintenanceToolbarMenu<
+                              MachineTerminalCommandShell
+                            >(
+                              label: switch (_requestedShell) {
+                                MachineTerminalCommandShell.automatic =>
+                                  '自动识别 Shell',
+                                MachineTerminalCommandShell.posix =>
+                                  'POSIX Shell',
+                                MachineTerminalCommandShell.powershell =>
+                                  'PowerShell',
+                                _ => 'CMD',
+                              },
+                              tooltip: '终端 Shell',
+                              enabled: !_loading,
+                              value: _requestedShell,
+                              items: const {
+                                MachineTerminalCommandShell.automatic:
+                                    '自动识别 Shell',
+                                MachineTerminalCommandShell.posix:
+                                    'POSIX Shell',
+                                MachineTerminalCommandShell.powershell:
+                                    'PowerShell',
+                                MachineTerminalCommandShell.cmd: 'CMD',
+                              },
+                              onSelected: (value) {
+                                setState(() => _requestedShell = value);
+                                _refresh();
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _MaintenanceToolbarMenu<int>(
+                              label: '$_intervalSeconds 秒',
+                              tooltip: '自动刷新间隔',
+                              icon: Icons.timer_outlined,
+                              value: _intervalSeconds,
+                              items: const {
+                                5: '5 秒',
+                                10: '10 秒',
+                                30: '30 秒',
+                                60: '60 秒',
+                              },
+                              onSelected: (value) {
+                                setState(() => _intervalSeconds = value);
+                                _schedule();
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              height: 34,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (_error != null ? cs.error : cs.primary)
+                                    .withValues(alpha: .08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                status,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: _error != null ? cs.error : cs.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _updated == null
+                                  ? '等待首次采样'
+                                  : '更新于 ${_updated!.toLocal().toString().substring(11, 19)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _MachineTerminalIconButton(
+                      icon: _automatic
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      tooltip: _automatic ? '暂停自动刷新' : '开启自动刷新（当前分区）',
+                      onPressed: () {
+                        setState(() => _automatic = !_automatic);
+                        _schedule();
+                      },
+                    ),
+                    _MachineTerminalIconButton(
+                      icon: Icons.refresh_rounded,
+                      tooltip: '刷新当前分区',
+                      onPressed: _loading ? null : _refresh,
+                    ),
+                  ],
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -353,85 +445,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 186,
-                      child:
-                          AnimatedDropdownButtonFormField<
-                            MachineTerminalCommandShell
-                          >(
-                            value: _requestedShell,
-                            decoration: const InputDecoration(isDense: true),
-                            items: const [
-                              DropdownMenuItem(
-                                value: MachineTerminalCommandShell.automatic,
-                                child: Text('自动识别 Shell'),
-                              ),
-                              DropdownMenuItem(
-                                value: MachineTerminalCommandShell.posix,
-                                child: Text('POSIX Shell'),
-                              ),
-                              DropdownMenuItem(
-                                value: MachineTerminalCommandShell.powershell,
-                                child: Text('PowerShell'),
-                              ),
-                              DropdownMenuItem(
-                                value: MachineTerminalCommandShell.cmd,
-                                child: Text('CMD'),
-                              ),
-                            ],
-                            onChanged: _loading
-                                ? null
-                                : (value) {
-                                    setState(() => _requestedShell = value!);
-                                    _refresh();
-                                  },
-                          ),
-                    ),
-                    SizedBox(
-                      width: 142,
-                      child: AnimatedDropdownButtonFormField<int>(
-                        value: _intervalSeconds,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          prefixIcon: Icon(Icons.timer_outlined, size: 18),
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        items: [5, 10, 30, 60]
-                            .map(
-                              (seconds) => DropdownMenuItem(
-                                value: seconds,
-                                child: Text('$seconds 秒'),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() => _intervalSeconds = value!);
-                          _schedule();
-                        },
-                      ),
-                    ),
-                    _MaintenanceBadge(
-                      label: status,
-                      color: _error != null ? cs.error : cs.primary,
-                    ),
-                    Text(
-                      _updated == null
-                          ? '等待首次采样'
-                          : '更新于 ${_updated!.toLocal().toString().substring(11, 19)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
               SizedBox(
                 height: 2,
                 child: _loading
@@ -1369,32 +1383,68 @@ class _MaintenanceGrid extends StatelessWidget {
   );
 }
 
-class _MaintenanceBadge extends StatelessWidget {
-  const _MaintenanceBadge({required this.label, required this.color});
-  final String label;
-  final Color color;
+class _MaintenanceToolbarMenu<T> extends StatelessWidget {
+  const _MaintenanceToolbarMenu({
+    required this.label,
+    required this.tooltip,
+    required this.value,
+    required this.items,
+    required this.onSelected,
+    this.icon,
+    this.enabled = true,
+  });
+  final String label, tooltip;
+  final T value;
+  final Map<T, String> items;
+  final ValueChanged<T> onSelected;
+  final IconData? icon;
+  final bool enabled;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .1),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 7, color: color),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedPopupMenuButton<T>(
+      tooltip: tooltip,
+      enabled: enabled,
+      initialValue: value,
+      position: PopupMenuPosition.under,
+      padding: EdgeInsets.zero,
+      onSelected: onSelected,
+      itemBuilder: (_) => [
+        for (final item in items.entries)
+          PopupMenuItem(value: item.key, child: Text(item.value)),
       ],
-    ),
-  );
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: cs.surface.withValues(alpha: .72),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: .55)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: cs.onSurfaceVariant),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 16,
+              color: cs.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _MaintenanceNotice extends StatelessWidget {
