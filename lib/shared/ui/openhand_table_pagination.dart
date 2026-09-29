@@ -534,6 +534,8 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
               hoverColor: Colors.transparent,
               isDense: true,
               isCollapsed: true,
+              // 由外层居中，避免继承表单固定高度后文字顶齐。
+              constraints: BoxConstraints(),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,

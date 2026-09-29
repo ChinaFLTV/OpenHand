@@ -154,6 +154,44 @@ __OH_OPS_end__
 }
 
 void main() {
+  testWidgets('分页跳页数字在主题约束、字号和焦点变化下保持居中', (tester) async {
+    for (final height in [32.0, 34.0]) {
+      for (final scale in [1.0, 1.5]) {
+        for (final enabled in [true, false]) {
+          await tester.pumpWidget(MaterialApp(
+            theme: ThemeData(inputDecorationTheme: InputDecorationTheme(
+              constraints: BoxConstraints.tightFor(height: height == 34 ? 34 : 48),
+              contentPadding: EdgeInsets.all(16),
+            )),
+            home: Scaffold(body: Center(child: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: OpenHandTablePagination(total: 4000, page: 125, pageSize: 20,
+                controlHeight: height, enabled: enabled, onPageChanged: (_) {}),
+            ))),
+          ));
+          await tester.pumpAndSettle();
+          final field = find.byType(TextField);
+          void checkCenter() {
+            final editable = tester.state<EditableTextState>(find.byType(EditableText)).renderEditable;
+            final box = editable.getBoxesForSelection(
+              const TextSelection(baseOffset: 0, extentOffset: 3)).single;
+            final textCenter = editable.localToGlobal(box.toRect().center);
+            final frame = find.ancestor(of: field, matching: find.byType(AnimatedContainer)).first;
+            expect(textCenter.dy, closeTo(tester.getCenter(frame).dy, 1.0));
+            expect(tester.takeException(), isNull);
+          }
+          checkCenter();
+          if (enabled) {
+            await tester.tap(field);
+            await tester.pumpAndSettle();
+            checkCenter();
+          }
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+  });
+
   test('图表按指标标识插值，增删和重排不会串值', () {
     final tween = _MaintenanceSeriesTween(end: {'写入': 40, '接收': 10})
       ..begin = {'读取': 100, '写入': 20};
