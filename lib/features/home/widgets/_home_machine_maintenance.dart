@@ -1,6 +1,7 @@
 part of '../openhand_home_page.dart';
 
 const _maintenanceControlHeight = 34.0;
+const _maintenanceNoticeMaxWidth = 480.0;
 const _maintenanceSearchWidth = 280.0;
 const _maintenanceGridGap = 12.0;
 const _maintenancePanelBottomInset = 8.0;
@@ -802,7 +803,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(
+            maxWidth: _maintenanceNoticeMaxWidth,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -4052,47 +4055,55 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = widget.error ? cs.error : cs.tertiary;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .07),
-        border: Border.all(color: color.withValues(alpha: .18)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            widget.error ? Icons.error_outline : Icons.info_outline,
-            size: 18,
-            color: color,
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _maintenanceNoticeMaxWidth),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .07),
+            border: Border.all(color: color.withValues(alpha: .18)),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: (MediaQuery.sizeOf(context).height * .25).clamp(
-                  96.0,
-                  240.0,
-                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                widget.error ? Icons.error_outline : Icons.info_outline,
+                size: 18,
+                color: color,
               ),
-              child: Scrollbar(
-                controller: _scrollController,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.only(right: 10),
-                  child: Text(
-                    widget.message,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: color),
+              const SizedBox(width: 10),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: (MediaQuery.sizeOf(context).height * .25).clamp(
+                      96.0,
+                      240.0,
+                    ),
+                  ),
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Text(
+                        widget.message,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: color),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

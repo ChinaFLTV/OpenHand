@@ -218,6 +218,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('提示卡在拉伸父布局中按内容收拢，长文本遵守宽度上限', (tester) async {
+    for (final width in [320.0, 1280.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 800));
+      for (final error in [false, true]) {
+        for (final scale in [1.0, 1.8]) {
+          for (final message in ['连接失败', List.filled(80, '请检查终端连接后重试。').join()]) {
+            await tester.pumpWidget(MaterialApp(home: MediaQuery(
+              data: MediaQueryData(size: Size(width, 800), textScaler: TextScaler.linear(scale)),
+              child: Scaffold(body: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [_MaintenanceNotice(message: message, error: error)]))))));
+            await tester.pumpAndSettle();
+            final notice = find.byType(_MaintenanceNotice);
+            final card = tester.getRect(find.descendant(of: notice, matching: find.byType(Container)).first);
+            expect(card.width, lessThanOrEqualTo(math.min(_maintenanceNoticeMaxWidth, width - 32)));
+            expect(card.center.dx, closeTo(width / 2, .01));
+            if (message == '连接失败') {
+              final text = tester.getSize(find.text(message));
+              expect(card.width - text.width, lessThan(80));
+            } else {
+              final state = tester.state<_MaintenanceNoticeState>(notice);
+              expect(state._scrollController.position.maxScrollExtent, greaterThan(0));
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('错误页在大字号和窄屏下完整展示重试按钮及本地化超时信息', (tester) async {
     for (final locale in [const Locale('zh'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja'), const Locale('zh', 'Hant')]) {
       for (final size in [const Size(430, 560), const Size(1280, 800)]) {
