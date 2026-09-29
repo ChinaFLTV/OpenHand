@@ -69,7 +69,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _detailOpen = false;
   String? _error;
   DateTime? _updated;
-  int _tab = 0, _page = 0, _sort = 0, _processOffset = 0;
+  int _tab = 0, _sort = 0, _processOffset = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
 
   @override
@@ -234,18 +234,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             bodyMedium: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
             bodySmall: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
             labelLarge: theme.textTheme.labelLarge?.copyWith(fontSize: 13),
-          ),
-          dataTableTheme: DataTableThemeData(
-            headingRowColor: WidgetStatePropertyAll(cs.surfaceContainerLow),
-            headingTextStyle: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-            headingRowHeight: 34,
-            dataRowMinHeight: 38,
-            dataRowMaxHeight: 46,
-            horizontalMargin: 14,
-            columnSpacing: 22,
-            dividerThickness: .5,
           ),
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             filled: true,
@@ -469,7 +457,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 : () {
                                     setState(() {
                                       _tab = index;
-                                      _page = 0;
+
                                       _search.clear();
                                       _error = null;
                                     });
@@ -658,7 +646,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     if (_loading) return;
     setState(() {
       _tab = index;
-      _page = 0;
+
       _search.clear();
       _error = null;
     });
@@ -823,56 +811,18 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 maintenanceLabel(context, '暂无可读的文件系统'),
                 style: const TextStyle(fontSize: 12),
               )
-            : Column(
-                children: [
+            : _MaintenanceTable(
+                headers: const ['路径', '存储空间', '状态'],
+                rows: [
                   for (final v in visibleVolumes)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  v.skip(5).join(' '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Text(v[4], style: const TextStyle(fontSize: 12)),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          LinearProgressIndicator(
-                            value:
-                                ((double.tryParse(v[4].replaceAll('%', '')) ??
-                                            0) /
-                                        100)
-                                    .clamp(0, 1),
-                            minHeight: 5,
-                            borderRadius: BorderRadius.circular(4),
-                            color:
-                                (double.tryParse(v[4].replaceAll('%', '')) ??
-                                        0) >=
-                                    85
-                                ? cs.error
-                                : cs.primary,
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
+                    OpenHandOperationalRankRow(
+                      value: 0,
+                      rowKey: v.first,
+                      cells: [
+                        v.skip(5).join(' '),
+                        '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
+                        v[4],
+                      ],
                     ),
                 ],
               ),
@@ -1204,49 +1154,31 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   ) {
     final keys = data.counters(section, colon: section == 'network').keys;
     if (keys.isEmpty) return Text(maintenanceLabel(context, '当前环境未提供可用计数器。'));
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: headings
-            .map(
-              (name) =>
-                  DataColumn(label: Text(maintenanceLabel(context, name))),
-            )
-            .toList(),
-        rows: keys
-            .map(
-              (key) => DataRow(
-                cells: [
-                  DataCell(
-                    Text(
-                      data.text('platform') == 'Windows'
-                          ? Uri.decodeComponent(key)
-                          : key,
-                    ),
+    return _MaintenanceTable(
+      headers: headings,
+      rows: [
+        for (final key in keys)
+          OpenHandOperationalRankRow(
+            value: 0,
+            rowKey: key,
+            cells: [
+              data.text('platform') == 'Windows'
+                  ? Uri.decodeComponent(key)
+                  : key,
+              for (var i = 0; i < indexes.length; i++)
+                _maintenanceRateLabel(
+                  data.rate(
+                    _previous[0],
+                    section,
+                    key,
+                    indexes[i],
+                    multiplier: multipliers[i],
                   ),
-                  ...List.generate(indexes.length, (i) {
-                    final rate = data.rate(
-                      _previous[0],
-                      section,
-                      key,
-                      indexes[i],
-                      multiplier: multipliers[i],
-                    );
-                    return DataCell(
-                      Text(
-                        rate == null
-                            ? '—'
-                            : i < 2
-                            ? '${formatByteSize(rate)}/s'
-                            : rate.toStringAsFixed(1),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            )
-            .toList(),
-      ),
+                  bytes: i < 2,
+                ),
+            ],
+          ),
+      ],
     );
   }
 
@@ -1286,8 +1218,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _ => (cpu(b) ?? -1).compareTo(cpu(a) ?? -1),
       },
     );
-    final pages = math.max(1, (rows.length / 40).ceil());
-    final currentPage = math.min(_page, pages - 1);
     final countLine = data
         .text('processes')
         .split('\n')
@@ -1310,9 +1240,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   width: 240,
                   child: TextField(
                     controller: _search,
-                    onChanged: (_) => setState(() {
-                      _page = 0;
-                    }),
+                    onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
                       prefixIcon: const Icon(Icons.search_rounded),
@@ -1348,7 +1276,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ],
                     onChanged: (value) => setState(() {
                       _sort = value!;
-                      _page = 0;
                     }),
                   ),
                 ),
@@ -1366,137 +1293,70 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
           ),
           Expanded(
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              padding: const EdgeInsets.all(1),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withValues(alpha: .6),
-                ),
-              ),
-              child: LayoutBuilder(
-                builder: (_, constraints) => SingleChildScrollView(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: constraints.maxWidth,
-                      ),
-                      child: DataTable(
-                        showCheckboxColumn: false,
-                        columns: [
-                          const DataColumn(label: Text('PID')),
-                          DataColumn(
-                            label: Text(maintenanceLabel(context, '进程')),
+            child: LayoutBuilder(
+              builder: (_, constraints) => SingleChildScrollView(
+                child: _MaintenanceTable(
+                  key: ValueKey((_search.text, _sort, _processOffset)),
+                  maxBodyHeight: math.max(100, constraints.maxHeight - 160),
+                  headers: const ['PID', '进程', '状态', 'CPU / 单核', '驻留内存', '线程'],
+                  rows: [
+                    for (final p in rows)
+                      OpenHandOperationalRankRow(
+                        value: 0,
+                        rowKey: (p.pid, p.startToken),
+                        data: p,
+                        cells: [
+                          '${p.pid}',
+                          p.name.split('/').last.split('\\').last,
+                          maintenanceLabel(
+                            context,
+                            _maintenanceProcessState(p.state),
                           ),
-                          DataColumn(
-                            label: Text(maintenanceLabel(context, '状态')),
+                          cpu(p) == null
+                              ? '—'
+                              : '${cpu(p)!.toStringAsFixed(1)}%',
+                          pageSize == null || p.residentPages < 0
+                              ? maintenanceLabel(context, '不可用')
+                              : formatByteSize(p.residentPages * pageSize),
+                          p.threads < 0 ? '—' : '${p.threads}',
+                        ],
+                        cellWidgets: [
+                          null,
+                          Tooltip(
+                            message: p.name,
+                            child: Text(
+                              p.name.split('/').last.split('\\').last,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          DataColumn(
-                            label: Text(maintenanceLabel(context, 'CPU / 单核')),
-                          ),
-                          DataColumn(
-                            label: Text(maintenanceLabel(context, '驻留内存')),
-                          ),
-                          DataColumn(
-                            label: Text(maintenanceLabel(context, '线程')),
+                          _MaintenanceStatus(
+                            label: _maintenanceProcessState(p.state),
+                            color: p.state.startsWith('Z')
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary,
                           ),
                         ],
-                        rows: rows
-                            .skip(currentPage * 40)
-                            .take(40)
-                            .map(
-                              (p) => DataRow(
-                                onSelectChanged:
-                                    !_platform!.canInspectProcess(p)
-                                    ? null
-                                    : (_) => _details(
-                                        AppLocalizations.of(
-                                          context,
-                                        )!.maintenanceProcessTitle(
-                                          '${p.pid}',
-                                          p.name,
-                                        ),
-                                        _platform!.process(p),
-                                        actions: {
-                                          for (final action
-                                              in _platform!
-                                                  .processActions(p)
-                                                  .entries)
-                                            action.key: _platform!.process(
-                                              p,
-                                              action: action.value,
-                                            ),
-                                        },
-                                      ),
-                                cells: [
-                                  DataCell(Text('${p.pid}')),
-                                  DataCell(
-                                    SizedBox(
-                                      width: 220,
-                                      child: Tooltip(
-                                        message: p.name,
-                                        child: Text(
-                                          p.name
-                                              .split('/')
-                                              .last
-                                              .split('\\')
-                                              .last,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    _MaintenanceStatus(
-                                      label: _maintenanceProcessState(p.state),
-                                      color: p.state.startsWith('Z')
-                                          ? Theme.of(context).colorScheme.error
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      cpu(p) == null
-                                          ? '—'
-                                          : '${cpu(p)!.toStringAsFixed(1)}%',
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      maintenanceLabel(
-                                        context,
-                                        pageSize == null || p.residentPages < 0
-                                            ? '不可用'
-                                            : formatByteSize(
-                                                p.residentPages * pageSize,
-                                              ),
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(p.threads < 0 ? '—' : '${p.threads}'),
-                                  ),
-                                ],
-                              ),
-                            )
-                            .toList(),
                       ),
-                    ),
-                  ),
+                  ],
+                  onRowTap: (row) {
+                    final p = row.data! as MachineMaintenanceProcess;
+                    if (!_platform!.canInspectProcess(p)) return;
+                    _details(
+                      AppLocalizations.of(
+                        context,
+                      )!.maintenanceProcessTitle('${p.pid}', p.name),
+                      _platform!.process(p),
+                      actions: {
+                        for (final action
+                            in _platform!.processActions(p).entries)
+                          action.key: _platform!.process(
+                            p,
+                            action: action.value,
+                          ),
+                      },
+                    );
+                  },
                 ),
               ),
             ),
@@ -1519,7 +1379,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                 0,
                                 _processOffset - machineMaintenanceProcessLimit,
                               );
-                              _page = 0;
                             });
                             _refresh();
                           }
@@ -1537,34 +1396,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         ? () {
                             setState(() {
                               _processOffset += machineMaintenanceProcessLimit;
-                              _page = 0;
                             });
                             _refresh();
                           }
                         : null,
                     child: Text(maintenanceLabel(context, '下一批进程')),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: currentPage > 0
-                        ? () => setState(() {
-                            _page = currentPage - 1;
-                          })
-                        : null,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text('${currentPage + 1} / $pages'),
-                  IconButton(
-                    onPressed: currentPage + 1 < pages
-                        ? () => setState(() {
-                            _page = currentPage + 1;
-                          })
-                        : null,
-                    icon: const Icon(Icons.chevron_right),
                   ),
                 ],
               ),
@@ -1678,79 +1514,44 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
           icon: Icons.view_list_outlined,
           maxHeight: 420,
-          child: SizedBox(
-            height: math.min(410, MediaQuery.sizeOf(context).height * .43),
-            child: ListView.builder(
-              primary: false,
-              itemCount: filtered.length,
-              itemBuilder: (_, index) {
-                final line = filtered[index];
-                final name = line.contains('\t')
-                    ? line.split('\t').first
-                    : line.trim().split(RegExp(r'\s+')).first;
-                final enabled = adapter?.accepts(name) ?? false;
-                final status = state(line);
-                return Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: .4),
-                      ),
+          child: _MaintenanceTable(
+            key: ValueKey(_search.text),
+            maxBodyHeight: 360,
+            headers: const ['名称', '状态', '状态详情'],
+            rows: [
+              for (final line in filtered)
+                OpenHandOperationalRankRow(
+                  value: 0,
+                  rowKey: line,
+                  data: line,
+                  cells: [
+                    line.contains('\t')
+                        ? line.split('\t').first
+                        : line.trim().split(RegExp(r'\s+')).first,
+                    maintenanceLabel(context, state(line)),
+                    line,
+                  ],
+                  cellWidgets: [
+                    null,
+                    _MaintenanceStatus(
+                      label: state(line),
+                      color: state(line) == '异常' ? cs.error : cs.primary,
                     ),
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                    leading: Icon(
-                      Icons.settings_suggest_outlined,
-                      size: 19,
-                      color: status == '异常' ? cs.error : cs.primary,
-                    ),
-                    title: Tooltip(
-                      message: line,
-                      child: Text(
-                        maintenanceLabel(context, name),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 90,
-                          child: _MaintenanceStatus(
-                            label: status,
-                            color: status == '异常'
-                                ? cs.error
-                                : status == '未运行'
-                                ? cs.onSurfaceVariant
-                                : cs.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.chevron_right, size: 16),
-                      ],
-                    ),
-                    onTap: enabled
-                        ? () => _details(
-                            name,
-                            adapter!.command(name),
-                            actions: {
-                              for (final action in adapter.actions.entries)
-                                action.key: adapter.command(name, action.value),
-                            },
-                          )
-                        : null,
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+            ],
+            onRowTap: (row) {
+              final name = row.cells.first;
+              if (!(adapter?.accepts(name) ?? false)) return;
+              _details(
+                name,
+                adapter!.command(name),
+                actions: {
+                  for (final action in adapter.actions.entries)
+                    action.key: adapter.command(name, action.value),
+                },
+              );
+            },
           ),
         ),
         const SizedBox(height: 12),
@@ -1794,53 +1595,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 maintenanceLabel(context, '未解析到 TCP / UDP 连接，可查看原始数据。'),
               ),
             )
-          : LayoutBuilder(
-              builder: (_, constraints) => SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: DataTable(
-                    columns: [
-                      DataColumn(label: Text(maintenanceLabel(context, '协议'))),
-                      DataColumn(
-                        label: Text(maintenanceLabel(context, '本地地址')),
-                      ),
-                      DataColumn(
-                        label: Text(maintenanceLabel(context, '远端地址')),
-                      ),
-                      DataColumn(label: Text(maintenanceLabel(context, '状态'))),
-                    ],
-                    rows: [
-                      for (final row in connections)
-                        DataRow(
-                          cells: [
-                            for (var index = 0; index < row.length; index++)
-                              DataCell(
-                                Tooltip(
-                                  message: index == 3
-                                      ? maintenanceLabel(context, row[index])
-                                      : row[index],
-                                  child: SizedBox(
-                                    width: index == 0 ? 46 : 150,
-                                    child: Text(
-                                      index == 3
-                                          ? maintenanceLabel(
-                                              context,
-                                              row[index],
-                                            )
-                                          : row[index],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+          : _MaintenanceTable(
+              maxBodyHeight: 360,
+              headers: const ['协议', '本地地址', '远端地址', '状态'],
+              rows: [
+                for (final row in connections)
+                  OpenHandOperationalRankRow(
+                    value: 0,
+                    cells: [
+                      row[0],
+                      row[1],
+                      row[2],
+                      maintenanceLabel(context, row[3]),
                     ],
                   ),
-                ),
-              ),
+              ],
             ),
     );
     final secondary = Column(
@@ -1855,13 +1624,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   maintenanceLabel(context, '暂无可解析的服务器地址'),
                   style: const TextStyle(fontSize: 12),
                 )
-              : _MaintenanceFacts(
-                  values: {
+              : _MaintenanceTable(
+                  headers: const ['名称', '地址'],
+                  rows: [
                     for (var i = 0; i < dns.length; i++)
-                      AppLocalizations.of(
-                        context,
-                      )!.maintenanceServerNumber('${i + 1}'): dns[i],
-                  },
+                      OpenHandOperationalRankRow(
+                        value: 0,
+                        rowKey: dns[i],
+                        cells: [
+                          AppLocalizations.of(
+                            context,
+                          )!.maintenanceServerNumber('${i + 1}'),
+                          dns[i],
+                        ],
+                      ),
+                  ],
                 ),
         ),
         const SizedBox(height: 12),
@@ -1869,46 +1646,37 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           title: maintenanceLabel(context, '诊断项目'),
           maxHeight: 360,
           icon: Icons.fact_check_outlined,
-          child: Column(
-            children: [
+          child: _MaintenanceTable(
+            headers: const ['诊断项目', '状态'],
+            rows: [
               for (final name in names.where(
                 (name) => name != 'sockets' && name != 'dns',
               ))
-                ListTile(
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    _maintenanceSectionIcon(name),
-                    size: 18,
-                    color: cs.primary,
-                  ),
-                  title: Text(
+                OpenHandOperationalRankRow(
+                  value: 0,
+                  rowKey: name,
+                  data: name,
+                  cells: [
                     maintenanceLabel(
                       context,
                       _maintenanceSectionLabels[name] ?? name,
                     ),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
                     maintenanceLabel(
                       context,
                       data.text(name).trim().isEmpty
                           ? '暂无数据'
                           : _maintenanceOutputStatus(data.text(name)),
                     ),
-                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                  ),
-                  trailing: const Icon(Icons.chevron_right, size: 16),
-                  onTap: () => _showCollected(
-                    _maintenanceSectionLabels[name] ?? name,
-                    data.text(name),
-                  ),
+                  ],
                 ),
             ],
+            onRowTap: (row) {
+              final name = row.data! as String;
+              _showCollected(
+                _maintenanceSectionLabels[name] ?? name,
+                data.text(name),
+              );
+            },
           ),
         ),
       ],
@@ -2066,15 +1834,44 @@ String _maintenanceOutputStatus(String text) =>
     ? '部分不可用 · 查看原因'
     : '已采集 · 查看详情';
 
-IconData _maintenanceSectionIcon(String name) => switch (name) {
-  'routes' => Icons.route_outlined,
-  'logs' => Icons.article_outlined,
-  'users' => Icons.people_outline,
-  'cron' => Icons.schedule_rounded,
-  'firewall' => Icons.shield_outlined,
-  'containers' => Icons.inventory_2_outlined,
-  _ => Icons.analytics_outlined,
-};
+String _maintenanceRateLabel(double? rate, {required bool bytes}) =>
+    rate == null
+    ? '—'
+    : bytes
+    ? '${formatByteSize(rate)}/s'
+    : rate.toStringAsFixed(1);
+
+class _MaintenanceTable extends StatelessWidget {
+  const _MaintenanceTable({
+    super.key,
+    required this.headers,
+    required this.rows,
+    this.onRowTap,
+    this.maxBodyHeight = 220,
+  });
+  final List<String> headers;
+  final List<OpenHandOperationalRankRow> rows;
+  final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
+  final double maxBodyHeight;
+  @override
+  Widget build(BuildContext context) => OpenHandOperationalRankTable(
+    headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
+    rows: rows,
+    sortByValue: false,
+    onRowTap: onRowTap,
+    maxBodyHeight: math.min(
+      maxBodyHeight,
+      MediaQuery.sizeOf(context).height * .45,
+    ),
+    emptyLabel: maintenanceLabel(context, '暂无可用数据'),
+    semanticsLabel: headers
+        .map((label) => maintenanceLabel(context, label))
+        .join(' · '),
+    columnAlignments: {
+      for (var i = 0; i < headers.length; i++) i: Alignment.centerLeft,
+    },
+  );
+}
 
 class _MaintenanceFacts extends StatelessWidget {
   const _MaintenanceFacts({required this.values});
@@ -2464,18 +2261,23 @@ class _MaintenanceCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: math.min(
-                  maxHeight,
-                  MediaQuery.sizeOf(context).height * .56,
-                ),
-              ),
-              child: Material(
-                type: MaterialType.transparency,
-                child: SingleChildScrollView(primary: false, child: child),
-              ),
-            ),
+            child: child is _MaintenanceTable
+                ? child
+                : ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: math.min(
+                        maxHeight,
+                        MediaQuery.sizeOf(context).height * .56,
+                      ),
+                    ),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: child,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),

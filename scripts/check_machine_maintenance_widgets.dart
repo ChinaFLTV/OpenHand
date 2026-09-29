@@ -46,6 +46,8 @@ import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
+import 'package:openhand/shared/ui/openhand_ops_charts.dart';
+import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 import 'package:openhand/shared/util/localized_text.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
@@ -366,6 +368,51 @@ void main() {
     expect(service.calls, 2);
     expect(find.text('CPU 使用率'), findsOneWidget);
     expect(find.text('重新采集'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('运维公共表格支持页码、条数、跳页和刷新缩页', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    var count = 55;
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return _MaintenanceTable(headers: const ['名称'], rows: [for (var i = 0; i < count; i++)
+          OpenHandOperationalRankRow(value: i, rowKey: i, cells: ['设备-\$i'])]);
+      }))));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandOperationalRankTable), findsOneWidget);
+    expect(find.byType(DataTable), findsNothing);
+    expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination)).pageSize, 20);
+    await tester.tap(find.byTooltip('下一页'));
+    await tester.pumpAndSettle();
+    expect(find.text('设备-20'), findsOneWidget);
+    expect(find.text('设备-0'), findsNothing);
+    await tester.enterText(find.byType(TextField), '3');
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await tester.pumpAndSettle();
+    expect(find.text('设备-40'), findsOneWidget);
+    update(() {});
+    await tester.pumpAndSettle();
+    expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination)).page, 3);
+    update(() => count = 21);
+    await tester.pumpAndSettle();
+    expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination)).page, 2);
+    await tester.tap(find.text('20 条/页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10 条/页').last);
+    await tester.pumpAndSettle();
+    final pager = tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination));
+    expect(pager.pageSize, 10);
+    expect(pager.page, 1);
+    update(() => count = 0);
+    await tester.pumpAndSettle();
+    expect(find.text('暂无可用数据'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);

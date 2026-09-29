@@ -113,6 +113,7 @@ import '../../shared/ui/openhand_message_action_chip.dart';
 import '../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../shared/ui/openhand_metadata_tiles.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
+import '../../shared/ui/openhand_ops_charts.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
