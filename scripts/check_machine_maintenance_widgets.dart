@@ -309,7 +309,47 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('首次失败保留摘要结构并支持重新采集', (tester) async {
+  testWidgets('首次加载与分区加载仅显示居中进度，刷新保留已有数据', (tester) async {
+    final service = _MaintenanceFixture()..pending = Completer<String>();
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(_MaintenanceCard), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.text('等待目标机器数据'), findsNothing);
+    const sample = '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n测试服务器\\n__OH_OPS_end__\\n';
+    service.pending!.complete(sample);
+    service.pending = null;
+    await tester.pumpAndSettle();
+    expect(find.text('基本信息'), findsOneWidget);
+    service.pending = Completer<String>();
+    await tester.tap(find.byTooltip('刷新当前分区'));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('基本信息'), findsOneWidget);
+    service.pending!.complete(sample);
+    await tester.pumpAndSettle();
+    for (final label in ['进程管理', '系统服务', '网络与诊断']) {
+      service.pending = Completer<String>();
+      await tester.tap(find.text(label));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(_MaintenanceCard), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      service.pending!.complete(sample);
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('首次失败显示简洁错误状态并支持重新采集', (tester) async {
     final service = _MaintenanceFixture()..fail = true;
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,

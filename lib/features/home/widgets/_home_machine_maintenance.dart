@@ -485,7 +485,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               const SizedBox(height: 12),
               SizedBox(
                 height: 2,
-                child: _loading
+                child: _loading && data != null
                     ? const LinearProgressIndicator()
                     : Divider(
                         height: 1,
@@ -512,7 +512,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   switchInCurve: kOpenHandSwitchInCurve,
                   switchOutCurve: kOpenHandSwitchOutCurve,
                   child: KeyedSubtree(
-                    key: ValueKey((_tab, data == null)),
+                    key: ValueKey((
+                      _tab,
+                      data == null,
+                      data == null && _error != null,
+                    )),
                     child: data == null
                         ? _emptyState()
                         : switch (_tab) {
@@ -562,69 +566,56 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   }
 
   Widget _emptyState() {
-    final cs = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        _MaintenanceCard(
-          title: maintenanceLabel(context, _loading ? '正在连接当前终端' : '机器状态暂不可用'),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Column(
-              children: [
+    final theme = Theme.of(context);
+    final failed = _error != null;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (failed)
                 Icon(
-                  _loading ? Icons.sensors_rounded : Icons.cloud_off_rounded,
-                  size: 42,
-                  color: _error == null ? cs.primary : cs.error,
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  maintenanceLabel(
-                    context,
-                    _loading ? '识别系统并读取运行状态' : '未能完成本次采集',
+                  Icons.cloud_off_rounded,
+                  size: 36,
+                  color: theme.colorScheme.error,
+                )
+              else
+                SizedBox.square(
+                  dimension: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    semanticsLabel: maintenanceLabel(context, '采集中'),
                   ),
-                  style: Theme.of(context).textTheme.titleMedium,
                 ),
+              const SizedBox(height: 16),
+              Text(
+                maintenanceLabel(context, failed ? '机器状态暂不可用' : '采集中'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall,
+              ),
+              if (failed) ...[
                 const SizedBox(height: 10),
                 Text(
-                  maintenanceLabel(
-                    context,
-                    _loading
-                        ? '数据就绪后将显示资源、进程、服务与网络状态。'
-                        : '请确认终端已连接并处于命令提示符，再重新采集。',
-                  ),
+                  maintenanceLabel(context, '请确认终端已连接并处于命令提示符，再重新采集。'),
                   textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
                 ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  _MaintenanceNotice(message: _error!, error: true),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _loading ? null : _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(maintenanceLabel(context, '重新采集')),
-                  ),
-                ],
+                const SizedBox(height: 16),
+                _MaintenanceNotice(message: _error!, error: true),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _loading ? null : _refresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(maintenanceLabel(context, '重新采集')),
+                ),
               ],
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        _MaintenanceGrid(
-          minWidth: 220,
-          maxColumns: 4,
-          children: [
-            for (final item in const [
-              (Icons.memory_rounded, 'CPU'),
-              (Icons.storage_rounded, '内存'),
-              (Icons.dns_outlined, '磁盘'),
-              (Icons.hub_outlined, '网络'),
-            ])
-              _metric(item.$2, '—', '等待目标机器数据', item.$1, cs.primary, null),
-          ],
-        ),
-        const SizedBox(height: 16),
-      ],
+      ),
     );
   }
 
