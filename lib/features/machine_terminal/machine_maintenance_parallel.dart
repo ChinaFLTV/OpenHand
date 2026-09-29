@@ -1,11 +1,12 @@
 import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
+import 'machine_maintenance_gpu.dart';
 
 const machineMaintenanceMaxWorkers = 8;
 const machineMaintenanceDefaultWorkers = 4;
 
-/// 只拆分互不依赖的总览和诊断分区；进程与服务保留原有事务边界。
+/// 只拆分总览、诊断与 GPU 的独立采集项；进程与服务保留原有事务边界。
 String parallelMaintenanceCommand(String command, int? workers, int tab) {
   if (workers == null) return command;
   if (workers < 1 || workers > machineMaintenanceMaxWorkers) {
@@ -19,19 +20,19 @@ String parallelMaintenanceCommand(String command, int? workers, int tab) {
     (m) => !const ['platform', 'host', 'boot', 'uptime'].contains(m[1]),
   );
   if (first < 0) return command;
-  final split = workers > 1 && (tab == 0 || tab == 3);
+  final split = workers > 1 && (tab == 0 || tab == 3 || tab == 4);
   final prefix = split ? command.substring(0, sections[first].start) : "";
-  final functions = command.substring(0, sections.first.start);
+  final functions =
+      command.substring(0, sections.first.start) +
+      (tab == 4 ? machineGpuProbePrelude : '');
   final jobs = <String>[];
   for (var i = first; i < sections.length; i++) {
     if (sections[i][1] == 'end') continue;
-    jobs.add(
-      functions +
-          command.substring(
-            sections[i].start,
-            i + 1 < sections.length ? sections[i + 1].start : command.length,
-          ),
+    final body = command.substring(
+      sections[i].start,
+      i + 1 < sections.length ? sections[i + 1].start : command.length,
     );
+    jobs.add('. "\${0%/*}/common.sh"\n$body');
   }
   if (!split) {
     jobs
@@ -42,6 +43,7 @@ String parallelMaintenanceCommand(String command, int? workers, int tab) {
     jobs,
     workers: workers,
     prefix: prefix,
+    common: split ? functions : '',
     suffix: "printf '\\n__OH_OPS_end__\\n'",
   );
 }
@@ -148,6 +150,7 @@ String parallelWindowsMaintenanceCommand(
   List<String> jobs,
   int workers, {
   bool rawOutput = false,
+  int maxOutputCharacters = 100000,
 }) {
   if (workers < 1 || workers > machineMaintenanceMaxWorkers) {
     throw ArgumentError('采集并发数必须在 1–8 之间。');
@@ -162,7 +165,7 @@ String parallelWindowsMaintenanceCommand(
       '$outputPrelude\n'
       'function ohEcho(text){if(typeof ohOut!="undefined")ohOut.WriteLine(text);else WScript.Echo(text);}';
   return '''
-var ohRawOutput=$rawOutput;
+var ohRawOutput=$rawOutput,ohMaxOutput=$maxOutputCharacters;
 var ohPrelude=${jsonEncode(common)};
 eval(ohPrelude);
 var ohJobs=${jsonEncode(jobs)},ohLimit=$workers,ohGuardSource=${jsonEncode(_windowsGuard)},ohWorkerSource=${jsonEncode(_windowsWorkerPrelude)};
@@ -217,7 +220,7 @@ try {
     var output=ohRead(ohDir+"\\"+i+".out");if(output.indexOf("__OH_OPS_end__")<0)throw Error("采集子进程结果不完整。");
     if(ohRawOutput){WScript.StdOut.Write(output.replace(/__OH_OPS_end__\r?\n\s*$/, ""));continue;}
     var parts=output.split(/__OH_OPS_([a-z_]+)__\r?\n/);
-    for(var j=1;j+1<parts.length;j+=2){var key=parts[j];if(/^(platform|host|boot|uptime|encoding|end)$/.test(key))continue;if(key=="notice"){warnings.push(decodeURIComponent(parts[j+1].replace(/\s+$/, "")));continue;}var block="__OH_OPS_"+key+"__\n"+parts[j+1];if(emitted+block.length>100000){truncated=true;continue;}WScript.Echo(block);emitted+=block.length;}
+    for(var j=1;j+1<parts.length;j+=2){var key=parts[j];if(/^(platform|host|boot|uptime|encoding|end)$/.test(key))continue;if(key=="notice"){warnings.push(decodeURIComponent(parts[j+1].replace(/\s+$/, "")));continue;}var block="__OH_OPS_"+key+"__\n"+parts[j+1];if(emitted+block.length>ohMaxOutput){truncated=true;continue;}WScript.Echo(block);emitted+=block.length;}
   }
   if(!ohRawOutput)emit("end","");
 } catch(e){WScript.Echo("并行采集失败："+e.message);throw e;}

@@ -243,7 +243,10 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
             .replaceAll('__OFFSET__', '$offset')
             .replaceAll('__LIMIT__', '$machineMaintenanceProcessLimit'),
       2 => _windowsServices,
-      4 => _windowsGpu.replaceAll('__GPU_QUERY__', machineGpuQuery),
+      4 =>
+        _windowsGpu
+            .replaceAll('__GPU_QUERY__', machineGpuQuery)
+            .replaceAll('__GPU_DETAIL_LIMIT__', '$machineGpuDetailOutputLimit'),
       5 => machineLogsWindowsCollection,
       6 => machineHealthWindowsCollection,
       _ => _windowsDiagnostics,
@@ -264,10 +267,15 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
           ...boundaries.allMatches(body).map((m) => m.start),
         body.length,
       ];
-      return parallelWindowsMaintenanceCommand(_windowsPrelude, [
-        for (var i = 0; i + 1 < starts.length; i++)
-          body.substring(starts[i], starts[i + 1]),
-      ], workers);
+      return parallelWindowsMaintenanceCommand(
+        _windowsPrelude,
+        [
+          for (var i = 0; i + 1 < starts.length; i++)
+            body.substring(starts[i], starts[i + 1]),
+        ],
+        workers,
+        maxOutputCharacters: section == 4 ? 4000000 : 100000,
+      );
     }
     return '$_windowsPrelude$body\nemit("end", "");';
   }
@@ -308,8 +316,8 @@ $command
 }
 
 const _windowsPrelude = r'''
-var emitted=0,truncated=false;
-function emit(key,value){var text=value==null?"":String(value),encoded=encodeURIComponent(text),limit=Math.max(0,100000-emitted);while(encoded.length>limit){truncated=true;text=text.substr(0,Math.floor(text.length*0.8));if(/[\uD800-\uDBFF]$/.test(text))text=text.substr(0,text.length-1);encoded=encodeURIComponent(text);}if(key=="end" && (truncated || warnings.length)){WScript.Echo("__OH_OPS_notice__");WScript.Echo(encodeURIComponent((truncated?"输出达到上限，部分内容已截断。\n":"")+warnings.join("\n").substr(0,4000)));}WScript.Echo("__OH_OPS_"+key+"__");WScript.Echo(encoded);emitted+=encoded.length+key.length+20;}
+var emitted=0,truncated=false,outputLimit=100000;
+function emit(key,value){var text=value==null?"":String(value),encoded=encodeURIComponent(text),limit=Math.max(0,outputLimit-emitted);while(encoded.length>limit){truncated=true;text=text.substr(0,Math.floor(text.length*0.8));if(/[\uD800-\uDBFF]$/.test(text))text=text.substr(0,text.length-1);encoded=encodeURIComponent(text);}if(key=="end" && (truncated || warnings.length)){WScript.Echo("__OH_OPS_notice__");WScript.Echo(encodeURIComponent((truncated?"输出达到上限，部分内容已截断。\n":"")+warnings.join("\n").substr(0,4000)));}WScript.Echo("__OH_OPS_"+key+"__");WScript.Echo(encoded);emitted+=encoded.length+key.length+20;}
 function fail(message){WScript.Echo(message);WScript.Quit(1);}
 function clean(value){return value==null?"":String(value).replace(/[\r\n\t]/g," ");}
 function number(value){return value==null?null:Number(value);}
@@ -432,15 +440,36 @@ class _WindowsServiceMaintenanceAdapter
 }
 
 const _windowsGpu = r'''
+outputLimit=4000000;
+function gpuCommand(text,limit){
+  var fs,shell,path,child,reader,out="";
+  try{
+    fs=new ActiveXObject("Scripting.FileSystemObject");shell=new ActiveXObject("WScript.Shell");path=fs.BuildPath(fs.GetSpecialFolder(2),fs.GetTempName());
+    child=shell.Exec('cmd.exe /d /c '+text+' >"'+path+'" 2>&1');
+    if(typeof ohTrack=="function")ohTrack(child.ProcessID);
+    var start=new Date().getTime();
+    while(child.Status==0){
+      if(new Date().getTime()-start>2000){shell.Run('taskkill /PID '+child.ProcessID+' /T /F',0,true);return "查询超时。";}
+      WScript.Sleep(40);
+    }
+    if(fs.FileExists(path)){reader=fs.OpenTextFile(path,1);if(!reader.AtEndOfStream)out=reader.Read(limit);if(!reader.AtEndOfStream)out+="\n__GPU_OUTPUT_TRUNCATED__";reader.Close();reader=null;}
+    if(child.ExitCode!=0)out+="\n__GPU_PROBE_EXIT_"+child.ExitCode+"__";
+  }catch(e){out+="\n查询失败："+e.message;}
+  finally{if(reader)try{reader.Close();}catch(e){}try{if(fs && path && fs.FileExists(path))fs.DeleteFile(path,true);}catch(e){}}
+  return out;
+}
+
 var cards=rows("SELECT DeviceID,Name,AdapterCompatibility,DriverVersion,Status,PNPDeviceID FROM Win32_VideoController"),gpu=[];
 for(var i=0;i<cards.length;i++){var c=cards[i];gpu.push([clean(c.DeviceID),clean(c.Name),clean(c.AdapterCompatibility),clean(c.DriverVersion),clean(c.Status),clean(c.PNPDeviceID)].join("\t"));}
 emit("gpu_windows",gpu.join("\n").substr(0,16000));
-emit("gpu_nvidia",command("nvidia-smi --query-gpu=__GPU_QUERY__ --format=csv,noheader,nounits",40000));
-emit("gpu_processes",command("nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory --format=csv,noheader,nounits",20000));
-emit("gpu_details",command("nvidia-smi -q -x",45000));
-emit("gpu_links",command("nvidia-smi nvlink --status",8000));
-emit("gpu_link_errors",command("nvidia-smi nvlink --errorcounters",8000));
-var toolkit=command("nvcc --version",2000),stack=[];
+emit("gpu_nvidia",gpuCommand("nvidia-smi --query-gpu=__GPU_QUERY__ --format=csv,noheader,nounits",40000));
+emit("gpu_processes",gpuCommand("nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory --format=csv,noheader,nounits",20000));
+emit("gpu_details",gpuCommand("nvidia-smi -q -x",__GPU_DETAIL_LIMIT__));
+emit("gpu_links",gpuCommand("nvidia-smi nvlink --status",8000));
+emit("gpu_link_errors",gpuCommand("nvidia-smi nvlink --errorcounters",8000));
+emit("gpu_topology",gpuCommand("nvidia-smi topo -m",24000));
+emit("gpu_mig",gpuCommand("nvidia-smi -L",24000));
+var toolkit=gpuCommand("nvcc --version",2000),stack=[];
 var release=toolkit.match(/release[^\r\n]+/);
 if(release)stack.push("CUDA Toolkit\tversion\t"+release[0]);
 var env=new ActiveXObject("WScript.Shell").Environment("PROCESS");

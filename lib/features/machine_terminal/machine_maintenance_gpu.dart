@@ -2,15 +2,23 @@ import 'dart:convert';
 
 import 'package:xml/xml.dart';
 
+const machineGpuDetailOutputLimit = 1048576;
+const machineGpuDetailFieldLimit = 4096;
+
 const machineGpuQuery =
     'uuid,name,driver_version,pci.bus_id,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit,clocks.current.graphics,clocks.current.memory,fan.speed,pstate';
 
-const machineGpuLinuxCollection = r"""
+const machineGpuProbePrelude = r"""
 gpu_probe() {
   if command -v timeout >/dev/null 2>&1; then timeout -k 1 -s TERM 2 "$@"; else bounded "$@"; fi
   code=$?
   [ "$code" -eq 0 ] || printf '\n__GPU_PROBE_EXIT_%s__\n' "$code"
 }
+""";
+
+const machineGpuLinuxCollection =
+    machineGpuProbePrelude +
+    r"""
 section gpu_nvidia
 if command -v nvidia-smi >/dev/null 2>&1; then
   bounded nvidia-smi --query-gpu=__GPU_QUERY__ --format=csv,noheader,nounits 2>/dev/null | head -c 40000
@@ -21,7 +29,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 section gpu_details
 if command -v nvidia-smi >/dev/null 2>&1; then
-  gpu_probe nvidia-smi -q -x 2>&1 | head -c 120000
+  gpu_probe nvidia-smi -q -x 2>&1 | head -c __GPU_DETAIL_LIMIT__
 fi
 section gpu_links
 if command -v nvidia-smi >/dev/null 2>&1; then
@@ -30,6 +38,34 @@ fi
 section gpu_link_errors
 if command -v nvidia-smi >/dev/null 2>&1; then
   gpu_probe nvidia-smi nvlink --errorcounters 2>&1 | head -c 16000
+fi
+section gpu_topology
+if command -v nvidia-smi >/dev/null 2>&1; then
+  gpu_probe nvidia-smi topo -m 2>&1 | head -c 24000
+fi
+section gpu_mig
+if command -v nvidia-smi >/dev/null 2>&1; then
+  gpu_probe nvidia-smi -L 2>&1 | head -c 24000
+fi
+section gpu_dcgm_discovery
+if command -v dcgmi >/dev/null 2>&1; then
+  gpu_probe dcgmi discovery -l 2>&1 | head -c 24000
+fi
+section gpu_dcgm_health
+if command -v dcgmi >/dev/null 2>&1; then
+  gpu_probe dcgmi health -g 0 -c 2>&1 | head -c 24000
+fi
+section gpu_dcgm_metrics
+if command -v dcgmi >/dev/null 2>&1; then
+  gpu_probe dcgmi dmon -e 100,101,150,155,160,190,191,203,204,206,207,250,251,252 -c 1 2>&1 | head -c 24000
+fi
+section gpu_dcgm_errors
+if command -v dcgmi >/dev/null 2>&1; then
+  gpu_probe dcgmi dmon -e 202,230,240,241,310,311,312,313,409,419,429,439 -c 1 2>&1 | head -c 24000
+fi
+section gpu_dcgm_mig
+if command -v dcgmi >/dev/null 2>&1; then
+  gpu_probe dcgmi discovery -c 2>&1 | head -c 24000
 fi
 section gpu_stack
 if command -v nvcc >/dev/null 2>&1; then
@@ -146,6 +182,65 @@ class MachineGpuSnapshot {
           'state': f[13],
         }, metrics),
       );
+    }
+    if (!devices.any((d) => d.source == 'NVIDIA SMI')) {
+      // 老驱动拒绝某个 CSV 字段时，仍使用详细查询中的已知指标。
+      try {
+        final raw = sections['gpu_details'] ?? '';
+        for (final match in RegExp(
+          r'<gpu(?:\s[^>]*)?>[\s\S]*?</gpu>',
+        ).allMatches(raw)) {
+          final gpu = XmlDocument.parse(match[0]!).rootElement;
+          String value(String path) {
+            XmlElement? node = gpu;
+            for (final part in path.split('/')) {
+              node = node?.getElement(part);
+            }
+            return node?.innerText.trim() ?? '';
+          }
+
+          final id = value('uuid');
+          if (id.isEmpty) continue;
+          final metrics = <String, double>{};
+          for (final entry in const {
+            'util': 'utilization/gpu_util',
+            'memoryUsed': 'fb_memory_usage/used',
+            'memoryTotal': 'fb_memory_usage/total',
+            'temperature': 'temperature/gpu_temp',
+            'power': 'gpu_power_readings/power_draw',
+            'powerLimit': 'gpu_power_readings/power_limit',
+            'coreClock': 'clocks/graphics_clock',
+            'memoryClock': 'clocks/mem_clock',
+            'fan': 'fan_speed',
+          }.entries) {
+            var text = value(entry.value);
+            if (text.isEmpty && entry.key.startsWith('power')) {
+              text = value(
+                entry.value.replaceFirst(
+                  'gpu_power_readings',
+                  'power_readings',
+                ),
+              );
+            }
+            final amount = text.split(RegExp(r'\s+')).first;
+            addMetric(
+              metrics,
+              entry.key,
+              amount,
+              entry.key.startsWith('memory') ? 1048576 : 1,
+            );
+          }
+          devices.add(
+            MachineGpuDevice(id, value('product_name'), 'NVIDIA SMI', {
+              'vendor': 'NVIDIA',
+              'bus': value('pci/pci_bus_id'),
+              'state': value('performance_state'),
+            }, metrics),
+          );
+        }
+      } on XmlException {
+        // 详细报告会显示格式问题；其他平台的数据仍可使用。
+      }
     }
     for (final block in (sections['gpu_drm'] ?? '').split(RegExp(r'\n\s*\n'))) {
       final fields = <String, String>{};
@@ -325,9 +420,18 @@ class MachineGpuSnapshot {
 
 /// 组件信息与硬件遥测分离；不把驱动兼容版本当成已安装的工具包。
 class MachineGpuReport {
-  MachineGpuReport(this.title, this.rows, {this.issue = ''});
+  MachineGpuReport(this.title, this.rows, {this.issue = '', this.raw = ''});
+  final String raw;
   final String title, issue;
   final List<List<String>> rows;
+  late final Map<String, List<List<String>>> groups = () {
+    final result = <String, List<List<String>>>{};
+    for (final row in rows) {
+      final key = row[0].contains('/') ? row[0].split('/').first : '基本信息';
+      (result[key] ??= []).add(row);
+    }
+    return result;
+  }();
 
   static List<MachineGpuReport> parse(Map<String, String> sections) {
     final reports = <MachineGpuReport>[];
@@ -347,7 +451,24 @@ class MachineGpuReport {
       return 'unavailable';
     }
 
-    final xml = (sections['gpu_details'] ?? '').trim();
+    var xml = (sections['gpu_details'] ?? '').trim();
+    var truncated = false;
+    if (xml.contains('<nvidia_smi_log')) {
+      final closing = xml.indexOf('</nvidia_smi_log>');
+      if (closing >= 0) {
+        xml = xml.substring(0, closing + '</nvidia_smi_log>'.length);
+      } else {
+        final start = xml.indexOf(RegExp(r'<gpu(?:\s|>)'));
+        final complete = RegExp(
+          r'<gpu(?:\s[^>]*)?>[\s\S]*?</gpu>',
+        ).allMatches(xml);
+        if (start >= 0 && complete.isNotEmpty) {
+          xml =
+              '${xml.substring(0, start)}${complete.map((m) => m[0]!).join()} </nvidia_smi_log>';
+        }
+        truncated = true;
+      }
+    }
     if (xml.isNotEmpty) {
       try {
         final root = XmlDocument.parse(xml).rootElement;
@@ -367,9 +488,12 @@ class MachineGpuReport {
           final groups = <String, List<List<String>>>{};
           final pending = <(XmlElement, String, int)>[(gpu, '', 0)];
           var count = 0;
-          while (pending.isNotEmpty && count < 700) {
+          while (pending.isNotEmpty && count < machineGpuDetailFieldLimit) {
             final (node, path, depth) = pending.removeLast();
-            if (depth > 12) continue;
+            if (depth > 24) {
+              truncated = true;
+              continue;
+            }
             final children = node.childElements.toList();
             if (children.isEmpty) {
               final value = node.innerText.trim();
@@ -404,7 +528,7 @@ class MachineGpuReport {
             MachineGpuReport(
               id,
               groups.values.expand((rows) => rows).toList(),
-              issue: pending.isNotEmpty ? 'truncated' : '',
+              issue: truncated || pending.isNotEmpty ? 'truncated' : '',
             ),
           );
         }
@@ -521,6 +645,32 @@ class MachineGpuReport {
           'NVLink · counters',
           rows,
           issue: rows.isEmpty ? failure(errors) : '',
+        ),
+      );
+    }
+    for (final entry in const {
+      'gpu_topology': 'GPU / CPU / NUMA 拓扑',
+      'gpu_mig': 'GPU 与 MIG 实例',
+      'gpu_dcgm_discovery': 'DCGM 设备发现',
+      'gpu_dcgm_health': 'DCGM 已配置健康监控',
+      'gpu_dcgm_metrics': 'DCGM 单次遥测',
+      'gpu_dcgm_errors': 'DCGM 错误计数与限频累计时间',
+      'gpu_dcgm_mig': 'DCGM MIG 计算层级',
+    }.entries) {
+      final raw = (sections[entry.key] ?? '').trim();
+      if (raw.isEmpty) continue;
+      final failed =
+          raw.contains('__GPU_PROBE_EXIT_') ||
+          RegExp(
+            r'(^|\n)(Error:|Unable to|Failed to|查询超时|查询失败)|not supported|not found|not configured',
+            caseSensitive: false,
+          ).hasMatch(raw);
+      reports.add(
+        MachineGpuReport(
+          entry.value,
+          [],
+          raw: raw,
+          issue: failed ? failure(raw) : '',
         ),
       );
     }

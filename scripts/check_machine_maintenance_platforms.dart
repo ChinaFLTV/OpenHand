@@ -205,6 +205,11 @@ Future<void> main() async {
     check(output.exitCode == 0, 'Windows 脚本执行检查失败：${output.stderr}');
     final results = (jsonDecode(output.stdout as String) as List)
         .cast<String>();
+    check(
+      MachineMaintenanceSnapshot.parse(results[4]).text('gpu_details').length >
+          120000,
+      'Windows 大 XML 未完整读取',
+    );
     for (var i = 0; i < 7; i++) {
       final data = MachineMaintenanceSnapshot.parse(results[i]);
       check(
@@ -360,15 +365,24 @@ Win32_Service:[item({Name:'带 空格服务',DisplayName:'测试服务',State:'S
 };
 const results=[];
 for(const script of scripts){
-let output=[];
+let output=[];const tempFiles=new Map();
 const context={
 VBArray:function(value){this.toArray=()=>value;},
 Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
 GetObject:()=>({ExecQuery:(q)=>datasets[(q.match(/FROM\s+(\w+)/i)||[])[1]]||[],Get:()=>datasets.Win32_Service[0]}),
-ActiveXObject:function(){this.Environment=()=>()=>"";this.Exec=()=>({Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}});},
+ActiveXObject:function(name){
+  if(name==='Scripting.FileSystemObject'){
+    this.GetSpecialFolder=()=>'/tmp';this.GetTempName=()=>String(tempFiles.size)+'.tmp';this.BuildPath=(a,b)=>a+'/'+b;
+    this.FileExists=p=>tempFiles.has(p);this.DeleteFile=p=>tempFiles.delete(p);
+    this.OpenTextFile=p=>({AtEndOfStream:false,Read(n){const value=tempFiles.get(p)||'';this.AtEndOfStream=value.length<=n;return value.slice(0,n);},Close:()=>{}});
+  }else{
+    this.Environment=()=>()=>"";
+    this.Exec=text=>{const path=(text.match(/>"([^"]+)"/)||[])[1];if(path)tempFiles.set(path,text.includes('nvidia-smi -q -x')?'<nvidia_smi_log><gpu><uuid>GPU-LARGE</uuid><info>'+ 'x'.repeat(130000)+'</info></gpu></nvidia_smi_log>':'');return {Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}};};
+  }
+},
 WScript:{Echo:s=>output.push(String(s)),Quit:n=>{throw Error('脚本异常退出：'+n+' '+output.join('\n'));},Sleep:()=>{}}
 };
-new vm.Script(script).runInNewContext(context,{timeout:2000});results.push(output.join('\n'));
+new vm.Script(script).runInNewContext(context,{timeout:2000});if(tempFiles.size)throw Error('GPU 临时文件未清理');results.push(output.join('\n'));
 }
 process.stdout.write(JSON.stringify(results));
 ''';
@@ -384,8 +398,9 @@ for(const script of scripts){
   function filesystem(){return {
     BuildPath:(a,b)=>a+'\\'+b,GetSpecialFolder:()=> 'C:\\临时目录',GetTempName:()=> '私有采集',CreateFolder:()=>{},
     CreateTextFile:(path,overwrite,unicode)=>{path=normalize(path);let value='';files.set(path,{value,unicode});return {Write:s=>{value+=s;files.set(path,{value,unicode});},WriteLine:s=>{value+=s+'\r\n';files.set(path,{value,unicode});},Close:()=>{}};},
-    OpenTextFile:(path,mode,create,format)=>{const entry=files.get(normalize(path));if(!entry)throw Error('文件不存在：'+path);if(format==-1 && !entry.unicode)throw Error('Unicode 文件编码不匹配');return {ReadAll:()=>entry.value,Close:()=>{}};},
+    OpenTextFile:(path,mode,create,format)=>{const entry=files.get(normalize(path));if(!entry)throw Error('文件不存在：'+path);if(format==-1 && !entry.unicode)throw Error('Unicode 文件编码不匹配');return {AtEndOfStream:!entry.value.length,Read(n){this.AtEndOfStream=entry.value.length<=n;return entry.value.slice(0,n);},ReadAll:()=>entry.value,Close:()=>{}};},
     FileExists:path=>files.has(normalize(path)),
+    DeleteFile:path=>files.delete(normalize(path)),
     GetFolder:dir=>({Files:[...files.keys()].filter(p=>p.startsWith(normalize(dir)+'\\')).map(Path=>({Path}))}),
     DeleteFolder:dir=>{for(const key of files.keys())if(key.startsWith(normalize(dir)+'\\'))files.delete(key);},
   };}
@@ -426,6 +441,8 @@ for(const script of scripts){
     if(command.startsWith('cscript.exe')){
       run(files.get(paths[0]).value,paths[0],paths.slice(1));pending.push(proc);peak=Math.max(peak,pending.length);return proc;
     }
+    const redirected=(command.match(/>"([^"]+)"/)||[])[1];
+    if(redirected)files.set(normalize(redirected),{value:command.includes('nvidia-smi -q -x')?'<nvidia_smi_log><gpu><uuid>GPU-LARGE</uuid><info>'+ 'x'.repeat(130000)+'</info></gpu></nvidia_smi_log>':'',unicode:false});
     proc.Status=1;return proc;
   }
   const output=run(script,'C:\\ops.js');

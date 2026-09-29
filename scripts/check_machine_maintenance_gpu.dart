@@ -2,12 +2,74 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_maintenance_gpu.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_parallel.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
 
 void check(bool condition, String message) {
   if (!condition) throw StateError(message);
 }
 
 void main() {
+  final parallel = parallelMaintenanceCommand(
+    'section platform\nLinux\n$machineGpuLinuxCollection\nsection end\n',
+    8,
+    4,
+  );
+  check(
+    parallel.contains('gpu_probe()') &&
+        RegExp('common\\.sh').allMatches(parallel).length > 10,
+    'GPU 子进程缺少采集超时函数',
+  );
+  final fields = List.generate(1200, (i) => '<metric$i>$i</metric$i>').join();
+  final full =
+      '<nvidia_smi_log><gpu><uuid>GPU-LARGE</uuid><ecc_errors>$fields</ecc_errors></gpu></nvidia_smi_log>';
+  final expanded = MachineGpuReport.parse({'gpu_details': full});
+  check(expanded.single.rows.length == 1201, '大卡详情仍被 700 字段限制截断');
+  final partial = MachineGpuReport.parse({
+    'gpu_details': full.replaceFirst(
+      '</nvidia_smi_log>',
+      '<gpu><uuid>GPU-BROKEN',
+    ),
+  });
+  check(
+    partial.single.rows.length == 1201 && partial.single.issue == 'truncated',
+    '尾部截断丢弃了已完整采集的 GPU',
+  );
+  final many = MachineGpuReport.parse({
+    'gpu_details':
+        '<nvidia_smi_log>${List.generate(8, (i) => '<gpu><uuid>GPU-$i</uuid><ecc_errors>$fields</ecc_errors></gpu>').join()}</nvidia_smi_log>',
+  });
+  check(
+    many.length == 8 && many.every((r) => r.rows.length == 1201),
+    '多卡指标不完整',
+  );
+  final fallback = MachineGpuSnapshot.parse({
+    'gpu_nvidia': '字段不支持',
+    'gpu_details':
+        '<nvidia_smi_log><gpu><uuid>GPU-FALLBACK</uuid><product_name>H100</product_name><fb_memory_usage><used>1024 MiB</used><total>81920 MiB</total></fb_memory_usage><utilization><gpu_util>0 %</gpu_util></utilization></gpu></nvidia_smi_log>',
+  });
+  check(
+    fallback.devices.single.metrics['memoryUsed'] == 1073741824 &&
+        fallback.devices.single.metrics['util'] == 0,
+    'CSV 失败时 XML 未恢复设备及指标',
+  );
+  final dcgm = MachineGpuReport.parse({
+    'gpu_dcgm_metrics': '# Entity SMCLK MEMCLK\nGPU 0 N/A 1000',
+    'gpu_dcgm_health': 'Unable to connect\n__GPU_PROBE_EXIT_1__',
+    'gpu_topology': 'GPU0 GPU1 CPU Affinity\nGPU0 X NV4 0-31',
+  });
+  check(dcgm.length == 3 && dcgm.last.raw.contains('N/A'), 'DCGM 原始单位或不可用状态丢失');
+  check(
+    dcgm.firstWhere((r) => r.title.contains('健康')).issue.isNotEmpty,
+    'DCGM 连接失败未提示',
+  );
+  final windowsScript = MachineMaintenancePlatformAdapter.forPlatform(
+    'Windows',
+  ).collect(4, workers: 8);
+  check(
+    windowsScript.contains('4000000') && windowsScript.contains('gpuCommand'),
+    'Windows 大输出仍使用小管道限制',
+  );
   final reports = MachineGpuReport.parse({
     'gpu_details':
         '<nvidia_smi_log><driver_version>580</driver_version><cuda_version>13.0</cuda_version><attached_gpus>1</attached_gpus><gpu id="0000:01:00.0"><uuid>GPU-A</uuid><gpu_fabric_info><state>Completed</state><status>Success</status></gpu_fabric_info><ecc_errors><volatile><single_bit><total>0</total></single_bit></volatile></ecc_errors><processes><process_info><pid>42</pid><type>C</type><used_memory>100 MiB</used_memory></process_info><process_info><pid>43</pid><type>G</type></process_info></processes></gpu></nvidia_smi_log>',

@@ -1999,7 +1999,12 @@ void main() {
     final service = _MaintenanceFixture();
     service.gpuOutput = ['__OH_OPS_platform__', 'Linux', '__OH_OPS_host__', 'GPU主机',
       '__OH_OPS_gpu_stack__', 'CUDA Toolkit\\tversion\\t12.8', 'cuDNN\\tversion\\t9.8',
-      '__OH_OPS_gpu_fabric__', 'LoadState=not-found', '__OH_OPS_end__'].join('\\n');
+      '__OH_OPS_gpu_fabric__', 'LoadState=not-found',
+      '__OH_OPS_gpu_details__', '<nvidia_smi_log><gpu id="GPU-X"><ecc_errors>' +
+        List.generate(30, (i) => '<metric_\${i}>\${700 + i}</metric_\${i}>').join() +
+        '</ecc_errors><temperature><gpu_temp>42 C</gpu_temp></temperature></gpu></nvidia_smi_log>',
+      '__OH_OPS_gpu_dcgm_metrics__', '# GPU SMCLK MEMCLK\\n0 1500 N/A',
+      '__OH_OPS_end__'].join('\\n');
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
       child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -2013,6 +2018,22 @@ void main() {
     await tester.tap(find.text('CUDA Toolkit'));
     await tester.pumpAndSettle();
     expect(find.text('12.8'), findsOneWidget);
+    await tester.ensureVisible(find.text('DCGM 单次遥测'));
+    await tester.tap(find.text('DCGM 单次遥测'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandConsoleText), findsOneWidget);
+    expect(find.byType(SelectableText), findsWidgets);
+    await tester.ensureVisible(find.text('GPU-X'));
+    await tester.tap(find.text('GPU-X'));
+    await tester.pumpAndSettle();
+    final eccGroup = find.byKey(const ValueKey('gpu-GPU-X-ecc_errors'));
+    expect(eccGroup, findsOneWidget);
+    expect(find.text('729'), findsNothing);
+    await tester.ensureVisible(eccGroup);
+    await tester.tap(find.descendant(of: eccGroup, matching: find.byType(ListTile)).first);
+    await tester.pumpAndSettle();
+    expect(find.text('729'), findsOneWidget);
+
     expect(find.byType(_MaintenanceFields), findsWidgets);
     expect(find.byType(_MaintenanceTable), findsNothing);
     expect(find.byType(OpenHandTablePagination), findsNothing);

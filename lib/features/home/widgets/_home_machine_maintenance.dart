@@ -1733,7 +1733,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ),
                       subtitle: Text(
                         report.issue.isEmpty
-                            ? '${report.rows.length} · ${l10n.maintenanceGpuFields}'
+                            ? (report.raw.isNotEmpty
+                                  ? '只读采样 · 可选择复制'
+                                  : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
                             : switch (report.issue) {
                                 'permission' || 'missing' || 'format' =>
                                   maintenanceHealthLabel(context, report.issue),
@@ -1743,15 +1745,46 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                               },
                       ),
                       children: [
+                        if (report.raw.isNotEmpty)
+                          OpenHandConsoleText(
+                            title: report.title,
+                            text: report.raw,
+                            maxHeight: 420,
+                          ),
                         if (report.rows.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                            child: _MaintenanceFields(
-                              rows: [
-                                for (final row in report.rows)
-                                  [fieldLabel(row[0]), row[1]],
-                              ],
-                            ),
+                            child:
+                                report.rows.length > 24 &&
+                                    report.groups.length > 1
+                                ? Column(
+                                    children: [
+                                      for (final group in report.groups.entries)
+                                        ExpansionTile(
+                                          key: ValueKey(
+                                            'gpu-${report.title}-${group.key}',
+                                          ),
+                                          title: Text(fieldLabel(group.key)),
+                                          subtitle: Text(
+                                            '${group.value.length} · ${l10n.maintenanceGpuFields}',
+                                          ),
+                                          children: [
+                                            _MaintenanceFields(
+                                              rows: [
+                                                for (final row in group.value)
+                                                  [fieldLabel(row[0]), row[1]],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  )
+                                : _MaintenanceFields(
+                                    rows: [
+                                      for (final row in report.rows)
+                                        [fieldLabel(row[0]), row[1]],
+                                    ],
+                                  ),
                           ),
                       ],
                     ),

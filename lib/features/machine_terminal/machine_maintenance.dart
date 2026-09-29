@@ -552,7 +552,9 @@ class _SysVMaintenanceAdapter extends MachineMaintenanceServiceAdapter {
 
 final machineMaintenanceGpuCommand =
     _linuxPrelude +
-    machineGpuLinuxCollection.replaceAll('__GPU_QUERY__', machineGpuQuery);
+    machineGpuLinuxCollection
+        .replaceAll('__GPU_QUERY__', machineGpuQuery)
+        .replaceAll('__GPU_DETAIL_LIMIT__', '$machineGpuDetailOutputLimit');
 
 const machineMaintenanceLogsCommand =
     _linuxPrelude + machineLogsLinuxCollection;
