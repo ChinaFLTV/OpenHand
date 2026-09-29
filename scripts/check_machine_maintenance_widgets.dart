@@ -81,7 +81,17 @@ __OH_OPS_boot__
 __OH_OPS_system__
 PRETTY_NAME="测试 Linux"
 __OH_OPS_processor__
-测试处理器
+8 核处理器 · 测试数据
+__OH_OPS_core_count__
+8
+__OH_OPS_filesystems__
+Filesystem 1K-blocks Used Available Use% Mounted
+/dev/sda1 524288000 235929600 288358400 45% /
+/dev/sdb1 1048576000 387973120 660602880 37% /data
+__OH_OPS_disks__
+sda 100 0 2048 30 80 0 4096 40 0 70 80
+__OH_OPS_network__
+eth0: 1048576 100 0 0 0 0 0 0 524288 80 0 0 0 0 0 0
 __OH_OPS_uptime__
 1000 0
 __OH_OPS_load__
@@ -142,12 +152,14 @@ void main() {
               child: const Scaffold(body: RepaintBoundary(key: ValueKey('运维预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))))));
         await tester.pumpAndSettle();
         for (final label in ['进程管理', '系统服务', '网络与诊断', '运行总览']) {
+          await tester.ensureVisible(find.text(label));
           await tester.tap(find.text(label));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           if (label == '进程管理') {
             expect(find.text('测试进程'), findsOneWidget);
-            await tester.tap(find.text('测试进程'));
+            await tester.ensureVisible(find.text('测试进程'));
+      await tester.tap(find.text('测试进程'));
             await tester.pumpAndSettle();
             expect(find.text('进程 42 · 测试进程'), findsOneWidget);
             expect(find.text('终止进程'), findsOneWidget);
@@ -180,6 +192,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('进程管理'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('测试进程'));
       await tester.tap(find.text('测试进程'));
       await tester.pumpAndSettle();
       expect(find.text('终止进程'), findsOneWidget);
@@ -194,6 +207,28 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('首次失败保留摘要结构并支持重新采集', (tester) async {
+    final service = _MaintenanceFixture()..fail = true;
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    expect(find.text('机器状态暂不可用'), findsOneWidget);
+    expect(find.text('重新采集'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+    service.fail = false;
+    await tester.ensureVisible(find.text('重新采集'));
+    await tester.tap(find.text('重新采集'));
+    await tester.pumpAndSettle();
+    expect(service.calls, 2);
+    expect(find.text('CPU 使用率'), findsOneWidget);
+    expect(find.text('重新采集'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
 
