@@ -72,7 +72,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _closing = false;
   String? _error;
   String? _shellLabel;
-  int _tab = 0, _sort = 0, _processOffset = 0;
+  int _tab = 0, _sort = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
   int _workers = machineMaintenanceDefaultWorkers;
   Object? _bodyIdentity;
@@ -151,7 +151,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _snapshots.clear();
         _previous.clear();
         _cpuHistory.clear();
-        _processOffset = 0;
       }
       if (_shellLabel == null || _platformName != target.platform) {
         _shellLabel = parseMachineTerminalShellDetails(
@@ -171,9 +170,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ? target.shell
           : _requestedShell;
       final result = MachineMaintenanceSnapshot.parse(
-        await _run(
-          _platform!.collect(tab, offset: _processOffset, workers: _workers),
-        ),
+        await _run(_platform!.collect(tab, workers: _workers)),
         previous: _snapshots[tab],
       );
       if (!mounted || _closing) return;
@@ -591,7 +588,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       data,
       _sort,
       _search.text,
-      _processOffset,
       _automatic,
       _intervalSeconds,
       theme,
@@ -1391,40 +1387,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ],
     );
-    final countLine = data
-        .text('processes')
-        .split('\n')
-        .where((line) => line.startsWith('__COUNT__'))
-        .firstOrNull;
-    final total =
-        int.tryParse(countLine?.split('\t').last ?? '') ??
-        data.processes.length;
-    final summary = ValueListenableBuilder<bool>(
-      valueListenable: _collecting,
-      builder: (context, collecting, _) => _MaintenanceToolbarMenu<int>(
-        label: '${rows.length} / $total',
-        tooltip: AppLocalizations.of(
-          context,
-        )!.maintenanceMatched('${rows.length}', '$total'),
-        icon: Icons.filter_list_rounded,
-        value: _processOffset,
-        enabled: !collecting && total > machineMaintenanceProcessLimit,
-        items: {
-          for (
-            var offset = 0;
-            offset < total;
-            offset += machineMaintenanceProcessLimit
-          )
-            offset:
-                '${offset + 1}–${math.min(offset + machineMaintenanceProcessLimit, total)} / $total',
-        },
-        onSelected: (offset) {
-          if (_loading || offset == _processOffset) return;
-          setState(() => _processOffset = offset);
-          _refresh();
-        },
-      ),
-    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Column(
@@ -1435,54 +1397,38 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             padding: const EdgeInsets.only(bottom: 10),
             child: LayoutBuilder(
               builder: (_, constraints) {
-                final filters = Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      child: TextField(
-                        controller: _search,
-                        style: const TextStyle(fontSize: 13, height: 1.2),
-                        textAlignVertical: TextAlignVertical.center,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            size: 18,
-                          ),
-                        ),
-                      ),
+                final search = SizedBox(
+                  width: math.min(240, constraints.maxWidth),
+                  child: TextField(
+                    controller: _search,
+                    style: const TextStyle(fontSize: 13, height: 1.2),
+                    textAlignVertical: TextAlignVertical.center,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: maintenanceLabel(context, '搜索 PID 或进程名'),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
                     ),
-                    _MaintenanceToolbarMenu<int>(
-                      label: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
-                      tooltip: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
-                      value: _sort,
-                      items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
-                      onSelected: (value) => setState(() => _sort = value),
-                    ),
-                  ],
+                  ),
+                );
+                final sort = _MaintenanceToolbarMenu<int>(
+                  label: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                  tooltip: const ['CPU 降序', '内存降序', 'PID 升序'][_sort],
+                  value: _sort,
+                  items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
+                  onSelected: (value) => setState(() => _sort = value),
                 );
                 if (constraints.maxWidth <
-                    720 * MediaQuery.textScalerOf(context).scale(12) / 12) {
+                    420 * MediaQuery.textScalerOf(context).scale(12) / 12) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      filters,
-                      const SizedBox(height: 8),
-                      Align(alignment: Alignment.centerRight, child: summary),
+                      Align(alignment: Alignment.centerLeft, child: search),
+                      const SizedBox(height: 10),
+                      Align(alignment: Alignment.centerRight, child: sort),
                     ],
                   );
                 }
-                return Row(
-                  children: [
-                    Expanded(child: filters),
-                    const SizedBox(width: 12),
-                    summary,
-                  ],
-                );
+                return Row(children: [search, const Spacer(), sort]);
               },
             ),
           ),
@@ -1495,7 +1441,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     charts,
                     const SizedBox(height: 12),
                     _MaintenanceTable(
-                      key: ValueKey((_search.text, _sort, _processOffset)),
+                      key: ValueKey((_search.text, _sort)),
                       limitToViewport: false,
                       maxBodyHeight: math.max(
                         100,

@@ -898,7 +898,7 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('进程表使用剩余高度，数量摘要靠右且保留范围切换', (tester) async {
+  testWidgets('进程表使用剩余高度，移除数量卡片并将排序靠右', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
     final service = _MaintenanceFixture();
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
@@ -926,12 +926,13 @@ void main() {
     final search = find.byType(TextField).first;
     final controlHeight = tester.getSize(find.byType(_MachineTerminalIconButton).first).height;
     expect(tester.getSize(search).height, controlHeight);
-    expect(tester.getSize(summary).height, controlHeight);
+    expect(summary, findsNothing);
     final sortMenu = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.label == 'CPU 降序');
     expect(tester.getSize(sortMenu).height, controlHeight);
     expect(tester.widget<OpenHandOperationalRankTable>(find.byType(OpenHandOperationalRankTable).first).compact, isTrue);
     expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination).first).controlHeight, controlHeight);
-    expect(tester.getRect(summary).left, greaterThan(tester.getRect(search).right));
+    expect(tester.getRect(sortMenu).left, greaterThan(tester.getRect(search).right));
+    expect(tester.getRect(sortMenu).right, closeTo(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).right, 1));
     for (final tab in ['运行总览', '系统服务', '网络与诊断']) {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
