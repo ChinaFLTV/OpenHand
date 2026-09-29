@@ -26,6 +26,7 @@ import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
 import 'machine_terminal_command_protocol.dart';
+import 'machine_terminal_screen.dart';
 
 const String kMachineExpertTemplateId = 'machine_expert';
 const String kMachineTerminalMetadataKey = 'machine_terminal';
@@ -1716,8 +1717,7 @@ class MachineTerminalSession {
     terminal
       ..resize(_defaultColumns, _defaultRows)
       ..onOutput = writeInput
-      ..onResize = _handleResize
-      ..write(_welcomeBanner());
+      ..onResize = _handleResize;
   }
 
   final String id;
@@ -1748,7 +1748,6 @@ class MachineTerminalSession {
   );
   final BoundedTextBuffer _historyOutput = BoundedTextBuffer(
     maxCharacters: _maxRetainedHistoryCharacters,
-    initialValue: _welcomeBanner(),
   );
   final List<MachineTerminalCommandRecord> _commandHistory =
       <MachineTerminalCommandRecord>[];
@@ -1818,7 +1817,7 @@ class MachineTerminalSession {
     _output.replace('${raw['ansi_output'] ?? raw['output'] ?? ''}');
     final history =
         '${raw['history_ansi_output'] ?? raw['history_output'] ?? _output.text}';
-    _historyOutput.replace(history.trim().isEmpty ? _welcomeBanner() : history);
+    _historyOutput.replace(history);
     _commandHistory
       ..clear()
       ..addAll(
@@ -2158,14 +2157,23 @@ class MachineTerminalSession {
 
   Future<void> restart() async {
     await stop(force: true);
-    clear();
+    clear(preserveInput: false);
     await start();
   }
 
-  void clear() {
-    _output.clear();
-    _appendHistory('\r\n[OpenHand 终端已清空]\r\n${_welcomeBanner()}');
-    terminal.write('\x1b[2J\x1b[H${_welcomeBanner()}');
+  void clear({bool preserveInput = true}) {
+    final snapshot = clearMachineTerminalScreen(
+      terminal,
+      preserveInput: preserveInput,
+    );
+    if (snapshot.isNotEmpty) {
+      if (_commandExecution == null) {
+        _output.replace(snapshot);
+      } else {
+        _output.append(snapshot);
+      }
+      _appendHistory(snapshot);
+    }
     _touch();
   }
 
@@ -3086,8 +3094,6 @@ TerminalTargetPlatform _terminalTargetPlatform() {
   if (Platform.isIOS) return TerminalTargetPlatform.ios;
   return TerminalTargetPlatform.unknown;
 }
-
-String _welcomeBanner() => '\x1b[38;5;108mOpenHand 机器终端\x1b[0m\r\n';
 
 String _uploadCommandPayload({
   required String beginMarker,
