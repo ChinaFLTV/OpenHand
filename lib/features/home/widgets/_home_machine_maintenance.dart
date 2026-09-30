@@ -2562,51 +2562,44 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           },
         ),
         const SizedBox(height: 12),
-        _MaintenanceCard(
-          title: maintenanceLabel(
+        _MaintenanceBrowser(
+          title: AppLocalizations.of(
             context,
-            AppLocalizations.of(
-              context,
-            )!.maintenanceServiceCount('${filtered.length}'),
-          ),
-          icon: Icons.view_list_outlined,
-          maxHeight: 420,
-          child: _MaintenanceBrowser(
-            query: _search.text,
-            parents: parents,
-            groupNames: manager == 'launchd',
-            table: _MaintenanceTable(
-              maxBodyHeight: 360,
-              headers: serviceHeaders,
-              rows: [
-                for (final line in rows)
-                  OpenHandOperationalRankRow(
-                    value: 0,
-                    rowKey: line.contains('\t')
-                        ? line.split('\t').first
-                        : line.trim().split(RegExp(r'\s+')).first,
-                    data: line,
-                    cells: serviceCells(
-                      line,
-                      maintenanceLabel(context, state(line)),
-                    ),
-                    cellWidgets: [
-                      null,
-                      _MaintenanceStatus(
-                        label: state(line),
-                        color: _maintenanceStateColor(cs, state(line)),
-                      ),
-                    ],
+          )!.maintenanceServiceCount('${filtered.length}'),
+          query: _search.text,
+          parents: parents,
+          groupNames: manager == 'launchd',
+          table: _MaintenanceTable(
+            maxBodyHeight: 360,
+            headers: serviceHeaders,
+            rows: [
+              for (final line in rows)
+                OpenHandOperationalRankRow(
+                  value: 0,
+                  rowKey: line.contains('\t')
+                      ? line.split('\t').first
+                      : line.trim().split(RegExp(r'\s+')).first,
+                  data: line,
+                  cells: serviceCells(
+                    line,
+                    maintenanceLabel(context, state(line)),
                   ),
-              ],
-              onRowTap: openService,
-              rowActions: (row) => {
-                if (adapter?.accepts(row.cells.first) ?? false)
-                  for (final action in adapter!.actions.keys)
-                    maintenanceLabel(context, action): () =>
-                        openService(row, action: action),
-              },
-            ),
+                  cellWidgets: [
+                    null,
+                    _MaintenanceStatus(
+                      label: state(line),
+                      color: _maintenanceStateColor(cs, state(line)),
+                    ),
+                  ],
+                ),
+            ],
+            onRowTap: openService,
+            rowActions: (row) => {
+              if (adapter?.accepts(row.cells.first) ?? false)
+                for (final action in adapter!.actions.keys)
+                  maintenanceLabel(context, action): () =>
+                      openService(row, action: action),
+            },
           ),
         ),
         const SizedBox(height: 12),
@@ -3448,6 +3441,7 @@ class _MaintenanceBrowser extends StatefulWidget {
     this.nameColumn = 0,
     this.groupNames = false,
     this.toolbarBuilder,
+    this.title,
   });
   final _MaintenanceTable table;
   final Map<String, List<String>> parents;
@@ -3455,6 +3449,7 @@ class _MaintenanceBrowser extends StatefulWidget {
   final int nameColumn;
   final bool groupNames;
   final Widget Function(Widget viewToggle)? toolbarBuilder;
+  final String? title;
 
   @override
   State<_MaintenanceBrowser> createState() => _MaintenanceBrowserState();
@@ -3851,6 +3846,33 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
             setState(() => _tree = selection.first),
       ),
     );
+    final content = AnimatedSize(
+      duration: openHandMotionDuration(context, motion.duration),
+      curve: motion.curve.curve,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, motion.duration),
+        switchInCurve: motion.curve.curve,
+        switchOutCurve: Curves.easeOut,
+        child: _tree
+            ? ClipRRect(
+                key: const ValueKey(true),
+                borderRadius: BorderRadius.circular(12),
+                child: Material(color: cs.surface, child: tree),
+              )
+            : table,
+      ),
+    );
+    if (widget.title != null) {
+      return _MaintenanceCard(
+        title: widget.title!,
+        icon: Icons.view_list_outlined,
+        trailing: viewToggle,
+        wrapHeader: true,
+        scrollBody: false,
+        child: content,
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3864,23 +3886,7 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                 child: viewToggle,
               ),
         ),
-        AnimatedSize(
-          duration: openHandMotionDuration(context, motion.duration),
-          curve: motion.curve.curve,
-          alignment: Alignment.topCenter,
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, motion.duration),
-            switchInCurve: motion.curve.curve,
-            switchOutCurve: Curves.easeOut,
-            child: _tree
-                ? ClipRRect(
-                    key: const ValueKey(true),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Material(color: cs.surface, child: tree),
-                  )
-                : table,
-          ),
-        ),
+        content,
       ],
     );
   }
@@ -5300,6 +5306,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.scrollBody = true,
     this.contentPadding = const EdgeInsets.all(14),
     this.trailing,
+    this.wrapHeader = false,
     this.accent,
   });
   final String title;
@@ -5310,6 +5317,7 @@ class _MaintenanceCard extends StatelessWidget {
   final bool scrollBody;
   final EdgeInsetsGeometry contentPadding;
   final Widget? trailing;
+  final bool wrapHeader;
   final Color? accent;
 
   double preferredWidth(BuildContext context) {
@@ -5381,6 +5389,24 @@ class _MaintenanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tone = accent ?? cs.primary;
+    final heading = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _MaintenanceIconBadge(icon: icon, color: tone, size: 32, iconSize: 16),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Text(
+            maintenanceLabel(context, title),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
     final card = Container(
       clipBehavior: Clip.antiAlias,
       padding: const EdgeInsets.all(1),
@@ -5400,34 +5426,31 @@ class _MaintenanceCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
             child: Row(
               children: [
-                _MaintenanceIconBadge(
-                  icon: icon,
-                  color: tone,
-                  size: 32,
-                  iconSize: 16,
-                ),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    maintenanceLabel(context, title),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
+                  child: wrapHeader
+                      ? OverflowBar(
+                          alignment: MainAxisAlignment.spaceBetween,
+                          overflowAlignment: OverflowBarAlignment.end,
+                          spacing: 12,
+                          overflowSpacing: 10,
+                          children: [heading, if (trailing != null) trailing!],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: heading),
+                            if (trailing != null) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  heightFactor: 1,
+                                  child: trailing!,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      heightFactor: 1,
-                      child: trailing!,
-                    ),
-                  ),
-                ],
                 if (onOpen != null)
                   Tooltip(
                     message: maintenanceLabel(context, '查看详情'),

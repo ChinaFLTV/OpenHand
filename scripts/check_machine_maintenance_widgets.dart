@@ -2513,6 +2513,15 @@ void main() {
         expect(services.rows.first.cells.skip(6).take(6).toList(), ['42', '1 MB', '2.00 s', '3', '0', '0']);
         expect(tester.getSize(find.byType(TextField).first).height, controlHeight);
         expect(tester.getSize(find.byType(TextField).first).width, _maintenanceSearchWidth);
+        final serviceModes = find.byType(SegmentedButton<bool>);
+        final serviceCard = find.ancestor(of: serviceModes, matching: find.byType(_MaintenanceCard));
+        expect(tester.getRect(serviceModes).right, closeTo(tester.getRect(serviceCard).right - 11, .01));
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/service-header-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
         for (final label in ['开机启动状态', '系统定时器']) {
           final button = find.widgetWithText(OutlinedButton, label);
           if (button.evaluate().isNotEmpty) expect(tester.getSize(button).height, controlHeight);
@@ -2757,13 +2766,15 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('服务名称分组适配六种语言窄窗口，节点可展开且保留完整名称', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(380, 700));
+  testWidgets('服务视图切换位于标题行右端，六种语言窄屏可用且保留展开状态', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 700));
     for (final locale in [const Locale('zh'), const Locale('zh', 'Hant'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja')]) {
+      await tester.binding.setSurfaceSize(const Size(900, 700));
       await tester.pumpWidget(MaterialApp(
         locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: _MaintenanceBrowser(query: '', parents: const {}, groupNames: true,
+        theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+        home: Scaffold(body: _MaintenanceBrowser(title: '服务列表', query: '', parents: const {}, groupNames: true,
           table: _MaintenanceTable(headers: const ['名称', '状态', 'PID'], rows: [
             OpenHandOperationalRankRow(value: 0, cells: ['com.apple.test', 'running', '123']),
             OpenHandOperationalRankRow(value: 0, cells: ['com.apple.worker', 'stopped', '—']),
@@ -2772,8 +2783,11 @@ void main() {
       final context = tester.element(find.byType(_MaintenanceBrowser));
       final l10n = AppLocalizations.of(context)!;
       final modes = find.byType(SegmentedButton<bool>);
-      expect(tester.getTopLeft(modes).dx, 0);
-      expect(tester.getSize(modes).height, greaterThanOrEqualTo(34));
+      final card = find.byType(_MaintenanceCard);
+      final title = find.text(maintenanceLabel(context, '服务列表'));
+      expect(tester.getRect(modes).right, closeTo(tester.getRect(card).right - 11, .01));
+      expect(tester.getCenter(modes).dy, closeTo(tester.getCenter(title).dy, .01));
+      expect(tester.getSize(modes).height, _maintenanceControlHeight);
       expect(maintenanceDetailLabel(context, 'Label'), l10n.maintenanceName);
       expect(maintenanceLabel(context, 'Label'), l10n.maintenanceName);
       expect(maintenanceDetailLabel(context, 'WorkingDirectory'), l10n.cronsWorkingDirectory);
@@ -2784,6 +2798,12 @@ void main() {
       expect(find.text('com.apple.test'), findsOneWidget);
       await tester.tap(find.byTooltip(l10n.maintenanceTreeCollapse));
       await tester.pumpAndSettle();
+      expect(find.text('com.apple.test'), findsNothing);
+      await tester.binding.setSurfaceSize(const Size(380, 700));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(modes).right, closeTo(tester.getRect(card).right - 11, .01));
+      expect(tester.getRect(modes).overlaps(tester.getRect(title)), isFalse);
+      expect(tester.widget<SegmentedButton<bool>>(modes).selected, {true});
       expect(find.text('com.apple.test'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
