@@ -38,6 +38,9 @@ const _maintenanceSectionLabels = {
   'startup': '开机启动状态',
   'timers': '系统定时器',
   'sockets': '连接与监听端口',
+  'listeners': '监听端口',
+  'proxy': '系统网络代理',
+  'firewall_status': '防火墙状态',
   'routes': '地址与路由',
   'addresses': '网卡地址与链路统计',
   'policy_routes': '策略路由 · IPv4 / IPv6',
@@ -1009,7 +1012,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     );
   }
 
-  Future<void> _showCollected(String title, String text) async {
+  Future<void> _showCollected(
+    String title,
+    String text, {
+    MachineMaintenanceReadout? report,
+  }) async {
     _detailOpen = true;
     _timer?.cancel();
     await showAnimatedDialog<void>(
@@ -1042,6 +1049,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   child: SingleChildScrollView(
                     child: _MaintenanceReadout(
                       text: text,
+                      report: report,
                       section:
                           _maintenanceSectionLabels.entries
                               .where((entry) => entry.value == title)
@@ -1610,8 +1618,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String section,
     List<String> headings,
     List<int> indexes,
-    List<int> multipliers,
-  ) {
+    List<int> multipliers, {
+    int previousTab = 0,
+  }) {
     final keys = data.counters(section, colon: section == 'network').keys;
     if (keys.isEmpty) return Text(maintenanceLabel(context, '当前环境未提供可用计数器。'));
     final cs = Theme.of(context).colorScheme;
@@ -1619,7 +1628,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     for (final key in keys) {
       for (var i = 0; i < 2; i++) {
         final value = data.rate(
-          _previous[0],
+          _previous[previousTab],
           section,
           key,
           indexes[i],
@@ -1662,7 +1671,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   for (var i = 0; i < indexes.length; i++)
                     _maintenanceRateLabel(
                       data.rate(
-                        _previous[0],
+                        _previous[previousTab],
                         section,
                         key,
                         indexes[i],
@@ -2787,6 +2796,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   Widget _sections(MachineMaintenanceSnapshot data, List<String> names) {
     final cs = Theme.of(context).colorScheme;
     final connections = _maintenanceConnections(data);
+    final listeners = MachineMaintenanceReadout.parse(
+      data.text('listeners'),
+      'listeners',
+    );
+    final adapters = MachineMaintenanceReadout.parse(
+      data.text('addresses'),
+      'addresses',
+    );
     final states = <String, int>{};
     for (final row in connections) {
       final label = maintenanceLabel(context, row[3]);
@@ -2872,6 +2889,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final diagnosticNames = names.where(
       (name) =>
           name != 'sockets' &&
+          name != 'listeners' &&
+          name != 'proxy' &&
+          name != 'network' &&
+          name != 'addresses' &&
+          name != 'network_stats' &&
+          name != 'firewall_status' &&
           name != 'dns' &&
           name != 'routes' &&
           name != 'firewall' &&
@@ -2922,6 +2945,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               '${connections.length}',
               '',
               Icons.hub_outlined,
+              OpenHandStatusColors.info,
+              null,
+            ),
+            _metric(
+              '监听端口',
+              listeners.issue == null ? '${listeners.rows.length}' : '—',
+              '',
+              Icons.settings_input_antenna_rounded,
+              OpenHandStatusColors.success,
+              null,
+            ),
+            _metric(
+              '网卡',
+              adapters.issue == null ? '${adapters.groups.length}' : '—',
+              '',
+              Icons.settings_ethernet_rounded,
               OpenHandStatusColors.info,
               null,
             ),
@@ -2978,6 +3017,132 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         primary,
         const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceGrid(
+          minWidth: 380,
+          maxColumns: 2,
+          children: [
+            _MaintenanceCard(
+              title: maintenanceLabel(context, '监听端口'),
+              icon: Icons.settings_input_antenna_rounded,
+              scrollBody: false,
+              onOpen: () => _showCollected('监听端口', data.text('listeners')),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MaintenanceReadout(report: listeners, section: 'listeners'),
+                  const SizedBox(height: 8),
+                  Text(
+                    maintenanceLabel(
+                      context,
+                      'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。',
+                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            _MaintenanceCard(
+              title: maintenanceLabel(context, '网卡地址与链路统计'),
+              icon: Icons.settings_ethernet_rounded,
+              scrollBody: false,
+              onOpen: () => _showCollected('网卡地址与链路统计', data.text('addresses')),
+              child: adapters.groups.isEmpty
+                  ? _MaintenanceReadout(report: adapters, section: 'addresses')
+                  : _MaintenanceTable(
+                      headers: const ['网卡', '状态', 'MAC 地址', '地址'],
+                      maxBodyHeight: 360,
+                      rows: [
+                        for (final entry in adapters.groups.entries)
+                          OpenHandOperationalRankRow(
+                            rowKey: entry.key,
+                            value: 0,
+                            cells: [
+                              entry.key,
+                              maintenanceDetailValue(
+                                context,
+                                entry.value.rows
+                                        .where(
+                                          (row) =>
+                                              row[0] == '状态' ||
+                                              row[0] == '链路状态',
+                                        )
+                                        .map((row) => row[1])
+                                        .lastOrNull ??
+                                    '—',
+                              ),
+                              entry.value.rows
+                                      .where((row) => row[0] == 'MAC 地址')
+                                      .map((row) => row[1])
+                                      .firstOrNull ??
+                                  '—',
+                              entry.value.rows
+                                  .where(
+                                    (row) => const [
+                                      '地址',
+                                      'IPv4 地址',
+                                      'IPv6 地址',
+                                    ].contains(row[0]),
+                                  )
+                                  .map((row) => row[1])
+                                  .join(' · '),
+                            ],
+                          ),
+                      ],
+                      onRowTap: (row) => _showCollected(
+                        '网卡详情',
+                        data.text('addresses'),
+                        report: adapters.groups[row.rowKey],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceCard(
+          title: maintenanceLabel(context, '网络吞吐'),
+          icon: Icons.speed_rounded,
+          scrollBody: false,
+          child: _rateTable(
+            data,
+            'network',
+            const [
+              '网卡',
+              '接收 / 秒',
+              '发送 / 秒',
+              '接收包 / 秒',
+              '发送包 / 秒',
+              '接收错误 / 秒',
+              '发送错误 / 秒',
+              '接收丢包 / 秒',
+              '发送丢包 / 秒',
+            ],
+            const [0, 8, 1, 9, 2, 10, 3, 11],
+            const [1, 1, 1, 1, 1, 1, 1, 1],
+            previousTab: 3,
+          ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceCard(
+          title: maintenanceLabel(context, '系统网络代理'),
+          icon: Icons.lan_outlined,
+          scrollBody: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MaintenanceReadout(text: data.text('proxy'), section: 'proxy'),
+              const SizedBox(height: 8),
+              Text(
+                maintenanceLabel(context, '代理设置按来源显示；终端环境变量不代表系统全局代理。'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
         _MaintenanceEgressCard(
           report: _egress,
           busy: _egressBusy,
@@ -3028,6 +3193,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final name in const [
+                'firewall_status',
                 'firewall',
                 'firewall_ipvfour',
                 'firewall_ipvsix',
@@ -3048,6 +3214,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
             ],
+          ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceCard(
+          title: maintenanceLabel(context, '网络协议与错误统计'),
+          icon: Icons.monitor_heart_outlined,
+          scrollBody: false,
+          child: _MaintenanceReadout(
+            text: data.text('network_stats'),
+            section: 'network_stats',
           ),
         ),
         const SizedBox(height: _maintenanceGridGap),

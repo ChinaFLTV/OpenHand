@@ -13904,4 +13904,145 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceContainerStartupProbe => '起動プローブ';
+
+  @override
+  String get maintenanceNetworkApplicationFirewall => 'アプリケーションファイアウォール';
+
+  @override
+  String get maintenanceNetworkListeners => '待受ポート';
+
+  @override
+  String get maintenanceNetworkAdapters => 'ネットワークアダプター';
+
+  @override
+  String get maintenanceNetworkProxySettings => 'システムネットワークプロキシ';
+
+  @override
+  String get maintenanceNetworkFirewallStatus => 'ファイアウォールの状態';
+
+  @override
+  String get maintenanceNetworkProtocolStats => 'プロトコルとエラーの統計';
+
+  @override
+  String get maintenanceNetworkFirewallNat => 'ファイアウォールと NAT';
+
+  @override
+  String get maintenanceNetworkProxyNote =>
+      'プロキシ設定は取得元ごとに表示します。端末の環境変数はシステム全体の設定ではありません。';
+
+  @override
+  String get maintenanceNetworkTerminalEnvironment => '端末環境';
+
+  @override
+  String get maintenanceNetworkDesktopProxy => 'デスクトッププロキシ';
+
+  @override
+  String get maintenanceNetworkSystemSettings => 'システム設定';
+
+  @override
+  String get maintenanceNetworkCurrentUser => '現在のユーザー';
+
+  @override
+  String get maintenanceNetworkProxyMode => 'プロキシモード';
+
+  @override
+  String get maintenanceNetworkProxyState => 'プロキシの状態';
+
+  @override
+  String get maintenanceNetworkProxyServer => 'プロキシサーバー';
+
+  @override
+  String get maintenanceNetworkProxyBypass => 'プロキシを使用しない';
+
+  @override
+  String get maintenanceNetworkAutoDiscovery => '自動検出';
+
+  @override
+  String get maintenanceNetworkDirect => '直接接続';
+
+  @override
+  String get maintenanceNetworkManual => '手動設定';
+
+  @override
+  String get maintenanceNetworkAutomatic => '自動設定';
+
+  @override
+  String get maintenanceNetworkNoProxy => 'この範囲にプロキシ設定はありません';
+
+  @override
+  String get maintenanceNetworkReceivePackets => '受信パケット / 秒';
+
+  @override
+  String get maintenanceNetworkSendPackets => '送信パケット / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveErrors => '受信エラー / 秒';
+
+  @override
+  String get maintenanceNetworkSendErrors => '送信エラー / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveDrops => '受信ドロップ / 秒';
+
+  @override
+  String get maintenanceNetworkSendDrops => '送信ドロップ / 秒';
+
+  @override
+  String get maintenanceNetworkMacAddress => 'MAC アドレス';
+
+  @override
+  String get maintenanceNetworkProxyUnavailable =>
+      'デスクトップのプロキシ設定を取得できません。端末の環境変数はシステム全体の設定ではありません。';
+
+  @override
+  String get maintenanceNetworkProxyAddress => 'プロキシアドレス';
+
+  @override
+  String get maintenanceNetworkProxyPort => 'プロキシポート';
+
+  @override
+  String get maintenanceNetworkPacAddress => 'PAC URL';
+
+  @override
+  String get maintenanceNetworkPacState => 'PAC の状態';
+
+  @override
+  String get maintenanceNetworkProxyLocalBypass => 'ローカルホスト名を除外';
+
+  @override
+  String get maintenanceNetworkProxyAuthentication => 'プロキシ認証';
+
+  @override
+  String get maintenanceNetworkProxyShared => '共通プロキシ';
+
+  @override
+  String get maintenanceNetworkDomainProfile => 'ドメインネットワーク';
+
+  @override
+  String get maintenanceNetworkPrivateProfile => 'プライベートネットワーク';
+
+  @override
+  String get maintenanceNetworkPublicProfile => 'パブリックネットワーク';
+
+  @override
+  String get maintenanceNetworkActiveProfile => '有効なプロファイル';
+
+  @override
+  String get maintenanceNetworkDefaultInbound => '既定の受信';
+
+  @override
+  String get maintenanceNetworkDefaultOutbound => '既定の送信';
+
+  @override
+  String get maintenanceNetworkListenersNote =>
+      'TCP は待受、UDP はバインド済みポートを表示します。インターネットからの到達性は保証しません。';
+
+  @override
+  String get maintenanceNetworkResolverStatus => 'リゾルバーの状態';
+
+  @override
+  String get maintenanceNetworkBlock => 'ブロック';
+
+  @override
+  String get maintenanceNetworkAllow => '許可';
 }

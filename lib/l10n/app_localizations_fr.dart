@@ -14421,4 +14421,148 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceContainerStartupProbe => 'Sonde de démarrage';
+
+  @override
+  String get maintenanceNetworkApplicationFirewall => 'Pare-feu applicatif';
+
+  @override
+  String get maintenanceNetworkListeners => 'Ports en écoute';
+
+  @override
+  String get maintenanceNetworkAdapters => 'Interfaces réseau';
+
+  @override
+  String get maintenanceNetworkProxySettings => 'Proxy réseau système';
+
+  @override
+  String get maintenanceNetworkFirewallStatus => 'État du pare-feu';
+
+  @override
+  String get maintenanceNetworkProtocolStats =>
+      'Statistiques des protocoles et erreurs';
+
+  @override
+  String get maintenanceNetworkFirewallNat => 'Pare-feu et NAT';
+
+  @override
+  String get maintenanceNetworkProxyNote =>
+      'Les paramètres proxy sont affichés par source ; les variables du terminal ne représentent pas le proxy global.';
+
+  @override
+  String get maintenanceNetworkTerminalEnvironment =>
+      'Environnement du terminal';
+
+  @override
+  String get maintenanceNetworkDesktopProxy => 'Proxy du bureau';
+
+  @override
+  String get maintenanceNetworkSystemSettings => 'Paramètres système';
+
+  @override
+  String get maintenanceNetworkCurrentUser => 'Utilisateur actuel';
+
+  @override
+  String get maintenanceNetworkProxyMode => 'Mode proxy';
+
+  @override
+  String get maintenanceNetworkProxyState => 'État du proxy';
+
+  @override
+  String get maintenanceNetworkProxyServer => 'Serveur proxy';
+
+  @override
+  String get maintenanceNetworkProxyBypass => 'Exceptions proxy';
+
+  @override
+  String get maintenanceNetworkAutoDiscovery => 'Découverte automatique';
+
+  @override
+  String get maintenanceNetworkDirect => 'Connexion directe';
+
+  @override
+  String get maintenanceNetworkManual => 'Configuration manuelle';
+
+  @override
+  String get maintenanceNetworkAutomatic => 'Configuration automatique';
+
+  @override
+  String get maintenanceNetworkNoProxy =>
+      'Aucune configuration proxy dans cette portée';
+
+  @override
+  String get maintenanceNetworkReceivePackets => 'Paquets reçus / s';
+
+  @override
+  String get maintenanceNetworkSendPackets => 'Paquets envoyés / s';
+
+  @override
+  String get maintenanceNetworkReceiveErrors => 'Erreurs de réception / s';
+
+  @override
+  String get maintenanceNetworkSendErrors => 'Erreurs d\'envoi / s';
+
+  @override
+  String get maintenanceNetworkReceiveDrops => 'Paquets reçus perdus / s';
+
+  @override
+  String get maintenanceNetworkSendDrops => 'Paquets envoyés perdus / s';
+
+  @override
+  String get maintenanceNetworkMacAddress => 'Adresse MAC';
+
+  @override
+  String get maintenanceNetworkProxyUnavailable =>
+      'Paramètres du proxy de bureau indisponibles ; les variables du terminal ne représentent pas le proxy global.';
+
+  @override
+  String get maintenanceNetworkProxyAddress => 'Adresse du proxy';
+
+  @override
+  String get maintenanceNetworkProxyPort => 'Port du proxy';
+
+  @override
+  String get maintenanceNetworkPacAddress => 'URL PAC';
+
+  @override
+  String get maintenanceNetworkPacState => 'État PAC';
+
+  @override
+  String get maintenanceNetworkProxyLocalBypass => 'Ignorer les noms locaux';
+
+  @override
+  String get maintenanceNetworkProxyAuthentication => 'Authentification proxy';
+
+  @override
+  String get maintenanceNetworkProxyShared => 'Proxy partagé';
+
+  @override
+  String get maintenanceNetworkDomainProfile => 'Réseau de domaine';
+
+  @override
+  String get maintenanceNetworkPrivateProfile => 'Réseau privé';
+
+  @override
+  String get maintenanceNetworkPublicProfile => 'Réseau public';
+
+  @override
+  String get maintenanceNetworkActiveProfile => 'Profil actif';
+
+  @override
+  String get maintenanceNetworkDefaultInbound => 'Entrant par défaut';
+
+  @override
+  String get maintenanceNetworkDefaultOutbound => 'Sortant par défaut';
+
+  @override
+  String get maintenanceNetworkListenersNote =>
+      'TCP affiche les écoutes ; UDP affiche les ports liés. Cela ne garantit pas l\'accès depuis Internet.';
+
+  @override
+  String get maintenanceNetworkResolverStatus => 'État du résolveur';
+
+  @override
+  String get maintenanceNetworkBlock => 'Bloquer';
+
+  @override
+  String get maintenanceNetworkAllow => 'Autoriser';
 }

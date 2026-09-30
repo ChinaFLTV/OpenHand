@@ -11,6 +11,9 @@ const machineMaintenanceNetworkReports = {
   'neighbors',
   'network_stats',
   'socket_details',
+  'listeners',
+  'proxy',
+  'firewall_status',
   'dns_status',
   'firewall',
   'firewall_rules',
@@ -289,10 +292,13 @@ class MachineMaintenanceReadout {
             protocol,
             values[1],
             values[2],
-            protocol == 'TCP' && values.length > 4 ? values[3] : '—',
+            protocol.startsWith('TCP') && values.length > 3 ? values[3] : '—',
             '—',
             '—',
-            values.last,
+            protocol.startsWith('TCP') && values.length > 4 ||
+                    protocol.startsWith('UDP') && values.length > 3
+                ? values.last
+                : '—',
           ]);
         } else if (int.tryParse(values[1]) != null && values.length >= 5) {
           var process = values.last.contains('/') ? values.last : '—';

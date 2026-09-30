@@ -25672,6 +25672,282 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'启动探针'**
   String get maintenanceContainerStartupProbe;
+
+  /// No description provided for @maintenanceNetworkApplicationFirewall.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用防火墙'**
+  String get maintenanceNetworkApplicationFirewall;
+
+  /// No description provided for @maintenanceNetworkListeners.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听端口'**
+  String get maintenanceNetworkListeners;
+
+  /// No description provided for @maintenanceNetworkAdapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'网卡地址与链路统计'**
+  String get maintenanceNetworkAdapters;
+
+  /// No description provided for @maintenanceNetworkProxySettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统网络代理'**
+  String get maintenanceNetworkProxySettings;
+
+  /// No description provided for @maintenanceNetworkFirewallStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'防火墙状态'**
+  String get maintenanceNetworkFirewallStatus;
+
+  /// No description provided for @maintenanceNetworkProtocolStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络协议与错误统计'**
+  String get maintenanceNetworkProtocolStats;
+
+  /// No description provided for @maintenanceNetworkFirewallNat.
+  ///
+  /// In zh, this message translates to:
+  /// **'防火墙与 NAT'**
+  String get maintenanceNetworkFirewallNat;
+
+  /// No description provided for @maintenanceNetworkProxyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理设置按来源显示；终端环境变量不代表系统全局代理。'**
+  String get maintenanceNetworkProxyNote;
+
+  /// No description provided for @maintenanceNetworkTerminalEnvironment.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端环境'**
+  String get maintenanceNetworkTerminalEnvironment;
+
+  /// No description provided for @maintenanceNetworkDesktopProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'桌面代理'**
+  String get maintenanceNetworkDesktopProxy;
+
+  /// No description provided for @maintenanceNetworkSystemSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统设置'**
+  String get maintenanceNetworkSystemSettings;
+
+  /// No description provided for @maintenanceNetworkCurrentUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前用户'**
+  String get maintenanceNetworkCurrentUser;
+
+  /// No description provided for @maintenanceNetworkProxyMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理模式'**
+  String get maintenanceNetworkProxyMode;
+
+  /// No description provided for @maintenanceNetworkProxyState.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理状态'**
+  String get maintenanceNetworkProxyState;
+
+  /// No description provided for @maintenanceNetworkProxyServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理服务器'**
+  String get maintenanceNetworkProxyServer;
+
+  /// No description provided for @maintenanceNetworkProxyBypass.
+  ///
+  /// In zh, this message translates to:
+  /// **'绕过代理'**
+  String get maintenanceNetworkProxyBypass;
+
+  /// No description provided for @maintenanceNetworkAutoDiscovery.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动发现'**
+  String get maintenanceNetworkAutoDiscovery;
+
+  /// No description provided for @maintenanceNetworkDirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接连接'**
+  String get maintenanceNetworkDirect;
+
+  /// No description provided for @maintenanceNetworkManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动配置'**
+  String get maintenanceNetworkManual;
+
+  /// No description provided for @maintenanceNetworkAutomatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动配置'**
+  String get maintenanceNetworkAutomatic;
+
+  /// No description provided for @maintenanceNetworkNoProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前范围未提供代理配置'**
+  String get maintenanceNetworkNoProxy;
+
+  /// No description provided for @maintenanceNetworkReceivePackets.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收包 / 秒'**
+  String get maintenanceNetworkReceivePackets;
+
+  /// No description provided for @maintenanceNetworkSendPackets.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送包 / 秒'**
+  String get maintenanceNetworkSendPackets;
+
+  /// No description provided for @maintenanceNetworkReceiveErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收错误 / 秒'**
+  String get maintenanceNetworkReceiveErrors;
+
+  /// No description provided for @maintenanceNetworkSendErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送错误 / 秒'**
+  String get maintenanceNetworkSendErrors;
+
+  /// No description provided for @maintenanceNetworkReceiveDrops.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收丢包 / 秒'**
+  String get maintenanceNetworkReceiveDrops;
+
+  /// No description provided for @maintenanceNetworkSendDrops.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送丢包 / 秒'**
+  String get maintenanceNetworkSendDrops;
+
+  /// No description provided for @maintenanceNetworkMacAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'MAC 地址'**
+  String get maintenanceNetworkMacAddress;
+
+  /// No description provided for @maintenanceNetworkProxyUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺少可读取的桌面代理设置，终端环境变量不代表系统全局代理。'**
+  String get maintenanceNetworkProxyUnavailable;
+
+  /// No description provided for @maintenanceNetworkProxyAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理地址'**
+  String get maintenanceNetworkProxyAddress;
+
+  /// No description provided for @maintenanceNetworkProxyPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理端口'**
+  String get maintenanceNetworkProxyPort;
+
+  /// No description provided for @maintenanceNetworkPacAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'PAC 地址'**
+  String get maintenanceNetworkPacAddress;
+
+  /// No description provided for @maintenanceNetworkPacState.
+  ///
+  /// In zh, this message translates to:
+  /// **'PAC 状态'**
+  String get maintenanceNetworkPacState;
+
+  /// No description provided for @maintenanceNetworkProxyLocalBypass.
+  ///
+  /// In zh, this message translates to:
+  /// **'绕过本地主机'**
+  String get maintenanceNetworkProxyLocalBypass;
+
+  /// No description provided for @maintenanceNetworkProxyAuthentication.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理身份验证'**
+  String get maintenanceNetworkProxyAuthentication;
+
+  /// No description provided for @maintenanceNetworkProxyShared.
+  ///
+  /// In zh, this message translates to:
+  /// **'共用代理'**
+  String get maintenanceNetworkProxyShared;
+
+  /// No description provided for @maintenanceNetworkDomainProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'域网络'**
+  String get maintenanceNetworkDomainProfile;
+
+  /// No description provided for @maintenanceNetworkPrivateProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'专用网络'**
+  String get maintenanceNetworkPrivateProfile;
+
+  /// No description provided for @maintenanceNetworkPublicProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'公用网络'**
+  String get maintenanceNetworkPublicProfile;
+
+  /// No description provided for @maintenanceNetworkActiveProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前配置'**
+  String get maintenanceNetworkActiveProfile;
+
+  /// No description provided for @maintenanceNetworkDefaultInbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认入站'**
+  String get maintenanceNetworkDefaultInbound;
+
+  /// No description provided for @maintenanceNetworkDefaultOutbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认出站'**
+  String get maintenanceNetworkDefaultOutbound;
+
+  /// No description provided for @maintenanceNetworkListenersNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。'**
+  String get maintenanceNetworkListenersNote;
+
+  /// No description provided for @maintenanceNetworkResolverStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'解析器状态'**
+  String get maintenanceNetworkResolverStatus;
+
+  /// No description provided for @maintenanceNetworkBlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'阻止'**
+  String get maintenanceNetworkBlock;
+
+  /// No description provided for @maintenanceNetworkAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许'**
+  String get maintenanceNetworkAllow;
 }
 
 class _AppLocalizationsDelegate

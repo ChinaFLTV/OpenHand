@@ -184,6 +184,24 @@ __OH_OPS_startup__
 nginx.service enabled
 __OH_OPS_sockets__
 监听端口示例
+__OH_OPS_listeners__
+tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=42,fd=3))
+udp UNCONN 0 0 [::]:5353 [::]:*
+__OH_OPS_addresses__
+2: eth0: <UP,BROADCAST> mtu 1500 state UP
+  inet 10.0.0.2/24 scope global eth0
+  inet6 fe80::1/64 scope link
+  link/ether 02:00:00:00:00:01
+__OH_OPS_proxy__
+__OH_PROXY_SCOPE__	系统设置
+ HTTPEnable : 1
+ HTTPProxy : proxy.example
+ HTTPPort : 8080
+__OH_OPS_firewall_status__
+应用防火墙:
+状态: 启用
+PF:
+状态: 读取权限不足
 __OH_OPS_status__
 进程详情示例
 __OH_OPS_end__
@@ -2157,6 +2175,9 @@ void main() {
 
   testWidgets('跨平台网络详情按网卡和协议分组，宽窄窗口与明暗主题无溢出', (tester) async {
     final samples = <(String, String, String)>[
+      ('listeners', 'tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:*\\nUDP [::]:5353 *:* 44', '0.0.0.0:22'),
+      ('proxy', '__OH_PROXY_SCOPE__\\t系统设置\\n HTTPEnable : 1\\n HTTPProxy : proxy.example', 'HTTP / 代理状态'),
+      ('firewall_status', '应用防火墙:\\n状态: 启用\\nPF:\\n状态: 读取权限不足', '读取权限不足'),
       ('addresses', 'en0: flags=8863<UP,BROADCAST,RUNNING> mtu 1500\\n  ether 02:00:00:00:00:01\\n  inet 192.168.1.2 netmask 0xffffff00\\n  status: active', 'IPv4 地址'),
       ('addresses', '2: eth0: <UP,BROADCAST> mtu 1500 state UP\\n  inet 10.0.0.2/24 scope global eth0\\n  RX: bytes packets errors dropped\\n      1234 10 1 0', '接收 · 字节'),
       ('addresses', 'Ethernet adapter Ethernet:\\n   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\\n   IPv4 Address. . . . . . . . . . . : 192.168.1.2', 'MAC 地址'),
@@ -2253,7 +2274,7 @@ void main() {
       home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: 'firewall', text: raw)))));
     await tester.pumpAndSettle();
     expect(find.text('应用防火墙'), findsOneWidget);
-    expect(find.text('关闭'), findsOneWidget);
+    expect(find.text('禁用'), findsOneWidget);
     expect(find.textContaining('权限不足，当前账户无法读取规则'), findsOneWidget);
     expect(find.textContaining('扩展指标'), findsNothing);
     expect(find.byType(OpenHandConsoleText), findsNothing);
@@ -2448,6 +2469,8 @@ void main() {
 
   testWidgets('二级详情结构化展示适配窄窗口与六种语言', (tester) async {
     final fixtures = <String, String>{
+      'proxy': '__OH_PROXY_SCOPE__\\t系统设置\\n HTTPEnable : 1\\n HTTPProxy : proxy.example',
+      'firewall_status': '应用防火墙:\\n状态: 禁用',
       'startup': '/Library/LaunchAgents:\\ncom.example.agent.plist\\n/Users/test/Library/LaunchAgents:\\nMy Agent.plist',
       'users': 'root pts/7 Sep 29 16:27 (host.example)',
       'dns': '# comment\\nnameserver 2001:db8::1',
@@ -2467,6 +2490,17 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.text('原始输出'), findsNothing);
+        if (fixture.key == 'proxy' || fixture.key == 'firewall_status') {
+          final l10n = AppLocalizations.of(tester.element(find.byType(_MaintenanceReadout).first))!;
+          if (fixture.key == 'proxy') {
+            expect(find.text('HTTP / ' + l10n.maintenanceNetworkProxyState), findsOneWidget);
+            expect(find.text(l10n.maintenanceDetailEnabled), findsOneWidget);
+            expect(find.text('proxy.example'), findsOneWidget);
+          } else {
+            expect(find.text(l10n.maintenanceNetworkApplicationFirewall), findsOneWidget);
+            expect(find.text(l10n.maintenanceDetailDisabled), findsOneWidget);
+          }
+        }
         if (fixture.key == 'startup') {
           final l10n = AppLocalizations.of(tester.element(find.byType(_MaintenanceReadout)))!;
           expect(find.text(l10n.maintenanceStartupSystemAgent), findsOneWidget);
@@ -2516,6 +2550,15 @@ void main() {
             });
           }
           if (label == '网络与诊断' && width == 1280 && brightness == Brightness.light && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+            await tester.ensureVisible(find.text('网络吞吐').last);
+            await tester.pumpAndSettle();
+            await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('运维预览')));
+              final image = await boundary.toImage();
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File(Platform.environment['MAINTENANCE_PREVIEW']! + '.network-panels.png').writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
             final scroll = tester.state<ScrollableState>(find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
             scroll.position.jumpTo(scroll.position.maxScrollExtent);
             await tester.pumpAndSettle();

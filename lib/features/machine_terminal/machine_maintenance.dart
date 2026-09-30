@@ -2,6 +2,7 @@ import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance_gpu.dart';
 import 'machine_maintenance_health.dart';
 import 'machine_maintenance_logs.dart';
+import 'machine_maintenance_network.dart';
 
 export 'machine_maintenance_gpu.dart';
 export 'machine_maintenance_health.dart';
@@ -274,7 +275,9 @@ cat /proc/vmstat
 section disks
 awk '{print $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14}' /proc/diskstats
 section network
-cat /proc/net/dev
+''' +
+    machineNetworkLinuxCounters +
+    r'''
 section pressure
 for f in /proc/pressure/*; do [ -r "$f" ] || continue; printf '%s\n' "$f"; cat "$f"; done
 section filesystems
@@ -374,6 +377,22 @@ section sockets
 if command -v ss >/dev/null 2>&1; then ss -tunap 2>&1 | head -c 48000
 elif command -v netstat >/dev/null 2>&1; then netstat -tunap 2>&1 | head -c 48000
 else printf '未安装 ss 或 netstat。\n'; fi
+section listeners
+if command -v ss >/dev/null 2>&1; then bounded ss -ltnup 2>&1 | head -c 48000
+elif command -v netstat >/dev/null 2>&1; then bounded netstat -ltunp 2>&1 | head -c 48000
+else printf '未安装 ss 或 netstat。\n'; fi
+section network
+''' +
+    '''
+$machineNetworkLinuxCounters
+section proxy
+$machineNetworkProxyEnvironment
+''' +
+    r'''
+printf '__OH_PROXY_SCOPE__\t桌面代理\n'
+if command -v gsettings >/dev/null 2>&1 && [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
+  bounded gsettings list-recursively org.gnome.system.proxy 2>&1 | awk '!/authentication-password|authentication-user/ {gsub(/[^\/; ,]*@/,"***@"); print}' | head -c 8000
+else printf '缺少可读取的桌面代理设置，终端环境变量不代表系统全局代理。\n'; fi
 section routes
 if command -v ip >/dev/null 2>&1; then { ip -4 route show table all; ip -6 route show table all; } 2>&1 | head -c 48000
 elif command -v netstat >/dev/null 2>&1; then netstat -rn 2>&1 | head -c 48000
@@ -403,6 +422,12 @@ section firewall
 if command -v nft >/dev/null 2>&1; then bounded nft -a list ruleset 2>&1 | head -c 48000
 elif command -v iptables >/dev/null 2>&1; then bounded iptables -S 2>&1 | head -c 24000
 else printf '未安装 nft 或 iptables。\n'; fi
+section firewall_status
+if command -v ufw >/dev/null 2>&1; then bounded ufw status verbose 2>&1 | head -c 12000
+elif command -v firewall-cmd >/dev/null 2>&1; then
+  printf 'firewalld:\n'; bounded firewall-cmd --state 2>&1
+  bounded firewall-cmd --list-all-zones 2>&1 | head -c 16000
+else printf '缺少 ufw 或 firewalld 管理器，规则请查看防火墙规则板块。\n'; fi
 section firewall_ipvfour
 if command -v iptables-save >/dev/null 2>&1; then bounded iptables-save -c 2>&1 | head -c 48000; else printf '未安装 iptables-save，可查看本机防火墙规则。\n'; fi
 section firewall_ipvsix

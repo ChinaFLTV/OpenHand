@@ -12,6 +12,93 @@ void main() {
       MachineMaintenanceReadout.parse(text, section);
   const dockerError =
       'failed to connect to the docker API at unix:///tmp/docker.sock: connect: no such file or directory';
+  for (final sample in [
+    'Netid State Recv-Q Send-Q Local Peer\n'
+        'tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=42,fd=3))\n'
+        'tcp ESTAB 0 0 10.0.0.1:22 10.0.0.2:4000\n'
+        'udp UNCONN 0 0 [::]:5353 [::]:*',
+    'Proto Recv-Q Send-Q Local Address Foreign Address (state)\n'
+        'tcp4 0 0 *.22 *.* LISTEN\n'
+        'tcp4 0 0 10.0.0.1.22 10.0.0.2.4000 ESTABLISHED\n'
+        'udp6 0 0 *.5353 *.*',
+    'Proto Local Address Foreign Address State PID\n'
+        'TCP 0.0.0.0:22 0.0.0.0:0 LISTENING 42\n'
+        'TCP 10.0.0.1:22 10.0.0.2:4000 ESTABLISHED 43\n'
+        'UDP [::]:5353 *:* 44',
+  ]) {
+    final listeners = parse(sample, 'listeners');
+    check(listeners.rows.length == 2, '监听列表应排除已建立连接并保留 UDP 绑定端口');
+    check(listeners.rows.last[0].startsWith('UDP'), 'UDP 协议不能误记为 TCP');
+    check(listeners.rows.first[1].contains('22'), '监听地址解析错位');
+  }
+  final proxy = parse(
+    '__OH_PROXY__\t终端环境\thttps_proxy\thttp://user:secret@proxy.example:8080?token=secret\n'
+        '__OH_PROXY_SCOPE__\t系统设置\n'
+        '<dictionary> {\n HTTPEnable : 1\n HTTPProxy : proxy.example\n'
+        ' ExceptionsList : <array> {\n 0 : localhost\n 1 : *.local\n }\n }\n'
+        '__OH_PROXY_SCOPE__\t桌面代理\n'
+        "org.gnome.system.proxy mode 'manual'\n"
+        "org.gnome.system.proxy.http authentication-password 'secret'\n",
+    'proxy',
+  );
+  check(
+    parse('UDP 0.0.0.0:0 *:* 44\nudp4 0 0 *.* *.*', 'listeners').rows.isEmpty,
+    '未绑定端口的 UDP 套接字不应计为监听端口',
+  );
+  check(
+    parse(
+          'ERROR: You need to be root to run this script',
+          'firewall_status',
+        ).groups.values.single.rows.single.last ==
+        '读取权限不足',
+    'UFW 权限不足需明确提示',
+  );
+  check(
+    proxy.groups['终端环境']!.rows.single.last == 'http://***@proxy.example:8080',
+    '代理凭据及 URL 查询参数必须遮蔽',
+  );
+  check(
+    proxy.groups['系统设置']!.rows.first.join('|') == 'HTTP / 代理状态|启用' &&
+        proxy.groups['系统设置']!.rows.where((r) => r.first == '绕过代理').length == 2,
+    '系统代理状态与绕过列表解析不完整',
+  );
+  check(proxy.groups['桌面代理']!.rows.single.last == '手动配置', '桌面代理应解析模式且忽略密码字段');
+  check(
+    !parse('__OH_PROXY_SCOPE__\t系统设置\nHTTPEnable : 1', 'proxy')
+        .groups
+        .containsKey('终端环境'),
+    '没有代理环境变量时不应显示空的终端环境分组',
+  );
+  final firewall = parse('应用防火墙:\n状态: 启用\nPF:\n状态: 读取权限不足', 'firewall_status');
+  check(
+    firewall.groups.length == 2 &&
+        firewall.groups['PF']!.rows.single.last == '读取权限不足',
+    '防火墙权限不足不得误报关闭',
+  );
+  check(
+    parse(
+          'Status: inactive',
+          'firewall_status',
+        ).groups.values.single.rows.single.last ==
+        '禁用',
+    'UFW 未启用状态解析错误',
+  );
+  check(
+    parse(
+          'firewalld:\nrunning\npublic (active)\n  target: default',
+          'firewall_status',
+        ).groups.length ==
+        2,
+    'firewalld 状态与区域应分组',
+  );
+  final adapters = parse(
+    'Ethernet\t已连接\taa:bb:cc:dd:ee:ff\t—\t10.0.0.1, fe80::1\t10.0.0.254',
+    'addresses',
+  );
+  check(
+    adapters.groups['Ethernet']!.rows[4].last.contains('fe80::1'),
+    'Windows 网卡需保留双栈地址',
+  );
   check(
     parse(dockerError, 'containers').issue == 'connection',
     '容器连接失败应显示诊断状态',

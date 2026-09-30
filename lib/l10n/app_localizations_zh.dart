@@ -13771,6 +13771,146 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceContainerStartupProbe => '启动探针';
+
+  @override
+  String get maintenanceNetworkApplicationFirewall => '应用防火墙';
+
+  @override
+  String get maintenanceNetworkListeners => '监听端口';
+
+  @override
+  String get maintenanceNetworkAdapters => '网卡地址与链路统计';
+
+  @override
+  String get maintenanceNetworkProxySettings => '系统网络代理';
+
+  @override
+  String get maintenanceNetworkFirewallStatus => '防火墙状态';
+
+  @override
+  String get maintenanceNetworkProtocolStats => '网络协议与错误统计';
+
+  @override
+  String get maintenanceNetworkFirewallNat => '防火墙与 NAT';
+
+  @override
+  String get maintenanceNetworkProxyNote => '代理设置按来源显示；终端环境变量不代表系统全局代理。';
+
+  @override
+  String get maintenanceNetworkTerminalEnvironment => '终端环境';
+
+  @override
+  String get maintenanceNetworkDesktopProxy => '桌面代理';
+
+  @override
+  String get maintenanceNetworkSystemSettings => '系统设置';
+
+  @override
+  String get maintenanceNetworkCurrentUser => '当前用户';
+
+  @override
+  String get maintenanceNetworkProxyMode => '代理模式';
+
+  @override
+  String get maintenanceNetworkProxyState => '代理状态';
+
+  @override
+  String get maintenanceNetworkProxyServer => '代理服务器';
+
+  @override
+  String get maintenanceNetworkProxyBypass => '绕过代理';
+
+  @override
+  String get maintenanceNetworkAutoDiscovery => '自动发现';
+
+  @override
+  String get maintenanceNetworkDirect => '直接连接';
+
+  @override
+  String get maintenanceNetworkManual => '手动配置';
+
+  @override
+  String get maintenanceNetworkAutomatic => '自动配置';
+
+  @override
+  String get maintenanceNetworkNoProxy => '当前范围未提供代理配置';
+
+  @override
+  String get maintenanceNetworkReceivePackets => '接收包 / 秒';
+
+  @override
+  String get maintenanceNetworkSendPackets => '发送包 / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveErrors => '接收错误 / 秒';
+
+  @override
+  String get maintenanceNetworkSendErrors => '发送错误 / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveDrops => '接收丢包 / 秒';
+
+  @override
+  String get maintenanceNetworkSendDrops => '发送丢包 / 秒';
+
+  @override
+  String get maintenanceNetworkMacAddress => 'MAC 地址';
+
+  @override
+  String get maintenanceNetworkProxyUnavailable =>
+      '缺少可读取的桌面代理设置，终端环境变量不代表系统全局代理。';
+
+  @override
+  String get maintenanceNetworkProxyAddress => '代理地址';
+
+  @override
+  String get maintenanceNetworkProxyPort => '代理端口';
+
+  @override
+  String get maintenanceNetworkPacAddress => 'PAC 地址';
+
+  @override
+  String get maintenanceNetworkPacState => 'PAC 状态';
+
+  @override
+  String get maintenanceNetworkProxyLocalBypass => '绕过本地主机';
+
+  @override
+  String get maintenanceNetworkProxyAuthentication => '代理身份验证';
+
+  @override
+  String get maintenanceNetworkProxyShared => '共用代理';
+
+  @override
+  String get maintenanceNetworkDomainProfile => '域网络';
+
+  @override
+  String get maintenanceNetworkPrivateProfile => '专用网络';
+
+  @override
+  String get maintenanceNetworkPublicProfile => '公用网络';
+
+  @override
+  String get maintenanceNetworkActiveProfile => '当前配置';
+
+  @override
+  String get maintenanceNetworkDefaultInbound => '默认入站';
+
+  @override
+  String get maintenanceNetworkDefaultOutbound => '默认出站';
+
+  @override
+  String get maintenanceNetworkListenersNote =>
+      'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。';
+
+  @override
+  String get maintenanceNetworkResolverStatus => '解析器状态';
+
+  @override
+  String get maintenanceNetworkBlock => '阻止';
+
+  @override
+  String get maintenanceNetworkAllow => '允许';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -27522,4 +27662,144 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerStartupProbe => '啟動探查';
+
+  @override
+  String get maintenanceNetworkApplicationFirewall => '應用程式防火牆';
+
+  @override
+  String get maintenanceNetworkListeners => '監聽連接埠';
+
+  @override
+  String get maintenanceNetworkAdapters => '網路卡位址與連線統計';
+
+  @override
+  String get maintenanceNetworkProxySettings => '系統網路代理';
+
+  @override
+  String get maintenanceNetworkFirewallStatus => '防火牆狀態';
+
+  @override
+  String get maintenanceNetworkProtocolStats => '網路通訊協定與錯誤統計';
+
+  @override
+  String get maintenanceNetworkFirewallNat => '防火牆與 NAT';
+
+  @override
+  String get maintenanceNetworkProxyNote => '代理設定依來源顯示；終端環境變數不代表系統全域代理。';
+
+  @override
+  String get maintenanceNetworkTerminalEnvironment => '終端環境';
+
+  @override
+  String get maintenanceNetworkDesktopProxy => '桌面代理';
+
+  @override
+  String get maintenanceNetworkSystemSettings => '系統設定';
+
+  @override
+  String get maintenanceNetworkCurrentUser => '目前使用者';
+
+  @override
+  String get maintenanceNetworkProxyMode => '代理模式';
+
+  @override
+  String get maintenanceNetworkProxyState => '代理狀態';
+
+  @override
+  String get maintenanceNetworkProxyServer => '代理伺服器';
+
+  @override
+  String get maintenanceNetworkProxyBypass => '略過代理';
+
+  @override
+  String get maintenanceNetworkAutoDiscovery => '自動探索';
+
+  @override
+  String get maintenanceNetworkDirect => '直接連線';
+
+  @override
+  String get maintenanceNetworkManual => '手動設定';
+
+  @override
+  String get maintenanceNetworkAutomatic => '自動設定';
+
+  @override
+  String get maintenanceNetworkNoProxy => '目前範圍未提供代理設定';
+
+  @override
+  String get maintenanceNetworkReceivePackets => '接收封包 / 秒';
+
+  @override
+  String get maintenanceNetworkSendPackets => '傳送封包 / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveErrors => '接收錯誤 / 秒';
+
+  @override
+  String get maintenanceNetworkSendErrors => '傳送錯誤 / 秒';
+
+  @override
+  String get maintenanceNetworkReceiveDrops => '接收丟包 / 秒';
+
+  @override
+  String get maintenanceNetworkSendDrops => '傳送丟包 / 秒';
+
+  @override
+  String get maintenanceNetworkMacAddress => 'MAC 位址';
+
+  @override
+  String get maintenanceNetworkProxyUnavailable =>
+      '缺少可讀取的桌面代理設定，終端環境變數不代表系統全域代理。';
+
+  @override
+  String get maintenanceNetworkProxyAddress => '代理位址';
+
+  @override
+  String get maintenanceNetworkProxyPort => '代理連接埠';
+
+  @override
+  String get maintenanceNetworkPacAddress => 'PAC 位址';
+
+  @override
+  String get maintenanceNetworkPacState => 'PAC 狀態';
+
+  @override
+  String get maintenanceNetworkProxyLocalBypass => '略過本機主機';
+
+  @override
+  String get maintenanceNetworkProxyAuthentication => '代理身分驗證';
+
+  @override
+  String get maintenanceNetworkProxyShared => '共用代理';
+
+  @override
+  String get maintenanceNetworkDomainProfile => '網域網路';
+
+  @override
+  String get maintenanceNetworkPrivateProfile => '私人網路';
+
+  @override
+  String get maintenanceNetworkPublicProfile => '公用網路';
+
+  @override
+  String get maintenanceNetworkActiveProfile => '目前設定';
+
+  @override
+  String get maintenanceNetworkDefaultInbound => '預設輸入';
+
+  @override
+  String get maintenanceNetworkDefaultOutbound => '預設輸出';
+
+  @override
+  String get maintenanceNetworkListenersNote =>
+      'TCP 僅顯示監聽狀態；UDP 顯示繫結連接埠，不代表可從網際網路存取。';
+
+  @override
+  String get maintenanceNetworkResolverStatus => '解析器狀態';
+
+  @override
+  String get maintenanceNetworkBlock => '封鎖';
+
+  @override
+  String get maintenanceNetworkAllow => '允許';
 }

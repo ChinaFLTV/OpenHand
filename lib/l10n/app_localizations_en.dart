@@ -14220,4 +14220,146 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceContainerStartupProbe => 'Startup probe';
+
+  @override
+  String get maintenanceNetworkApplicationFirewall => 'Application firewall';
+
+  @override
+  String get maintenanceNetworkListeners => 'Listening ports';
+
+  @override
+  String get maintenanceNetworkAdapters => 'Network adapters';
+
+  @override
+  String get maintenanceNetworkProxySettings => 'System network proxy';
+
+  @override
+  String get maintenanceNetworkFirewallStatus => 'Firewall status';
+
+  @override
+  String get maintenanceNetworkProtocolStats => 'Protocol and error statistics';
+
+  @override
+  String get maintenanceNetworkFirewallNat => 'Firewall & NAT';
+
+  @override
+  String get maintenanceNetworkProxyNote =>
+      'Proxy settings are shown by source; terminal environment variables do not represent the system-wide proxy.';
+
+  @override
+  String get maintenanceNetworkTerminalEnvironment => 'Terminal environment';
+
+  @override
+  String get maintenanceNetworkDesktopProxy => 'Desktop proxy';
+
+  @override
+  String get maintenanceNetworkSystemSettings => 'System settings';
+
+  @override
+  String get maintenanceNetworkCurrentUser => 'Current user';
+
+  @override
+  String get maintenanceNetworkProxyMode => 'Proxy mode';
+
+  @override
+  String get maintenanceNetworkProxyState => 'Proxy status';
+
+  @override
+  String get maintenanceNetworkProxyServer => 'Proxy server';
+
+  @override
+  String get maintenanceNetworkProxyBypass => 'Proxy bypass';
+
+  @override
+  String get maintenanceNetworkAutoDiscovery => 'Auto discovery';
+
+  @override
+  String get maintenanceNetworkDirect => 'Direct connection';
+
+  @override
+  String get maintenanceNetworkManual => 'Manual configuration';
+
+  @override
+  String get maintenanceNetworkAutomatic => 'Automatic configuration';
+
+  @override
+  String get maintenanceNetworkNoProxy =>
+      'No proxy configuration in this scope';
+
+  @override
+  String get maintenanceNetworkReceivePackets => 'Received packets / s';
+
+  @override
+  String get maintenanceNetworkSendPackets => 'Sent packets / s';
+
+  @override
+  String get maintenanceNetworkReceiveErrors => 'Receive errors / s';
+
+  @override
+  String get maintenanceNetworkSendErrors => 'Send errors / s';
+
+  @override
+  String get maintenanceNetworkReceiveDrops => 'Receive drops / s';
+
+  @override
+  String get maintenanceNetworkSendDrops => 'Send drops / s';
+
+  @override
+  String get maintenanceNetworkMacAddress => 'MAC address';
+
+  @override
+  String get maintenanceNetworkProxyUnavailable =>
+      'Desktop proxy settings are unavailable; terminal environment variables do not represent a system-wide proxy.';
+
+  @override
+  String get maintenanceNetworkProxyAddress => 'Proxy address';
+
+  @override
+  String get maintenanceNetworkProxyPort => 'Proxy port';
+
+  @override
+  String get maintenanceNetworkPacAddress => 'PAC URL';
+
+  @override
+  String get maintenanceNetworkPacState => 'PAC status';
+
+  @override
+  String get maintenanceNetworkProxyLocalBypass => 'Bypass local hostnames';
+
+  @override
+  String get maintenanceNetworkProxyAuthentication => 'Proxy authentication';
+
+  @override
+  String get maintenanceNetworkProxyShared => 'Shared proxy';
+
+  @override
+  String get maintenanceNetworkDomainProfile => 'Domain network';
+
+  @override
+  String get maintenanceNetworkPrivateProfile => 'Private network';
+
+  @override
+  String get maintenanceNetworkPublicProfile => 'Public network';
+
+  @override
+  String get maintenanceNetworkActiveProfile => 'Active profile';
+
+  @override
+  String get maintenanceNetworkDefaultInbound => 'Default inbound';
+
+  @override
+  String get maintenanceNetworkDefaultOutbound => 'Default outbound';
+
+  @override
+  String get maintenanceNetworkListenersNote =>
+      'TCP shows listeners; UDP shows bound ports. Neither implies Internet reachability.';
+
+  @override
+  String get maintenanceNetworkResolverStatus => 'Resolver status';
+
+  @override
+  String get maintenanceNetworkBlock => 'Block';
+
+  @override
+  String get maintenanceNetworkAllow => 'Allow';
 }

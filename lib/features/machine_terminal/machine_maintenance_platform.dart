@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance.dart';
+import 'machine_maintenance_network.dart';
 import 'machine_maintenance_parallel.dart';
 
 /// 平台策略只生成目标命令，传输和终端协议由执行层统一处理。
@@ -105,9 +106,19 @@ section end
           5 => machineLogsMacCollection,
           6 => machineHealthMacCollection,
           _ =>
-            r'''
+            '''
 section sockets
 { netstat -anv -f inet; netstat -anv -f inet6; } 2>&1 | head -c 48000
+section listeners
+{ netstat -anv -p tcp | awk 'NR<3 || /LISTEN/'; netstat -anv -p udp; } 2>&1 | head -c 48000
+section network
+$machineNetworkMacCounters
+section proxy
+$machineNetworkProxyEnvironment
+'''
+                r'''
+printf '__OH_PROXY_SCOPE__\t系统设置\n'
+scutil --proxy 2>&1 | head -c 12000
 section routes
 netstat -rn 2>&1 | head -c 48000
 section addresses
@@ -119,7 +130,7 @@ netstat -s 2>&1 | head -c 32000
 section socket_details
 lsof -nP -i 2>&1 | head -c 32000
 section dns_status
-{ scutil --nwi; scutil --proxy; } 2>&1 | head -c 16000
+scutil --nwi 2>&1 | head -c 16000
 section dns
 scutil --dns 2>&1 | head -c 10000
 section logs
@@ -130,6 +141,12 @@ section cron
 crontab -l 2>&1 | head -c 8000
 section firewall
 { /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate; /usr/libexec/ApplicationFirewall/socketfilterfw --getblockall; /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode; } 2>&1 | head -c 8000
+section firewall_status
+printf '应用防火墙:\n'
+state=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>&1)
+case "$state" in *'State = 1'*) printf '状态: 启用\n';; *'State = 0'*) printf '状态: 禁用\n';; *) printf '状态: %s\n' "$state";; esac
+printf 'PF:\n'
+pfctl -s info 2>&1 | awk '/^Status:/ {print "状态: "$2; found=1} /Permission denied|Operation not permitted/ {denied=1} END {if (!found) print "状态: "(denied?"读取权限不足":"采集未完成")}'
 section firewall_rules
 pfctl -vvsr 2>&1 | head -c 32000
 section firewall_nat
@@ -176,7 +193,8 @@ section end
       manager == 'launchd' ? const _LaunchdMaintenanceAdapter() : null;
 }
 
-const _macOverview = r'''
+const _macOverview =
+    r'''
 section system
 sw_vers
 uname -a
@@ -199,7 +217,9 @@ vm_stat | awk 'NR==1 {p=$8;gsub(/[^0-9]/,"",p)} /Pageins:|Pageouts:|Swapins:|Swa
 section disks
 ioreg -r -c IOBlockStorageDriver -l -w0 | awk 'function counter(k,s) {return k in v?v[k]/s:-1} /"Statistics" =/ {for(k in v)delete v[k];n++;line=$0;sub(/^.*= \{/,"",line);gsub(/[{}"]/,"",line);c=split(line,a,",");for(i=1;i<=c;i++){split(a[i],b,"=");v[b[1]]=b[2]} printf "存储驱动%d %.0f 0 %.0f %.0f %.0f 0 %.0f %.0f\n",n,counter("Operations (Read)",1),counter("Bytes (Read)",512),counter("Total Time (Read)",1000000),counter("Operations (Write)",1),counter("Bytes (Write)",512),counter("Total Time (Write)",1000000)}'
 section network
-netstat -ibn | awk '/<Link#/ {n=NF; printf "%s: %.0f %.0f %.0f 0 0 0 0 0 %.0f %.0f %.0f 0 0 0 0 0\n",$1,$(n-4),$(n-6),$(n-5),$(n-1),$(n-3),$(n-2)}'
+''' +
+    machineNetworkMacCounters +
+    r'''
 section filesystems
 df -Pk | head -c 12000
 section inodes
@@ -313,7 +333,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
               multiLine: true,
             )
           : RegExp(
-              r'^(?:emit\("(?:routes|addresses|neighbors|network_stats|socket_details|dns_status|firewall_rules)"|emit\("dns"|var sessions=|emit\("cron"|var logs=|emit\("firewall"|emit\("containers")',
+              r'^(?:emit\("(?:listeners|routes|neighbors|network_stats|socket_details|dns_status|firewall_rules)"|var nets=|var networkAdapters=|var proxyShell=|var firewallLines=|emit\("dns"|var sessions=|emit\("cron"|var logs=|emit\("firewall"|emit\("containers")',
               multiLine: true,
             );
       final starts = [
@@ -401,7 +421,8 @@ var uptime=up && Number(up.Frequency_Object)>0?(Number(up.Timestamp_Object)-Numb
 emit("uptime",fixed(uptime));
 ''';
 
-const _windowsOverview = r'''
+const _windowsOverview =
+    r'''
 emit("system",describe(os));
 var processors=rows("SELECT * FROM Win32_Processor"),names=[],cores=0;
 for(var i=0;i<processors.length;i++){names.push(clean(processors[i].Name));cores+=Number(field(processors[i],"NumberOfLogicalProcessors"))||0;}
@@ -415,8 +436,9 @@ var drives=rows("SELECT DeviceID,Size,FreeSpace,FileSystem,DriveType FROM Win32_
 for(var i=0;i<drives.length;i++){var d=drives[i],total=Number(d.Size),free=Number(d.FreeSpace);if(total>0)lines.push(d.DeviceID+" "+fixed(total/1024)+" "+fixed((total-free)/1024)+" "+fixed(free/1024)+" "+fixed((total-free)/total*100)+"% "+d.DeviceID);}emit("filesystems",lines.join("\n"));
 var disks=rows("SELECT * FROM Win32_PerfRawData_PerfDisk_PhysicalDisk"),lines=[];
 for(var i=0;i<disks.length;i++){var d=disks[i];if(d.Name=="_Total")continue;if(d.DiskReadBytesPersec==null || d.DiskWriteBytesPersec==null)continue;lines.push(encodeURIComponent(clean(d.Name))+" "+counter(d.DiskReadsPersec)+" 0 "+fixed(Number(d.DiskReadBytesPersec)/512)+" 0 "+counter(d.DiskWritesPersec)+" 0 "+fixed(Number(d.DiskWriteBytesPersec)/512)+" 0");}emit("disks",lines.join("\n"));
-var nets=rows("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface"),lines=[];
-for(var i=0;i<nets.length;i++){var n=nets[i];if(n.BytesReceivedPersec==null || n.BytesSentPersec==null)continue;lines.push(encodeURIComponent(clean(n.Name))+": "+fixed(Number(n.BytesReceivedPersec))+" "+counter(n.PacketsReceivedPersec)+" "+counter(n.PacketsReceivedErrors)+" "+counter(n.PacketsReceivedDiscarded)+" 0 0 0 0 "+fixed(Number(n.BytesSentPersec))+" "+counter(n.PacketsSentPersec)+" "+counter(n.PacketsOutboundErrors)+" "+counter(n.PacketsOutboundDiscarded)+" 0 0 0 0");}emit("network",lines.join("\n"));
+''' +
+    machineNetworkWindowsCounters +
+    r'''
 var mem=rows("SELECT * FROM Win32_PerfRawData_PerfOS_Memory")[0];emit("memory_details",describe(mem));
 var system=rows("SELECT * FROM Win32_PerfRawData_PerfOS_System")[0];emit("pressure",describe(system));
 var adapters=rows("SELECT Description,IPEnabled,MACAddress,IPAddress,DefaultIPGateway FROM Win32_NetworkAdapterConfiguration"),lines=[];
@@ -446,14 +468,21 @@ emit("service_dependencies",links.join("\n").substr(0,50000));
 emit("timers",command("schtasks /query /fo LIST",12000));
 ''';
 
-const _windowsDiagnostics = r'''
+const _windowsDiagnostics =
+    '''
 emit("sockets",command("netstat -ano",18000));
+emit("listeners",command("netstat -ano",32000));
+$machineNetworkWindowsCounters
+$machineNetworkWindowsAdapters
+$machineNetworkWindowsProxy
+$machineNetworkWindowsFirewallStatus
+'''
+    r'''
 emit("routes",command("route print",32000));
-emit("addresses",command("ipconfig /all",24000));
 emit("neighbors",command("netsh interface ipv4 show neighbors",16000)+"\n"+command("netsh interface ipv6 show neighbors",16000));
 emit("network_stats",command("netstat -s",24000));
 emit("socket_details",command("netstat -ano",32000));
-emit("dns_status",command("netsh winhttp show proxy",8000));
+emit("dns_status",command("ipconfig /all",16000));
 emit("dns",command("ipconfig /all",12000));
 var sessions=rows("SELECT LogonId,LogonType,StartTime FROM Win32_LogonSession",64),sessionLines=[];for(var i=0;i<sessions.length;i++)sessionLines.push(describe(sessions[i]));emit("users",sessionLines.join("\n\n").substr(0,10000));
 emit("cron",command("schtasks /query /fo LIST",12000));

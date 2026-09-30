@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_network.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_parallel.dart';
-import 'package:openhand/features/machine_terminal/machine_maintenance_readout.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
+import 'package:openhand/features/machine_terminal/machine_maintenance_readout.dart';
 import 'package:openhand/features/machine_terminal/machine_terminal_command_protocol.dart';
 
 void check(bool value, String message) {
@@ -44,6 +45,40 @@ Future<void> main() async {
     '不能把回显当作 Shell 信息',
   );
   if (!Platform.isWindows) {
+    for (final extra in ['', ' Drop']) {
+      final counters = await Process.run('/bin/sh', [
+        '-c',
+        '''
+netstat() {
+cat <<'OH_NETSTAT'
+Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll$extra
+lo0 16384 <Link#1> 40 2 6000 70 3 9000 0${extra.isEmpty ? '' : ' 7'}
+en0 1500 <Link#2> aa:bb 40 2 6000 70 3 9000 0${extra.isEmpty ? '' : ' 7'}
+OH_NETSTAT
+}
+$machineNetworkMacCounters
+''',
+      ]);
+      check(counters.exitCode == 0, 'macOS 网卡计数器采集失败');
+      final sample = MachineMaintenanceSnapshot({
+        'network': counters.stdout as String,
+      });
+      final values = sample.counters('network', colon: true);
+      check(
+        values.length == 2 &&
+            values.values.every(
+              (v) =>
+                  v[0] == 6000 &&
+                  v[1] == 40 &&
+                  v[2] == 2 &&
+                  v[8] == 9000 &&
+                  v[9] == 70 &&
+                  v[10] == 3 &&
+                  v[3] == -1,
+            ),
+        'macOS 可选网卡列不得造成计数器错位或伪造丢包数',
+      );
+    }
     final probe = await Process.run('/bin/bash', [
       '-c',
       machineTerminalShellDetailsCommand(MachineTerminalCommandShell.posix),
@@ -236,6 +271,30 @@ Future<void> main() async {
           'Windows 进程启动标识丢失',
         );
       }
+      if (i == 3) {
+        check(
+          data.text('addresses').contains('测试网卡\t已连接'),
+          'Windows 结构化网卡数据不能被后续命令覆盖',
+        );
+        final proxy = MachineMaintenanceReadout.parse(
+          data.text('proxy'),
+          'proxy',
+        );
+        check(
+          proxy.groups['终端环境']!.rows.single.last ==
+              'http://***@proxy.example:8080',
+          'Windows 代理采集不得泄漏凭据',
+        );
+        final firewall = MachineMaintenanceReadout.parse(
+          data.text('firewall_status'),
+          'firewall_status',
+        );
+        check(
+          firewall.groups.length == 3 &&
+              firewall.groups['域网络']!.rows.first.last == '启用',
+          'Windows 防火墙配置应按三种网络范围采集',
+        );
+      }
     }
     final parallelInput = await File('${directory.path}/parallel.json')
         .writeAsString(
@@ -331,6 +390,10 @@ function emit(key,value){ohEcho("__OH_OPS_"+key+"__\n"+value);}''',
             'macOS 实机路由未正确结构化',
           );
           for (final key in [
+            'listeners',
+            'network',
+            'proxy',
+            'firewall_status',
             'routes',
             'addresses',
             'neighbors',
@@ -380,7 +443,8 @@ const birth='20260929100000.000000+000';
 function item(values){values.Properties_=Object.keys(values).map(Name=>({Name,Value:values[Name]}));return values;}
 const datasets={
 Win32_OperatingSystem:[item({CSName:'测试主机',LastBootUpTime:'20260929080000.000000+000',LocalDateTime:'20260929120000.000000+000',TotalVisibleMemorySize:8388608,FreePhysicalMemory:4194304,Caption:'Windows 测试'})],
-Win32_NetworkAdapterConfiguration:[item({Description:'测试网卡',IPEnabled:true,MACAddress:'aa:bb',IPAddress:['10.0.0.2','fe80::1'],DefaultIPGateway:['10.0.0.1']})],
+Win32_NetworkAdapter:[item({Index:1,Name:'测试网卡',NetConnectionStatus:2,MACAddress:'aa:bb'})],
+Win32_NetworkAdapterConfiguration:[item({Index:1,Description:'测试网卡',IPEnabled:true,MACAddress:'aa:bb',IPAddress:['10.0.0.2','fe80::1'],DefaultIPGateway:['10.0.0.1']})],
 Win32_DiskDrive:[item({DeviceID:'disk0',MediaType:'Fixed',Model:'测试磁盘',Size:'107374182400',InterfaceType:'SCSI'})],
 Win32_Processor:[item({Name:'测试 CPU',NumberOfLogicalProcessors:4})],
 Win32_PerfRawData_PerfOS_System:[item({SystemUpTime:0,Timestamp_Object:14400,Frequency_Object:1})],
@@ -390,6 +454,9 @@ Win32_LogicalDisk:[item({DeviceID:'C:',Size:107374182400,FreeSpace:53687091200})
 Win32_Process:[item({ProcessId:42,ParentProcessId:1,Name:'测试进程',Priority:8,ThreadCount:3,WorkingSetSize:8192,VirtualSize:16384,KernelModeTime:50,UserModeTime:60,CreationDate:birth,Terminate:()=>0})],
 Win32_Service:[item({Name:'带 空格服务',DisplayName:'测试服务',State:'Stopped',StartMode:'Manual',StartService:()=>0,StopService:()=>0,ChangeStartMode:()=>0})]
 };
+function proxyEnvironment(){return Object.assign(key=>"",{0:'https_proxy=http://user:secret@proxy.example:8080?token=secret'});}
+function proxyRegistry(path){return path.endsWith('ProxyEnable')?1:'';}
+function firewallPolicy(){return {CurrentProfileTypes:1,FirewallEnabled:()=>true,DefaultInboundAction:()=>0,DefaultOutboundAction:()=>1};}
 const results=[];
 for(const script of scripts){
 let output=[];const tempFiles=new Map();
@@ -402,8 +469,11 @@ ActiveXObject:function(name){
     this.GetSpecialFolder=()=>'/tmp';this.GetTempName=()=>String(tempFiles.size)+'.tmp';this.BuildPath=(a,b)=>a+'/'+b;
     this.FileExists=p=>tempFiles.has(p);this.DeleteFile=p=>tempFiles.delete(p);
     this.OpenTextFile=p=>({AtEndOfStream:false,Read(n){const value=tempFiles.get(p)||'';this.AtEndOfStream=value.length<=n;return value.slice(0,n);},Close:()=>{}});
+  }else if(name==='HNetCfg.FwPolicy2'){
+    return firewallPolicy();
   }else{
-    this.Environment=()=>()=>"";
+    this.Environment=proxyEnvironment;
+    this.RegRead=proxyRegistry;
     this.Exec=text=>{const path=(text.match(/>"([^"]+)"/)||[])[1];if(path)tempFiles.set(path,text.includes('nvidia-smi -q -x')?'<nvidia_smi_log><gpu><uuid>GPU-LARGE</uuid><info>'+ 'x'.repeat(130000)+'</info></gpu></nvidia_smi_log>':'');return {Status:1,ExitCode:0,StdOut:{ReadAll:()=>''},StdErr:{ReadAll:()=>''},Terminate:()=>{}};};
   }
 },
@@ -447,7 +517,7 @@ for(const script of scripts){
       VBArray:function(value){this.toArray=()=>value;},
       Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
       GetObject:wmi,
-      ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():{Exec:exec,Environment:function(){return function(){return "";};}};},
+      ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():name=='HNetCfg.FwPolicy2'?firewallPolicy():{Exec:exec,Environment:proxyEnvironment,RegRead:proxyRegistry};},
       WScript:{StdOut:{Write:s=>output.push(String(s))},ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
         tick+=n;
         for(const p of pending.splice(0)){p.Status=1;processes.delete(p.ProcessID);}

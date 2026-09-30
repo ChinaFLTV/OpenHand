@@ -7,6 +7,9 @@ MachineMaintenanceReadout _parseMachineNetworkReadout(
   return switch (section) {
     'addresses' || 'interfaces' => _machineAddressReadout(lines),
     'neighbors' => _machineNeighborReadout(lines),
+    'listeners' => _machineListenerReadout(lines),
+    'proxy' => _machineProxyReadout(lines),
+    'firewall_status' => _machineFirewallStatusReadout(lines),
     'network_stats' || 'firewall_states' => _machineCounterReadout(lines),
     'socket_details' => _machineSocketReadout(lines),
     'policy_routes' => _machinePolicyReadout(lines),
@@ -17,6 +20,184 @@ MachineMaintenanceReadout _parseMachineNetworkReadout(
     'firewall_ipvsix' => _machineFirewallReadout(lines, section),
     _ => _machineConfigurationReadout(lines),
   };
+}
+
+MachineMaintenanceReadout _machineListenerReadout(List<String> lines) {
+  final sockets = MachineMaintenanceReadout.parse(lines.join('\n'), 'sockets');
+  final rows = sockets.rows.where((row) {
+    if (row.length < 4) return false;
+    final protocol = row[0].toUpperCase();
+    final state = row[3].toUpperCase();
+    if (protocol.startsWith('TCP')) {
+      return state == 'LISTEN' || state == 'LISTENING';
+    }
+    final port = RegExp(r'[:.](\d+)$').firstMatch(row[1]);
+    return protocol.startsWith('UDP') &&
+        port != null &&
+        int.parse(port[1]!) > 0;
+  }).toList();
+  return MachineMaintenanceReadout(sockets.headers, rows, issue: sockets.issue);
+}
+
+MachineMaintenanceReadout _machineProxyReadout(List<String> lines) {
+  final groups = <String, List<List<String>>>{'终端环境': []};
+  var scope = '终端环境';
+  var arrayKey = '';
+  void add(String source, String key, String value) {
+    if (RegExp(
+      'password|username|authentication-user',
+      caseSensitive: false,
+    ).hasMatch(key)) {
+      return;
+    }
+    value = value
+        .replaceAll(RegExp('[^/; ,]*@'), '***@')
+        .replaceAll(RegExp(r'''[?#][^\s'"\]]*'''), '')
+        .replaceAllMapped(RegExp(r"^'(.*)'$"), (match) => match[1]!);
+    key =
+        const {
+          'HTTPEnable': 'HTTP / 代理状态',
+          'HTTPProxy': 'HTTP / 代理地址',
+          'HTTPPort': 'HTTP / 代理端口',
+          'HTTPSEnable': 'HTTPS / 代理状态',
+          'HTTPSProxy': 'HTTPS / 代理地址',
+          'HTTPSPort': 'HTTPS / 代理端口',
+          'SOCKSEnable': 'SOCKS / 代理状态',
+          'SOCKSProxy': 'SOCKS / 代理地址',
+          'SOCKSPort': 'SOCKS / 代理端口',
+          'ProxyAutoConfigEnable': 'PAC 状态',
+          'ProxyAutoConfigURLString': 'PAC 地址',
+          'ProxyAutoDiscoveryEnable': '自动发现',
+          'ExceptionsList': '绕过代理',
+          'ExcludeSimpleHostnames': '绕过本地主机',
+          'ProxyEnable': '代理状态',
+          'ProxyServer': '代理服务器',
+          'ProxyOverride': '绕过代理',
+          'AutoConfigURL': 'PAC 地址',
+          'Proxy Server(s)': '代理服务器',
+          '代理服务器': '代理服务器',
+          'Bypass List': '绕过代理',
+          '绕过列表': '绕过代理',
+          'mode': '代理模式',
+          'autoconfig-url': 'PAC 地址',
+          'ignore-hosts': '绕过代理',
+          'http / enabled': 'HTTP / 代理状态',
+          'http / host': 'HTTP / 代理地址',
+          'http / port': 'HTTP / 代理端口',
+          'https / host': 'HTTPS / 代理地址',
+          'https / port': 'HTTPS / 代理端口',
+          'socks / host': 'SOCKS / 代理地址',
+          'socks / port': 'SOCKS / 代理端口',
+          'http / use-authentication': '代理身份验证',
+          'use-same-proxy': '共用代理',
+          'ftp / host': 'FTP / 代理地址',
+          'ftp / port': 'FTP / 代理端口',
+        }[key] ??
+        key;
+    if (key.endsWith('状态') ||
+        const ['自动发现', '绕过本地主机', '代理身份验证', '共用代理'].contains(key)) {
+      value =
+          const {'1': '启用', '0': '禁用', 'true': '启用', 'false': '禁用'}[value] ??
+          value;
+    }
+    if (key == '代理模式') {
+      value =
+          const {'none': '直接连接', 'manual': '手动配置', 'auto': '自动配置'}[value] ??
+          value;
+    }
+    (groups[source] ??= []).add([key, value.isEmpty ? '—' : value]);
+  }
+
+  for (final original in lines) {
+    final line = original.trim();
+    if (line.startsWith('__OH_PROXY_SCOPE__\t')) {
+      scope = line.split('\t').skip(1).join(' ');
+      groups.putIfAbsent(scope, () => []);
+      continue;
+    }
+    if (line.startsWith('__OH_PROXY__\t')) {
+      final fields = line.split('\t');
+      if (fields.length >= 4) {
+        add(fields[1], fields[2], fields.skip(3).join(' '));
+      }
+      continue;
+    }
+    if (line == '{' || line == '}' || line == ')' || line == '(') continue;
+    if (line.endsWith(' : <array> {')) {
+      arrayKey = line.substring(0, line.indexOf(' :')).trim();
+      continue;
+    }
+    final arrayEntry = RegExp(r'^\d+\s*:\s*(.+)$').firstMatch(line);
+    if (arrayEntry != null && arrayKey.isNotEmpty) {
+      add(scope, arrayKey, arrayEntry[1]!);
+      continue;
+    }
+    final gnome = RegExp(
+      r'^org\.gnome\.system\.proxy(?:\.([\w-]+))?\s+([\w-]+)\s+(.+)$',
+    ).firstMatch(line);
+    if (gnome != null) {
+      final key = [if (gnome[1] != null) gnome[1]!, gnome[2]!].join(' / ');
+      add(scope, key, gnome[3]!);
+      continue;
+    }
+    final field = RegExp(
+      r'^(.+?)\s*(?:\s+:\s*|:\s+|\s{2,})(.+)$',
+    ).firstMatch(line);
+    if (field != null) {
+      add(scope, field[1]!.trim(), field[2]!.trim());
+    } else if (line.contains('Direct access') || line.contains('直接访问')) {
+      (groups[scope] ??= []).add(['代理模式', '直接连接']);
+    } else if (line.startsWith('缺少') ||
+        line.startsWith('查询失败') ||
+        line.toLowerCase().contains('error')) {
+      (groups[scope] ??= []).add(['状态', line]);
+    }
+  }
+  if (groups['终端环境']?.isEmpty ?? false) {
+    groups.remove('终端环境');
+  }
+  return MachineMaintenanceReadout(
+    [],
+    [],
+    groups: {
+      for (final entry in groups.entries)
+        entry.key: MachineMaintenanceReadout(
+          ['名称', '数值'],
+          entry.value.isEmpty
+              ? [
+                  ['状态', '当前范围未提供代理配置'],
+                ]
+              : entry.value,
+          fields: true,
+        ),
+    },
+  );
+}
+
+MachineMaintenanceReadout _machineFirewallStatusReadout(List<String> lines) {
+  final normalized = <String>[];
+  for (final original in lines) {
+    final line = original.trim();
+    if (line.startsWith('ERROR:') && line.contains('root')) {
+      normalized.add('状态: 读取权限不足');
+    } else if (line == 'running' || line == 'not running') {
+      normalized.add('状态: ${line == 'running' ? '运行中' : '未运行'}');
+    } else if (line.startsWith('Status:')) {
+      normalized.add(
+        '状态: ${line.endsWith('inactive')
+            ? '禁用'
+            : line.endsWith('active')
+            ? '启用'
+            : line.substring(7).trim()}',
+      );
+    } else if (!original.startsWith(' ') &&
+        RegExp(r'^[\w-]+(?: \(active\))?$').hasMatch(line)) {
+      normalized.add('$line:');
+    } else {
+      normalized.add(original);
+    }
+  }
+  return _machineConfigurationReadout(normalized);
 }
 
 MachineMaintenanceReadout _machineSocketReadout(List<String> lines) {
@@ -115,6 +296,13 @@ MachineMaintenanceReadout _machineAddressReadout(List<String> lines) {
   var counters = <String>[];
   var direction = '';
   void add(String key, String value) {
+    if (key == '状态' || key == '链路状态') {
+      value = switch (value.toLowerCase()) {
+        'up' || 'active' => '已连接',
+        'down' || 'inactive' => '未连接',
+        _ => value,
+      };
+    }
     final fields = interfaces[name] ??= {};
     fields[key] = fields[key] == null || fields[key] == value
         ? value
@@ -620,7 +808,7 @@ MachineMaintenanceReadout _machineFirewallReadout(
           : '应用防火墙';
       fields.add([
         key,
-        RegExp(r'\bdisabled\b|\boff\b').hasMatch(line) ? '关闭' : '开启',
+        RegExp(r'\bdisabled\b|\boff\b').hasMatch(line) ? '禁用' : '启用',
       ]);
       continue;
     }
