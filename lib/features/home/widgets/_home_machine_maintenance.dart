@@ -3325,15 +3325,17 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                           Text(
                             maintenanceLabel(context, table.headers.last),
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                               color: cs.onSurfaceVariant,
                             ),
                           ),
                           _MaintenanceNumber(
                             raw: row.last,
                             style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: tone,
                             ),
                           ),
                         ],
@@ -4413,56 +4415,71 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return AnimatedPopupMenuButton<T>(
-      tooltip: maintenanceLabel(context, tooltip),
-      enabled: enabled,
-      initialValue: value,
-      position: PopupMenuPosition.under,
-      padding: EdgeInsets.zero,
-      onSelected: onSelected,
-      itemBuilder: (_) => [
-        for (final item in items.entries)
-          PopupMenuItem(
-            value: item.key,
-            child: Text(maintenanceLabel(context, item.value)),
-          ),
-      ],
-      child: AnimatedOpacity(
-        opacity: enabled ? 1 : .42,
-        duration: openHandMotionDuration(context, kOpenHandMotion140),
-        child: Container(
-          height: _maintenanceControlHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: cs.surface.withValues(alpha: .72),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: .55)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: cs.onSurfaceVariant),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                maintenanceLabel(context, label),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const chrome = 1.0 + 10.0 + 16.0 + 6.0 + 10.0 + 1.0;
+        final leading = icon == null ? 0.0 : 22.0;
+        final textMax = constraints.maxWidth.isFinite
+            ? math.max(0.0, constraints.maxWidth - chrome - leading)
+            : double.infinity;
+        return AnimatedPopupMenuButton<T>(
+          tooltip: maintenanceLabel(context, tooltip),
+          enabled: enabled,
+          initialValue: value,
+          position: PopupMenuPosition.under,
+          padding: EdgeInsets.zero,
+          onSelected: onSelected,
+          itemBuilder: (_) => [
+            for (final item in items.entries)
+              PopupMenuItem(
+                value: item.key,
+                child: Text(maintenanceLabel(context, item.value)),
+              ),
+          ],
+          child: AnimatedOpacity(
+            opacity: enabled ? 1 : .42,
+            duration: openHandMotionDuration(context, kOpenHandMotion140),
+            child: Container(
+              height: _maintenanceControlHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: .72),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: .55),
                 ),
               ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.expand_more_rounded,
-                size: 16,
-                color: cs.onSurfaceVariant,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 16, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                  ],
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: textMax),
+                    child: Text(
+                      maintenanceLabel(context, label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -5444,7 +5461,7 @@ class _MaintenanceCard extends StatelessWidget {
                                 child: Align(
                                   alignment: Alignment.centerRight,
                                   heightFactor: 1,
-                                  child: trailing!,
+                                  child: trailing,
                                 ),
                               ),
                             ],
@@ -5630,11 +5647,11 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                       Row(
                         children: [
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 10,
+                            height: 10,
                             decoration: BoxDecoration(
                               color: segment.color,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(3),
                             ),
                           ),
                           const SizedBox(width: 7),
@@ -5677,7 +5694,8 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                                             : '—',
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: cs.onSurfaceVariant,
+                                          fontWeight: FontWeight.w800,
+                                          color: segment.color,
                                         ),
                                       ),
                                     ],
@@ -5693,9 +5711,10 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                               child: _MaintenanceValue(
                                 value: segment.valueLabel ?? '${segment.value}',
                                 alignment: Alignment.centerRight,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: segment.color,
                                 ),
                               ),
                             ),
