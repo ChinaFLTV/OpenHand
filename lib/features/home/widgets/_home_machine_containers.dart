@@ -419,7 +419,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       );
     }
 
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.all(16),
       children: [
         Container(

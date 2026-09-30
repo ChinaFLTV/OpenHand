@@ -17,6 +17,8 @@ class OpenHandAnimatedChipWrap extends StatefulWidget {
     this.topSpacing = 0,
     this.crossAxisAlignment = WrapCrossAlignment.start,
     this.settings,
+    this.equalRunHeights = false,
+    this.followAnimatedChildHeight = false,
   });
 
   /// 每项必须提供稳定的业务键；内容变化时保留原键。
@@ -26,6 +28,12 @@ class OpenHandAnimatedChipWrap extends StatefulWidget {
   final double topSpacing;
   final WrapCrossAlignment crossAxisAlignment;
   final DialogAnimationSettings? settings;
+
+  /// 卡片网格可选择拉齐同行高度，胶囊保持自然尺寸。
+  final bool equalRunHeights;
+
+  /// 子项已带尺寸动画时同步布局，避免重复缓动造成卡片重叠。
+  final bool followAnimatedChildHeight;
 
   @override
   State<OpenHandAnimatedChipWrap> createState() =>
@@ -94,6 +102,8 @@ class _OpenHandAnimatedChipWrapState extends State<OpenHandAnimatedChipWrap>
     final currentKeys = widget.children.map((child) => child.key).toSet();
     return _ChipWrapLayout(
       topSpacing: widget.topSpacing,
+      equalRunHeights: widget.equalRunHeights,
+      followAnimatedChildHeight: widget.followAnimatedChildHeight,
       controller: _reflow,
       settings: settings,
       spacing: widget.spacing,
@@ -140,6 +150,8 @@ class _ChipWrapLayout extends MultiChildRenderObjectWidget {
     required this.spacing,
     required this.runSpacing,
     required this.topSpacing,
+    required this.equalRunHeights,
+    required this.followAnimatedChildHeight,
     required this.crossAxisAlignment,
     required this.textDirection,
     required super.children,
@@ -150,6 +162,8 @@ class _ChipWrapLayout extends MultiChildRenderObjectWidget {
   final double spacing;
   final double runSpacing;
   final double topSpacing;
+  final bool equalRunHeights;
+  final bool followAnimatedChildHeight;
   final WrapCrossAlignment crossAxisAlignment;
   final TextDirection textDirection;
 
@@ -160,6 +174,8 @@ class _ChipWrapLayout extends MultiChildRenderObjectWidget {
     spacing: spacing,
     runSpacing: runSpacing,
     topSpacing: topSpacing,
+    equalRunHeights: equalRunHeights,
+    followAnimatedChildHeight: followAnimatedChildHeight,
     crossAxisAlignment: crossAxisAlignment,
     textDirection: textDirection,
   );
@@ -169,6 +185,8 @@ class _ChipWrapLayout extends MultiChildRenderObjectWidget {
     renderObject
       ..settings = settings
       ..topSpacing = topSpacing
+      ..equalRunHeights = equalRunHeights
+      ..followAnimatedChildHeight = followAnimatedChildHeight
       ..spacing = spacing
       ..runSpacing = runSpacing
       ..crossAxisAlignment = crossAxisAlignment
@@ -184,6 +202,8 @@ class _RenderChipWrap extends RenderWrap {
     required super.spacing,
     required super.runSpacing,
     required this.topSpacing,
+    required this.equalRunHeights,
+    required this.followAnimatedChildHeight,
     required super.crossAxisAlignment,
     required super.textDirection,
   });
@@ -193,6 +213,9 @@ class _RenderChipWrap extends RenderWrap {
   DialogAnimationSettings? _previousSettings;
   bool _exiting = false;
   double topSpacing;
+  bool equalRunHeights;
+  bool followAnimatedChildHeight;
+  Map<RenderBox, double> _childHeights = {};
   Size? _startSize;
   Size? _targetSize;
   double _lastValue = 0;
@@ -238,17 +261,44 @@ class _RenderChipWrap extends RenderWrap {
       child = data.nextSibling;
     }
     super.performLayout();
+    if (equalRunHeights) {
+      final heights = <double, double>{};
+      for (var item = firstChild; item != null; item = childAfter(item)) {
+        final top = (item.parentData! as WrapParentData).offset.dy;
+        if (!heights.containsKey(top) || item.size.height > heights[top]!) {
+          heights[top] = item.size.height;
+        }
+      }
+      for (var item = firstChild; item != null; item = childAfter(item)) {
+        final height = heights[(item.parentData! as WrapParentData).offset.dy]!;
+        if (item.size.height < height) {
+          item.layout(
+            BoxConstraints.tightFor(width: item.size.width, height: height),
+            parentUsesSize: true,
+          );
+        }
+      }
+    }
     final inset = childCount == 0 ? 0.0 : topSpacing;
     final targetSize = constraints.constrain(
       Size(size.width, size.height + inset),
     );
     final targets = <RenderBox, Offset>{};
+    final heights = <RenderBox, double>{};
+    var childHeightChanged = false;
     child = firstChild;
     while (child != null) {
       final data = child.parentData! as WrapParentData;
       targets[child] = data.offset + Offset(0, inset);
+      heights[child] = child.size.height;
+      childHeightChanged |=
+          _childHeights.containsKey(child) &&
+          _childHeights[child] != child.size.height;
       child = data.nextSibling;
     }
+    _childHeights = heights;
+    // 子卡片已平滑改变高度时，邻项必须同步跟随，二次插值会造成重叠。
+    final followingChild = followAnimatedChildHeight && childHeightChanged;
     final changed =
         targetSize != _targetSize ||
         targets.length != _targets.length ||
@@ -275,7 +325,7 @@ class _RenderChipWrap extends RenderWrap {
                 previous.containsKey(entry.key) &&
                 previous[entry.key] != entry.value,
           );
-      if (controller.duration == Duration.zero || !moving) {
+      if (controller.duration == Duration.zero || !moving || followingChild) {
         controller.stop();
         _lastValue = 1;
         controller.value = 1;

@@ -1243,10 +1243,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ? _MaintenanceEmptyHint(
                 message: maintenanceLabel(context, '暂无可读的文件系统'),
               )
-            : Column(
+            : _MaintenanceAnimatedColumn(
                 children: [
                   for (final v in visibleVolumes)
                     Padding(
+                      key: ValueKey((v.first, v.skip(5).join(' '))),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1362,8 +1363,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _MaintenanceCard(
         title: maintenanceLabel(context, '资源提醒'),
         icon: Icons.notifications_none_rounded,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: _MaintenanceAnimatedColumn(
           children: [
             _MaintenanceStatus(
               label: warnings.isEmpty
@@ -1411,10 +1411,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
       ),
     ];
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-overview-summary'),
           minWidth: 200,
           maxColumns: 4,
           children: [
@@ -1473,6 +1474,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: 12),
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-overview-resources'),
           minWidth: 300,
           children: [
             for (
@@ -1515,6 +1517,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ])
           if (data.text(section).isNotEmpty)
             Padding(
+              key: ValueKey(section),
               padding: const EdgeInsets.only(top: 12),
               child: _MaintenanceCard(
                 title: maintenanceLabel(
@@ -1543,6 +1546,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
+      key: ValueKey(title),
       padding: const EdgeInsets.all(12),
       decoration: _maintenanceTileDecoration(cs),
       child: Row(
@@ -1649,8 +1653,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       }
     }
     samples.sort((a, b) => b.value.compareTo(a.value));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return _MaintenanceAnimatedColumn(
       children: [
         if (samples.isNotEmpty) ...[
           _MaintenanceVisual(
@@ -1735,29 +1738,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return '${n == n.roundToDouble() ? n.toInt() : n.toStringAsFixed(1)}$unit';
     }
 
-    if (gpu.devices.isEmpty && reports.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: _MaintenanceEmptyHint(
-            message: l10n.maintenanceGpuEmpty,
-            centered: true,
-          ),
-        ),
-      );
-    }
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      empty: _MaintenanceEmptyHint(
+        message: l10n.maintenanceGpuEmpty,
+        centered: true,
+      ),
       children: [
         for (final device in gpu.devices) ...[
           _MaintenanceCard(
+            key: ValueKey(('gpu', device.id)),
             title: device.name,
             scrollBody: false,
             icon: Icons.developer_board_rounded,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: _MaintenanceAnimatedColumn(
               children: [
                 _MaintenanceGrid(
+                  key: const ValueKey('maintenance-gpu-summary'),
                   minWidth: 190,
                   maxColumns: 4,
                   children: [
@@ -1797,6 +1794,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         device.metrics['memoryUsed'] != null)) ...[
                   const SizedBox(height: 12),
                   _MaintenanceGrid(
+                    key: const ValueKey('maintenance-gpu-charts'),
                     minWidth: 280,
                     children: [
                       if ((_gpuHistory[device.id]?.length ?? 0) >= 2)
@@ -1915,8 +1913,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             title: l10n.maintenanceGpuComponents,
             icon: Icons.hub_outlined,
             scrollBody: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: _MaintenanceAnimatedColumn(
               spacing: _maintenanceGridGap,
               children: [
                 _MaintenanceEmptyHint(
@@ -1945,8 +1942,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             'unsupported' => l10n.maintenanceHealthUnsupported,
                             _ => l10n.maintenanceGpuProbeUnavailable,
                           },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: _MaintenanceAnimatedColumn(
                       spacing: _maintenanceGridGap,
                       children: [
                         if (report.raw.isNotEmpty)
@@ -1956,9 +1952,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                         if (report.rows.isNotEmpty)
                           report.rows.length > 24 && report.groups.length > 1
-                              ? Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
+                              ? _MaintenanceAnimatedColumn(
                                   spacing: _maintenanceGridGap,
                                   children: [
                                     for (final group in report.groups.entries)
@@ -2060,6 +2054,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final memoryRank = rows.where((p) => p.residentPages >= 0).toList()
       ..sort((a, b) => b.residentPages.compareTo(a.residentPages));
     final charts = _MaintenanceGrid(
+      key: const ValueKey('maintenance-process-charts'),
       minWidth: 300,
       children: [
         if (cpuRank.isNotEmpty)
@@ -2119,8 +2114,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         key: const ValueKey('运维进程列表'),
         builder: (_, constraints) => SizedBox.expand(
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: _MaintenanceAnimatedColumn(
               children: [
                 charts,
                 const SizedBox(height: 12),
@@ -2508,10 +2502,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       );
     }
 
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-service-summary'),
           minWidth: 210,
           children: [
             _metric(
@@ -2724,7 +2719,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       Icons.sync,
       Icons.access_time_filled,
     ];
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(
         12,
         12,
@@ -2733,11 +2728,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
       children: [
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-health-reports'),
           minWidth: 420,
           maxColumns: 2,
           children: [
             for (var i = 0; i < machineHealthSections.length; i++)
               Builder(
+                key: ValueKey(machineHealthSections[i]),
                 builder: (context) {
                   final key = machineHealthSections[i];
                   final raw = data.text('health_$key').trim();
@@ -2926,10 +2923,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         },
       ),
     );
-    return ListView(
+    return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       children: [
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-network-summary'),
           minWidth: 210,
           children: [
             _metric(
@@ -2977,6 +2975,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         if (connections.isNotEmpty)
           _MaintenanceGrid(
+            key: const ValueKey('maintenance-connection-charts'),
             minWidth: 340,
             children: [
               _MaintenanceCard(
@@ -3010,6 +3009,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         primary,
         const SizedBox(height: _maintenanceGridGap),
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-network-configuration'),
           minWidth: 380,
           maxColumns: 2,
           children: [
@@ -3149,6 +3149,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: _maintenanceGridGap),
         _MaintenanceGrid(
+          key: const ValueKey('maintenance-network-diagnostics'),
           maxColumns: 2,
           children: [
             dnsCard,
@@ -3181,8 +3182,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           title: '防火墙与 NAT',
           icon: Icons.shield_outlined,
           scrollBody: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: _MaintenanceAnimatedColumn(
             spacing: _maintenanceGridGap,
             children: [
               for (final name in const [
@@ -3256,9 +3256,7 @@ class _MaintenanceEgressCard extends StatelessWidget {
           padding: EdgeInsets.zero,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+      child: _MaintenanceAnimatedColumn(
         children: [
           if (data == null && busy)
             SizedBox(
@@ -3324,6 +3322,7 @@ class _MaintenanceEgressCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _MaintenanceGrid(
+              key: const ValueKey('maintenance-egress-details'),
               maxColumns: 2,
               minWidth: 340,
               children: [
@@ -3556,8 +3555,7 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
     if (_identity == identity) return _content!;
     _identity = identity;
     final metrics = MachineMaintenanceMetrics.parse(data, section);
-    return _content = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return _content = _MaintenanceAnimatedColumn(
       children: [
         for (var t = 0; t < metrics.tables.length; t++)
           if (metrics.tables[t].rows.isEmpty)
@@ -3620,11 +3618,17 @@ class _MaintenanceMetricTiles extends StatelessWidget {
       OpenHandStatusColors.info,
     ];
     return _MaintenanceGrid(
+      key: const ValueKey('maintenance-metric-summary'),
       minWidth: pressure ? 280 : 200,
       maxColumns: pressure ? 3 : 4,
       children: [
         for (var i = 0; i < table.rows.length; i++)
           Builder(
+            key: ValueKey((
+              section,
+              table.rows[i].first,
+              pressure ? table.rows[i][1] : null,
+            )),
             builder: (context) {
               final row = table.rows[i];
               final tone = tones[i % tones.length];
@@ -4220,14 +4224,12 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
             setState(() => _tree = selection.first),
       ),
     );
-    final content = AnimatedSize(
-      duration: openHandMotionDuration(context, motion.duration),
-      curve: motion.curve.curve,
-      alignment: Alignment.topCenter,
+    final content = _MaintenanceAnimatedSize(
       child: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, motion.duration),
-        switchInCurve: motion.curve.curve,
-        switchOutCurve: Curves.easeOut,
+        duration: motion.entranceDuration,
+        reverseDuration: motion.exitDuration,
+        switchInCurve: OpenHandBoundedCurve(motion.curve.curve),
+        switchOutCurve: OpenHandBoundedCurve(motion.curve.reverseCurve),
         child: _tree
             ? ClipRRect(
                 key: const ValueKey(true),
@@ -4585,30 +4587,32 @@ class _MaintenanceValue extends StatelessWidget {
   final Alignment alignment;
 
   @override
-  Widget build(BuildContext context) => AnimatedSwitcher(
-    duration: openHandMotionDuration(context, kOpenHandMotion260),
-    switchInCurve: kOpenHandSwitchInCurve,
-    switchOutCurve: kOpenHandSwitchOutCurve,
-    layoutBuilder: (current, previous) =>
-        Stack(alignment: alignment, children: [...previous, ?current]),
-    transitionBuilder: (child, animation) => FadeTransition(
-      opacity: animation,
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: .97,
-          end: 1,
-        ).chain(CurveTween(curve: kOpenHandEntranceCurve)).animate(animation),
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return AnimatedSwitcher(
+      duration: motion.entranceDuration,
+      reverseDuration: motion.exitDuration,
+      layoutBuilder: (current, previous) =>
+          Stack(alignment: alignment, children: [...previous, ?current]),
+      transitionBuilder: (child, animation) => buildAnimationStyleTransition(
+        animation: animation,
+        settings: motion,
+        profile: kOpenHandLayoutSafeTransitionProfile,
         child: child,
       ),
-    ),
-    child: Text(
-      value,
-      key: ValueKey(value),
-      maxLines: maxLines,
-      overflow: TextOverflow.ellipsis,
-      style: style,
-    ),
-  );
+      child: Text(
+        value,
+        key: ValueKey(value),
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      ),
+    );
+  }
 }
 
 class _MaintenanceUsage extends StatelessWidget {
@@ -4674,8 +4678,172 @@ class _MaintenanceUsage extends StatelessWidget {
   );
 }
 
+/// 以业务身份匹配卡片；间隔并入后续卡片，避免退场后遗留空白槽。
+List<Widget> _maintenanceMotionChildren(
+  List<Widget> children, {
+  double spacing = 0,
+  bool mergeSpacing = true,
+}) {
+  Key identity(Widget child) {
+    if (child.key != null) return child.key!;
+    if (child is _MaintenanceCard) return ValueKey(('card', child.title));
+    if (child is _MaintenanceSection) return ValueKey(('section', child.title));
+    if (child is Padding && child.child != null) return identity(child.child!);
+    return ValueKey(child.runtimeType);
+  }
+
+  final result = <Widget>[];
+  final occurrences = <Key, int>{};
+  var gap = 0.0;
+  for (final child in children) {
+    if (mergeSpacing &&
+        child is SizedBox &&
+        child.child == null &&
+        child.height != null) {
+      gap += child.height!;
+      continue;
+    }
+    final key = identity(child);
+    final occurrence = occurrences.update(
+      key,
+      (count) => count + 1,
+      ifAbsent: () => 0,
+    );
+    result.add(
+      Padding(
+        key: ValueKey((key, occurrence)),
+        padding: EdgeInsets.only(top: gap + (result.isEmpty ? 0 : spacing)),
+        child: child,
+      ),
+    );
+    gap = 0;
+  }
+  if (gap > 0 && result.isNotEmpty) {
+    final last = result.removeLast() as Padding;
+    result.add(
+      Padding(
+        key: last.key,
+        padding: last.padding.add(EdgeInsets.only(bottom: gap)),
+        child: last.child,
+      ),
+    );
+  }
+  return result;
+}
+
+/// 尺寸曲线限制在有效布局范围，弹性视觉仍由进退场组件负责。
+class _MaintenanceAnimatedSize extends StatelessWidget {
+  const _MaintenanceAnimatedSize({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) => OpenHandAnimatedChipWrap(
+          settings: motion,
+          spacing: 0,
+          runSpacing: 0,
+          children: [
+            SizedBox(
+              key: const ValueKey('content'),
+              width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+              child: child,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 滚动板块复用有界退场生命周期，屏幕外的卡片也会按时释放。
+class _MaintenanceAnimatedList extends StatelessWidget {
+  const _MaintenanceAnimatedList({
+    required this.children,
+    this.padding = EdgeInsets.zero,
+    this.shrinkWrap = false,
+    this.spacing = 0,
+    this.empty,
+  });
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+  final bool shrinkWrap;
+  final double spacing;
+  final Widget? empty;
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return CustomScrollView(
+      shrinkWrap: shrinkWrap,
+      slivers: [
+        SliverPadding(
+          padding: padding,
+          sliver: OpenHandAnimatedSliverList(
+            settings: motion,
+            children: _maintenanceMotionChildren(children, spacing: spacing),
+          ),
+        ),
+        if (children.isEmpty && empty != null)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: AnimatedAppearance(
+              settings: motion,
+              collapseSize: false,
+              child: Center(
+                child: Padding(padding: const EdgeInsets.all(24), child: empty),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 非滚动子板块复用网格的显隐和位移动效，不叠加入场动画。
+class _MaintenanceAnimatedColumn extends StatelessWidget {
+  const _MaintenanceAnimatedColumn({required this.children, this.spacing = 0});
+  final List<Widget> children;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => OpenHandAnimatedChipWrap(
+        settings: motion,
+        followAnimatedChildHeight: true,
+        spacing: 0,
+        runSpacing: 0,
+        children: [
+          for (final child in _maintenanceMotionChildren(
+            children,
+            spacing: spacing,
+          ))
+            SizedBox(key: child.key, width: constraints.maxWidth, child: child),
+        ],
+      ),
+    );
+  }
+}
+
 class _MaintenanceGrid extends StatelessWidget {
   const _MaintenanceGrid({
+    super.key,
     required this.children,
     this.minWidth = 360,
     this.maxColumns = 3,
@@ -4684,86 +4852,70 @@ class _MaintenanceGrid extends StatelessWidget {
   final double minWidth;
   final int maxColumns;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (_, constraints) {
-      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      final columns =
-          ((constraints.maxWidth + _maintenanceGridGap) /
-                  (minWidth * scale + _maintenanceGridGap))
-              .floor()
-              .clamp(1, math.max(1, math.min(maxColumns, children.length)))
-              .toInt();
-      final tiles = <Widget>[];
-      for (var start = 0; start < children.length; start += columns) {
-        // 末行按实际卡片数分配宽度，不留下整列空位。
-        final count = math.min(columns, children.length - start);
-        final width =
-            (constraints.maxWidth - (count - 1) * _maintenanceGridGap) / count;
-        final widths = List<double>.filled(count, width);
-        final flexible = <int>[];
-        var spare = 0.0;
-        for (var i = 0; i < count; i++) {
-          final child = children[start + i];
-          final preferred = child is _MaintenanceCard
-              ? child.preferredWidth(context)
-              : double.infinity;
-          if (preferred.isFinite) {
-            widths[i] = math.min(width, preferred);
-            spare += width - widths[i];
-          } else {
-            flexible.add(i);
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final keyed = _maintenanceMotionChildren(children, mergeSpacing: false);
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final columns =
+            ((constraints.maxWidth + _maintenanceGridGap) /
+                    (minWidth * scale + _maintenanceGridGap))
+                .floor()
+                .clamp(1, math.max(1, math.min(maxColumns, children.length)))
+                .toInt();
+        final tiles = <Widget>[];
+        for (var start = 0; start < children.length; start += columns) {
+          // 末行按实际卡片数分配宽度，不留下整列空位。
+          final count = math.min(columns, children.length - start);
+          final width =
+              (constraints.maxWidth - (count - 1) * _maintenanceGridGap) /
+              count;
+          final widths = List<double>.filled(count, width);
+          final flexible = <int>[];
+          var spare = 0.0;
+          for (var i = 0; i < count; i++) {
+            final child = children[start + i];
+            final preferred = child is _MaintenanceCard
+                ? child.preferredWidth(context)
+                : double.infinity;
+            if (preferred.isFinite) {
+              widths[i] = math.min(width, preferred);
+              spare += width - widths[i];
+            } else {
+              flexible.add(i);
+            }
+          }
+          // 紧凑卡释放的宽度交给同行内容卡，避免外框变窄但仍占着整列。
+          for (final i in flexible) {
+            widths[i] += spare / flexible.length;
+          }
+          for (var i = 0; i < count; i++) {
+            tiles.add(
+              AnimatedContainer(
+                key: keyed[start + i].key,
+                duration: motion.entranceDuration,
+                curve: OpenHandBoundedCurve(motion.curve.curve),
+                width: widths[i],
+                child: keyed[start + i],
+              ),
+            );
           }
         }
-        // 紧凑卡释放的宽度交给同行内容卡，避免外框变窄但仍占着整列。
-        for (final i in flexible) {
-          widths[i] += spare / flexible.length;
-        }
-        for (var i = 0; i < count; i++) {
-          tiles.add(SizedBox(width: widths[i], child: children[start + i]));
-        }
-      }
-      return _MaintenanceEqualHeightWrap(children: tiles);
-    },
-  );
-}
-
-/// 同行按最高内容对齐，不做固有尺寸查询，兼容卡片内的布局构建器和滚动视口。
-class _MaintenanceEqualHeightWrap extends Wrap {
-  const _MaintenanceEqualHeightWrap({required super.children})
-    : super(spacing: _maintenanceGridGap, runSpacing: _maintenanceGridGap);
-
-  @override
-  RenderWrap createRenderObject(BuildContext context) =>
-      _MaintenanceRenderWrap(textDirection: Directionality.of(context));
-}
-
-class _MaintenanceRenderWrap extends RenderWrap {
-  _MaintenanceRenderWrap({required TextDirection textDirection})
-    : super(
-        spacing: _maintenanceGridGap,
-        runSpacing: _maintenanceGridGap,
-        textDirection: textDirection,
-      );
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    final rowHeights = <double, double>{};
-    for (var child = firstChild; child != null; child = childAfter(child)) {
-      final top = (child.parentData! as WrapParentData).offset.dy;
-      rowHeights[top] = math.max(rowHeights[top] ?? 0, child.size.height);
-    }
-    // 同一次布局内拉齐外框，保留换行位置，避免测量回调造成闪动。
-    for (var child = firstChild; child != null; child = childAfter(child)) {
-      final top = (child.parentData! as WrapParentData).offset.dy;
-      final height = rowHeights[top]!;
-      if (child.size.height < height) {
-        child.layout(
-          BoxConstraints.tightFor(width: child.size.width, height: height),
-          parentUsesSize: true,
+        return OpenHandAnimatedChipWrap(
+          settings: motion,
+          equalRunHeights: true,
+          followAnimatedChildHeight: true,
+          spacing: _maintenanceGridGap,
+          runSpacing: _maintenanceGridGap,
+          children: tiles,
         );
-      }
-    }
+      },
+    );
   }
 }
 
@@ -4952,9 +5104,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
       null => '',
       _ => l.maintenanceHealthUnavailable,
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+    return _MaintenanceAnimatedColumn(
       spacing: _maintenanceGridGap,
       children: [
         if (issue.isNotEmpty)
@@ -4997,6 +5147,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
           ),
         for (final entry in report.tables.entries)
           Column(
+            key: ValueKey(entry.key),
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 8,
@@ -5065,6 +5216,11 @@ class _MaintenanceFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final scaler = MediaQuery.textScalerOf(context);
@@ -5088,12 +5244,26 @@ class _MaintenanceFields extends StatelessWidget {
         final width =
             (constraints.maxWidth - (columns - 1) * _maintenanceGridGap) /
             columns;
-        return Wrap(
+        final occurrences = <String, int>{};
+        final keys = [
+          for (var i = 0; i < rows.length; i++)
+            ValueKey((
+              fieldKeys?[i] ?? rows[i][0],
+              occurrences.update(
+                fieldKeys?[i] ?? rows[i][0],
+                (count) => count + 1,
+                ifAbsent: () => 0,
+              ),
+            )),
+        ];
+        return OpenHandAnimatedChipWrap(
+          settings: motion,
           spacing: _maintenanceGridGap,
           runSpacing: _maintenanceGridGap,
           children: [
             for (var i = 0; i < rows.length; i++)
               Builder(
+                key: keys[i],
                 builder: (context) {
                   final label = rows[i][0];
                   final raw = rows[i][1].isEmpty ? '—' : rows[i][1];
@@ -5158,8 +5328,10 @@ class _MaintenanceFields extends StatelessWidget {
                     );
                   }
 
-                  return SizedBox(
+                  return AnimatedContainer(
                     key: ValueKey('maintenance-field-$i'),
+                    duration: motion.entranceDuration,
+                    curve: OpenHandBoundedCurve(motion.curve.curve),
                     width: width,
                     height: _maintenanceFieldHeight * scale,
                     child: DecoratedBox(
@@ -5357,9 +5529,13 @@ class _MaintenanceSection extends StatelessWidget {
             reverseDuration: motion.disablesAnimation
                 ? Duration.zero
                 : motion.exitDuration,
-            curve: motion.curve.curve,
+            curve: OpenHandBoundedCurve(motion.curve.curve),
+            reverseCurve: OpenHandBoundedCurve(motion.curve.reverseCurve),
           ),
-          children: [const SizedBox(height: 8), child],
+          children: [
+            const SizedBox(height: 8),
+            _MaintenanceAnimatedSize(child: child),
+          ],
         ),
       ),
     );
@@ -5400,9 +5576,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
   @override
   Widget build(BuildContext context) {
     if (_data.groups.isNotEmpty) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      return _MaintenanceAnimatedColumn(
         spacing: _maintenanceGridGap,
         children: [
           if (_data.rows.isNotEmpty)
@@ -5415,6 +5589,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
             ),
           for (final entry in _data.groups.entries)
             _MaintenanceSection(
+              key: ValueKey(entry.key),
               title: maintenanceDetailLabel(context, entry.key),
               icon: Icons.hub_outlined,
               initiallyExpanded:
@@ -5450,9 +5625,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         'format' => '当前工具输出格式尚未识别，请检查工具版本和采集范围后重试。',
         _ => '请检查目标服务、权限和工具状态后重新采集。',
       };
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      return _MaintenanceAnimatedColumn(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
@@ -5676,6 +5849,7 @@ class _MaintenanceIconBadge extends StatelessWidget {
 
 class _MaintenanceCard extends StatelessWidget {
   const _MaintenanceCard({
+    super.key,
     required this.title,
     required this.child,
     this.icon = Icons.analytics_outlined,
@@ -5856,28 +6030,30 @@ class _MaintenanceCard extends StatelessWidget {
           Padding(
             padding: contentPadding,
             // 列表自行约束数据区，外层不能再次截断分页栏。
-            child:
-                !scrollBody ||
-                    child is _MaintenanceTable ||
-                    child is _MaintenanceBrowser ||
-                    child is _MaintenanceReadout ||
-                    child is _MaintenanceLogTimeline
-                ? child
-                : ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: math.min(
-                        maxHeight,
-                        MediaQuery.sizeOf(context).height * .56,
+            child: _MaintenanceAnimatedSize(
+              child:
+                  !scrollBody ||
+                      child is _MaintenanceTable ||
+                      child is _MaintenanceBrowser ||
+                      child is _MaintenanceReadout ||
+                      child is _MaintenanceLogTimeline
+                  ? child
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.min(
+                          maxHeight,
+                          MediaQuery.sizeOf(context).height * .56,
+                        ),
+                      ),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: child,
+                        ),
                       ),
                     ),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: child,
-                      ),
-                    ),
-                  ),
+            ),
           ),
         ],
       ),
@@ -6956,13 +7132,11 @@ class _MachineMaintenanceDetailsState
                         ),
                       ),
                     )
-                  : ListView.separated(
+                  : _MaintenanceAnimatedList(
                       shrinkWrap: true,
                       padding: _maintenanceDetailPadding,
-                      itemCount: sections.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: _maintenanceGridGap),
-                      itemBuilder: (_, index) => sections[index],
+                      spacing: _maintenanceGridGap,
+                      children: sections,
                     ),
             ),
           ],
@@ -7356,8 +7530,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                 child: SingleChildScrollView(
                   primary: false,
                   padding: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: _MaintenanceAnimatedColumn(
                     children: [
                       Wrap(
                         spacing: 8,

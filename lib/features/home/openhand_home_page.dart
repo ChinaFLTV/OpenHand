@@ -91,6 +91,7 @@ import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/natural_image_size_resolver.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_anchored_popup_layout.dart';
+import '../../shared/ui/openhand_animated_chip_wrap.dart';
 import '../../shared/ui/openhand_animated_sliver_list.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';
 import '../../shared/ui/openhand_approval_chip.dart';

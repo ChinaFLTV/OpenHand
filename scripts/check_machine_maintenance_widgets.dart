@@ -35,6 +35,10 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/bounded_animation.dart';
+import 'package:openhand/shared/ui/animated_appearance.dart';
+import 'package:openhand/shared/ui/openhand_animated_sliver_list.dart';
+import 'package:openhand/shared/ui/openhand_animated_chip_wrap.dart';
 import 'package:xterm/xterm.dart';
 import 'package:openhand/shared/util/platform_shell.dart';
 import 'package:flutter/foundation.dart';
@@ -459,7 +463,7 @@ void main() {
         await tester.pumpAndSettle();
         final cards = find.byWidgetPredicate((w) => w is _MaintenanceCard && w.child is _MaintenanceVisual && (w.child as _MaintenanceVisual).donut);
         if (cards.evaluate().isEmpty) {
-          final page = find.descendant(of: find.byType(_MachineMaintenanceDialog), matching: find.byType(ListView)).first;
+          final page = find.descendant(of: find.byType(_MachineMaintenanceDialog), matching: find.byType(CustomScrollView)).first;
           await tester.scrollUntilVisible(cards, 300, scrollable: find.descendant(of: page, matching: find.byType(Scrollable)).first);
           await tester.pumpAndSettle();
         }
@@ -885,7 +889,7 @@ void main() {
       final dnsCard = find.byWidgetPredicate((widget) =>
         widget is _MaintenanceCard && widget.title == 'DNS 服务器');
       await tester.scrollUntilVisible(dnsCard, 300,
-        scrollable: find.descendant(of: find.byType(ListView).first,
+        scrollable: find.descendant(of: find.byType(CustomScrollView).first,
           matching: find.byType(Scrollable)).first);
       await tester.pumpAndSettle();
       final table = tester.widget<_MaintenanceTable>(find.descendant(
@@ -897,7 +901,7 @@ void main() {
       final diagnostics = find.byWidgetPredicate((widget) =>
         widget is _MaintenanceCard && widget.title == '诊断项目');
       await tester.scrollUntilVisible(diagnostics, 300,
-        scrollable: find.descendant(of: find.byType(ListView).first,
+        scrollable: find.descendant(of: find.byType(CustomScrollView).first,
           matching: find.byType(Scrollable)).first);
       await tester.pumpAndSettle();
       expect(find.descendant(of: diagnostics, matching: find.byType(_MaintenanceTable)), findsOneWidget);
@@ -983,7 +987,7 @@ void main() {
     expect(find.text('You need administrator access to run this tool... exiting!'), findsNothing);
     expect(tester.takeException(), isNull);
     if (Platform.environment['MAINTENANCE_FONT'] != null) {
-      await tester.scrollUntilVisible(find.text('日期、时间与时区'), 250, scrollable:find.descendant(of:find.byType(ListView),matching:find.byType(Scrollable)).first);
+      await tester.scrollUntilVisible(find.text('日期、时间与时区'), 250, scrollable:find.descendant(of:find.byType(CustomScrollView),matching:find.byType(Scrollable)).first);
       await tester.pumpAndSettle();
       checkHealthStatusEdges();
       final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('健康预览')));
@@ -1018,6 +1022,7 @@ void main() {
     final logText = tester.widget<SelectableText>(find.byType(SelectableText));
     expect(logText.textSpan!.toPlainText(), '[info] 服务已启动\\n[warning] 连接重试\\n[error] 请求超时');
     expect(find.byType(ListView), findsNothing);
+    expect(find.byType(CustomScrollView), findsNothing);
     logText.onSelectionChanged!(const TextSelection(baseOffset: 7, extentOffset: 25), SelectionChangedCause.drag);
     await tester.pumpAndSettle();
     final logState = tester.state<_MaintenanceLogBrowserState>(find.byType(_MaintenanceLogBrowser));
@@ -2093,6 +2098,155 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('运维卡片退场保留视图，快速恢复保留展开状态且结束后释放', (tester) async {
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs: 600, curve: DialogAnimationCurve.easeInOut,
+      entranceStyle: DialogAnimationStyle.fadeScale, exitStyle: DialogAnimationStyle.fadeScale)));
+    for (final mode in ['列表', '网格', '分组']) {
+      var visible = true;
+      late StateSetter update;
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+          update = setState;
+          final children = <Widget>[
+            if (visible) const _MaintenanceSection(key: ValueKey('动态板块'), title: '可展开卡片', child: Text('保留展开内容')),
+            const _MaintenanceCard(key: ValueKey('固定板块'), title: '固定卡片', child: Text('固定内容')),
+          ];
+          return switch (mode) {
+            '列表' => _MaintenanceAnimatedList(children: children),
+            '网格' => SingleChildScrollView(child: _MaintenanceGrid(maxColumns: 1, children: children)),
+            _ => SingleChildScrollView(child: _MaintenanceAnimatedColumn(spacing: 12, children: children)),
+          };
+        }))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('可展开卡片')); await tester.pumpAndSettle();
+      final tileState = tester.state(find.byType(ExpansionTile));
+      update(() => visible = false); await tester.pump(); await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('保留展开内容'), findsOneWidget, reason: mode);
+      expect(find.text('可展开卡片').hitTestable(), findsNothing, reason: mode);
+      update(() => visible = true); await tester.pump(); await tester.pumpAndSettle();
+      expect(identical(tileState, tester.state(find.byType(ExpansionTile))), isTrue, reason: mode);
+      expect(find.text('保留展开内容'), findsOneWidget, reason: mode);
+      update(() => visible = false); await tester.pump(); await tester.pumpAndSettle();
+      expect(find.text('可展开卡片'), findsNothing, reason: mode);
+      expect(find.text('固定内容'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('单向禁用分别控制卡片进场与退场', (tester) async {
+    for (final entranceDisabled in [true, false]) {
+      await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(DialogAnimationSettings(
+        durationMs: 600, entranceStyle: entranceDisabled ? DialogAnimationStyle.none : DialogAnimationStyle.fade,
+        exitStyle: entranceDisabled ? DialogAnimationStyle.fade : DialogAnimationStyle.none)));
+      var visible = false;
+      late StateSetter update;
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+          update = setState;
+          return _MaintenanceAnimatedList(children: [if (visible)
+            const _MaintenanceCard(key: ValueKey('单向'), title: '单向卡片', child: Text('内容'))]);
+        }))));
+      await tester.pumpAndSettle();
+      update(() => visible = true); await tester.pump(); await tester.pump(const Duration(milliseconds: 60));
+      final fades = tester.widgetList<FadeTransition>(find.ancestor(of: find.text('单向卡片'), matching: find.byType(FadeTransition)));
+      expect(fades.any((fade) => fade.opacity.value < .99), !entranceDisabled);
+      await tester.pumpAndSettle();
+      update(() => visible = false); await tester.pump(); await tester.pump(const Duration(milliseconds: 60));
+      expect(find.text('单向卡片'), entranceDisabled ? findsOneWidget : findsNothing);
+      await tester.pumpAndSettle(); expect(find.text('单向卡片'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('卡片内容增长与缩短经过中间尺寸，刷新不重新挂载卡片', (tester) async {
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs: 600, curve: DialogAnimationCurve.easeInOut)));
+    var height = 40.0;
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return SingleChildScrollView(child: _MaintenanceGrid(maxColumns: 1, children: [
+          _MaintenanceCard(key: const ValueKey('尺寸卡片'), title: '动态内容', scrollBody: false, child: SizedBox(height: height)),
+          const _MaintenanceCard(key: ValueKey('相邻卡片'), title: '相邻内容', child: SizedBox(height: 40)),
+        ]));
+      }))));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const ValueKey('尺寸卡片'));
+    final before = tester.getSize(card).height;
+    final element = tester.element(card);
+    update(() => height = 200); await tester.pump(); await tester.pump(const Duration(milliseconds: 160));
+    final growing = tester.getSize(card).height;
+    expect(growing, greaterThan(before)); expect(growing, lessThan(before + 160));
+    expect(tester.getRect(find.byKey(const ValueKey('相邻卡片'))).top, greaterThanOrEqualTo(tester.getRect(card).bottom + 11.9));
+    await tester.pumpAndSettle();
+    final expanded = tester.getSize(card).height;
+    expect(expanded, closeTo(before + 160, .01));
+    expect(identical(element, tester.element(card)), isTrue);
+    update(() => height = 40); await tester.pump(); await tester.pump(const Duration(milliseconds: 160));
+    expect(tester.getSize(card).height, greaterThan(before));
+    expect(tester.getSize(card).height, lessThan(expanded));
+    await tester.pumpAndSettle(); expect(tester.getSize(card).height, closeTo(before, .01));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('网格换列与字段增删遵循弹性设置，关闭动效和减少动画立即收敛', (tester) async {
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs: 600, curve: DialogAnimationCurve.elasticOut,
+      entranceStyle: DialogAnimationStyle.springScale, exitStyle: DialogAnimationStyle.springScale)));
+    var width = 760.0;
+    var count = 3;
+    var reduced = false;
+    var ticker = true;
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+          child: TickerMode(enabled: ticker, child: SingleChildScrollView(child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width,
+            child: _MaintenanceGrid(minWidth: 300, maxColumns: 2, children: [
+              for (var i = 0; i < count; i++) _MaintenanceCard(key: ValueKey(i), title: '设备 ' + i.toString(), scrollBody: false,
+                child: _MaintenanceFields(rows: [['状态', '运行'], if (count > 1) ['名称', '设备']])),
+            ]))))));
+      }))));
+    await tester.pumpAndSettle();
+    update(() { width = 360; count = 2; }); await tester.pump();
+    for (var frame = 0; frame < 12; frame++) {
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.takeException(), isNull);
+      for (final element in find.byType(_MaintenanceCard).evaluate()) {
+        final rect = tester.getRect(find.byWidget(element.widget));
+        expect(rect.width.isFinite && rect.height.isFinite, isTrue);
+        expect(rect.width, greaterThanOrEqualTo(0));
+      }
+    }
+    await tester.pumpAndSettle(); expect(find.text('设备 2'), findsNothing);
+    expect(tester.getRect(find.byKey(const ValueKey(1))).top, greaterThan(tester.getRect(find.byKey(const ValueKey(0))).bottom));
+    update(() { count = 1; reduced = true; }); await tester.pump(); await tester.pump();
+    expect(find.text('设备 1'), findsNothing);
+    expect(find.text('名称'), findsNothing);
+    update(() { count = 2; reduced = false; }); await tester.pumpAndSettle();
+    update(() { count = 1; ticker = false; }); await tester.pump(); await tester.pump();
+    expect(find.text('设备 1'), findsNothing);
+    update(() { ticker = true; count = 2; }); await tester.pumpAndSettle();
+    update(() => count = 1); await tester.pump(); await tester.pump(const Duration(milliseconds: 60));
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(OpenHandMotionDefaults.disabled));
+    await tester.pump(); await tester.pump();
+    expect(find.text('设备 1'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
   testWidgets('诊断与元数据折叠标题统一高度，动效遵循全局设置并保留展开状态', (tester) async {
     await tester.binding.setSurfaceSize(const Size(760, 900));
     Widget screen(double scale) => MaterialApp(locale: const Locale('zh'),
@@ -2568,7 +2722,7 @@ void main() {
               await File(Platform.environment['MAINTENANCE_PREVIEW']! + '.network-panels.png').writeAsBytes(bytes!.buffer.asUint8List());
               image.dispose();
             });
-            final scroll = tester.state<ScrollableState>(find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
+            final scroll = tester.state<ScrollableState>(find.descendant(of: find.byType(CustomScrollView).first, matching: find.byType(Scrollable)).first);
             scroll.position.jumpTo(scroll.position.maxScrollExtent);
             await tester.pumpAndSettle();
             await tester.runAsync(() async {
@@ -2771,7 +2925,7 @@ void main() {
           expect(rect.bottom, closeTo(bottoms.putIfAbsent(rect.top, () => rect.bottom), .01));
         }
       }
-      final viewport = find.byType(ListView).first;
+      final viewport = find.byType(CustomScrollView).first;
       expect(tester.getRect(viewport).bottom, closeTo(dialogBottom - _maintenancePanelBottomInset, 1));
       await tester.drag(viewport, const Offset(0, -600));
       await tester.pumpAndSettle();
@@ -3543,8 +3697,8 @@ void main() {
       });
     });
     await tester.pumpAndSettle();
-    final overview = state._overview(state._snapshots[0]!) as ListView;
-    final disk = (overview.childrenDelegate as SliverChildListDelegate).children.whereType<_MaintenanceCard>().firstWhere((card) => card.title == '磁盘 IO');
+    final overview = state._overview(state._snapshots[0]!) as _MaintenanceAnimatedList;
+    final disk = overview.children.whereType<_MaintenanceCard>().firstWhere((card) => card.title == '磁盘 IO');
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(child: disk))));
     await tester.pumpAndSettle();
