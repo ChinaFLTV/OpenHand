@@ -422,26 +422,42 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _MaintenanceCard(
-          title: '容器运行时',
-          icon: Icons.inventory_2_outlined,
-          scrollBody: false,
-          trailing: SizedBox.square(
-            dimension: _maintenanceControlHeight,
-            child: _MachineTerminalIconButton(
-              onPressed: _busy || _overlay ? null : refresh,
-              tooltip: maintenanceLabel(context, '刷新容器数据'),
-              icon: Icons.refresh_rounded,
+        Container(
+          key: const ValueKey('container-runtime-toolbar'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(_maintenanceCardRadius),
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: .65),
             ),
           ),
           child: LayoutBuilder(
             builder: (context, bounds) {
+              final theme = Theme.of(context);
+              final cs = theme.colorScheme;
               final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
-              final inputWidth = math.min(bounds.maxWidth, 280 * scale);
-              final cs = Theme.of(context).colorScheme;
+              final hasScope =
+                  _runtime == MachineContainerRuntime.containerd ||
+                  _runtime == MachineContainerRuntime.kubernetes ||
+                  _runtime == MachineContainerRuntime.cri;
+              final wide = bounds.maxWidth >= (hasScope ? 980 : 720) * scale;
+              final inputWidth = wide ? 260 * scale : bounds.maxWidth;
+              final scopeHint = maintenanceLabel(
+                context,
+                _runtime == MachineContainerRuntime.containerd
+                    ? '命名空间（默认 default）'
+                    : _runtime == MachineContainerRuntime.cri
+                    ? 'CRI 端点（留空使用默认配置）'
+                    : '命名空间（留空为全部）',
+              );
               final border = OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: cs.outlineVariant),
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: .55),
+                ),
               );
               InputDecoration decoration(String hint, {IconData? icon}) =>
                   InputDecoration(
@@ -450,6 +466,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     constraints: const BoxConstraints.tightFor(
                       height: _maintenanceControlHeight,
                     ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerLow,
                     border: border,
                     enabledBorder: border,
                     disabledBorder: border,
@@ -460,105 +478,126 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     prefixIcon: icon == null ? null : Icon(icon, size: 16),
                     prefixIconConstraints: const BoxConstraints(minWidth: 34),
                   );
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              final controls = Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _MaintenanceToolbarMenu<MachineContainerRuntime>(
-                        label: _runtime.label,
-                        tooltip: '容器运行时',
-                        value: _runtime,
-                        enabled: !_busy && !_overlay,
-                        items: {
-                          for (final runtime in MachineContainerRuntime.values)
-                            runtime: runtime.label,
-                        },
-                        onSelected: (runtime) {
-                          setState(() {
-                            _runtime = runtime;
-                            _scope.clear();
-                            _contextName = '';
-                            _entries = [];
-                            _client = null;
-                            _metadata = '';
-                            _metrics = '';
-                          });
-                          refresh();
-                        },
-                      ),
-                      if (_runtime == MachineContainerRuntime.containerd ||
-                          _runtime == MachineContainerRuntime.kubernetes ||
-                          _runtime == MachineContainerRuntime.cri)
-                        SizedBox(
-                          width: inputWidth,
-                          height: _maintenanceControlHeight,
-                          child: Tooltip(
-                            message: maintenanceLabel(
-                              context,
-                              _runtime == MachineContainerRuntime.containerd
-                                  ? '命名空间（默认 default）'
-                                  : _runtime == MachineContainerRuntime.cri
-                                  ? 'CRI 端点（留空使用默认配置）'
-                                  : '命名空间（留空为全部）',
-                            ),
-                            child: TextField(
-                              controller: _scope,
-                              enabled: !_busy && !_overlay,
-                              style: Theme.of(context).textTheme.bodySmall,
-                              decoration: decoration(
-                                maintenanceLabel(
-                                  context,
-                                  _runtime == MachineContainerRuntime.containerd
-                                      ? '命名空间（默认 default）'
-                                      : _runtime == MachineContainerRuntime.cri
-                                      ? 'CRI 端点（留空使用默认配置）'
-                                      : '命名空间（留空为全部）',
-                                ),
-                              ),
-                              onSubmitted: (_) => refresh(),
-                            ),
-                          ),
-                        ),
-                      SizedBox(
-                        width: inputWidth,
-                        height: _maintenanceControlHeight,
-                        child: TextField(
-                          controller: _search,
-                          onChanged: (_) => setState(() {}),
-                          style: Theme.of(context).textTheme.bodySmall,
-                          decoration: decoration(
-                            maintenanceLabel(context, '搜索名称、镜像、命名空间'),
-                            icon: Icons.search_rounded,
-                          ),
-                        ),
-                      ),
-                    ],
+                  _MaintenanceToolbarMenu<MachineContainerRuntime>(
+                    label: _runtime.label,
+                    tooltip: '容器运行时',
+                    value: _runtime,
+                    enabled: !_busy && !_overlay,
+                    items: {
+                      for (final runtime in MachineContainerRuntime.values)
+                        runtime: runtime.label,
+                    },
+                    onSelected: (runtime) {
+                      if (runtime == _runtime) return;
+                      setState(() {
+                        _runtime = runtime;
+                        _scope.clear();
+                        _contextName = '';
+                        _entries = [];
+                        _client = null;
+                        _metadata = '';
+                        _metrics = '';
+                      });
+                      refresh();
+                    },
                   ),
-                  if (_contextName.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.hub_outlined,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  if (hasScope)
+                    SizedBox(
+                      width: inputWidth,
+                      height: _maintenanceControlHeight,
+                      child: Tooltip(
+                        message: scopeHint,
+                        child: TextField(
+                          controller: _scope,
+                          enabled: !_busy && !_overlay,
+                          style: theme.textTheme.bodySmall,
+                          decoration: decoration(scopeHint),
+                          onSubmitted: (_) => refresh(),
                         ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            '${maintenanceLabel(context, '连接上下文')} · $_contextName',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  SizedBox(
+                    width: inputWidth,
+                    height: _maintenanceControlHeight,
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      style: theme.textTheme.bodySmall,
+                      decoration: decoration(
+                        maintenanceLabel(context, '搜索名称、镜像、命名空间'),
+                        icon: Icons.search_rounded,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+              final contextLabel =
+                  '${maintenanceLabel(context, '连接上下文')} · $_contextName';
+              final heading = Row(
+                children: [
+                  _MaintenanceIconBadge(
+                    icon: Icons.inventory_2_outlined,
+                    color: cs.primary,
+                    size: _maintenanceControlHeight,
+                    iconSize: 17,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          maintenanceLabel(context, '容器运行时'),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (_contextName.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Tooltip(
+                            message: contextLabel,
+                            child: Text(
+                              contextLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                  ],
+                  ),
+                ],
+              );
+              final refreshButton = SizedBox.square(
+                dimension: _maintenanceControlHeight,
+                child: _MachineTerminalIconButton(
+                  onPressed: _busy || _overlay ? null : refresh,
+                  tooltip: maintenanceLabel(context, '刷新容器数据'),
+                  icon: Icons.refresh_rounded,
+                ),
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: heading),
+                      const SizedBox(width: 16),
+                      if (wide) ...[controls, const SizedBox(width: 10)],
+                      refreshButton,
+                    ],
+                  ),
+                  if (!wide) ...[const SizedBox(height: 12), controls],
                 ],
               );
             },

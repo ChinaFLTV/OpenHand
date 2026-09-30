@@ -281,6 +281,15 @@ void main() {
         expect(tester.getSize(input).height, _maintenanceControlHeight);
         expect(tester.getSize(find.descendant(of: input, matching: find.byType(InputDecorator))).height, _maintenanceControlHeight);
         expect(tester.getSize(find.byType(_MaintenanceToolbarMenu<MachineContainerRuntime>)).height, _maintenanceControlHeight);
+        final contextRect = tester.getRect(find.text(l.maintenanceContainerContext + ' · desktop-linux'));
+        final searchRect = tester.getRect(input);
+        if (width >= 500) {
+          expect(contextRect.right, lessThan(searchRect.left));
+          expect(searchRect.right, greaterThan(width - 100));
+        } else {
+          expect(contextRect.bottom, lessThan(searchRect.top));
+          expect(searchRect.width, greaterThan(240));
+        }
         expect(tester.getSize(find.byTooltip(l.maintenanceRefreshSection)).height, _maintenanceControlHeight);
         expect(tester.getRect(find.byTooltip(l.maintenanceRefreshSection)).right, greaterThan(width - 32));
         for (final decorated in tester.widgetList<DecoratedBox>(find.byType(DecoratedBox))) {
