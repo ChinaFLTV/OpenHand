@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "Source des données",
+  "maintenanceEgressExtraField": "Champ supplémentaire",
   "maintenanceEgressTitle": "Sortie Internet",
   "maintenanceEgressRefresh": "Actualiser la sortie",
   "maintenanceEgressLoading": "Recherche de la sortie de la machine cible",

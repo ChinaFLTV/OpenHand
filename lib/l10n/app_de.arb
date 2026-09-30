@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "Datenquelle",
+  "maintenanceEgressExtraField": "Zusatzfeld",
   "maintenanceEgressTitle": "Internetzugang",
   "maintenanceEgressRefresh": "Ausgangsdaten aktualisieren",
   "maintenanceEgressLoading": "Ausgang der Zielmaschine wird ermittelt",

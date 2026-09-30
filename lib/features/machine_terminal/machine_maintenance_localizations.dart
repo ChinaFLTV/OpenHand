@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../../l10n/app_localizations.dart';
+import 'machine_egress.dart';
+import 'machine_egress_regions.dart';
 
 /// 仅转换运维界面字段与状态，机器数据和原始输出保持原样。
 String maintenanceLabel(BuildContext context, String label) {
@@ -1800,4 +1802,60 @@ String maintenanceContainerState(BuildContext context, String state) {
     _ => state,
   };
   return maintenanceLabel(context, name);
+}
+
+final _egressRegionCodes = {
+  for (final entry in machineEgressRegionNames.entries)
+    for (final name in entry.value) name.toLowerCase(): entry.key,
+};
+
+/// 地理名称随界面语言切换，地址、组织、运营商及未知地名保留数据源原值。
+String maintenanceEgressValue(
+  BuildContext context,
+  MachineEgressReport report,
+  String field,
+  String value,
+) {
+  final l10n = AppLocalizations.of(context)!;
+  if (value == 'true') return l10n.maintenanceHealthParsedYes;
+  if (value == 'false') return l10n.maintenanceHealthParsedNo;
+  if (field != '国家或地区' && field != '洲') return value;
+  final codeLabel = field == '洲' ? '洲代码' : '国家代码';
+  var code = '';
+  for (final row in report.groups['地理位置'] ?? const <List<String>>[]) {
+    if (row[0] == codeLabel) {
+      code = row[1].toUpperCase();
+      break;
+    }
+  }
+  if (field == '洲') {
+    code =
+        const {
+          'AF': '002',
+          'NA': '003',
+          'SA': '005',
+          'OC': '009',
+          'AS': '142',
+          'EU': '150',
+          'AN': 'AQ',
+        }[code] ??
+        code;
+  }
+  final names =
+      machineEgressRegionNames[code] ??
+      machineEgressRegionNames[_egressRegionCodes[value.trim().toLowerCase()]];
+  if (names == null) return value;
+  final locale = Localizations.localeOf(context);
+  final index = switch (locale.languageCode) {
+    'zh' =>
+      locale.scriptCode == 'Hant' ||
+              const {'TW', 'HK', 'MO'}.contains(locale.countryCode)
+          ? 2
+          : 1,
+    'de' => 3,
+    'fr' => 4,
+    'ja' => 5,
+    _ => 0,
+  };
+  return names[index];
 }

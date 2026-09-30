@@ -759,7 +759,8 @@ void main() {
 
   testWidgets('出口信息按当前语言分组，窄屏、大字体与明暗主题布局稳定', (tester) async {
     final report = MachineEgressReport.parse(jsonEncode({
-      'ip': '2001:4860:4860::8888', 'country': 'United States', 'region': 'California',
+      'ip': '2001:4860:4860::8888', 'country': 'United States', 'country_code': 'US',
+      'continent': 'North America', 'continent_code': 'NA', 'region': 'California',
       'city': 'Mountain View', 'latitude': 37.386, 'longitude': -122.0838,
       'connection': {'asn': 15169, 'org': 'Google LLC', 'isp': 'Google', 'domain': 'google.com'},
       'timezone': {'id': 'America/Los_Angeles', 'is_dst': true},
@@ -783,7 +784,20 @@ void main() {
         expect(find.text(l.maintenanceEgressIsp), findsOneWidget);
         expect(find.text('Google'), findsOneWidget);
         expect(find.text(report.ip), findsOneWidget);
-        expect(find.byType(OpenHandOperationalRankTable), findsNWidgets(2));
+        expect(find.byType(OpenHandOperationalRankTable), findsNothing);
+        final country = switch (locale.languageCode) {
+          'zh' => locale.scriptCode == 'Hant' ? '美國' : '美国',
+          'de' => 'Vereinigte Staaten', 'fr' => 'États-Unis', 'ja' => 'アメリカ合衆国', _ => 'United States',
+        };
+        expect(find.text(country), findsOneWidget);
+        expect(find.text('Mountain View'), findsOneWidget);
+        expect(find.textContaining(l.maintenanceEgressSource + ' · ' + report.source), findsOneWidget);
+        final copy = find.byTooltip(l.commonCopy + ' IP');
+        final refresh = find.byTooltip(l.maintenanceEgressRefresh);
+        expect(tester.getSize(copy), tester.getSize(refresh));
+        expect(tester.getRect(refresh).left - tester.getRect(copy).right, greaterThanOrEqualTo(8));
+        expect(maintenanceEgressValue(context, report, '夏令时', 'true'), l.maintenanceHealthParsedYes);
+        expect(maintenanceEgressValue(context, report, '机房', 'Original data'), 'Original data');
         expect(find.textContaining('{"ip"'), findsNothing);
         expect(tester.takeException(), isNull);
         if (locale.toString() == 'zh' && width == 1280 && Platform.environment['MAINTENANCE_FONT'] != null) {
@@ -798,6 +812,42 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       }
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('出口扩展信息展开后刷新保留状态，未知字段可核对原始标识', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1100));
+    final report = MachineEgressReport.parse(jsonEncode({
+      'ip': '8.8.8.8', 'extra': {'network_role': 'resolver'},
+    }), source: 'https://ipwho.is/');
+    Future<void> show({bool busy = false, String? error}) async {
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceEgressCard(
+          report: report, busy: busy, error: error, onRefresh: () {})))));
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await show();
+    final context = tester.element(find.byType(_MaintenanceEgressCard));
+    final l = AppLocalizations.of(context)!;
+    expect(maintenanceEgressValue(context, report, '国家或地区', 'United States'), '美国');
+    expect(maintenanceEgressValue(context, report, '洲', 'Asia'), '亚洲');
+    expect(maintenanceEgressValue(context, report, '国家或地区', 'Unrecognized'), 'Unrecognized');
+    await tester.tap(find.text('补充信息')); await tester.pumpAndSettle();
+    expect(find.text('resolver'), findsOneWidget);
+    expect(find.text(l.maintenanceEgressExtraField + ' 1'), findsOneWidget);
+    expect(find.byTooltip('extra.network_role'), findsOneWidget);
+    await show(busy: true);
+    expect(find.text('resolver'), findsOneWidget);
+    final refresh = tester.widget<_MachineTerminalIconButton>(find.byWidgetPredicate(
+      (widget) => widget is _MachineTerminalIconButton && widget.tooltip == l.maintenanceEgressRefresh));
+    expect(refresh.onPressed, isNull);
+    await show(error: 'request'); await tester.pumpAndSettle();
+    expect(find.text(l.maintenanceEgressStale), findsOneWidget);
+    expect(find.text('8.8.8.8'), findsOneWidget);
+    expect(find.text('resolver'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
   testWidgets('出口查询复用目标终端，缓存、独立刷新、失败保留结果及取消有效', (tester) async {

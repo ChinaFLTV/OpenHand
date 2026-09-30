@@ -10,10 +10,22 @@ const machineEgressOutputLimit = 65536;
 const _egressProviders = ['https://ipwho.is/', 'https://ipapi.co/json/'];
 
 /// 请求在目标终端执行，不使用桌面端网络推断远程机器的出口。
-String machineEgressCommand(String endpoint, {required bool windows}) {
+String machineEgressCommand(
+  String endpoint, {
+  required bool windows,
+  String language = 'en',
+}) {
   if (!_egressProviders.contains(endpoint)) {
     throw ArgumentError('不支持的出口地址数据源。');
   }
+  final locale = switch (language) {
+    'zh' => 'zh-CN',
+    'de' || 'fr' || 'ja' => language,
+    _ => 'en',
+  };
+  final url = endpoint == _egressProviders.first
+      ? '$endpoint?lang=$locale'
+      : endpoint;
   if (windows) {
     return powerShellEncodedCommand('''
 \$ErrorActionPreference = 'Stop'
@@ -21,7 +33,7 @@ String machineEgressCommand(String endpoint, {required bool windows}) {
 \$response = \$null; \$reader = \$null
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  \$request = [Net.HttpWebRequest]::Create('$endpoint')
+  \$request = [Net.HttpWebRequest]::Create('$url')
   \$request.Timeout = 8000; \$request.ReadWriteTimeout = 8000
   \$request.AllowAutoRedirect = \$false
   \$request.Accept = 'application/json'
@@ -41,9 +53,9 @@ finally {
   }
   return '''
 if command -v curl >/dev/null 2>&1; then
-  (curl --silent --fail --connect-timeout 4 --max-time 8 --max-filesize $machineEgressOutputLimit --proto '=https' --user-agent OpenHand --header 'Accept: application/json' ${posixShellQuote(endpoint)} 2>/dev/null || printf '{"egress_error":"request"}') | head -c ${machineEgressOutputLimit + 1}
+  (curl --silent --fail --connect-timeout 4 --max-time 8 --max-filesize $machineEgressOutputLimit --proto '=https' --user-agent OpenHand --header 'Accept: application/json' ${posixShellQuote(url)} 2>/dev/null || printf '{"egress_error":"request"}') | head -c ${machineEgressOutputLimit + 1}
 elif command -v wget >/dev/null 2>&1; then
-  wget -q -T 8 -t 1 -O - ${posixShellQuote(endpoint)} 2>/dev/null | head -c ${machineEgressOutputLimit + 1}
+  wget -q -T 8 -t 1 -O - ${posixShellQuote(url)} 2>/dev/null | head -c ${machineEgressOutputLimit + 1}
 else
   printf '{"egress_error":"tool"}'
 fi
@@ -60,6 +72,7 @@ class MachineEgressException implements Exception {
 Future<MachineEgressReport> queryMachineEgress({
   required Future<String> Function(String command) run,
   required bool windows,
+  String language = 'en',
   required bool Function() isCancelled,
 }) async {
   var failure = const MachineEgressException('request');
@@ -67,7 +80,7 @@ Future<MachineEgressReport> queryMachineEgress({
     if (isCancelled()) throw const MachineEgressException('cancelled');
     try {
       final output = await run(
-        machineEgressCommand(endpoint, windows: windows),
+        machineEgressCommand(endpoint, windows: windows, language: language),
       );
       if (isCancelled()) throw const MachineEgressException('cancelled');
       return MachineEgressReport.parse(output, source: endpoint);

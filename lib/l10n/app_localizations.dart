@@ -105,6 +105,18 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// No description provided for @maintenanceEgressSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据来源'**
+  String get maintenanceEgressSource;
+
+  /// No description provided for @maintenanceEgressExtraField.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展字段'**
+  String get maintenanceEgressExtraField;
+
   /// No description provided for @maintenanceEgressTitle.
   ///
   /// In zh, this message translates to:

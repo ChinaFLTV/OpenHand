@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "Data source",
+  "maintenanceEgressExtraField": "Additional field",
   "maintenanceEgressTitle": "Internet egress",
   "maintenanceEgressRefresh": "Refresh egress information",
   "maintenanceEgressLoading": "Looking up the target machine’s egress",

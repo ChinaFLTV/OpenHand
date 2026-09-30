@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "資料來源",
+  "maintenanceEgressExtraField": "擴充欄位",
   "maintenanceEgressTitle": "網際網路出口",
   "maintenanceEgressRefresh": "重新整理出口資訊",
   "maintenanceEgressLoading": "正在查詢目標機器出口",

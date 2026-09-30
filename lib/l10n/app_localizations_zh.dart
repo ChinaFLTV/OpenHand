@@ -9,6 +9,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get maintenanceEgressSource => '数据来源';
+
+  @override
+  String get maintenanceEgressExtraField => '扩展字段';
+
+  @override
   String get maintenanceEgressTitle => '互联网出口';
 
   @override
@@ -13916,6 +13922,12 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get maintenanceEgressSource => '資料來源';
+
+  @override
+  String get maintenanceEgressExtraField => '擴充欄位';
 
   @override
   String get maintenanceEgressTitle => '網際網路出口';

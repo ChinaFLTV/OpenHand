@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "データソース",
+  "maintenanceEgressExtraField": "追加フィールド",
   "maintenanceEgressTitle": "インターネット出口",
   "maintenanceEgressRefresh": "出口情報を更新",
   "maintenanceEgressLoading": "対象マシンの出口を確認中",

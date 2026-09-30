@@ -9,6 +9,12 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get maintenanceEgressSource => 'データソース';
+
+  @override
+  String get maintenanceEgressExtraField => '追加フィールド';
+
+  @override
   String get maintenanceEgressTitle => 'インターネット出口';
 
   @override

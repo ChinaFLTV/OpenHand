@@ -9,6 +9,12 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get maintenanceEgressSource => 'Source des données';
+
+  @override
+  String get maintenanceEgressExtraField => 'Champ supplémentaire';
+
+  @override
   String get maintenanceEgressTitle => 'Sortie Internet';
 
   @override

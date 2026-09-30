@@ -11,6 +11,47 @@ void check(bool condition, String message) {
 Future<void> main() async {
   const primary = 'https://ipwho.is/';
   const secondary = 'https://ipapi.co/json/';
+  for (final entry in {
+    'zh': 'zh-CN',
+    'en': 'en',
+    'de': 'de',
+    'fr': 'fr',
+    'ja': 'ja',
+    'invalid; command': 'en',
+  }.entries) {
+    final command = machineEgressCommand(
+      primary,
+      windows: false,
+      language: entry.key,
+    );
+    check(
+      command.contains('https://ipwho.is/?lang=${entry.value}'),
+      '查询语言未正确映射',
+    );
+    check(!command.contains('invalid; command'), '查询语言未经过白名单过滤');
+    check(
+      !machineEgressCommand(
+        secondary,
+        windows: false,
+        language: entry.key,
+      ).contains('?lang='),
+      '备用接口不应附加不支持的语言参数',
+    );
+    final bytes = base64Decode(
+      machineEgressCommand(
+        primary,
+        windows: true,
+        language: entry.key,
+      ).split(' ').last,
+    );
+    final script = String.fromCharCodes([
+      for (var i = 0; i < bytes.length; i += 2) bytes[i] | bytes[i + 1] << 8,
+    ]);
+    check(
+      script.contains('https://ipwho.is/?lang=${entry.value}'),
+      'Windows 查询语言未正确映射',
+    );
+  }
   final sample = jsonEncode({
     'success': true,
     'ip': '8.8.8.8',

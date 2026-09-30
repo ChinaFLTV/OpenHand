@@ -1,4 +1,6 @@
 {
+  "maintenanceEgressSource": "数据来源",
+  "maintenanceEgressExtraField": "扩展字段",
   "maintenanceEgressTitle": "互联网出口",
   "maintenanceEgressRefresh": "刷新出口信息",
   "maintenanceEgressLoading": "正在查询目标机器出口",
