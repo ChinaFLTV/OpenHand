@@ -375,26 +375,50 @@ class MachineMaintenanceReadout {
     }
     if (section == 'dns') {
       var group = '';
+      var previousName = '';
+      final directive = RegExp(
+        r'^(nameserver|search|domain|options)(?:\[\d+\])?\s*(?::\s*|\s+)(.+)$',
+        caseSensitive: false,
+      );
+      final property = RegExp(r'^([^:=]+?)\s*[:=]\s*(.*)$');
+      final serverLabel = RegExp(
+        r'^DNS[\s-]*(?:Servers?|服务器|伺服器|サーバー)$|^Serveurs?\s+DNS$',
+        caseSensitive: false,
+      );
+      final address = RegExp(
+        r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-fA-F]*:[0-9a-fA-F:.]+(?:%[\w.-]+)?$',
+      );
       for (final line in lines) {
         final value = line.trim();
-        if (value.startsWith('#') || value == 'DNS configuration') continue;
-        if (value.startsWith('resolver #')) {
-          group = value;
+        if (value.startsWith('#') || value.startsWith(';')) continue;
+        if (value.startsWith('DNS configuration') ||
+            value.startsWith('resolver #') ||
+            (value.endsWith(':') && !property.hasMatch(value))) {
+          group = value.replaceFirst(RegExp(r':$'), '');
+          previousName = '';
           continue;
         }
-        final m =
-            RegExp(
-              r'^(nameserver|search|domain|options)\s+(.+)$',
-            ).firstMatch(value) ??
-            RegExp(r'^([^:=]+?)\s*[:=]\s+(.*)$').firstMatch(value);
+        if (previousName == 'nameserver' && address.hasMatch(value)) {
+          rows.add([group, previousName, value]);
+          continue;
+        }
+        final m = directive.firstMatch(value) ?? property.firstMatch(value);
         if (m != null) {
-          rows.add([group, m[1]!.trim(), m[2]!.trim()]);
-        } else if (value.endsWith(':')) {
-          group = value.substring(0, value.length - 1);
-        } else if (RegExp(r'^[a-fA-F0-9:.%]+$').hasMatch(value) &&
-            rows.isNotEmpty) {
-          rows.add([group, rows.last[1], value]);
+          var name = m[1]!.trim().replaceFirst(RegExp(r'[\s.]+$'), '');
+          var content = m[2]!.trim();
+          if (name.toLowerCase() == 'nameserver' ||
+              serverLabel.hasMatch(name)) {
+            name = 'nameserver';
+            content = content.split(RegExp(r'\s*[#;]'))[0].trim();
+          }
+          previousName = name;
+          if (content.isEmpty) {
+            if (name != 'nameserver') group = name;
+          } else {
+            rows.add([group, name, content]);
+          }
         } else {
+          previousName = '';
           rows.add([group, '描述', value]);
         }
       }

@@ -2713,9 +2713,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       final label = maintenanceLabel(context, row[3]);
       states[label] = (states[label] ?? 0) + 1;
     }
-    final dns = RegExp(
-      r'(?:nameserver(?:\[\d+\])?\s*:?\s*|DNS Servers[^:]*:\s*)([a-fA-F0-9:.]+)',
-    ).allMatches(data.text('dns')).map((m) => m[1]!).toSet().toList();
+    final dns = MachineMaintenanceReadout.parse(data.text('dns'), 'dns').rows
+        .where((row) => row[1] == 'nameserver')
+        .map((row) => row[2])
+        .toSet()
+        .toList();
     final primary = _MaintenanceCard(
       title: maintenanceLabel(context, '连接与监听端口'),
       icon: Icons.hub_outlined,
@@ -2765,104 +2767,69 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final dnsCard = _MaintenanceCard(
       title: maintenanceLabel(context, 'DNS 服务器'),
       icon: Icons.language_rounded,
+      scrollBody: false,
       onOpen: () => _showCollected('DNS 配置', data.text('dns')),
       child: dns.isEmpty
           ? _MaintenanceEmptyHint(
               message: maintenanceLabel(context, '暂无可解析的服务器地址'),
             )
-          : _MaintenanceFacts(
-              values: {
+          : _MaintenanceTable(
+              headers: const ['名称', '地址'],
+              rows: [
                 for (var i = 0; i < dns.length; i++)
-                  AppLocalizations.of(
-                    context,
-                  )!.maintenanceServerNumber('${i + 1}'): dns[i],
-              },
+                  OpenHandOperationalRankRow(
+                    rowKey: dns[i],
+                    value: 0,
+                    cells: [
+                      AppLocalizations.of(
+                        context,
+                      )!.maintenanceServerNumber('${i + 1}'),
+                      dns[i],
+                    ],
+                  ),
+              ],
             ),
+    );
+    final diagnosticNames = names.where(
+      (name) =>
+          name != 'sockets' &&
+          name != 'dns' &&
+          name != 'routes' &&
+          name != 'firewall' &&
+          data.sections.containsKey(name),
     );
     final diagnostics = _MaintenanceCard(
       title: maintenanceLabel(context, '诊断项目'),
       contentPadding: const EdgeInsets.all(8),
       scrollBody: false,
       icon: Icons.fact_check_outlined,
-      child: _MaintenanceGrid(
-        minWidth: 220,
-        maxColumns: 4,
-        children: [
-          for (final name in names.where(
-            (name) =>
-                name != 'sockets' &&
-                name != 'dns' &&
-                name != 'routes' &&
-                name != 'firewall' &&
-                data.sections.containsKey(name),
-          ))
-            Builder(
-              builder: (context) {
-                final empty = data.text(name).trim().isEmpty;
-                final status = empty
-                    ? '暂无数据'
-                    : _maintenanceOutputStatus(data.text(name));
-                return Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: DecoratedBox(
-                    decoration: _maintenanceTileDecoration(cs),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: ListTile(
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        selectedTileColor: Colors.transparent,
-                        mouseCursor: SystemMouseCursors.click,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        leading: _MaintenanceIconBadge(
-                          icon: Icons.fact_check_outlined,
-                          color: empty
-                              ? cs.onSurfaceVariant
-                              : status.startsWith('部分不可用')
-                              ? OpenHandStatusColors.warning
-                              : OpenHandStatusColors.success,
-                          size: 32,
-                          iconSize: 16,
-                        ),
-                        title: Text(
-                          maintenanceLabel(
-                            context,
-                            _maintenanceSectionLabels[name] ?? name,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          maintenanceLabel(context, status),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: empty
-                                ? cs.onSurfaceVariant
-                                : status.startsWith('部分不可用')
-                                ? OpenHandStatusColors.warning
-                                : OpenHandStatusColors.success,
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                        ),
-                        onTap: () => _showCollected(
-                          _maintenanceSectionLabels[name] ?? name,
-                          data.text(name),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+      child: _MaintenanceTable(
+        maxBodyHeight: 360,
+        headers: const ['诊断项目', '状态'],
+        rows: [
+          for (final name in diagnosticNames)
+            OpenHandOperationalRankRow(
+              rowKey: name,
+              value: 0,
+              cells: [
+                maintenanceLabel(
+                  context,
+                  _maintenanceSectionLabels[name] ?? name,
+                ),
+                maintenanceLabel(
+                  context,
+                  _maintenanceOutputStatus(data.text(name)),
+                ),
+              ],
             ),
         ],
+        onRowTap: (row) {
+          final name = row.rowKey as String;
+          _showCollected(
+            _maintenanceSectionLabels[name] ?? name,
+            data.text(name),
+          );
+        },
       ),
     );
     return ListView(
@@ -3175,7 +3142,8 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
         for (var t = 0; t < metrics.tables.length; t++)
           if (metrics.tables[t].rows.isEmpty)
             _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据'))
-          else if (metrics.tables[t].headers.contains('数值') ||
+          else if ((section != 'sensors' &&
+                  metrics.tables[t].headers.contains('数值')) ||
               section == 'pressure')
             _MaintenanceMetricTiles(
               key: ValueKey((section, t)),
@@ -3198,6 +3166,7 @@ class _MaintenanceMetricContentState extends State<_MaintenanceMetricContent> {
                           context,
                           metrics.tables[t].rows[r][c],
                           metrics.tables[t].headers[c],
+                          section: section,
                         ),
                     ],
                   ),
@@ -4589,41 +4558,29 @@ class _MaintenanceHealthContent extends StatelessWidget {
             ],
           ),
         if (report.data.rows.isNotEmpty && !report.data.fields)
-          if (report.data.rows.length <= 8 && report.data.headers.length <= 6)
-            for (final row in report.data.rows)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _MaintenanceFields(
-                  rows: [
+          _MaintenanceTable(
+            maxBodyHeight: 300,
+            paginate: report.data.rows.length > 20,
+            headers: report.data.headers
+                .map((s) => maintenanceHealthLabel(context, s))
+                .toList(),
+            rows: [
+              for (var i = 0; i < report.data.rows.length; i++)
+                OpenHandOperationalRankRow(
+                  rowKey: i,
+                  value: 0,
+                  cells: [
                     for (var c = 0; c < report.data.headers.length; c++)
-                      [
-                        maintenanceHealthLabel(context, report.data.headers[c]),
-                        c < row.length
-                            ? maintenanceHealthValue(context, row[c])
-                            : '—',
-                      ],
+                      c < report.data.rows[i].length
+                          ? maintenanceHealthValue(
+                              context,
+                              report.data.rows[i][c],
+                            )
+                          : '—',
                   ],
                 ),
-              )
-          else
-            _MaintenanceTable(
-              maxBodyHeight: 300,
-              paginate: report.data.rows.length > 20,
-              headers: report.data.headers
-                  .map((s) => maintenanceHealthLabel(context, s))
-                  .toList(),
-              rows: [
-                for (var i = 0; i < report.data.rows.length; i++)
-                  OpenHandOperationalRankRow(
-                    rowKey: i,
-                    value: 0,
-                    cells: [
-                      for (var c = 0; c < report.data.rows[i].length; c++)
-                        maintenanceHealthValue(context, report.data.rows[i][c]),
-                    ],
-                  ),
-              ],
-            ),
+            ],
+          ),
         for (final entry in report.tables.entries) ...[
           const SizedBox(height: 12),
           Padding(

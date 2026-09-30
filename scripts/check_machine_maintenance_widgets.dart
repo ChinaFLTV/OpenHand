@@ -728,6 +728,77 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('动态 DNS、账户与传感器记录统一使用列表', (tester) async {
+    for (final width in [420.0, 1200.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      final service = _MaintenanceFixture();
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(
+        value: service, child: const MaterialApp(locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+      state.setState(() {
+        state._tab = 3;
+        state._snapshots[3] = MachineMaintenanceSnapshot({
+          'platform': 'Linux',
+          'dns': 'nameserver 114.114.114.114\\nnameserver 218.104.111.122\\nnameserver 202.103.24.68',
+        });
+      });
+      await tester.pumpAndSettle();
+      final dnsCard = find.byWidgetPredicate((widget) =>
+        widget is _MaintenanceCard && widget.title == 'DNS 服务器');
+      await tester.scrollUntilVisible(dnsCard, 300,
+        scrollable: find.descendant(of: find.byType(ListView).first,
+          matching: find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+      final table = tester.widget<_MaintenanceTable>(find.descendant(
+        of: dnsCard, matching: find.byType(_MaintenanceTable)));
+      expect(table.rows.map((row) => row.cells.last).toList(),
+        ['114.114.114.114', '218.104.111.122', '202.103.24.68']);
+      expect(find.descendant(of: dnsCard, matching: find.byType(_MaintenanceFacts)), findsNothing);
+      expect(tester.takeException(), isNull);
+      final diagnostics = find.byWidgetPredicate((widget) =>
+        widget is _MaintenanceCard && widget.title == '诊断项目');
+      await tester.scrollUntilVisible(diagnostics, 300,
+        scrollable: find.descendant(of: find.byType(ListView).first,
+          matching: find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: diagnostics, matching: find.byType(_MaintenanceTable)), findsOneWidget);
+      expect(find.descendant(of: diagnostics, matching: find.byType(_MaintenanceGrid)), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+
+      final accounts = MachineHealthReport.parse('accounts',
+        '@user\\tuid\\thome\\tshell\\nreader\\t1000\\t/home/reader\\t/bin/bash', '0');
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child:
+          _MaintenanceHealthContent(report: accounts, raw: '')))));
+      await tester.pumpAndSettle();
+      expect(find.byType(_MaintenanceTable), findsOneWidget);
+      expect(find.byType(_MaintenanceFields), findsNothing);
+      expect(find.text('reader'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceMetricContent(
+          data: MachineMaintenanceSnapshot({'platform': 'Linux',
+            'sensors': 'temp1: 42000\\ntemp2: 39000\\ntemp3: 40000'}),
+          section: 'sensors')))));
+      await tester.pumpAndSettle();
+      expect(find.byType(_MaintenanceTable), findsOneWidget);
+      expect(find.byType(_MaintenanceMetricTiles), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('健康字段与诊断结构化展示且宽窄屏无溢出', (tester) async {
     await tester.runAsync(() async {
       for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {

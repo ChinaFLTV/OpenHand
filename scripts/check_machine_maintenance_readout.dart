@@ -82,6 +82,51 @@ void main() {
     'DNS 地址或注释解析错误',
   );
   check(dns.rows.last.first == 'resolver #2', '解析器分组丢失');
+  check(dns.rows.last[1] == 'nameserver', 'macOS DNS 字段未规范化');
+  final linuxDns = parse(
+    '; 注释\nnameserver 1.1.1.1 # 首选\nnameserver fe80::1%eth0 ; 备用\noptions timeout:2 attempts:3',
+    'dns',
+  );
+  check(
+    linuxDns.rows.map((row) => row.last).join('|') ==
+        '1.1.1.1|fe80::1%eth0|timeout:2 attempts:3',
+    'Linux DNS 注释、区域标识或选项解析错误',
+  );
+  for (final label in [
+    'DNS Servers',
+    'DNS 服务器',
+    'DNS 伺服器',
+    'DNS-Server',
+    'Serveurs DNS',
+    'DNS サーバー',
+  ]) {
+    final windowsDns = parse(
+      'Ethernet adapter Ethernet:\n'
+          '   IPv4 Address . . . . : 192.168.1.2\n'
+          '   $label . . . . : fe80::1%12\n'
+          '                       1.1.1.1\n'
+          '                       2001:db8::53\n'
+          '   Default Gateway . . : 192.168.1.1\n'
+          '                       fe80::2%12\n'
+          'Wireless adapter Wi-Fi:\n'
+          '   $label . . . . : 8.8.8.8',
+      'dns',
+    );
+    final servers = windowsDns.rows
+        .where((row) => row[1] == 'nameserver')
+        .toList();
+    check(
+      servers.map((row) => row.last).join('|') ==
+          'fe80::1%12|1.1.1.1|2001:db8::53|8.8.8.8',
+      'Windows DNS 多行地址丢失或混入网关：$label',
+    );
+    check(
+      servers.first.first == 'Ethernet adapter Ethernet' &&
+          servers.last.first == 'Wireless adapter Wi-Fi',
+      'Windows DNS 网卡分组错误',
+    );
+  }
+  check(parse('', 'dns').rows.isEmpty, '空 DNS 应保留空状态');
   final status = parse(
     'Name:\tworker\nUid:\t501 501 501 501\nRestart=no\nExecStart=/bin/app --value=a=b\nName: second',
     'status',
