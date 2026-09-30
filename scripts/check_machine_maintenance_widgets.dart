@@ -44,6 +44,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:openhand/app/model/app_settings_snapshot.dart';
+import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/app/state/settings_store.dart';
 import 'package:openhand/features/machine_terminal/index.dart';
@@ -58,6 +59,7 @@ import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
+import 'package:openhand/shared/ui/openhand_clipboard.dart';
 import 'package:openhand/shared/ui/openhand_ops_charts.dart';
 import 'package:openhand/shared/ui/openhand_ops_press_scale.dart';
 import 'package:openhand/shared/ui/openhand_console_log_panel.dart';
@@ -1597,6 +1599,144 @@ void main() {
   });
 
 
+
+  testWidgets('元数据字段统一尺寸，长值可完整查看复制且缩放不溢出', (tester) async {
+    final longValue = List.filled(30, '/srv/runtime/containers/worker').join(' · ');
+    final fields = <List<String>>[
+      ['服务名称', 'worker'], ['状态', '运行中'], ['挂载路径', longValue],
+      ['累计 CPU 时间', '24270.37 s'], ['版本', '27.0.1'], ['配置说明', '第一行\\n第二行\\n第三行\\n第四行'],
+    ];
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    for (final brightness in Brightness.values) {
+      for (final width in [360.0, 760.0, 1280.0]) {
+        for (final scale in [1.0, 1.6]) {
+          await tester.binding.setSurfaceSize(Size(width, 1000));
+          await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+            theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.green, brightness: brightness)),
+            builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
+            home: Scaffold(body: SingleChildScrollView(child: _MaintenanceFields(rows: fields)))));
+          await tester.pumpAndSettle();
+          final rects = [for (var i = 0; i < fields.length; i++) tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')))];
+          for (final rect in rects) {
+            expect(rect.width, closeTo(rects.first.width, .01));
+            expect(rect.height, closeTo(rects.first.height, .01));
+            expect(rect.right, lessThanOrEqualTo(width + .01));
+          }
+          expect(find.text('6 小时 44 分 30.37 秒'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          if (((width == 760 && scale == 1) || (width == 360 && scale == 1.6)) && brightness == Brightness.light) {
+            await tester.tap(find.text(longValue)); await tester.pumpAndSettle();
+            expect(find.byType(Dialog), findsOneWidget);
+            final detail = find.descendant(of: find.byType(Dialog), matching: find.byType(SelectableText));
+            expect(tester.widget<SelectableText>(detail).data, longValue);
+            await tester.tap(find.byTooltip('复制')); await tester.pumpAndSettle();
+            expect(copied, longValue);
+            await tester.tap(find.byTooltip('关闭')); await tester.pumpAndSettle();
+            expect(find.byType(Dialog), findsNothing);
+            expect(tester.takeException(), isNull);
+          }
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('诊断与元数据折叠标题统一高度，动效遵循全局设置并保留展开状态', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(760, 900));
+    Widget screen(double scale) => MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
+      home: const Scaffold(body: SingleChildScrollView(child: Column(children: [
+        _MaintenanceSection(title: '采集详情与诊断', icon: Icons.fact_check_outlined, child: Text('权限诊断')),
+        _MaintenanceSection(title: '运行时元数据与状态', subtitle: '已采集', child: Text('运行时字段')),
+        _MaintenanceSection(title: 'GPU 组件指标', subtitle: '24 项指标', child: Text('GPU 字段')),
+      ]))));
+    final tiles = find.byType(ExpansionTile);
+    for (final scale in [1.0, 1.6]) {
+      await tester.pumpWidget(screen(scale)); await tester.pumpAndSettle();
+      final heights = [for (final tile in tiles.evaluate()) tester.getSize(find.byWidget(tile.widget)).height];
+      for (final height in heights) expect(height, closeTo(heights.first, .01));
+      expect(tester.takeException(), isNull);
+    }
+    for (final tile in tester.widgetList<ExpansionTile>(tiles)) {
+      expect(tile.expansionAnimationStyle!.duration, _testSettings.dialogAnimationSettings.entranceDuration);
+      expect(tile.expansionAnimationStyle!.reverseDuration, _testSettings.dialogAnimationSettings.exitDuration);
+    }
+    await tester.tap(find.text('运行时元数据与状态')); await tester.pumpAndSettle();
+    expect(find.text('运行时字段'), findsOneWidget);
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(OpenHandMotionDefaults.disabled));
+    await tester.pumpAndSettle();
+    for (final tile in tester.widgetList<ExpansionTile>(tiles)) {
+      expect(tile.expansionAnimationStyle!.duration, Duration.zero);
+      expect(tile.expansionAnimationStyle!.reverseDuration, Duration.zero);
+    }
+    expect(find.text('运行时字段'), findsOneWidget);
+    await tester.tap(find.text('运行时元数据与状态')); await tester.pump();
+    expect(find.text('运行时字段'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('大组元数据按需展开，空报告与权限诊断保持紧凑结构', (tester) async {
+    await tester.runAsync(() async {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+        if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+      }
+    });
+    final metadata = jsonEncode({
+      'Name': 'docker-engine', 'ServerVersion': '27.5.1', 'OperatingSystem': 'Ubuntu 24.04',
+      'ContainersRunning': 12, 'ContainersPaused': 0, 'ContainersStopped': 3,
+      'NetworkSettings': {'网桥': 'bridge', '网关': '172.17.0.1', 'IPv6': false},
+      'Config': {for (var i = 0; i < 20; i++) '配置项 \$i': '配置值 \$i'},
+    });
+    for (final width in [360.0, 760.0, 1280.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1100));
+      final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        theme: Platform.environment['MAINTENANCE_FONT'] == null ? theme : theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: '运维预览字体')),
+        home: Scaffold(body: RepaintBoundary(key: const ValueKey('元数据布局预览'), child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
+          _MaintenanceSection(title: '运行时元数据与状态', icon: Icons.inventory_2_outlined, initiallyExpanded: true,
+            child: _MaintenanceReadout(text: metadata, section: 'container_metadata')),
+          const SizedBox(height: 12),
+          const _MaintenanceSection(title: '采集详情与诊断', icon: Icons.fact_check_outlined,
+            child: _MaintenanceReadout(text: 'You need administrator access to run this tool... exiting!', section: 'diagnostic')),
+          const SizedBox(height: 12),
+          const _MaintenanceSection(title: '实时资源采样', icon: Icons.monitor_heart_outlined, initiallyExpanded: true,
+            child: _MaintenanceReadout(text: '', section: 'container_metrics')),
+        ]))))));
+      await tester.pumpAndSettle();
+      expect(find.text('配置值 0'), findsNothing);
+      expect(find.text('暂无可用数据'), findsOneWidget);
+      if (Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+        await tester.runAsync(() async {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('元数据布局预览')));
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/maintenance-metadata-layout-\${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+      await tester.ensureVisible(find.text('配置'));
+      await tester.tap(find.text('配置')); await tester.pumpAndSettle();
+      expect(find.text('配置值 0'), findsOneWidget);
+      await tester.ensureVisible(find.text('采集详情与诊断'));
+      await tester.tap(find.text('采集详情与诊断')); await tester.pumpAndSettle();
+      expect(find.text('读取权限不足'), findsOneWidget);
+      expect(find.byType(OpenHandConsoleText), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('跨平台网络详情按网卡和协议分组，宽窄窗口与明暗主题无溢出', (tester) async {
     final samples = <(String, String, String)>[
       ('addresses', 'en0: flags=8863<UP,BROADCAST,RUNNING> mtu 1500\\n  ether 02:00:00:00:00:01\\n  inet 192.168.1.2 netmask 0xffffff00\\n  status: active', 'IPv4 地址'),
@@ -1678,6 +1818,7 @@ void main() {
     expect(find.textContaining('-1999861048'), findsNothing);
     final diagnostic = find.text('采集详情与诊断');
     await tester.ensureVisible(diagnostic);
+    await tester.tap(diagnostic); await tester.pumpAndSettle();
     expect(find.text('响应超时'), findsOneWidget);
     expect(find.byType(OpenHandConsoleText), findsNothing);
     expect(tester.takeException(), isNull);
@@ -1808,7 +1949,7 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('详情短字段与跨行字段交错时每行完整占用宽度', (tester) async {
+  testWidgets('详情短字段与嵌套字段保持统一宽度和对齐', (tester) async {
     for (final width in [480.0, 900.0]) {
       await tester.binding.setSurfaceSize(Size(width, 1000));
       await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
@@ -1817,15 +1958,18 @@ void main() {
         home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(
           text: 'Name: worker\\nOptions: {\\n x = 1;\\n}\\nPID: 42\\nUser: test\\nPath: /tmp\\nConfig: {\\n y = 2;\\n}\\nEnd: done', section: 'status')))));
       await tester.pumpAndSettle();
-      final wrap = tester.widget<_MaintenanceEqualHeightWrap>(find.byType(_MaintenanceEqualHeightWrap));
+      final fields = find.byWidgetPredicate((widget) => widget is SizedBox && widget.key is ValueKey<String> && (widget.key as ValueKey<String>).value.startsWith('maintenance-field-'));
       final rows = <double, List<Rect>>{};
-      for (final child in wrap.children) {
-        final rect = tester.getRect(find.byWidget(child));
+      final rects = [for (final element in fields.evaluate()) tester.getRect(find.byWidget(element.widget))];
+      for (final rect in rects) {
         (rows[rect.top] ??= []).add(rect);
+        expect(rect.width, closeTo(rects.first.width, .1));
+        expect(rect.height, closeTo(rects.first.height, .1));
       }
       for (final row in rows.values) {
         expect(row.first.left, closeTo(0, .1));
-        expect(row.last.right, closeTo(width, .1));
+        expect(row.last.right, lessThanOrEqualTo(width + .01));
+        for (var i = 1; i < row.length; i++) expect(row[i].left - row[i - 1].right, closeTo(_maintenanceGridGap, .1));
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -2476,17 +2620,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('12.8'), findsOneWidget);
     await tester.ensureVisible(find.text('DCGM 单次遥测'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('DCGM 单次遥测'));
     await tester.pumpAndSettle();
     expect(find.byType(OpenHandConsoleText), findsNothing);
     expect(find.text('1500'), findsOneWidget);
     await tester.ensureVisible(find.text('GPU-X'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('GPU-X'));
     await tester.pumpAndSettle();
     final eccGroup = find.byKey(const ValueKey('gpu-GPU-X-ecc_errors'));
     expect(eccGroup, findsOneWidget);
     expect(find.text('729'), findsNothing);
     await tester.ensureVisible(eccGroup);
+    await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: eccGroup, matching: find.byType(ListTile)).first);
     await tester.pumpAndSettle();
     expect(find.text('729'), findsOneWidget);

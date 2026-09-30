@@ -4,6 +4,10 @@ const _maintenanceControlHeight = 34.0;
 const _maintenanceNoticeMaxWidth = 480.0;
 const _maintenanceSearchWidth = 280.0;
 const _maintenanceGridGap = 12.0;
+const _maintenanceFieldMinWidth = 240.0;
+const _maintenanceFieldHeight = 104.0;
+const _maintenanceFieldMaxColumns = 3;
+const _maintenanceSectionHeaderHeight = 64.0;
 const _maintenancePanelBottomInset = 8.0;
 
 const _maintenanceTabs = [
@@ -1844,73 +1848,63 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                 ),
                 for (final report in reports)
-                  Material(
-                    color: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    child: ExpansionTile(
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: _maintenanceGridGap),
+                    child: _MaintenanceSection(
                       key: ValueKey('gpu-component-${report.title}'),
-                      shape: const Border(),
-                      collapsedShape: const Border(),
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                      leading: _MaintenanceIconBadge(
-                        icon: report.issue.isEmpty
-                            ? Icons.developer_board_outlined
-                            : Icons.info_outline_rounded,
-                        color: report.issue.isEmpty
-                            ? cs.primary
-                            : OpenHandStatusColors.warning,
-                        size: 32,
-                        iconSize: 16,
-                      ),
-                      title: Text(
-                        report.title == 'NVLink · counters'
-                            ? l10n.maintenanceGpuDetailLinkCounters
-                            : report.title,
-                      ),
-                      subtitle: Text(
-                        report.issue.isEmpty
-                            ? (report.raw.isNotEmpty
-                                  ? '结构化只读采样'
-                                  : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
-                            : switch (report.issue) {
-                                'permission' || 'missing' || 'format' =>
-                                  maintenanceHealthLabel(context, report.issue),
-                                'unsupported' =>
-                                  l10n.maintenanceHealthUnsupported,
-                                _ => l10n.maintenanceGpuProbeUnavailable,
-                              },
-                      ),
-                      children: [
-                        if (report.raw.isNotEmpty)
-                          _MaintenanceReadout(
-                            text: report.raw,
-                            section: 'gpu_report',
-                          ),
-                        if (report.rows.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                            child:
-                                report.rows.length > 24 &&
-                                    report.groups.length > 1
+                      icon: report.issue.isEmpty
+                          ? Icons.developer_board_outlined
+                          : Icons.info_outline_rounded,
+                      accent: report.issue.isEmpty
+                          ? cs.primary
+                          : OpenHandStatusColors.warning,
+                      title: report.title == 'NVLink · counters'
+                          ? l10n.maintenanceGpuDetailLinkCounters
+                          : report.title,
+                      subtitle: report.issue.isEmpty
+                          ? (report.raw.isNotEmpty
+                                ? '结构化只读采样'
+                                : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
+                          : switch (report.issue) {
+                              'permission' || 'missing' || 'format' =>
+                                maintenanceHealthLabel(context, report.issue),
+                              'unsupported' =>
+                                l10n.maintenanceHealthUnsupported,
+                              _ => l10n.maintenanceGpuProbeUnavailable,
+                            },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (report.raw.isNotEmpty)
+                            _MaintenanceReadout(
+                              text: report.raw,
+                              section: 'gpu_report',
+                            ),
+                          if (report.rows.isNotEmpty)
+                            report.rows.length > 24 && report.groups.length > 1
                                 ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       for (final group in report.groups.entries)
-                                        ExpansionTile(
-                                          key: ValueKey(
-                                            'gpu-${report.title}-${group.key}',
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: _maintenanceGridGap,
                                           ),
-                                          title: Text(fieldLabel(group.key)),
-                                          subtitle: Text(
-                                            '${group.value.length} · ${l10n.maintenanceGpuFields}',
-                                          ),
-                                          children: [
-                                            _MaintenanceFields(
+                                          child: _MaintenanceSection(
+                                            key: ValueKey(
+                                              'gpu-${report.title}-${group.key}',
+                                            ),
+                                            title: fieldLabel(group.key),
+                                            subtitle:
+                                                '${group.value.length} · ${l10n.maintenanceGpuFields}',
+                                            child: _MaintenanceFields(
                                               rows: [
                                                 for (final row in group.value)
                                                   [fieldLabel(row[0]), row[1]],
                                               ],
                                             ),
-                                          ],
+                                          ),
                                         ),
                                     ],
                                   )
@@ -1920,8 +1914,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                         [fieldLabel(row[0]), row[1]],
                                     ],
                                   ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
               ],
@@ -3002,18 +2996,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 'firewall_nat',
                 'firewall_states',
               ].where(data.sections.containsKey))
-                ExpansionTile(
-                  title: Text(_maintenanceSectionLabels[name] ?? name),
-                  subtitle: Text(_maintenanceOutputStatus(data.text(name))),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _MaintenanceReadout(
-                        text: data.text(name),
-                        section: name,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: _maintenanceGridGap),
+                  child: _MaintenanceSection(
+                    title: _maintenanceSectionLabels[name] ?? name,
+                    icon: Icons.shield_outlined,
+                    subtitle: _maintenanceOutputStatus(data.text(name)),
+                    child: _MaintenanceReadout(
+                      text: data.text(name),
+                      section: name,
                     ),
-                  ],
+                  ),
                 ),
             ],
           ),
@@ -3139,12 +3132,13 @@ IconData _maintenanceFieldIcon(String key) => switch (key) {
   _ => Icons.data_object_outlined,
 };
 
-String _maintenanceOutputStatus(String text) =>
-    machineMaintenanceCollectionIssue(text, '') != null ||
-        RegExp(
-          'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
-          caseSensitive: false,
-        ).hasMatch(text)
+String _maintenanceOutputStatus(String text) => text.trim().isEmpty
+    ? '暂无可用数据'
+    : machineMaintenanceCollectionIssue(text, '') != null ||
+          RegExp(
+            'permission denied|not permitted|could not|unavailable|not found|拒绝|不可用|未安装',
+            caseSensitive: false,
+          ).hasMatch(text)
     ? '部分不可用 · 查看原因'
     : '已采集 · 查看详情';
 
@@ -4654,10 +4648,9 @@ class _MaintenanceHealthContent extends StatelessWidget {
           ),
         ],
         if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
-          _MaintenanceCard(
+          _MaintenanceSection(
             title: maintenanceHealthLabel(context, 'diagnostic'),
             icon: Icons.fact_check_outlined,
-            scrollBody: false,
             child: _MaintenanceFields(
               rows: machineMaintenanceDiagnosticFields(raw),
             ),
@@ -4675,99 +4668,304 @@ class _MaintenanceFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    final scale = scaler.scale(14) / 14;
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 14,
+      height: 1.35,
+      fontWeight: FontWeight.w600,
+      color: cs.onSurface,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-        final pairedWidth = (constraints.maxWidth - _maintenanceGridGap) / 2;
-        final widths = List<double>.filled(rows.length, constraints.maxWidth);
-        if (constraints.maxWidth >= 600 * scale) {
-          for (var i = 0; i + 1 < rows.length; i++) {
-            final pair = rows.skip(i).take(2);
-            if (pair.every(
-              (field) => !field[1].contains('\n') && field[1].length <= 70,
-            )) {
-              widths[i] = widths[i + 1] = pairedWidth;
-              i++;
-            }
-          }
-        }
-        return _MaintenanceEqualHeightWrap(
+        final columns =
+            ((constraints.maxWidth + _maintenanceGridGap) /
+                    (_maintenanceFieldMinWidth * scale + _maintenanceGridGap))
+                .floor()
+                .clamp(1, _maintenanceFieldMaxColumns);
+        final width =
+            (constraints.maxWidth - (columns - 1) * _maintenanceGridGap) /
+            columns;
+        return Wrap(
+          spacing: _maintenanceGridGap,
+          runSpacing: _maintenanceGridGap,
           children: [
             for (var i = 0; i < rows.length; i++)
-              SizedBox(
-                width: widths[i],
-                child: DecoratedBox(
-                  decoration: _maintenanceTileDecoration(theme.colorScheme),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _MaintenanceIconBadge(
-                          icon: _maintenanceFieldIcon(rows[i][0]),
-                          color: [
-                            theme.colorScheme.primary,
-                            theme.colorScheme.tertiary,
-                            theme.colorScheme.secondary,
-                            OpenHandStatusColors.info,
-                          ][i % 4],
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
+              Builder(
+                builder: (context) {
+                  final label = rows[i][0];
+                  final raw = rows[i][1].isEmpty ? '—' : rows[i][1];
+                  final field = fieldKeys?[i] ?? label;
+                  final duration = machineMaintenanceReadableDuration(
+                    raw,
+                    field: field,
+                  );
+                  final painter = TextPainter(
+                    text: TextSpan(text: raw, style: style),
+                    textDirection: Directionality.of(context),
+                    textScaler: scaler,
+                    maxLines: 2,
+                  )..layout(maxWidth: math.max(0, width - 24));
+                  final truncated = painter.didExceedMaxLines;
+                  painter.dispose();
+                  void openValue() {
+                    showAnimatedDialog<void>(
+                      context: context,
+                      builder: (context) => buildOpenHandDialog(
+                        maxHeight: MediaQuery.sizeOf(context).height * .7,
+                        child: SizedBox(
+                          width: math.min(
+                            MediaQuery.sizeOf(context).width * .86,
+                            kOpenHandDialogDefaultMaxWidth,
+                          ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text(
-                                rows[i][0],
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                              _MachineTerminalDialogHeader(
+                                icon: _maintenanceFieldIcon(label),
+                                title: label,
+                                onClose: () => Navigator.of(context).pop(),
+                                trailingActions: [
+                                  _MachineTerminalIconButton(
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.commonCopy,
+                                    icon: Icons.copy_rounded,
+                                    onPressed: () =>
+                                        copyOpenHandTextToClipboard(
+                                          context: context,
+                                          text: raw,
+                                          logTag: 'home_machine_maintenance',
+                                          logAction: '复制运维字段',
+                                          showSuccess: false,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              Flexible(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    0,
+                                    18,
+                                    18,
+                                  ),
+                                  child: SelectableText(raw, style: style),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              if (machineMaintenanceReadableDuration(
-                                    rows[i][1],
-                                    field: fieldKeys?[i] ?? rows[i][0],
-                                  ) !=
-                                  null)
-                                _MaintenanceNumber(
-                                  key: ValueKey(fieldKeys?[i] ?? rows[i][0]),
-                                  raw: rows[i][1],
-                                  field: fieldKeys?[i] ?? rows[i][0],
-                                  maxLines: 3,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                )
-                              else
-                                SelectableText(
-                                  rows[i][1].isEmpty ? '—' : rows[i][1],
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color:
-                                        rows[i][1].contains('\n') ||
-                                            rows[i][1].length > 48
-                                        ? theme.colorScheme.onSurface
-                                        : [
-                                            theme.colorScheme.primary,
-                                            theme.colorScheme.tertiary,
-                                            theme.colorScheme.secondary,
-                                            OpenHandStatusColors.info,
-                                          ][i % 4],
-                                  ),
-                                ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
+                    );
+                  }
+
+                  return SizedBox(
+                    key: ValueKey('maintenance-field-$i'),
+                    width: width,
+                    height: _maintenanceFieldHeight * scale,
+                    child: DecoratedBox(
+                      decoration: _maintenanceTileDecoration(cs),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                _MaintenanceIconBadge(
+                                  icon: _maintenanceFieldIcon(label),
+                                  color: cs.primary,
+                                  size: 24,
+                                  iconSize: 14,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Tooltip(
+                                    message: label,
+                                    child: Text(
+                                      label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                if (truncated)
+                                  SizedBox(
+                                    width: 28,
+                                    height: 24,
+                                    child: IconButton(
+                                      tooltip: maintenanceLabel(
+                                        context,
+                                        '查看详情',
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      iconSize: 16,
+                                      onPressed: openValue,
+                                      icon: const Icon(
+                                        Icons.open_in_full_rounded,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: Align(
+                                alignment: AlignmentDirectional.topStart,
+                                child: duration != null
+                                    ? _MaintenanceNumber(
+                                        key: ValueKey(field),
+                                        raw: raw,
+                                        field: field,
+                                        maxLines: 2,
+                                        style: style,
+                                      )
+                                    : truncated
+                                    ? Tooltip(
+                                        message: maintenanceLabel(
+                                          context,
+                                          '查看详情',
+                                        ),
+                                        child: InkWell(
+                                          onTap: openValue,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          child: Text(
+                                            raw,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: style,
+                                          ),
+                                        ),
+                                      )
+                                    : SelectableText(
+                                        raw,
+                                        maxLines: 2,
+                                        style: style,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
           ],
         );
       },
+    );
+  }
+}
+
+/// 诊断、元数据与高级指标共用的折叠面板，动效遵循弹窗设置。
+class _MaintenanceSection extends StatelessWidget {
+  const _MaintenanceSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.icon = Icons.data_object_outlined,
+    this.initiallyExpanded = false,
+    this.accent,
+  });
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final IconData icon;
+  final bool initiallyExpanded;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = accent ?? cs.primary;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return Material(
+      color: cs.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_maintenanceCardRadius),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: .65)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTileTheme.merge(
+        shape: const RoundedRectangleBorder(),
+        minVerticalPadding: 4,
+        child: ExpansionTile(
+          // 稳定组件身份，避免折叠状态与内部滚动位置共用存储键。
+          key: ValueKey(title),
+          initiallyExpanded: initiallyExpanded,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          minTileHeight:
+              _maintenanceSectionHeaderHeight *
+              MediaQuery.textScalerOf(context).scale(13) /
+              13,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          leading: _MaintenanceIconBadge(
+            icon: icon,
+            color: tone,
+            size: 32,
+            iconSize: 16,
+          ),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Tooltip(
+                message: title,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          iconColor: tone,
+          collapsedIconColor: cs.onSurfaceVariant,
+          expansionAnimationStyle: AnimationStyle(
+            duration: motion.disablesAnimation
+                ? Duration.zero
+                : motion.entranceDuration,
+            reverseDuration: motion.disablesAnimation
+                ? Duration.zero
+                : motion.exitDuration,
+            curve: motion.curve.curve,
+          ),
+          children: [const SizedBox(height: 8), child],
+        ),
+      ),
     );
   }
 }
@@ -4823,10 +5021,11 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
           for (final entry in _data.groups.entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _MaintenanceCard(
+              child: _MaintenanceSection(
                 title: maintenanceDetailLabel(context, entry.key),
                 icon: Icons.hub_outlined,
-                scrollBody: false,
+                initiallyExpanded:
+                    _data.groups.length <= 4 && entry.value.rows.length <= 12,
                 child: _MaintenanceReadout(
                   report: entry.value,
                   section: widget.section,
@@ -6450,10 +6649,6 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
       'storage': l.maintenanceLogStorage,
     };
     final selectedRows = metadata[_metadataKind]!;
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
     return LayoutBuilder(
       builder: (context, bounds) => Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -6721,224 +6916,167 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
               ),
             ),
             const SizedBox(height: 8),
-            Material(
-              color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+            _MaintenanceSection(
+              title: l.maintenanceLogRotation,
+              icon: Icons.inventory_2_outlined,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.min(300, bounds.maxHeight * .4),
                 ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: ListTileTheme.merge(
-                shape: const RoundedRectangleBorder(),
-                child: ExpansionTile(
-                  shape: const Border(),
-                  collapsedShape: const Border(),
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                  leading: _MaintenanceIconBadge(
-                    icon: Icons.inventory_2_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 32,
-                    iconSize: 16,
-                  ),
-                  title: Text(
-                    l.maintenanceLogRotation,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  expansionAnimationStyle: AnimationStyle(
-                    duration: motion.disablesAnimation
-                        ? Duration.zero
-                        : motion.entranceDuration,
-                    reverseDuration: motion.disablesAnimation
-                        ? Duration.zero
-                        : motion.entranceDuration,
-                    curve: motion.curve.curve,
-                  ),
-                  children: [
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: math.min(300, bounds.maxHeight * .4),
-                      ),
-                      child: SingleChildScrollView(
-                        primary: false,
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: [
-                                for (final kind in titles.keys)
-                                  ChoiceChip(
-                                    elevation: 0,
-                                    pressElevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    selectedShadowColor: Colors.transparent,
-                                    surfaceTintColor: Colors.transparent,
-                                    visualDensity: VisualDensity.standard,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    side: BorderSide(
-                                      color:
-                                          (_metadataKind == kind
-                                                  ? cs.primary
-                                                  : cs.outlineVariant)
-                                              .withValues(alpha: .55),
-                                    ),
-                                    backgroundColor: cs.surface.withValues(
-                                      alpha: .72,
-                                    ),
-                                    selectedColor: cs.primaryContainer,
-                                    labelStyle: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: _metadataKind == kind
-                                              ? cs.onPrimaryContainer
-                                              : cs.onSurface,
-                                        ),
-                                    label: Text(
-                                      '${titles[kind]} · ${kind == 'rotation' && canGroupRotation ? groups.length : metadata[kind]!.length}',
-                                    ),
-                                    selected: _metadataKind == kind,
-                                    onSelected: (_) =>
-                                        setState(() => _metadataKind = kind),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            if (_metadataKind == 'config')
-                              _MaintenanceReadout(
-                                report: MachineMaintenanceReadout(
-                                  [],
-                                  [],
-                                  groups: {
-                                    for (final path
-                                        in metadata['config']!
-                                            .map((row) => row[0])
-                                            .toSet())
-                                      path.isEmpty
-                                          ? titles['config']!
-                                          : path: MachineMaintenanceReadout(
-                                        ['名称', '数值'],
-                                        [
-                                          for (final row
-                                              in metadata['config']!.where(
-                                                (row) => row[0] == path,
-                                              ))
-                                            [
-                                              maintenanceHealthLabel(
-                                                context,
-                                                row[1],
-                                              ),
-                                              maintenanceHealthValue(
-                                                context,
-                                                row[2],
-                                              ),
-                                            ],
-                                        ],
-                                        fields: true,
-                                      ),
-                                  },
-                                ),
-                              )
-                            else
-                              _MaintenanceTable(
-                                key: ValueKey(_metadataKind),
-                                maxBodyHeight: 160,
-                                paginate: false,
-                                limitToViewport: false,
-                                headers: [
-                                  maintenanceLabel(context, '路径'),
-                                  if (_metadataKind == 'rotation' &&
-                                      canGroupRotation)
-                                    ...rotationFields.map(
-                                      (field) => field == '字节'
-                                          ? l.listCardMetricSize
-                                          : maintenanceHealthLabel(
-                                              context,
-                                              field,
-                                            ),
-                                    )
-                                  else if (_metadataKind == 'storage')
-                                    l.maintenanceLogStorage
-                                  else ...[
-                                    maintenanceLabel(context, '名称'),
-                                    maintenanceLabel(context, '数值'),
-                                  ],
-                                ],
-                                rows:
-                                    _metadataKind == 'rotation' &&
-                                        canGroupRotation
-                                    ? [
-                                        for (final entry in groups.entries)
-                                          OpenHandOperationalRankRow(
-                                            value: 0,
-                                            cells: [
-                                              entry.key,
-                                              for (final field
-                                                  in rotationFields)
-                                                field == '字节' &&
-                                                        int.tryParse(
-                                                              entry.value[field] ??
-                                                                  '',
-                                                            ) !=
-                                                            null
-                                                    ? formatByteSize(
-                                                        int.parse(
-                                                          entry.value[field]!,
-                                                        ),
-                                                      )
-                                                    : maintenanceEnglishTimestamp(
-                                                            entry.value[field] ??
-                                                                '',
-                                                          ) ??
-                                                          entry.value[field] ??
-                                                          '—',
-                                            ],
-                                          ),
-                                      ]
-                                    : [
-                                        for (final row in selectedRows)
-                                          OpenHandOperationalRankRow(
-                                            value: 0,
-                                            cells: [
-                                              row[0],
-                                              if (_metadataKind == 'storage')
-                                                int.tryParse(row[2]) == null
-                                                    ? row[2]
-                                                    : formatByteSize(
-                                                        int.parse(row[2]) *
-                                                            1024,
-                                                      )
-                                              else ...[
-                                                maintenanceHealthLabel(
-                                                  context,
-                                                  row[1],
-                                                ),
-                                                maintenanceHealthValue(
-                                                  context,
-                                                  row[2],
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                      ],
+                child: SingleChildScrollView(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final kind in titles.keys)
+                            ChoiceChip(
+                              elevation: 0,
+                              pressElevation: 0,
+                              shadowColor: Colors.transparent,
+                              selectedShadowColor: Colors.transparent,
+                              surfaceTintColor: Colors.transparent,
+                              visualDensity: VisualDensity.standard,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                          ],
-                        ),
+                              side: BorderSide(
+                                color:
+                                    (_metadataKind == kind
+                                            ? cs.primary
+                                            : cs.outlineVariant)
+                                        .withValues(alpha: .55),
+                              ),
+                              backgroundColor: cs.surface.withValues(
+                                alpha: .72,
+                              ),
+                              selectedColor: cs.primaryContainer,
+                              labelStyle: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: _metadataKind == kind
+                                        ? cs.onPrimaryContainer
+                                        : cs.onSurface,
+                                  ),
+                              label: Text(
+                                '${titles[kind]} · ${kind == 'rotation' && canGroupRotation ? groups.length : metadata[kind]!.length}',
+                              ),
+                              selected: _metadataKind == kind,
+                              onSelected: (_) =>
+                                  setState(() => _metadataKind = kind),
+                            ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      if (_metadataKind == 'config')
+                        _MaintenanceReadout(
+                          report: MachineMaintenanceReadout(
+                            [],
+                            [],
+                            groups: {
+                              for (final path
+                                  in metadata['config']!
+                                      .map((row) => row[0])
+                                      .toSet())
+                                path.isEmpty
+                                    ? titles['config']!
+                                    : path: MachineMaintenanceReadout(
+                                  ['名称', '数值'],
+                                  [
+                                    for (final row in metadata['config']!.where(
+                                      (row) => row[0] == path,
+                                    ))
+                                      [
+                                        maintenanceHealthLabel(context, row[1]),
+                                        maintenanceHealthValue(context, row[2]),
+                                      ],
+                                  ],
+                                  fields: true,
+                                ),
+                            },
+                          ),
+                        )
+                      else
+                        _MaintenanceTable(
+                          key: ValueKey(_metadataKind),
+                          maxBodyHeight: 160,
+                          paginate: false,
+                          limitToViewport: false,
+                          headers: [
+                            maintenanceLabel(context, '路径'),
+                            if (_metadataKind == 'rotation' && canGroupRotation)
+                              ...rotationFields.map(
+                                (field) => field == '字节'
+                                    ? l.listCardMetricSize
+                                    : maintenanceHealthLabel(context, field),
+                              )
+                            else if (_metadataKind == 'storage')
+                              l.maintenanceLogStorage
+                            else ...[
+                              maintenanceLabel(context, '名称'),
+                              maintenanceLabel(context, '数值'),
+                            ],
+                          ],
+                          rows: _metadataKind == 'rotation' && canGroupRotation
+                              ? [
+                                  for (final entry in groups.entries)
+                                    OpenHandOperationalRankRow(
+                                      value: 0,
+                                      cells: [
+                                        entry.key,
+                                        for (final field in rotationFields)
+                                          field == '字节' &&
+                                                  int.tryParse(
+                                                        entry.value[field] ??
+                                                            '',
+                                                      ) !=
+                                                      null
+                                              ? formatByteSize(
+                                                  int.parse(
+                                                    entry.value[field]!,
+                                                  ),
+                                                )
+                                              : maintenanceEnglishTimestamp(
+                                                      entry.value[field] ?? '',
+                                                    ) ??
+                                                    entry.value[field] ??
+                                                    '—',
+                                      ],
+                                    ),
+                                ]
+                              : [
+                                  for (final row in selectedRows)
+                                    OpenHandOperationalRankRow(
+                                      value: 0,
+                                      cells: [
+                                        row[0],
+                                        if (_metadataKind == 'storage')
+                                          int.tryParse(row[2]) == null
+                                              ? row[2]
+                                              : formatByteSize(
+                                                  int.parse(row[2]) * 1024,
+                                                )
+                                        else ...[
+                                          maintenanceHealthLabel(
+                                            context,
+                                            row[1],
+                                          ),
+                                          maintenanceHealthValue(
+                                            context,
+                                            row[2],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

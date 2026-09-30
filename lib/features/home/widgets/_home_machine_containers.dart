@@ -483,11 +483,14 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           ),
         ),
         const SizedBox(height: 12),
-        ExpansionTile(
-          title: const Text('运行时元数据与状态'),
-          children: [
-            _MaintenanceReadout(text: _metadata, section: 'container_metadata'),
-          ],
+        _MaintenanceSection(
+          title: '运行时元数据与状态',
+          icon: Icons.inventory_2_outlined,
+          subtitle: _maintenanceOutputStatus(_metadata),
+          child: _MaintenanceReadout(
+            text: _metadata,
+            section: 'container_metadata',
+          ),
         ),
       ],
     );
