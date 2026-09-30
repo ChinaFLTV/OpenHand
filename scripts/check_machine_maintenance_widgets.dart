@@ -2436,13 +2436,14 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('进程表使用剩余高度，移除数量卡片并将排序靠右', (tester) async {
+  testWidgets('进程工具栏排序与视图切换同行等高，窄屏换行并保留视图状态', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
     final service = _MaintenanceFixture();
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
-      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      child: MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: MediaQuery(data: MediaQueryData(size: Size(1440, 1100)), child: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+        theme: OpenHandTheme.light(OpenHandThemePreset.values.first).copyWith(textTheme: OpenHandTheme.light(OpenHandThemePreset.values.first).textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+        home: const MediaQuery(data: MediaQueryData(size: Size(1440, 1100)), child: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
     await tester.pumpAndSettle();
     await tester.tap(find.text('进程管理'));
     await tester.pumpAndSettle();
@@ -2470,7 +2471,39 @@ void main() {
     expect(tester.widget<OpenHandOperationalRankTable>(find.byType(OpenHandOperationalRankTable).first).compact, isTrue);
     expect(tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination).first).controlHeight, controlHeight);
     expect(tester.getRect(sortMenu).left, greaterThan(tester.getRect(search).right));
-    expect(tester.getRect(sortMenu).right, closeTo(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).right, 1));
+    final viewToggle = find.byType(SegmentedButton<bool>);
+    expect(tester.getSize(viewToggle).height, controlHeight);
+    expect(tester.getRect(viewToggle).left - tester.getRect(sortMenu).right, closeTo(8, .01));
+    expect(tester.getRect(viewToggle).top, tester.getRect(sortMenu).top);
+    expect(tester.getRect(viewToggle).right, closeTo(tester.getRect(find.byKey(const ValueKey('运维进程列表'))).right, 1));
+    final boundary = tester.renderObject<RenderRepaintBoundary>(find.byType(RepaintBoundary).first);
+    await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/process-toolbar-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+    await tester.tap(find.text('关系树'));
+    await tester.pumpAndSettle();
+    for (final width in [600.0, 440.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1100));
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(find.byKey(const ValueKey('运维进程列表')));
+      final sortRect = tester.getRect(sortMenu);
+      final toggleRect = tester.getRect(viewToggle);
+      expect(toggleRect.height, controlHeight);
+      expect(sortRect.height, controlHeight);
+      expect(toggleRect.right, closeTo(bounds.right, 1));
+      expect(toggleRect.left, greaterThanOrEqualTo(bounds.left));
+      expect(sortRect.overlaps(toggleRect), isFalse);
+      expect(tester.getRect(search).overlaps(toggleRect), isFalse);
+      expect(tester.widget<SegmentedButton<bool>>(viewToggle).selected, {true});
+      expect(tester.takeException(), isNull);
+    }
+    await tester.binding.setSurfaceSize(const Size(1440, 1100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
     for (final tab in ['运行总览', '系统服务', '网络与诊断']) {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();

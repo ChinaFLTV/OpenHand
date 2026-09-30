@@ -2055,9 +2055,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               children: [
                 charts,
                 const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: LayoutBuilder(
+                _MaintenanceBrowser(
+                  toolbarBuilder: (viewToggle) => LayoutBuilder(
                     builder: (_, constraints) {
                       final search = SizedBox(
                         width: math.min(
@@ -2085,30 +2084,29 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         items: const {0: 'CPU 降序', 1: '内存降序', 2: 'PID 升序'},
                         onSelected: (value) => setState(() => _sort = value),
                       );
-                      if (constraints.maxWidth <
-                          420 *
-                              MediaQuery.textScalerOf(context).scale(12) /
-                              12) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: search,
+                      return OverflowBar(
+                        alignment: MainAxisAlignment.spaceBetween,
+                        overflowAlignment: OverflowBarAlignment.end,
+                        spacing: 12,
+                        overflowSpacing: 10,
+                        children: [
+                          search,
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth,
                             ),
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: sort,
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [sort, viewToggle],
                             ),
-                          ],
-                        );
-                      }
-                      return Row(children: [search, const Spacer(), sort]);
+                          ),
+                        ],
+                      );
                     },
                   ),
-                ),
-                _MaintenanceBrowser(
                   query: query,
                   nameColumn: 1,
                   parents: {
@@ -3449,12 +3447,14 @@ class _MaintenanceBrowser extends StatefulWidget {
     required this.query,
     this.nameColumn = 0,
     this.groupNames = false,
+    this.toolbarBuilder,
   });
   final _MaintenanceTable table;
   final Map<String, List<String>> parents;
   final String query;
   final int nameColumn;
   final bool groupNames;
+  final Widget Function(Widget viewToggle)? toolbarBuilder;
 
   @override
   State<_MaintenanceBrowser> createState() => _MaintenanceBrowserState();
@@ -3796,74 +3796,73 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
               },
             ),
     );
+    final viewToggle = SizedBox(
+      height: _maintenanceControlHeight,
+      child: SegmentedButton<bool>(
+        style: ButtonStyle(
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 14),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          textStyle: WidgetStatePropertyAll(
+            Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 13,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          // 选中配色交给全局分段按钮主题统一管理。
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? null : cs.surface,
+          ),
+          side: WidgetStatePropertyAll(BorderSide(color: cs.outlineVariant)),
+          elevation: const WidgetStatePropertyAll(0),
+          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? cs.primary.withValues(alpha: .12)
+                : Colors.transparent,
+          ),
+          visualDensity: VisualDensity.standard,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        showSelectedIcon: false,
+        segments: [
+          ButtonSegment(
+            value: false,
+            icon: const Icon(Icons.view_list_outlined, size: 16),
+            label: Text(l10n.maintenanceListView),
+          ),
+          ButtonSegment(
+            value: true,
+            icon: const Icon(Icons.account_tree_outlined, size: 16),
+            label: Text(
+              widget.groupNames
+                  ? l10n.maintenanceNameTree
+                  : l10n.maintenanceTreeView,
+            ),
+          ),
+        ],
+        selected: {_tree},
+        onSelectionChanged: (selection) =>
+            setState(() => _tree = selection.first),
+      ),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SegmentedButton<bool>(
-              style: ButtonStyle(
-                minimumSize: const WidgetStatePropertyAll(
-                  Size(112, _maintenanceControlHeight),
-                ),
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                ),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                textStyle: WidgetStatePropertyAll(
-                  Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 13,
-                    height: 1.2,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                // 选中配色交给全局分段按钮主题统一管理。
-                backgroundColor: WidgetStateProperty.resolveWith(
-                  (states) =>
-                      states.contains(WidgetState.selected) ? null : cs.surface,
-                ),
-                side: WidgetStatePropertyAll(
-                  BorderSide(color: cs.outlineVariant),
-                ),
-                elevation: const WidgetStatePropertyAll(0),
-                shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-                overlayColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.pressed)
-                      ? cs.primary.withValues(alpha: .12)
-                      : Colors.transparent,
-                ),
-                visualDensity: VisualDensity.standard,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          child:
+              widget.toolbarBuilder?.call(viewToggle) ??
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: viewToggle,
               ),
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(
-                  value: false,
-                  icon: const Icon(Icons.view_list_outlined, size: 16),
-                  label: Text(l10n.maintenanceListView),
-                ),
-                ButtonSegment(
-                  value: true,
-                  icon: const Icon(Icons.account_tree_outlined, size: 16),
-                  label: Text(
-                    widget.groupNames
-                        ? l10n.maintenanceNameTree
-                        : l10n.maintenanceTreeView,
-                  ),
-                ),
-              ],
-              selected: {_tree},
-              onSelectionChanged: (selection) =>
-                  setState(() => _tree = selection.first),
-            ),
-          ),
         ),
         AnimatedSize(
           duration: openHandMotionDuration(context, motion.duration),
