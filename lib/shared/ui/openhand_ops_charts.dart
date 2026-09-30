@@ -3436,6 +3436,8 @@ class OpenHandOperationalRowMenu extends StatelessWidget {
     this.onDetails,
     this.actions = const {},
   });
+  static const double extent = 28;
+
   final VoidCallback? onDetails;
   final Map<String, VoidCallback> actions;
 
@@ -3455,7 +3457,15 @@ class OpenHandOperationalRowMenu extends StatelessWidget {
         en: 'More actions',
       ),
       enabled: entries.isNotEmpty,
-      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      icon: const Icon(Icons.more_horiz_rounded, size: 18),
+      padding: const EdgeInsets.all(5),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(extent),
+        minimumSize: const Size.square(extent),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandRadius8),
+        ),
+      ),
       onSelected: (action) => entries[action]?.call(),
       itemBuilder: (_) => [
         for (final entry in entries.keys)
@@ -3810,7 +3820,7 @@ class _OpenHandOperationalRankTableState
         content + _kRankCellPadding * 2,
       );
       natural[i] = hasActions && i == columnCount - 1
-          ? math.max(kOpenHandMenuIconButtonExtent, content) +
+          ? math.max(OpenHandOperationalRowMenu.extent, content) +
                 _kRankCellPadding * 2
           : math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
     }
@@ -4078,7 +4088,8 @@ class _OpenHandOperationalRankTableState
                                                 .clamp(
                                                   hasActions &&
                                                           i == columnCount - 1
-                                                      ? kOpenHandMenuIconButtonExtent +
+                                                      ? OpenHandOperationalRowMenu
+                                                                .extent +
                                                             _kRankCellPadding *
                                                                 2
                                                       : _kRankUserMinWidth,

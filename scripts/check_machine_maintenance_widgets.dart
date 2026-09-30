@@ -501,7 +501,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
-  testWidgets('更多按钮在明暗主题、紧凑行和列宽调整后保持方形且对齐表头', (tester) async {
+  testWidgets('行操作按钮在明暗主题、紧凑行和列宽调整后保持小方形、行间距及表头对齐', (tester) async {
     for (final brightness in Brightness.values) {
       for (final compact in [false, true]) {
         for (final width in [1280.0, 420.0]) {
@@ -512,18 +512,30 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(body: Align(alignment: Alignment.topLeft, child: OpenHandOperationalRankTable(
               headers: const ['PID', '进程', '状态', '累计 CPU 时间'], compact: compact,
-              rows: const [OpenHandOperationalRankRow(value: 1, cells: ['285', '测试进程', '休眠', '100 毫秒'])],
+              rows: const [
+                OpenHandOperationalRankRow(value: 3, cells: ['285', '测试进程甲', '休眠', '100 毫秒']),
+                OpenHandOperationalRankRow(value: 2, cells: ['286', '测试进程乙', '休眠', '200 毫秒']),
+                OpenHandOperationalRankRow(value: 1, cells: ['287', '测试进程丙', '休眠', '300 毫秒']),
+              ],
               onRowTap: (_) {},
             ))),
           ));
           await tester.pumpAndSettle();
           final button = find.descendant(of: find.byType(OpenHandOperationalRowMenu), matching: find.byType(IconButton));
-          expect(tester.getSize(button), const Size.square(kOpenHandMenuIconButtonExtent));
-          expect(tester.getCenter(button).dx, closeTo(tester.getCenter(find.text('操作')).dx, .5));
+          expect(button, findsNWidgets(3));
+          void checkButtons() {
+            for (var i = 0; i < 3; i++) {
+              final rect = tester.getRect(button.at(i));
+              expect(tester.getSize(button.at(i)), const Size.square(28));
+              expect(rect.center.dx, closeTo(tester.getCenter(find.text('操作')).dx, .5));
+              if (i > 0) expect(rect.top - tester.getRect(button.at(i - 1)).bottom, greaterThanOrEqualTo(16));
+            }
+          }
+          checkButtons();
           final handle = find.byWidgetPredicate((w) => w is MouseRegion && w.cursor == SystemMouseCursors.resizeColumn).last;
           await tester.drag(handle, const Offset(-1000, 0), warnIfMissed: false);
           await tester.pumpAndSettle();
-          expect(tester.getSize(button), const Size.square(kOpenHandMenuIconButtonExtent));
+          checkButtons();
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
         }

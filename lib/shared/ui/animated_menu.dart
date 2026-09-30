@@ -1410,7 +1410,7 @@ class _AnimatedPopupMenuButtonState<T>
       return Tooltip(message: tooltip, child: pressed);
     }
     final colors = Theme.of(context).colorScheme;
-    final style = IconButton.styleFrom(
+    final defaultStyle = IconButton.styleFrom(
       fixedSize: const Size.square(kOpenHandMenuIconButtonExtent),
       minimumSize: const Size.square(kOpenHandMenuIconButtonExtent),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1427,7 +1427,8 @@ class _AnimatedPopupMenuButtonState<T>
       ),
       side: BorderSide(color: colors.outlineVariant.withValues(alpha: .55)),
       animationDuration: openHandMotionDuration(context, kOpenHandMotion140),
-    ).merge(widget.style);
+    );
+    final style = widget.style?.merge(defaultStyle) ?? defaultStyle;
     // 先放松外部约束，避免行高或拉伸布局把图标按钮挤成长胶囊。
     return Align(
       widthFactor: 1,
