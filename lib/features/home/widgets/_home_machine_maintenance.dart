@@ -6,7 +6,7 @@ const _maintenanceSearchWidth = 280.0;
 const _maintenanceGridGap = 12.0;
 const _maintenanceFieldMinWidth = 240.0;
 const _maintenanceFieldHeight = 104.0;
-const _maintenanceFieldMaxColumns = 3;
+const _maintenanceFieldMaxColumns = 4;
 const _maintenanceSectionHeaderHeight = 64.0;
 const _maintenancePanelBottomInset = 8.0;
 
@@ -1759,42 +1759,31 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   title: maintenanceLabel(context, '基本信息'),
                   icon: Icons.info_outline_rounded,
                   scrollBody: false,
-                  child: _MaintenanceGrid(
-                    maxColumns: 2,
-                    children: [
-                      _MaintenanceFacts(
-                        labelWidth: 140,
-                        values: {
-                          'UUID / ID': device.id,
-                          l10n.maintenanceGpuSource: maintenanceGpuSourceLabel(
-                            context,
-                            device.source,
-                          ),
-                          for (final entry in device.info.entries)
-                            switch (entry.key) {
-                              'vendor' => l10n.maintenanceGpuVendor,
-                              'driver' => l10n.maintenanceGpuDriver,
-                              'bus' => l10n.maintenanceGpuBus,
-                              'state' => maintenanceLabel(context, '状态'),
-                              'metal' => l10n.maintenanceGpuMetal,
-                              _ => l10n.maintenanceExtendedMetric(entry.key),
-                            }: maintenanceDetailValue(
-                              context,
-                              entry.value,
-                            ),
-                        },
+                  child: _MaintenanceFacts(
+                    values: {
+                      'UUID / ID': device.id,
+                      l10n.maintenanceGpuSource: maintenanceGpuSourceLabel(
+                        context,
+                        device.source,
                       ),
-                      _MaintenanceFacts(
-                        labelWidth: 140,
-                        values: {
-                          for (final entry in device.metrics.entries)
-                            labels[entry.key] ?? entry.key: value(
-                              device,
-                              entry.key,
-                            ),
-                        },
-                      ),
-                    ],
+                      for (final entry in device.info.entries)
+                        switch (entry.key) {
+                          'vendor' => l10n.maintenanceGpuVendor,
+                          'driver' => l10n.maintenanceGpuDriver,
+                          'bus' => l10n.maintenanceGpuBus,
+                          'state' => maintenanceLabel(context, '状态'),
+                          'metal' => l10n.maintenanceGpuMetal,
+                          _ => l10n.maintenanceExtendedMetric(entry.key),
+                        }: maintenanceDetailValue(
+                          context,
+                          entry.value,
+                        ),
+                      for (final entry in device.metrics.entries)
+                        labels[entry.key] ?? entry.key: value(
+                          device,
+                          entry.key,
+                        ),
+                    },
                   ),
                 ),
               ],
@@ -4031,12 +4020,10 @@ class _MaintenanceTable extends StatelessWidget {
 }
 
 class _MaintenanceFacts extends StatelessWidget {
-  const _MaintenanceFacts({required this.values, this.labelWidth = 78});
+  const _MaintenanceFacts({required this.values});
   final Map<String, String> values;
-  final double labelWidth;
   @override
   Widget build(BuildContext context) {
-    assert(labelWidth > 0);
     return _MaintenanceFields(
       fieldKeys: values.keys.toList(),
       rows: [
@@ -4717,11 +4704,14 @@ class _MaintenanceFields extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns =
+        final capacity =
             ((constraints.maxWidth + _maintenanceGridGap) /
                     (_maintenanceFieldMinWidth * scale + _maintenanceGridGap))
                 .floor()
                 .clamp(1, _maintenanceFieldMaxColumns);
+        // 保持最少行数，再均衡列数，避免少量字段占空列或末行孤立。
+        final rowCount = math.max(1, (rows.length / capacity).ceil());
+        final columns = math.max(1, (rows.length / rowCount).ceil());
         final width =
             (constraints.maxWidth - (columns - 1) * _maintenanceGridGap) /
             columns;

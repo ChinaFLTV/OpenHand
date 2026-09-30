@@ -2812,11 +2812,11 @@ void main() {
   });
 
 
-  testWidgets('Apple GPU 首次采样不占空趋势框，容量保持单位且详情分栏', (tester) async {
+  testWidgets('Apple GPU 首次采样不占空趋势框，基本信息连续排布且保留单位', (tester) async {
     final service = _MaintenanceFixture()..platform = 'Darwin';
     service.gpuOutput = ['__OH_OPS_platform__', 'Darwin', '__OH_OPS_host__', 'GPU主机',
       '__OH_OPS_gpu_apple__', jsonEncode({'SPDisplaysDataType': [{'sppci_model': 'Apple M4', 'sppci_cores': '10', 'spdisplays_vendor': 'Apple', 'sppci_bus': 'builtin'}]}),
-      '__OH_OPS_gpu_accelerators__', '+-o GPU "model" = "Apple M4" "Device Utilization %"=49 "Renderer Utilization %"=48 "In use system memory"=1053818880', '__OH_OPS_end__'].join('\\n');
+      '__OH_OPS_gpu_accelerators__', '+-o GPU "model" = "Apple M4" "Device Utilization %"=49 "Renderer Utilization %"=48 "Tiler Utilization %"=45 "In use system memory"=1053818880 "Alloc system memory"=4864057344 "recoveryCount"=0', '__OH_OPS_end__'].join('\\n');
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
       child: MaterialApp(builder: (context, child) => LayoutBuilder(builder: (context, constraints) => MediaQuery(data: MediaQuery.of(context).copyWith(size: constraints.biggest), child: child!)), theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'), locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -2826,10 +2826,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Apple M4'), findsOneWidget);
     expect(find.text('GPU 利用率趋势'), findsNothing);
-    final facts = find.byType(_MaintenanceFacts);
-    expect(facts, findsNWidgets(2));
-    expect(tester.getRect(facts.first).top, tester.getRect(facts.last).top);
-    expect(tester.getRect(facts.last).right, greaterThan(1200));
+    expect(find.byType(_MaintenanceFacts), findsOneWidget);
+    final fieldRows = <double, List<Rect>>{};
+    for (var i = 0; i < 12; i++) {
+      final rect = tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')));
+      (fieldRows[rect.top] ??= []).add(rect);
+    }
+    expect(fieldRows.values.map((row) => row.length), [4, 4, 4]);
+    for (final row in fieldRows.values) {
+      expect(row.first.width, lessThan(400));
+      expect(row.last.right, closeTo(tester.getRect(find.byType(_MaintenanceFacts)).right, .01));
+    }
+    expect(find.descendant(of: find.byType(_MaintenanceFacts), matching: find.text('GPU 核心数')), findsOneWidget);
     expect(find.byIcon(Icons.memory_rounded), findsWidgets);
     await tester.tap(find.byTooltip('刷新当前分区'));
     await tester.pumpAndSettle();
@@ -2851,6 +2859,46 @@ void main() {
     expect(find.text('1005 MB'), findsOneWidget);
     expect(find.text('1k MB'), findsNothing);
     await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('字段网格保持连续等宽排布，少量字段不占空列', (tester) async {
+    for (final scenario in [
+      (380.0, 5, [1, 1, 1, 1, 1]),
+      (760.0, 5, [3, 2]),
+      (1280.0, 5, [3, 2]),
+      (1280.0, 6, [3, 3]),
+      (1280.0, 12, [4, 4, 4]),
+      (1280.0, 2, [2]),
+      (1280.0, 1, [1]),
+      (1280.0, 0, <int>[]),
+    ]) {
+      final (width, count, expectedRows) = scenario;
+      await tester.binding.setSurfaceSize(Size(width, 1100));
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceFields(
+          rows: [for (var i = 0; i < count; i++) ['字段 \$i', '数值 \$i']],
+        )))));
+      await tester.pumpAndSettle();
+      final layoutRows = <double, List<Rect>>{};
+      for (var i = 0; i < count; i++) {
+        final rect = tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')));
+        (layoutRows[rect.top] ??= []).add(rect);
+        expect(rect.width, closeTo(layoutRows.values.first.first.width, .01));
+        expect(rect.right, lessThanOrEqualTo(width + .01));
+      }
+      expect(layoutRows.values.map((row) => row.length), expectedRows);
+      for (final row in layoutRows.values) {
+        expect(row.first.left, closeTo(0, .01));
+        for (var i = 1; i < row.length; i++) {
+          expect(row[i].left - row[i - 1].right, closeTo(_maintenanceGridGap, .01));
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
     await tester.binding.setSurfaceSize(null);
   });
 
