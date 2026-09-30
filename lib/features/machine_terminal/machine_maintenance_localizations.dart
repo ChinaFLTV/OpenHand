@@ -3,6 +3,8 @@ import '../../l10n/app_localizations.dart';
 import 'machine_egress.dart';
 import 'machine_egress_regions.dart';
 
+part 'machine_maintenance_counter_localizations.dart';
+
 /// 仅转换运维界面字段与状态，机器数据和原始输出保持原样。
 String maintenanceLabel(BuildContext context, String label) {
   final l10n = AppLocalizations.of(context)!;
@@ -20,6 +22,9 @@ String maintenanceLabel(BuildContext context, String label) {
     _ => label,
   };
   return switch (label) {
+    '指标' => l10n.maintenanceReadoutMetric,
+    '执行结果' => l10n.maintenanceReadoutServiceResult,
+    'Fabric Manager' => l10n.maintenanceReadoutFabricManager,
     '互联网出口' => l10n.maintenanceEgressTitle,
     '刷新出口信息' => l10n.maintenanceEgressRefresh,
     '正在查询目标机器出口' => l10n.maintenanceEgressLoading,
@@ -1260,6 +1265,7 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'TasksCurrent': '任务数',
     'NRestarts': '重启次数',
     'MemoryCurrent': '内存',
+    'Result': '执行结果',
     'Description': '描述',
     'State': '状态',
     'ActiveState': '状态',
@@ -1450,7 +1456,11 @@ String? maintenanceEnglishTimestamp(String value) {
       '${day.toString().padLeft(2, '0')} ${match[3]}';
 }
 
-String maintenanceDetailValue(BuildContext context, String value) {
+String maintenanceDetailValue(
+  BuildContext context,
+  String value, {
+  String field = '',
+}) {
   final l10n = AppLocalizations.of(context)!;
   var trimmed = value.trim();
   if (!trimmed.contains('\n')) {
@@ -1463,6 +1473,76 @@ String maintenanceDetailValue(BuildContext context, String value) {
       trimmed = trimmed.substring(1, trimmed.length - 1);
     }
   }
+  final leaf = field.split(' / ').last;
+  if (const {'MemoryCurrent', 'CPUUsageNSec'}.contains(leaf) &&
+      const {
+        '18446744073709551615',
+        '[not set]',
+        'n/a',
+      }.contains(trimmed.toLowerCase())) {
+    return l10n.maintenanceUnavailable;
+  }
+  final policy = switch (leaf) {
+    'Restart' || '重启策略' => switch (trimmed.toLowerCase()) {
+      'always' => l10n.maintenanceReadoutRestartAlways,
+      'no' => l10n.maintenanceReadoutRestartNever,
+      'on-success' => l10n.maintenanceReadoutRestartSuccess,
+      'on-failure' => l10n.maintenanceReadoutRestartFailure,
+      'on-abnormal' => l10n.maintenanceReadoutRestartAbnormal,
+      'on-watchdog' => l10n.maintenanceReadoutRestartWatchdog,
+      'on-abort' => l10n.maintenanceReadoutRestartAbort,
+      _ => null,
+    },
+    'NotifyAccess' || '通知访问' => switch (trimmed.toLowerCase()) {
+      'main' => l10n.maintenanceReadoutNotifyMain,
+      'all' => l10n.maintenanceReadoutNotifyAll,
+      'exec' => l10n.maintenanceReadoutNotifyExec,
+      _ => null,
+    },
+    _ => null,
+  };
+  if (policy != null) return policy;
+  final status = switch (trimmed.toLowerCase()) {
+    'success' || 'succeeded' => l10n.maintenanceReadoutSuccess,
+    'not-found' => l10n.maintenanceReadoutNotFound,
+    'activating' ||
+    'starting' ||
+    'start-pre' ||
+    'start-post' => l10n.maintenanceReadoutActivating,
+    'deactivating' ||
+    'stopping' ||
+    'stop-sigterm' ||
+    'stop-sigkill' ||
+    'stop-post' => l10n.maintenanceReadoutDeactivating,
+    'reloading' || 'reload' => l10n.maintenanceReadoutReloading,
+    'failed' || 'failure' || 'error' => l10n.maintenanceFailed,
+    'completed' || 'complete' => l10n.maintenanceContainerSucceeded,
+    'aborted' => l10n.maintenanceReadoutAborted,
+    'not supported' ||
+    '[not supported]' ||
+    'unsupported' => l10n.maintenanceReadoutNotSupported,
+    'n/a' ||
+    '[n/a]' ||
+    'not applicable' => l10n.maintenanceReadoutNotApplicable,
+    'unknown' => l10n.maintenanceUnknown,
+    'true' || 'yes' => l10n.maintenanceDetailEnabled,
+    'false' || 'no' => l10n.maintenanceDetailDisabled,
+    'tentative' => l10n.maintenanceReadoutTentative,
+    'preferred' => l10n.maintenanceReadoutPreferred,
+    'deprecated' => l10n.maintenanceReadoutDeprecated,
+    'dormant' => l10n.maintenanceReadoutDormant,
+    'bound' => l10n.maintenanceReadoutBind,
+    'unavailable' => l10n.maintenanceUnavailable,
+    'active' || 'running' => l10n.maintenanceRunning,
+    'inactive' ||
+    'dead' ||
+    '<inactive>' ||
+    'stopped' => l10n.maintenanceStopped,
+    'enabled' || 'on' => l10n.maintenanceDetailEnabled,
+    'disabled' || 'off' => l10n.maintenanceDetailDisabled,
+    _ => null,
+  };
+  if (status != null) return status;
   final metal = RegExp(r'^[Mm]etal\s*(\d+)$').firstMatch(trimmed);
   if (metal != null) return 'Metal ${metal[1]}';
   final stamp = maintenanceEnglishTimestamp(trimmed);
@@ -1489,16 +1569,11 @@ String maintenanceDetailValue(BuildContext context, String value) {
     'linked-runtime' => '临时链接',
     'Auto' || 'Automatic' => '自动启动',
     'Manual' => '手动启动',
-    'Enabled' => '启用',
-    'Disabled' => '禁用',
-    'yes' || 'true' || 'enabled' => '启用',
-    'no' || 'false' || 'disabled' => '禁用',
     'none' => '无',
     'loaded' => '已加载',
     'exited' => '已退出',
     'static' => '静态',
     'masked' => '已屏蔽',
-    'active' || 'running' => '运行中',
     'REACHABLE' || 'Reachable' => '可达',
     'STALE' || 'Stale' => '已过期',
     'INCOMPLETE' || 'Incomplete' => '未完成',
@@ -1506,7 +1581,6 @@ String maintenanceDetailValue(BuildContext context, String value) {
     'DELAY' || 'Delay' => '等待探测',
     'PROBE' || 'Probe' => '探测中',
     'PERMANENT' || 'Permanent' => '永久',
-    'inactive' || 'dead' => '未运行',
     'S (sleeping)' => '休眠',
     'R (running)' => '运行',
     'Z (zombie)' => '僵尸',
@@ -1522,6 +1596,7 @@ String maintenanceGpuFieldLabel(BuildContext context, String path) {
   return path
       .split('/')
       .map((field) {
+        field = field.trim();
         final key = field.replaceAll(RegExp(r'\[\d+\]'), '');
         final label = switch (key) {
           'cuda_version' => l10n.maintenanceGpuCudaCompatibility,
@@ -1563,6 +1638,54 @@ String maintenanceGpuFieldLabel(BuildContext context, String path) {
           'decoder_util' => l10n.maintenanceGpuDecoder,
           'memory_util' => l10n.maintenanceGpuMemoryUtil,
           'gpu_busy_percent' => l10n.maintenanceGpuUtil,
+          'used' || 'used_memory' => l10n.maintenanceUsed,
+          'total' => l10n.maintenanceReadoutTotal,
+          'free' => l10n.maintenanceReadoutFree,
+          'memory' => l10n.maintenanceMemory,
+          'graphics_clock' || 'sm_clock' => l10n.maintenanceGpuCoreClock,
+          'mem_clock' => l10n.maintenanceGpuMemoryClock,
+          'power_management' => l10n.maintenanceGpuPower,
+          'pending' => l10n.maintenanceContainerPending,
+          'current_ecc' || 'pending_ecc' => l10n.maintenanceGpuDetailEcc,
+          'display_mode' => l10n.maintenanceGpuResolution,
+          'cpu_affinity' => maintenanceDetailLabel(context, 'CPU Affinity'),
+          'numa_affinity' => maintenanceDetailLabel(context, 'NUMA Affinity'),
+          'type' => l10n.maintenanceType,
+          'name' => l10n.maintenanceName,
+          'current' => l10n.maintenanceReadoutCurrent,
+          'supported' => l10n.maintenanceReadoutSupported,
+          'persistence_mode' => l10n.maintenanceReadoutPersistence,
+          'accounting_mode' => l10n.maintenanceReadoutAccounting,
+          'display_active' => l10n.maintenanceReadoutDisplayActive,
+          'single_bit' => l10n.maintenanceReadoutSingleBit,
+          'double_bit' => l10n.maintenanceReadoutDoubleBit,
+          'correctable' || 'corrected' => l10n.maintenanceReadoutCorrectable,
+          'uncorrectable' ||
+          'uncorrected' => l10n.maintenanceReadoutUncorrectable,
+          'volatile' => l10n.maintenanceReadoutVolatile,
+          'aggregate' => l10n.maintenanceReadoutAggregate,
+          'retired_pages' => l10n.maintenanceReadoutRetiredPages,
+          'remapped_rows' => l10n.maintenanceReadoutRemappedRows,
+          'mig_mode' ||
+          'current_mig' ||
+          'pending_mig' => l10n.maintenanceReadoutMig,
+          'clocks' || 'applications_clocks' => l10n.maintenanceReadoutClocks,
+          'max_clocks' => l10n.maintenanceReadoutMaxClocks,
+          'gpu_temp_max_threshold' ||
+          'gpu_temp_slow_threshold' ||
+          'gpu_temp_shutdown_threshold' =>
+            l10n.maintenanceReadoutTemperatureLimit,
+          'clocks_event_reason_gpu_idle' ||
+          'clocks_throttle_reason_gpu_idle' => l10n.maintenanceReadoutGpuIdle,
+          'clocks_event_reason_sw_thermal_slowdown' ||
+          'clocks_event_reason_hw_thermal_slowdown' =>
+            l10n.maintenanceReadoutThermalSlowdown,
+          'clocks_event_reason_sw_power_cap' ||
+          'clocks_throttle_reason_sw_power_cap' =>
+            l10n.maintenanceReadoutPowerCap,
+          'clocks_event_reason_hw_slowdown' ||
+          'clocks_throttle_reason_hw_slowdown' =>
+            l10n.maintenanceReadoutHardwareSlowdown,
           'version' => maintenanceHealthLabel(context, 'Version'),
           'path' => maintenanceLabel(context, '路径'),
           'state' ||
@@ -1576,6 +1699,50 @@ String maintenanceGpuFieldLabel(BuildContext context, String path) {
         return label + field.substring(key.length);
       })
       .join(' › ');
+}
+
+String maintenanceGpuFieldValue(
+  BuildContext context,
+  String path,
+  String value,
+) {
+  final field = path.split('/').last.trim().replaceAll(RegExp(r'\[\d+\]'), '');
+  if (const {
+        'MemoryCurrent',
+        'CPUUsageNSec',
+        'state',
+        'status',
+        'ActiveState',
+        'SubState',
+        'LoadState',
+        'Result',
+        'current_dm',
+        'pending_dm',
+        'persistence_mode',
+        'accounting_mode',
+        'display_active',
+        'display_mode',
+        'current_ecc',
+        'pending_ecc',
+        'mig_mode',
+        'supported',
+        'enabled',
+        'reset_status',
+        'current_mig',
+        'pending_mig',
+      }.contains(field) ||
+      path.startsWith('clocks_event_reasons/') ||
+      path.startsWith('clocks_throttle_reasons/') ||
+      const {
+        '<inactive>',
+        'N/A',
+        '[N/A]',
+        'Not Supported',
+        '[Not Supported]',
+      }.contains(value)) {
+    return maintenanceDetailValue(context, value, field: field);
+  }
+  return value;
 }
 
 String maintenanceGpuSourceLabel(BuildContext context, String source) {

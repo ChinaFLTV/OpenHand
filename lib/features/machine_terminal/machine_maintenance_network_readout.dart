@@ -648,11 +648,25 @@ MachineMaintenanceReadout _machineLsofReadout(List<String> lines) {
 MachineMaintenanceReadout _machineCounterReadout(List<String> lines) {
   final groups = <String, List<List<String>>>{};
   final headings = <String, List<String>>{};
+  final hierarchy = <(int, String)>[];
   var group = '统计';
   for (final original in lines) {
     final line = original.trim();
+    final indent = original.length - original.trimLeft().length;
+    // 子直方图结束后恢复所属协议，避免后续指标落入上一子组。
+    while (hierarchy.length > 1 && hierarchy.last.$1 >= indent) {
+      hierarchy.removeLast();
+    }
+    if (hierarchy.isNotEmpty) {
+      group = hierarchy.map((entry) => entry.$2).join(' / ');
+    }
     if (line.startsWith('Status:')) {
       (groups[group] ??= []).add(['状态', line.substring(7).trim()]);
+      continue;
+    }
+    final scalar = RegExp(r'^(.+?):\s*(-?\d+(?:\.\d+)?)$').firstMatch(line);
+    if (scalar != null && headings[scalar[1]] == null) {
+      (groups[group] ??= []).add([scalar[1]!, scalar[2]!]);
       continue;
     }
     if (line.endsWith(':') ||
@@ -660,11 +674,16 @@ MachineMaintenanceReadout _machineCounterReadout(List<String> lines) {
           '^(?:TCP|UDP|IPv[46]|ICMPv?[46]?) Statistics',
           caseSensitive: false,
         ).hasMatch(line)) {
-      group = line.replaceFirst(RegExp(r':$'), '');
+      while (hierarchy.isNotEmpty && hierarchy.last.$1 >= indent) {
+        hierarchy.removeLast();
+      }
+      hierarchy.add((indent, line.replaceFirst(RegExp(r':$'), '')));
+      group = hierarchy.map((entry) => entry.$2).join(' / ');
       continue;
     }
     final colon = RegExp(r'^(\S+):\s+(.*)$').firstMatch(line);
     if (colon != null) {
+      hierarchy.clear();
       group = colon[1]!;
       final parts = colon[2]!.split(RegExp(r'\s+'));
       if (parts.every((v) => num.tryParse(v) != null) &&
@@ -673,8 +692,11 @@ MachineMaintenanceReadout _machineCounterReadout(List<String> lines) {
           (groups[group] ??= []).add([headings[group]![i], parts[i]]);
         }
       } else if (parts.length.isEven &&
-          parts.where((v) => num.tryParse(v) != null).length ==
-              parts.length ~/ 2) {
+          List.generate(parts.length ~/ 2, (i) => i * 2).every(
+            (i) =>
+                num.tryParse(parts[i]) == null &&
+                num.tryParse(parts[i + 1]) != null,
+          )) {
         for (var i = 0; i < parts.length; i += 2) {
           (groups[group] ??= []).add([parts[i], parts[i + 1]]);
         }
@@ -688,9 +710,9 @@ MachineMaintenanceReadout _machineCounterReadout(List<String> lines) {
       r'^(.+?)\s*(?:=|\s{2,})\s*(\d+)\s*$',
     ).firstMatch(line);
     if (count != null) {
-      (groups[group] ??= []).add([count[2]!, count[1]!]);
+      (groups[group] ??= []).add([count[2]!.trim(), count[1]!]);
     } else if (keyValue != null) {
-      (groups[group] ??= []).add([keyValue[1]!, keyValue[2]!]);
+      (groups[group] ??= []).add([keyValue[1]!.trim(), keyValue[2]!]);
     }
   }
   return MachineMaintenanceReadout(

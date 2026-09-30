@@ -25960,6 +25960,1200 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'允许'**
   String get maintenanceNetworkAllow;
+
+  /// No description provided for @maintenanceNetCounterPacketsSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送数据包'**
+  String get maintenanceNetCounterPacketsSent;
+
+  /// No description provided for @maintenanceNetCounterPacketsReceived.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收数据包'**
+  String get maintenanceNetCounterPacketsReceived;
+
+  /// No description provided for @maintenanceNetCounterDataPackets.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据包（{v0} 字节）'**
+  String maintenanceNetCounterDataPackets(String v0);
+
+  /// No description provided for @maintenanceNetCounterRetransmittedData.
+  ///
+  /// In zh, this message translates to:
+  /// **'重传数据包（{v0} 字节）'**
+  String maintenanceNetCounterRetransmittedData(String v0);
+
+  /// No description provided for @maintenanceNetCounterMtuResend.
+  ///
+  /// In zh, this message translates to:
+  /// **'MTU 探测触发重传'**
+  String get maintenanceNetCounterMtuResend;
+
+  /// No description provided for @maintenanceNetCounterAckOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'纯确认包（延迟 {v0} 个）'**
+  String maintenanceNetCounterAckOnly(String v0);
+
+  /// No description provided for @maintenanceNetCounterUrgOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'纯紧急标志包'**
+  String get maintenanceNetCounterUrgOnly;
+
+  /// No description provided for @maintenanceNetCounterWindowProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'窗口探测包'**
+  String get maintenanceNetCounterWindowProbe;
+
+  /// No description provided for @maintenanceNetCounterWindowUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'窗口更新包'**
+  String get maintenanceNetCounterWindowUpdate;
+
+  /// No description provided for @maintenanceNetCounterControlPacket.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制包'**
+  String get maintenanceNetCounterControlPacket;
+
+  /// No description provided for @maintenanceNetCounterAfterFlowControl.
+  ///
+  /// In zh, this message translates to:
+  /// **'流控后发送的数据包'**
+  String get maintenanceNetCounterAfterFlowControl;
+
+  /// No description provided for @maintenanceNetCounterChallengeSyn.
+  ///
+  /// In zh, this message translates to:
+  /// **'异常 SYN 触发的质询确认'**
+  String get maintenanceNetCounterChallengeSyn;
+
+  /// No description provided for @maintenanceNetCounterChallengeRst.
+  ///
+  /// In zh, this message translates to:
+  /// **'异常 RST 触发的质询确认'**
+  String get maintenanceNetCounterChallengeRst;
+
+  /// No description provided for @maintenanceNetCounterSoftwareChecksum.
+  ///
+  /// In zh, this message translates to:
+  /// **'软件校验和计算'**
+  String get maintenanceNetCounterSoftwareChecksum;
+
+  /// No description provided for @maintenanceNetCounterIpv4Segments.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPv4 报文段（{v0} 字节）'**
+  String maintenanceNetCounterIpv4Segments(String v0);
+
+  /// No description provided for @maintenanceNetCounterIpv6Segments.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPv6 报文段（{v0} 字节）'**
+  String maintenanceNetCounterIpv6Segments(String v0);
+
+  /// No description provided for @maintenanceNetCounterAcknowledgments.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认包（{v0} 字节）'**
+  String maintenanceNetCounterAcknowledgments(String v0);
+
+  /// No description provided for @maintenanceNetCounterDuplicateAck.
+  ///
+  /// In zh, this message translates to:
+  /// **'重复确认包'**
+  String get maintenanceNetCounterDuplicateAck;
+
+  /// No description provided for @maintenanceNetCounterUnsentAck.
+  ///
+  /// In zh, this message translates to:
+  /// **'未发送数据的确认包'**
+  String get maintenanceNetCounterUnsentAck;
+
+  /// No description provided for @maintenanceNetCounterInSequence.
+  ///
+  /// In zh, this message translates to:
+  /// **'按序接收的数据包（{v0} 字节）'**
+  String maintenanceNetCounterInSequence(String v0);
+
+  /// No description provided for @maintenanceNetCounterDuplicatePacket.
+  ///
+  /// In zh, this message translates to:
+  /// **'完全重复包（{v0} 字节）'**
+  String maintenanceNetCounterDuplicatePacket(String v0);
+
+  /// No description provided for @maintenanceNetCounterOldDuplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧重复包'**
+  String get maintenanceNetCounterOldDuplicate;
+
+  /// No description provided for @maintenanceNetCounterReceiveNoMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存不足丢弃的接收包'**
+  String get maintenanceNetCounterReceiveNoMemory;
+
+  /// No description provided for @maintenanceNetCounterPartialDuplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分重复包（重复 {v0} 字节）'**
+  String maintenanceNetCounterPartialDuplicate(String v0);
+
+  /// No description provided for @maintenanceNetCounterOutOfOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'乱序包（{v0} 字节）'**
+  String maintenanceNetCounterOutOfOrder(String v0);
+
+  /// No description provided for @maintenanceNetCounterBeyondWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'超出窗口的包（{v0} 字节）'**
+  String maintenanceNetCounterBeyondWindow(String v0);
+
+  /// No description provided for @maintenanceNetCounterRecoveredLoss.
+  ///
+  /// In zh, this message translates to:
+  /// **'丢失后恢复的包'**
+  String get maintenanceNetCounterRecoveredLoss;
+
+  /// No description provided for @maintenanceNetCounterAfterClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接关闭后收到的包'**
+  String get maintenanceNetCounterAfterClose;
+
+  /// No description provided for @maintenanceNetCounterBadReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'无效重置'**
+  String get maintenanceNetCounterBadReset;
+
+  /// No description provided for @maintenanceNetCounterBadChecksumDiscard.
+  ///
+  /// In zh, this message translates to:
+  /// **'校验和错误丢弃包'**
+  String get maintenanceNetCounterBadChecksumDiscard;
+
+  /// No description provided for @maintenanceNetCounterBadChecksum.
+  ///
+  /// In zh, this message translates to:
+  /// **'校验和错误'**
+  String get maintenanceNetCounterBadChecksum;
+
+  /// No description provided for @maintenanceNetCounterBadHeaderOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'头部偏移错误丢弃包'**
+  String get maintenanceNetCounterBadHeaderOffset;
+
+  /// No description provided for @maintenanceNetCounterTooShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'长度不足丢弃包'**
+  String get maintenanceNetCounterTooShort;
+
+  /// No description provided for @maintenanceNetCounterConnectionRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接请求'**
+  String get maintenanceNetCounterConnectionRequests;
+
+  /// No description provided for @maintenanceNetCounterConnectionAccepts.
+  ///
+  /// In zh, this message translates to:
+  /// **'接受连接'**
+  String get maintenanceNetCounterConnectionAccepts;
+
+  /// No description provided for @maintenanceNetCounterBadConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接尝试失败'**
+  String get maintenanceNetCounterBadConnection;
+
+  /// No description provided for @maintenanceNetCounterListenOverflow.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听队列溢出'**
+  String get maintenanceNetCounterListenOverflow;
+
+  /// No description provided for @maintenanceNetCounterEstablished.
+  ///
+  /// In zh, this message translates to:
+  /// **'已建立连接（含接受连接）'**
+  String get maintenanceNetCounterEstablished;
+
+  /// No description provided for @maintenanceNetCounterClosedConnections.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关闭连接（丢弃 {v0} 个）'**
+  String maintenanceNetCounterClosedConnections(String v0);
+
+  /// No description provided for @maintenanceNetCounterRetransmitTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'重传超时'**
+  String get maintenanceNetCounterRetransmitTimeout;
+
+  /// No description provided for @maintenanceNetCounterPersistTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'持续定时器超时'**
+  String get maintenanceNetCounterPersistTimeout;
+
+  /// No description provided for @maintenanceNetCounterKeepaliveTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'保活超时'**
+  String get maintenanceNetCounterKeepaliveTimeout;
+
+  /// No description provided for @maintenanceNetCounterKeepaliveProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送保活探测'**
+  String get maintenanceNetCounterKeepaliveProbe;
+
+  /// No description provided for @maintenanceNetCounterIcmpError.
+  ///
+  /// In zh, this message translates to:
+  /// **'ICMP 错误处理调用'**
+  String get maintenanceNetCounterIcmpError;
+
+  /// No description provided for @maintenanceNetCounterIcmpSuppressed.
+  ///
+  /// In zh, this message translates to:
+  /// **'原报文为 ICMP 错误而抑制响应'**
+  String get maintenanceNetCounterIcmpSuppressed;
+
+  /// No description provided for @maintenanceNetCounterIcmpRateLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'速率限制抑制的错误响应'**
+  String get maintenanceNetCounterIcmpRateLimit;
+
+  /// No description provided for @maintenanceNetCounterNoRoute.
+  ///
+  /// In zh, this message translates to:
+  /// **'无路由'**
+  String get maintenanceNetCounterNoRoute;
+
+  /// No description provided for @maintenanceNetCounterAdminProhibited.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理策略禁止'**
+  String get maintenanceNetCounterAdminProhibited;
+
+  /// No description provided for @maintenanceNetCounterBeyondScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'超出作用域'**
+  String get maintenanceNetCounterBeyondScope;
+
+  /// No description provided for @maintenanceNetCounterAddressUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址不可达'**
+  String get maintenanceNetCounterAddressUnreachable;
+
+  /// No description provided for @maintenanceNetCounterPortUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'端口不可达'**
+  String get maintenanceNetCounterPortUnreachable;
+
+  /// No description provided for @maintenanceNetCounterPacketTooBig.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据包过大'**
+  String get maintenanceNetCounterPacketTooBig;
+
+  /// No description provided for @maintenanceNetCounterTransitExceeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'传输超时'**
+  String get maintenanceNetCounterTransitExceeded;
+
+  /// No description provided for @maintenanceNetCounterReassemblyExceeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'重组超时'**
+  String get maintenanceNetCounterReassemblyExceeded;
+
+  /// No description provided for @maintenanceNetCounterHeaderError.
+  ///
+  /// In zh, this message translates to:
+  /// **'头部字段错误'**
+  String get maintenanceNetCounterHeaderError;
+
+  /// No description provided for @maintenanceNetCounterUnknownNextHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法识别下一头部'**
+  String get maintenanceNetCounterUnknownNextHeader;
+
+  /// No description provided for @maintenanceNetCounterUnknownOption.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法识别选项'**
+  String get maintenanceNetCounterUnknownOption;
+
+  /// No description provided for @maintenanceNetCounterRedirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'重定向'**
+  String get maintenanceNetCounterRedirect;
+
+  /// No description provided for @maintenanceNetCounterUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get maintenanceNetCounterUnknown;
+
+  /// No description provided for @maintenanceNetCounterUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标不可达'**
+  String get maintenanceNetCounterUnreachable;
+
+  /// No description provided for @maintenanceNetCounterEcho.
+  ///
+  /// In zh, this message translates to:
+  /// **'回显请求'**
+  String get maintenanceNetCounterEcho;
+
+  /// No description provided for @maintenanceNetCounterEchoReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'回显应答'**
+  String get maintenanceNetCounterEchoReply;
+
+  /// No description provided for @maintenanceNetCounterRouterSolicit.
+  ///
+  /// In zh, this message translates to:
+  /// **'路由器请求'**
+  String get maintenanceNetCounterRouterSolicit;
+
+  /// No description provided for @maintenanceNetCounterRouterAdvert.
+  ///
+  /// In zh, this message translates to:
+  /// **'路由器通告'**
+  String get maintenanceNetCounterRouterAdvert;
+
+  /// No description provided for @maintenanceNetCounterNeighborSolicit.
+  ///
+  /// In zh, this message translates to:
+  /// **'邻居请求'**
+  String get maintenanceNetCounterNeighborSolicit;
+
+  /// No description provided for @maintenanceNetCounterNeighborAdvert.
+  ///
+  /// In zh, this message translates to:
+  /// **'邻居通告'**
+  String get maintenanceNetCounterNeighborAdvert;
+
+  /// No description provided for @maintenanceNetCounterMulticastQuery.
+  ///
+  /// In zh, this message translates to:
+  /// **'组播侦听查询'**
+  String get maintenanceNetCounterMulticastQuery;
+
+  /// No description provided for @maintenanceNetCounterMldReport.
+  ///
+  /// In zh, this message translates to:
+  /// **'MLDv2 侦听报告'**
+  String get maintenanceNetCounterMldReport;
+
+  /// No description provided for @maintenanceNetCounterBadCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码字段错误报文'**
+  String get maintenanceNetCounterBadCode;
+
+  /// No description provided for @maintenanceNetCounterShortMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'报文小于最小长度'**
+  String get maintenanceNetCounterShortMessage;
+
+  /// No description provided for @maintenanceNetCounterBadLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'报文长度错误'**
+  String get maintenanceNetCounterBadLength;
+
+  /// No description provided for @maintenanceNetCounterResponses.
+  ///
+  /// In zh, this message translates to:
+  /// **'已生成响应报文'**
+  String get maintenanceNetCounterResponses;
+
+  /// No description provided for @maintenanceNetCounterDatagramsReceived.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收数据报'**
+  String get maintenanceNetCounterDatagramsReceived;
+
+  /// No description provided for @maintenanceNetCounterDatagramsSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送数据报'**
+  String get maintenanceNetCounterDatagramsSent;
+
+  /// No description provided for @maintenanceNetCounterIncompleteHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'头部不完整'**
+  String get maintenanceNetCounterIncompleteHeader;
+
+  /// No description provided for @maintenanceNetCounterBadDataLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据长度字段错误'**
+  String get maintenanceNetCounterBadDataLength;
+
+  /// No description provided for @maintenanceNetCounterNoChecksum.
+  ///
+  /// In zh, this message translates to:
+  /// **'无校验和数据包'**
+  String get maintenanceNetCounterNoChecksum;
+
+  /// No description provided for @maintenanceNetCounterNoSocket.
+  ///
+  /// In zh, this message translates to:
+  /// **'无匹配套接字丢弃'**
+  String get maintenanceNetCounterNoSocket;
+
+  /// No description provided for @maintenanceNetCounterFullSocket.
+  ///
+  /// In zh, this message translates to:
+  /// **'套接字缓冲区满丢弃'**
+  String get maintenanceNetCounterFullSocket;
+
+  /// No description provided for @maintenanceNetCounterDelivered.
+  ///
+  /// In zh, this message translates to:
+  /// **'已交付数据包'**
+  String get maintenanceNetCounterDelivered;
+
+  /// No description provided for @maintenanceNetCounterIpv4Datagrams.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPv4 数据报（{v0} 字节）'**
+  String maintenanceNetCounterIpv4Datagrams(String v0);
+
+  /// No description provided for @maintenanceNetCounterIpv6Datagrams.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPv6 数据报（{v0} 字节）'**
+  String maintenanceNetCounterIpv6Datagrams(String v0);
+
+  /// No description provided for @maintenanceNetCounterTotalReceived.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收数据包总数'**
+  String get maintenanceNetCounterTotalReceived;
+
+  /// No description provided for @maintenanceNetCounterFragmentsReceived.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收分片'**
+  String get maintenanceNetCounterFragmentsReceived;
+
+  /// No description provided for @maintenanceNetCounterReassembled.
+  ///
+  /// In zh, this message translates to:
+  /// **'重组成功'**
+  String get maintenanceNetCounterReassembled;
+
+  /// No description provided for @maintenanceNetCounterForHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'发往本机的数据包'**
+  String get maintenanceNetCounterForHost;
+
+  /// No description provided for @maintenanceNetCounterFromHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机发送的数据包'**
+  String get maintenanceNetCounterFromHost;
+
+  /// No description provided for @maintenanceNetCounterForwarded.
+  ///
+  /// In zh, this message translates to:
+  /// **'转发数据包'**
+  String get maintenanceNetCounterForwarded;
+
+  /// No description provided for @maintenanceNetCounterNotForwardable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法转发的数据包'**
+  String get maintenanceNetCounterNotForwardable;
+
+  /// No description provided for @maintenanceNetCounterRedirectSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送重定向'**
+  String get maintenanceNetCounterRedirectSent;
+
+  /// No description provided for @maintenanceNetCounterOpenTcp.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开的 TCP 套接字'**
+  String get maintenanceNetCounterOpenTcp;
+
+  /// No description provided for @maintenanceNetCounterOpenRaw.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开的原始 IP 套接字'**
+  String get maintenanceNetCounterOpenRaw;
+
+  /// No description provided for @maintenanceNetCounterOpenLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开的本地套接字'**
+  String get maintenanceNetCounterOpenLocal;
+
+  /// No description provided for @maintenanceNetCounterActiveOpens.
+  ///
+  /// In zh, this message translates to:
+  /// **'主动建立连接'**
+  String get maintenanceNetCounterActiveOpens;
+
+  /// No description provided for @maintenanceNetCounterPassiveOpens.
+  ///
+  /// In zh, this message translates to:
+  /// **'被动建立连接'**
+  String get maintenanceNetCounterPassiveOpens;
+
+  /// No description provided for @maintenanceNetCounterAttemptFails.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接尝试失败'**
+  String get maintenanceNetCounterAttemptFails;
+
+  /// No description provided for @maintenanceNetCounterEstablishedResets.
+  ///
+  /// In zh, this message translates to:
+  /// **'已建立连接重置'**
+  String get maintenanceNetCounterEstablishedResets;
+
+  /// No description provided for @maintenanceNetCounterCurrentEstablished.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已建立连接'**
+  String get maintenanceNetCounterCurrentEstablished;
+
+  /// No description provided for @maintenanceNetCounterInSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收报文段'**
+  String get maintenanceNetCounterInSegments;
+
+  /// No description provided for @maintenanceNetCounterOutSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送报文段'**
+  String get maintenanceNetCounterOutSegments;
+
+  /// No description provided for @maintenanceNetCounterRetransSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'重传报文段'**
+  String get maintenanceNetCounterRetransSegments;
+
+  /// No description provided for @maintenanceNetCounterInputErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入错误'**
+  String get maintenanceNetCounterInputErrors;
+
+  /// No description provided for @maintenanceNetCounterOutputResets.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送重置'**
+  String get maintenanceNetCounterOutputResets;
+
+  /// No description provided for @maintenanceNetCounterInputPackets.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入数据包'**
+  String get maintenanceNetCounterInputPackets;
+
+  /// No description provided for @maintenanceNetCounterInputDeliveries.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入交付'**
+  String get maintenanceNetCounterInputDeliveries;
+
+  /// No description provided for @maintenanceNetCounterOutputRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出请求'**
+  String get maintenanceNetCounterOutputRequests;
+
+  /// No description provided for @maintenanceNetCounterInputDiscards.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入丢弃'**
+  String get maintenanceNetCounterInputDiscards;
+
+  /// No description provided for @maintenanceNetCounterOutputDiscards.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出丢弃'**
+  String get maintenanceNetCounterOutputDiscards;
+
+  /// No description provided for @maintenanceNetCounterUnknownProtocols.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知输入协议'**
+  String get maintenanceNetCounterUnknownProtocols;
+
+  /// No description provided for @maintenanceNetCounterInputHeaderErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入头部错误'**
+  String get maintenanceNetCounterInputHeaderErrors;
+
+  /// No description provided for @maintenanceNetCounterInputAddressErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入地址错误'**
+  String get maintenanceNetCounterInputAddressErrors;
+
+  /// No description provided for @maintenanceNetCounterOutputNoRoutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'输出无路由'**
+  String get maintenanceNetCounterOutputNoRoutes;
+
+  /// No description provided for @maintenanceNetCounterInputDatagrams.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收数据报'**
+  String get maintenanceNetCounterInputDatagrams;
+
+  /// No description provided for @maintenanceNetCounterOutputDatagrams.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送数据报'**
+  String get maintenanceNetCounterOutputDatagrams;
+
+  /// No description provided for @maintenanceNetCounterNoPorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'无监听端口的数据报'**
+  String get maintenanceNetCounterNoPorts;
+
+  /// No description provided for @maintenanceNetCounterReceiveBufferErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收缓冲区错误'**
+  String get maintenanceNetCounterReceiveBufferErrors;
+
+  /// No description provided for @maintenanceNetCounterSendBufferErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送缓冲区错误'**
+  String get maintenanceNetCounterSendBufferErrors;
+
+  /// No description provided for @maintenanceNetCounterInputChecksumErrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入校验和错误'**
+  String get maintenanceNetCounterInputChecksumErrors;
+
+  /// No description provided for @maintenanceNetCounterReassemblyRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'重组请求'**
+  String get maintenanceNetCounterReassemblyRequests;
+
+  /// No description provided for @maintenanceNetCounterReassemblyOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'重组成功'**
+  String get maintenanceNetCounterReassemblyOk;
+
+  /// No description provided for @maintenanceNetCounterReassemblyFails.
+  ///
+  /// In zh, this message translates to:
+  /// **'重组失败'**
+  String get maintenanceNetCounterReassemblyFails;
+
+  /// No description provided for @maintenanceNetCounterFragmentOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'分片成功'**
+  String get maintenanceNetCounterFragmentOk;
+
+  /// No description provided for @maintenanceNetCounterFragmentFails.
+  ///
+  /// In zh, this message translates to:
+  /// **'分片失败'**
+  String get maintenanceNetCounterFragmentFails;
+
+  /// No description provided for @maintenanceNetCounterFragmentsCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建分片'**
+  String get maintenanceNetCounterFragmentsCreated;
+
+  /// No description provided for @maintenanceNetCounterListenDrops.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听队列丢弃'**
+  String get maintenanceNetCounterListenDrops;
+
+  /// No description provided for @maintenanceNetCounterListenOverflows.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听队列溢出'**
+  String get maintenanceNetCounterListenOverflows;
+
+  /// No description provided for @maintenanceNetCounterInputMessages.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收报文'**
+  String get maintenanceNetCounterInputMessages;
+
+  /// No description provided for @maintenanceNetCounterOutputMessages.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送报文'**
+  String get maintenanceNetCounterOutputMessages;
+
+  /// No description provided for @maintenanceNetCounterInUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用中的套接字'**
+  String get maintenanceNetCounterInUse;
+
+  /// No description provided for @maintenanceNetCounterOrphan.
+  ///
+  /// In zh, this message translates to:
+  /// **'孤立套接字'**
+  String get maintenanceNetCounterOrphan;
+
+  /// No description provided for @maintenanceNetCounterTimeWait.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待关闭的套接字'**
+  String get maintenanceNetCounterTimeWait;
+
+  /// No description provided for @maintenanceNetCounterAllocated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已分配套接字'**
+  String get maintenanceNetCounterAllocated;
+
+  /// No description provided for @maintenanceNetCounterMemoryPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存页'**
+  String get maintenanceNetCounterMemoryPages;
+
+  /// No description provided for @maintenanceReadoutUnknownMetric.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展指标 {index}'**
+  String maintenanceReadoutUnknownMetric(String index);
+
+  /// No description provided for @maintenanceReadoutUnknownGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展统计 {index}'**
+  String maintenanceReadoutUnknownGroup(String index);
+
+  /// No description provided for @maintenanceReadoutRawMetric.
+  ///
+  /// In zh, this message translates to:
+  /// **'原始字段：{field}'**
+  String maintenanceReadoutRawMetric(String field);
+
+  /// No description provided for @maintenanceReadoutInputHistogram.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收报文类型分布'**
+  String get maintenanceReadoutInputHistogram;
+
+  /// No description provided for @maintenanceReadoutOutputHistogram.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送报文类型分布'**
+  String get maintenanceReadoutOutputHistogram;
+
+  /// No description provided for @maintenanceReadoutErrorHistogram.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成错误类型分布'**
+  String get maintenanceReadoutErrorHistogram;
+
+  /// No description provided for @maintenanceReadoutProtocolStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'{protocol} 协议统计'**
+  String maintenanceReadoutProtocolStats(String protocol);
+
+  /// No description provided for @maintenanceReadoutFabricManager.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 互联管理服务'**
+  String get maintenanceReadoutFabricManager;
+
+  /// No description provided for @maintenanceReadoutSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功'**
+  String get maintenanceReadoutSuccess;
+
+  /// No description provided for @maintenanceReadoutNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到'**
+  String get maintenanceReadoutNotFound;
+
+  /// No description provided for @maintenanceReadoutActivating.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动中'**
+  String get maintenanceReadoutActivating;
+
+  /// No description provided for @maintenanceReadoutDeactivating.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止中'**
+  String get maintenanceReadoutDeactivating;
+
+  /// No description provided for @maintenanceReadoutReloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载中'**
+  String get maintenanceReadoutReloading;
+
+  /// No description provided for @maintenanceReadoutNotApplicable.
+  ///
+  /// In zh, this message translates to:
+  /// **'不适用'**
+  String get maintenanceReadoutNotApplicable;
+
+  /// No description provided for @maintenanceReadoutNotSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持'**
+  String get maintenanceReadoutNotSupported;
+
+  /// No description provided for @maintenanceReadoutAborted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已中止'**
+  String get maintenanceReadoutAborted;
+
+  /// No description provided for @maintenanceReadoutMetric.
+  ///
+  /// In zh, this message translates to:
+  /// **'指标'**
+  String get maintenanceReadoutMetric;
+
+  /// No description provided for @maintenanceReadoutTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'总量'**
+  String get maintenanceReadoutTotal;
+
+  /// No description provided for @maintenanceReadoutFree.
+  ///
+  /// In zh, this message translates to:
+  /// **'空闲'**
+  String get maintenanceReadoutFree;
+
+  /// No description provided for @maintenanceReadoutCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前值'**
+  String get maintenanceReadoutCurrent;
+
+  /// No description provided for @maintenanceReadoutSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持状态'**
+  String get maintenanceReadoutSupported;
+
+  /// No description provided for @maintenanceReadoutPersistence.
+  ///
+  /// In zh, this message translates to:
+  /// **'持久化模式'**
+  String get maintenanceReadoutPersistence;
+
+  /// No description provided for @maintenanceReadoutAccounting.
+  ///
+  /// In zh, this message translates to:
+  /// **'记账模式'**
+  String get maintenanceReadoutAccounting;
+
+  /// No description provided for @maintenanceReadoutDisplayActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示器激活状态'**
+  String get maintenanceReadoutDisplayActive;
+
+  /// No description provided for @maintenanceReadoutSingleBit.
+  ///
+  /// In zh, this message translates to:
+  /// **'单比特错误'**
+  String get maintenanceReadoutSingleBit;
+
+  /// No description provided for @maintenanceReadoutDoubleBit.
+  ///
+  /// In zh, this message translates to:
+  /// **'双比特错误'**
+  String get maintenanceReadoutDoubleBit;
+
+  /// No description provided for @maintenanceReadoutCorrectable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可纠正错误'**
+  String get maintenanceReadoutCorrectable;
+
+  /// No description provided for @maintenanceReadoutUncorrectable.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可纠正错误'**
+  String get maintenanceReadoutUncorrectable;
+
+  /// No description provided for @maintenanceReadoutVolatile.
+  ///
+  /// In zh, this message translates to:
+  /// **'驱动加载后累计'**
+  String get maintenanceReadoutVolatile;
+
+  /// No description provided for @maintenanceReadoutAggregate.
+  ///
+  /// In zh, this message translates to:
+  /// **'全生命周期累计'**
+  String get maintenanceReadoutAggregate;
+
+  /// No description provided for @maintenanceReadoutRetiredPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'退役内存页'**
+  String get maintenanceReadoutRetiredPages;
+
+  /// No description provided for @maintenanceReadoutRemappedRows.
+  ///
+  /// In zh, this message translates to:
+  /// **'重映射内存行'**
+  String get maintenanceReadoutRemappedRows;
+
+  /// No description provided for @maintenanceReadoutMig.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 多实例模式'**
+  String get maintenanceReadoutMig;
+
+  /// No description provided for @maintenanceReadoutClocks.
+  ///
+  /// In zh, this message translates to:
+  /// **'时钟频率'**
+  String get maintenanceReadoutClocks;
+
+  /// No description provided for @maintenanceReadoutMaxClocks.
+  ///
+  /// In zh, this message translates to:
+  /// **'最高时钟频率'**
+  String get maintenanceReadoutMaxClocks;
+
+  /// No description provided for @maintenanceReadoutTemperatureLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度上限'**
+  String get maintenanceReadoutTemperatureLimit;
+
+  /// No description provided for @maintenanceReadoutGpuIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'GPU 空闲'**
+  String get maintenanceReadoutGpuIdle;
+
+  /// No description provided for @maintenanceReadoutThermalSlowdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度限制降频'**
+  String get maintenanceReadoutThermalSlowdown;
+
+  /// No description provided for @maintenanceReadoutPowerCap.
+  ///
+  /// In zh, this message translates to:
+  /// **'功率限制'**
+  String get maintenanceReadoutPowerCap;
+
+  /// No description provided for @maintenanceReadoutHardwareSlowdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'硬件降频'**
+  String get maintenanceReadoutHardwareSlowdown;
+
+  /// No description provided for @maintenanceReadoutServiceResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行结果'**
+  String get maintenanceReadoutServiceResult;
+
+  /// No description provided for @maintenanceReadoutBind.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定'**
+  String get maintenanceReadoutBind;
+
+  /// No description provided for @maintenanceReadoutTentative.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址检测中'**
+  String get maintenanceReadoutTentative;
+
+  /// No description provided for @maintenanceReadoutPreferred.
+  ///
+  /// In zh, this message translates to:
+  /// **'首选'**
+  String get maintenanceReadoutPreferred;
+
+  /// No description provided for @maintenanceReadoutDeprecated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已弃用'**
+  String get maintenanceReadoutDeprecated;
+
+  /// No description provided for @maintenanceReadoutDormant.
+  ///
+  /// In zh, this message translates to:
+  /// **'休眠'**
+  String get maintenanceReadoutDormant;
+
+  /// No description provided for @maintenanceReadoutRestartAlways.
+  ///
+  /// In zh, this message translates to:
+  /// **'始终重启'**
+  String get maintenanceReadoutRestartAlways;
+
+  /// No description provided for @maintenanceReadoutRestartNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'不重启'**
+  String get maintenanceReadoutRestartNever;
+
+  /// No description provided for @maintenanceReadoutRestartSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功后重启'**
+  String get maintenanceReadoutRestartSuccess;
+
+  /// No description provided for @maintenanceReadoutRestartFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败后重启'**
+  String get maintenanceReadoutRestartFailure;
+
+  /// No description provided for @maintenanceReadoutRestartAbnormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'异常退出后重启'**
+  String get maintenanceReadoutRestartAbnormal;
+
+  /// No description provided for @maintenanceReadoutRestartWatchdog.
+  ///
+  /// In zh, this message translates to:
+  /// **'监控超时后重启'**
+  String get maintenanceReadoutRestartWatchdog;
+
+  /// No description provided for @maintenanceReadoutRestartAbort.
+  ///
+  /// In zh, this message translates to:
+  /// **'中止后重启'**
+  String get maintenanceReadoutRestartAbort;
+
+  /// No description provided for @maintenanceReadoutNotifyMain.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅主进程'**
+  String get maintenanceReadoutNotifyMain;
+
+  /// No description provided for @maintenanceReadoutNotifyAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有进程'**
+  String get maintenanceReadoutNotifyAll;
+
+  /// No description provided for @maintenanceReadoutNotifyExec.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行的进程'**
+  String get maintenanceReadoutNotifyExec;
+
+  /// No description provided for @maintenanceReadoutKernelEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核事件'**
+  String get maintenanceReadoutKernelEvents;
+
+  /// No description provided for @maintenanceReadoutKernelControl.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核控制'**
+  String get maintenanceReadoutKernelControl;
+
+  /// No description provided for @maintenanceReadoutNetworkMonitoring.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络监控'**
+  String get maintenanceReadoutNetworkMonitoring;
+
+  /// No description provided for @maintenanceReadoutBackgroundSockets.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台空闲套接字'**
+  String get maintenanceReadoutBackgroundSockets;
+
+  /// No description provided for @maintenanceReadoutNetworkApi.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络接口统计'**
+  String get maintenanceReadoutNetworkApi;
+
+  /// No description provided for @maintenanceReadoutWakePorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'唤醒端口统计'**
+  String get maintenanceReadoutWakePorts;
+
+  /// No description provided for @maintenanceReadoutDropReasons.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据包丢弃原因'**
+  String get maintenanceReadoutDropReasons;
+
+  /// No description provided for @maintenanceReadoutPortOffload.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地端口卸载'**
+  String get maintenanceReadoutPortOffload;
+
+  /// No description provided for @maintenanceReadoutMbuf.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据包缓冲区统计'**
+  String get maintenanceReadoutMbuf;
+
+  /// No description provided for @maintenanceReadoutMultiMbuf.
+  ///
+  /// In zh, this message translates to:
+  /// **'多个数据包缓冲区'**
+  String get maintenanceReadoutMultiMbuf;
 }
 
 class _AppLocalizationsDelegate

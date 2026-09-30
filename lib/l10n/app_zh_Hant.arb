@@ -9174,5 +9174,330 @@
   "maintenanceNetworkListenersNote": "TCP 僅顯示監聽狀態；UDP 顯示繫結連接埠，不代表可從網際網路存取。",
   "maintenanceNetworkResolverStatus": "解析器狀態",
   "maintenanceNetworkBlock": "封鎖",
-  "maintenanceNetworkAllow": "允許"
+  "maintenanceNetworkAllow": "允許",
+  "maintenanceNetCounterPacketsSent": "傳送封包",
+  "maintenanceNetCounterPacketsReceived": "接收封包",
+  "maintenanceNetCounterDataPackets": "資料封包（{v0} 位元組）",
+  "@maintenanceNetCounterDataPackets": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmittedData": "重傳資料封包（{v0} 位元組）",
+  "@maintenanceNetCounterRetransmittedData": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterMtuResend": "MTU 探測觸發重傳",
+  "maintenanceNetCounterAckOnly": "純確認封包（延遲 {v0} 個）",
+  "@maintenanceNetCounterAckOnly": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterUrgOnly": "純緊急旗標封包",
+  "maintenanceNetCounterWindowProbe": "視窗探測封包",
+  "maintenanceNetCounterWindowUpdate": "視窗更新封包",
+  "maintenanceNetCounterControlPacket": "控制封包",
+  "maintenanceNetCounterAfterFlowControl": "流量控制後傳送的資料封包",
+  "maintenanceNetCounterChallengeSyn": "非預期 SYN 觸發的質詢確認",
+  "maintenanceNetCounterChallengeRst": "非預期 RST 觸發的質詢確認",
+  "maintenanceNetCounterSoftwareChecksum": "軟體校驗和計算",
+  "maintenanceNetCounterIpv4Segments": "IPv4 區段（{v0} 位元組）",
+  "@maintenanceNetCounterIpv4Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Segments": "IPv6 區段（{v0} 位元組）",
+  "@maintenanceNetCounterIpv6Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterAcknowledgments": "確認封包（{v0} 位元組）",
+  "@maintenanceNetCounterAcknowledgments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicateAck": "重複確認封包",
+  "maintenanceNetCounterUnsentAck": "未傳送資料的確認封包",
+  "maintenanceNetCounterInSequence": "依序接收的封包（{v0} 位元組）",
+  "@maintenanceNetCounterInSequence": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicatePacket": "完全重複封包（{v0} 位元組）",
+  "@maintenanceNetCounterDuplicatePacket": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOldDuplicate": "舊重複封包",
+  "maintenanceNetCounterReceiveNoMemory": "記憶體不足丟棄的接收封包",
+  "maintenanceNetCounterPartialDuplicate": "部分重複封包（重複 {v0} 位元組）",
+  "@maintenanceNetCounterPartialDuplicate": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOutOfOrder": "亂序封包（{v0} 位元組）",
+  "@maintenanceNetCounterOutOfOrder": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterBeyondWindow": "超出視窗的封包（{v0} 位元組）",
+  "@maintenanceNetCounterBeyondWindow": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRecoveredLoss": "遺失後復原的封包",
+  "maintenanceNetCounterAfterClose": "連線關閉後收到的封包",
+  "maintenanceNetCounterBadReset": "無效重設",
+  "maintenanceNetCounterBadChecksumDiscard": "校驗和錯誤丟棄封包",
+  "maintenanceNetCounterBadChecksum": "校驗和錯誤",
+  "maintenanceNetCounterBadHeaderOffset": "標頭位移錯誤丟棄封包",
+  "maintenanceNetCounterTooShort": "長度不足丟棄封包",
+  "maintenanceNetCounterConnectionRequests": "連線請求",
+  "maintenanceNetCounterConnectionAccepts": "接受連線",
+  "maintenanceNetCounterBadConnection": "連線嘗試失敗",
+  "maintenanceNetCounterListenOverflow": "監聽佇列溢位",
+  "maintenanceNetCounterEstablished": "已建立連線（含接受連線）",
+  "maintenanceNetCounterClosedConnections": "已關閉連線（丟棄 {v0} 個）",
+  "@maintenanceNetCounterClosedConnections": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmitTimeout": "重傳逾時",
+  "maintenanceNetCounterPersistTimeout": "持續計時器逾時",
+  "maintenanceNetCounterKeepaliveTimeout": "保活逾時",
+  "maintenanceNetCounterKeepaliveProbe": "傳送保活探測",
+  "maintenanceNetCounterIcmpError": "ICMP 錯誤處理呼叫",
+  "maintenanceNetCounterIcmpSuppressed": "原始訊息為 ICMP 錯誤而抑制回應",
+  "maintenanceNetCounterIcmpRateLimit": "速率限制抑制的錯誤回應",
+  "maintenanceNetCounterNoRoute": "無路由",
+  "maintenanceNetCounterAdminProhibited": "管理原則禁止",
+  "maintenanceNetCounterBeyondScope": "超出範圍",
+  "maintenanceNetCounterAddressUnreachable": "位址無法到達",
+  "maintenanceNetCounterPortUnreachable": "連接埠無法到達",
+  "maintenanceNetCounterPacketTooBig": "封包過大",
+  "maintenanceNetCounterTransitExceeded": "傳輸逾時",
+  "maintenanceNetCounterReassemblyExceeded": "重組逾時",
+  "maintenanceNetCounterHeaderError": "標頭欄位錯誤",
+  "maintenanceNetCounterUnknownNextHeader": "無法識別下一標頭",
+  "maintenanceNetCounterUnknownOption": "無法識別選項",
+  "maintenanceNetCounterRedirect": "重新導向",
+  "maintenanceNetCounterUnknown": "未知",
+  "maintenanceNetCounterUnreachable": "目的地無法到達",
+  "maintenanceNetCounterEcho": "回應請求",
+  "maintenanceNetCounterEchoReply": "回應回覆",
+  "maintenanceNetCounterRouterSolicit": "路由器請求",
+  "maintenanceNetCounterRouterAdvert": "路由器通告",
+  "maintenanceNetCounterNeighborSolicit": "鄰居請求",
+  "maintenanceNetCounterNeighborAdvert": "鄰居通告",
+  "maintenanceNetCounterMulticastQuery": "多播接聽查詢",
+  "maintenanceNetCounterMldReport": "MLDv2 接聽報告",
+  "maintenanceNetCounterBadCode": "代碼欄位錯誤訊息",
+  "maintenanceNetCounterShortMessage": "訊息小於最小長度",
+  "maintenanceNetCounterBadLength": "訊息長度錯誤",
+  "maintenanceNetCounterResponses": "已產生回應訊息",
+  "maintenanceNetCounterDatagramsReceived": "接收資料報",
+  "maintenanceNetCounterDatagramsSent": "傳送資料報",
+  "maintenanceNetCounterIncompleteHeader": "標頭不完整",
+  "maintenanceNetCounterBadDataLength": "資料長度欄位錯誤",
+  "maintenanceNetCounterNoChecksum": "無校驗和封包",
+  "maintenanceNetCounterNoSocket": "無符合通訊端而丟棄",
+  "maintenanceNetCounterFullSocket": "通訊端緩衝區滿而丟棄",
+  "maintenanceNetCounterDelivered": "已交付封包",
+  "maintenanceNetCounterIpv4Datagrams": "IPv4 資料報（{v0} 位元組）",
+  "@maintenanceNetCounterIpv4Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Datagrams": "IPv6 資料報（{v0} 位元組）",
+  "@maintenanceNetCounterIpv6Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterTotalReceived": "接收封包總數",
+  "maintenanceNetCounterFragmentsReceived": "接收片段",
+  "maintenanceNetCounterReassembled": "重組成功",
+  "maintenanceNetCounterForHost": "傳往本機的封包",
+  "maintenanceNetCounterFromHost": "本機傳送的封包",
+  "maintenanceNetCounterForwarded": "轉送封包",
+  "maintenanceNetCounterNotForwardable": "無法轉送的封包",
+  "maintenanceNetCounterRedirectSent": "傳送重新導向",
+  "maintenanceNetCounterOpenTcp": "開啟的 TCP 通訊端",
+  "maintenanceNetCounterOpenRaw": "開啟的原始 IP 通訊端",
+  "maintenanceNetCounterOpenLocal": "開啟的本機通訊端",
+  "maintenanceNetCounterActiveOpens": "主動建立連線",
+  "maintenanceNetCounterPassiveOpens": "被動建立連線",
+  "maintenanceNetCounterAttemptFails": "連線嘗試失敗",
+  "maintenanceNetCounterEstablishedResets": "已建立連線重設",
+  "maintenanceNetCounterCurrentEstablished": "目前已建立連線",
+  "maintenanceNetCounterInSegments": "接收區段",
+  "maintenanceNetCounterOutSegments": "傳送區段",
+  "maintenanceNetCounterRetransSegments": "重傳區段",
+  "maintenanceNetCounterInputErrors": "輸入錯誤",
+  "maintenanceNetCounterOutputResets": "傳送重設",
+  "maintenanceNetCounterInputPackets": "輸入封包",
+  "maintenanceNetCounterInputDeliveries": "輸入交付",
+  "maintenanceNetCounterOutputRequests": "輸出請求",
+  "maintenanceNetCounterInputDiscards": "輸入丟棄",
+  "maintenanceNetCounterOutputDiscards": "輸出丟棄",
+  "maintenanceNetCounterUnknownProtocols": "未知輸入協定",
+  "maintenanceNetCounterInputHeaderErrors": "輸入標頭錯誤",
+  "maintenanceNetCounterInputAddressErrors": "輸入位址錯誤",
+  "maintenanceNetCounterOutputNoRoutes": "輸出無路由",
+  "maintenanceNetCounterInputDatagrams": "接收資料報",
+  "maintenanceNetCounterOutputDatagrams": "傳送資料報",
+  "maintenanceNetCounterNoPorts": "無監聽連接埠的資料報",
+  "maintenanceNetCounterReceiveBufferErrors": "接收緩衝區錯誤",
+  "maintenanceNetCounterSendBufferErrors": "傳送緩衝區錯誤",
+  "maintenanceNetCounterInputChecksumErrors": "輸入校驗和錯誤",
+  "maintenanceNetCounterReassemblyRequests": "重組請求",
+  "maintenanceNetCounterReassemblyOk": "重組成功",
+  "maintenanceNetCounterReassemblyFails": "重組失敗",
+  "maintenanceNetCounterFragmentOk": "分片成功",
+  "maintenanceNetCounterFragmentFails": "分片失敗",
+  "maintenanceNetCounterFragmentsCreated": "建立片段",
+  "maintenanceNetCounterListenDrops": "監聽佇列丟棄",
+  "maintenanceNetCounterListenOverflows": "監聽佇列溢位",
+  "maintenanceNetCounterInputMessages": "接收訊息",
+  "maintenanceNetCounterOutputMessages": "傳送訊息",
+  "maintenanceNetCounterInUse": "使用中的通訊端",
+  "maintenanceNetCounterOrphan": "孤立通訊端",
+  "maintenanceNetCounterTimeWait": "等待關閉的通訊端",
+  "maintenanceNetCounterAllocated": "已配置通訊端",
+  "maintenanceNetCounterMemoryPages": "記憶體頁",
+  "maintenanceReadoutUnknownMetric": "擴充指標 {index}",
+  "@maintenanceReadoutUnknownMetric": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutUnknownGroup": "擴充統計 {index}",
+  "@maintenanceReadoutUnknownGroup": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutRawMetric": "原始欄位：{field}",
+  "@maintenanceReadoutRawMetric": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutInputHistogram": "接收訊息類型分布",
+  "maintenanceReadoutOutputHistogram": "傳送訊息類型分布",
+  "maintenanceReadoutErrorHistogram": "產生錯誤類型分布",
+  "maintenanceReadoutProtocolStats": "{protocol} 協定統計",
+  "@maintenanceReadoutProtocolStats": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutFabricManager": "GPU 互連管理服務",
+  "maintenanceReadoutSuccess": "成功",
+  "maintenanceReadoutNotFound": "找不到",
+  "maintenanceReadoutActivating": "啟動中",
+  "maintenanceReadoutDeactivating": "停止中",
+  "maintenanceReadoutReloading": "重新載入中",
+  "maintenanceReadoutNotApplicable": "不適用",
+  "maintenanceReadoutNotSupported": "不支援",
+  "maintenanceReadoutAborted": "已中止",
+  "maintenanceReadoutMetric": "指標",
+  "maintenanceReadoutTotal": "總量",
+  "maintenanceReadoutFree": "可用",
+  "maintenanceReadoutCurrent": "目前值",
+  "maintenanceReadoutSupported": "支援狀態",
+  "maintenanceReadoutPersistence": "持續模式",
+  "maintenanceReadoutAccounting": "計量模式",
+  "maintenanceReadoutDisplayActive": "顯示器啟用狀態",
+  "maintenanceReadoutSingleBit": "單位元錯誤",
+  "maintenanceReadoutDoubleBit": "雙位元錯誤",
+  "maintenanceReadoutCorrectable": "可修正錯誤",
+  "maintenanceReadoutUncorrectable": "無法修正錯誤",
+  "maintenanceReadoutVolatile": "驅動程式載入後累計",
+  "maintenanceReadoutAggregate": "生命週期累計",
+  "maintenanceReadoutRetiredPages": "退役記憶體頁",
+  "maintenanceReadoutRemappedRows": "重新對映記憶體列",
+  "maintenanceReadoutMig": "GPU 多執行個體模式",
+  "maintenanceReadoutClocks": "時脈頻率",
+  "maintenanceReadoutMaxClocks": "最高時脈頻率",
+  "maintenanceReadoutTemperatureLimit": "溫度上限",
+  "maintenanceReadoutGpuIdle": "GPU 閒置",
+  "maintenanceReadoutThermalSlowdown": "溫度限制降頻",
+  "maintenanceReadoutPowerCap": "功率限制",
+  "maintenanceReadoutHardwareSlowdown": "硬體降頻",
+  "maintenanceReadoutServiceResult": "執行結果",
+  "maintenanceReadoutBind": "已繫結",
+  "maintenanceReadoutTentative": "位址偵測中",
+  "maintenanceReadoutPreferred": "慣用",
+  "maintenanceReadoutDeprecated": "已淘汰",
+  "maintenanceReadoutDormant": "休眠",
+  "maintenanceReadoutRestartAlways": "一律重新啟動",
+  "maintenanceReadoutRestartNever": "不重新啟動",
+  "maintenanceReadoutRestartSuccess": "成功後重新啟動",
+  "maintenanceReadoutRestartFailure": "失敗後重新啟動",
+  "maintenanceReadoutRestartAbnormal": "異常結束後重新啟動",
+  "maintenanceReadoutRestartWatchdog": "監控逾時後重新啟動",
+  "maintenanceReadoutRestartAbort": "中止後重新啟動",
+  "maintenanceReadoutNotifyMain": "僅主程序",
+  "maintenanceReadoutNotifyAll": "所有程序",
+  "maintenanceReadoutNotifyExec": "執行的程序",
+  "maintenanceReadoutKernelEvents": "核心事件",
+  "maintenanceReadoutKernelControl": "核心控制",
+  "maintenanceReadoutNetworkMonitoring": "網路監控",
+  "maintenanceReadoutBackgroundSockets": "背景閒置通訊端",
+  "maintenanceReadoutNetworkApi": "網路介面統計",
+  "maintenanceReadoutWakePorts": "喚醒連接埠統計",
+  "maintenanceReadoutDropReasons": "封包丟棄原因",
+  "maintenanceReadoutPortOffload": "本機連接埠卸載",
+  "maintenanceReadoutMbuf": "封包緩衝區統計",
+  "maintenanceReadoutMultiMbuf": "多個封包緩衝區"
 }

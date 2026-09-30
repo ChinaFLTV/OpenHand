@@ -64,9 +64,10 @@ void main() {
   );
   check(proxy.groups['桌面代理']!.rows.single.last == '手动配置', '桌面代理应解析模式且忽略密码字段');
   check(
-    !parse('__OH_PROXY_SCOPE__\t系统设置\nHTTPEnable : 1', 'proxy')
-        .groups
-        .containsKey('终端环境'),
+    !parse(
+      '__OH_PROXY_SCOPE__\t系统设置\nHTTPEnable : 1',
+      'proxy',
+    ).groups.containsKey('终端环境'),
     '没有代理环境变量时不应显示空的终端环境分组',
   );
   final firewall = parse('应用防火墙:\n状态: 启用\nPF:\n状态: 读取权限不足', 'firewall_status');
@@ -456,6 +457,39 @@ en0: flags=8863<UP,BROADCAST,RUNNING> mtu 1500
         counters.groups['TCP']!.rows.first.last == '2' &&
         counters.groups['Udp']!.rows.single.last == '12',
     '协议统计名称与数值配对错误',
+  );
+  final histograms = parse(
+    'icmp:\n\tOutput histogram:\n\t\techo reply: 2\n\t\tdestination unreachable: 868\n'
+        '\tInput histogram:\n\t\techo reply: 4587\n\t2 message responses generated\n'
+        'icmp6:\n\t79 calls to icmp_error\n\tOutput histogram:\n\t\tunreach: 79\n'
+        '\tInput histogram:\n\t\tunreach: 807\n\tHistogram of error messages to be generated:\n'
+        '\t\t24 address unreachable\n\t0 bad checksum',
+    'network_stats',
+  );
+  check(
+    histograms.groups['icmp6 / Output histogram']!.rows.single.join('=') ==
+        'unreach=79',
+    '输出直方图被误识别为分组或数字标签',
+  );
+  check(
+    histograms.groups['icmp6 / Input histogram']!.rows.single.join('=') ==
+        'unreach=807',
+    '不同协议或方向直方图被合并',
+  );
+  check(
+    histograms.groups['icmp']!.rows.single.first ==
+            'message responses generated' &&
+        histograms.groups['icmp6']!.rows.last.first == 'bad checksum',
+    '直方图结束后未恢复协议分组',
+  );
+  check(
+    histograms.groups.keys.every((k) => !k.endsWith('unreach')),
+    '标量计数器被误判为分组',
+  );
+  final singleCounter = parse('Tcp: CurrEstab\nTcp: 6', 'network_stats');
+  check(
+    singleCounter.groups['Tcp']!.rows.single.join('=') == 'CurrEstab=6',
+    '单列 Linux 计数器被标量规则截获',
   );
   final iptables = parse(
     '*filter\n:INPUT DROP [12:1024]\n[3:240] -A INPUT -s 10.0.0.0/8 -p tcp --dport 22 -j ACCEPT\nCOMMIT',

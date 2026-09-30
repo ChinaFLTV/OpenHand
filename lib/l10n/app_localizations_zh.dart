@@ -13917,6 +13917,639 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceNetworkAllow => '允许';
+
+  @override
+  String get maintenanceNetCounterPacketsSent => '发送数据包';
+
+  @override
+  String get maintenanceNetCounterPacketsReceived => '接收数据包';
+
+  @override
+  String maintenanceNetCounterDataPackets(String v0) {
+    return '数据包（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterRetransmittedData(String v0) {
+    return '重传数据包（$v0 字节）';
+  }
+
+  @override
+  String get maintenanceNetCounterMtuResend => 'MTU 探测触发重传';
+
+  @override
+  String maintenanceNetCounterAckOnly(String v0) {
+    return '纯确认包（延迟 $v0 个）';
+  }
+
+  @override
+  String get maintenanceNetCounterUrgOnly => '纯紧急标志包';
+
+  @override
+  String get maintenanceNetCounterWindowProbe => '窗口探测包';
+
+  @override
+  String get maintenanceNetCounterWindowUpdate => '窗口更新包';
+
+  @override
+  String get maintenanceNetCounterControlPacket => '控制包';
+
+  @override
+  String get maintenanceNetCounterAfterFlowControl => '流控后发送的数据包';
+
+  @override
+  String get maintenanceNetCounterChallengeSyn => '异常 SYN 触发的质询确认';
+
+  @override
+  String get maintenanceNetCounterChallengeRst => '异常 RST 触发的质询确认';
+
+  @override
+  String get maintenanceNetCounterSoftwareChecksum => '软件校验和计算';
+
+  @override
+  String maintenanceNetCounterIpv4Segments(String v0) {
+    return 'IPv4 报文段（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Segments(String v0) {
+    return 'IPv6 报文段（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterAcknowledgments(String v0) {
+    return '确认包（$v0 字节）';
+  }
+
+  @override
+  String get maintenanceNetCounterDuplicateAck => '重复确认包';
+
+  @override
+  String get maintenanceNetCounterUnsentAck => '未发送数据的确认包';
+
+  @override
+  String maintenanceNetCounterInSequence(String v0) {
+    return '按序接收的数据包（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterDuplicatePacket(String v0) {
+    return '完全重复包（$v0 字节）';
+  }
+
+  @override
+  String get maintenanceNetCounterOldDuplicate => '旧重复包';
+
+  @override
+  String get maintenanceNetCounterReceiveNoMemory => '内存不足丢弃的接收包';
+
+  @override
+  String maintenanceNetCounterPartialDuplicate(String v0) {
+    return '部分重复包（重复 $v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterOutOfOrder(String v0) {
+    return '乱序包（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterBeyondWindow(String v0) {
+    return '超出窗口的包（$v0 字节）';
+  }
+
+  @override
+  String get maintenanceNetCounterRecoveredLoss => '丢失后恢复的包';
+
+  @override
+  String get maintenanceNetCounterAfterClose => '连接关闭后收到的包';
+
+  @override
+  String get maintenanceNetCounterBadReset => '无效重置';
+
+  @override
+  String get maintenanceNetCounterBadChecksumDiscard => '校验和错误丢弃包';
+
+  @override
+  String get maintenanceNetCounterBadChecksum => '校验和错误';
+
+  @override
+  String get maintenanceNetCounterBadHeaderOffset => '头部偏移错误丢弃包';
+
+  @override
+  String get maintenanceNetCounterTooShort => '长度不足丢弃包';
+
+  @override
+  String get maintenanceNetCounterConnectionRequests => '连接请求';
+
+  @override
+  String get maintenanceNetCounterConnectionAccepts => '接受连接';
+
+  @override
+  String get maintenanceNetCounterBadConnection => '连接尝试失败';
+
+  @override
+  String get maintenanceNetCounterListenOverflow => '监听队列溢出';
+
+  @override
+  String get maintenanceNetCounterEstablished => '已建立连接（含接受连接）';
+
+  @override
+  String maintenanceNetCounterClosedConnections(String v0) {
+    return '已关闭连接（丢弃 $v0 个）';
+  }
+
+  @override
+  String get maintenanceNetCounterRetransmitTimeout => '重传超时';
+
+  @override
+  String get maintenanceNetCounterPersistTimeout => '持续定时器超时';
+
+  @override
+  String get maintenanceNetCounterKeepaliveTimeout => '保活超时';
+
+  @override
+  String get maintenanceNetCounterKeepaliveProbe => '发送保活探测';
+
+  @override
+  String get maintenanceNetCounterIcmpError => 'ICMP 错误处理调用';
+
+  @override
+  String get maintenanceNetCounterIcmpSuppressed => '原报文为 ICMP 错误而抑制响应';
+
+  @override
+  String get maintenanceNetCounterIcmpRateLimit => '速率限制抑制的错误响应';
+
+  @override
+  String get maintenanceNetCounterNoRoute => '无路由';
+
+  @override
+  String get maintenanceNetCounterAdminProhibited => '管理策略禁止';
+
+  @override
+  String get maintenanceNetCounterBeyondScope => '超出作用域';
+
+  @override
+  String get maintenanceNetCounterAddressUnreachable => '地址不可达';
+
+  @override
+  String get maintenanceNetCounterPortUnreachable => '端口不可达';
+
+  @override
+  String get maintenanceNetCounterPacketTooBig => '数据包过大';
+
+  @override
+  String get maintenanceNetCounterTransitExceeded => '传输超时';
+
+  @override
+  String get maintenanceNetCounterReassemblyExceeded => '重组超时';
+
+  @override
+  String get maintenanceNetCounterHeaderError => '头部字段错误';
+
+  @override
+  String get maintenanceNetCounterUnknownNextHeader => '无法识别下一头部';
+
+  @override
+  String get maintenanceNetCounterUnknownOption => '无法识别选项';
+
+  @override
+  String get maintenanceNetCounterRedirect => '重定向';
+
+  @override
+  String get maintenanceNetCounterUnknown => '未知';
+
+  @override
+  String get maintenanceNetCounterUnreachable => '目标不可达';
+
+  @override
+  String get maintenanceNetCounterEcho => '回显请求';
+
+  @override
+  String get maintenanceNetCounterEchoReply => '回显应答';
+
+  @override
+  String get maintenanceNetCounterRouterSolicit => '路由器请求';
+
+  @override
+  String get maintenanceNetCounterRouterAdvert => '路由器通告';
+
+  @override
+  String get maintenanceNetCounterNeighborSolicit => '邻居请求';
+
+  @override
+  String get maintenanceNetCounterNeighborAdvert => '邻居通告';
+
+  @override
+  String get maintenanceNetCounterMulticastQuery => '组播侦听查询';
+
+  @override
+  String get maintenanceNetCounterMldReport => 'MLDv2 侦听报告';
+
+  @override
+  String get maintenanceNetCounterBadCode => '代码字段错误报文';
+
+  @override
+  String get maintenanceNetCounterShortMessage => '报文小于最小长度';
+
+  @override
+  String get maintenanceNetCounterBadLength => '报文长度错误';
+
+  @override
+  String get maintenanceNetCounterResponses => '已生成响应报文';
+
+  @override
+  String get maintenanceNetCounterDatagramsReceived => '接收数据报';
+
+  @override
+  String get maintenanceNetCounterDatagramsSent => '发送数据报';
+
+  @override
+  String get maintenanceNetCounterIncompleteHeader => '头部不完整';
+
+  @override
+  String get maintenanceNetCounterBadDataLength => '数据长度字段错误';
+
+  @override
+  String get maintenanceNetCounterNoChecksum => '无校验和数据包';
+
+  @override
+  String get maintenanceNetCounterNoSocket => '无匹配套接字丢弃';
+
+  @override
+  String get maintenanceNetCounterFullSocket => '套接字缓冲区满丢弃';
+
+  @override
+  String get maintenanceNetCounterDelivered => '已交付数据包';
+
+  @override
+  String maintenanceNetCounterIpv4Datagrams(String v0) {
+    return 'IPv4 数据报（$v0 字节）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Datagrams(String v0) {
+    return 'IPv6 数据报（$v0 字节）';
+  }
+
+  @override
+  String get maintenanceNetCounterTotalReceived => '接收数据包总数';
+
+  @override
+  String get maintenanceNetCounterFragmentsReceived => '接收分片';
+
+  @override
+  String get maintenanceNetCounterReassembled => '重组成功';
+
+  @override
+  String get maintenanceNetCounterForHost => '发往本机的数据包';
+
+  @override
+  String get maintenanceNetCounterFromHost => '本机发送的数据包';
+
+  @override
+  String get maintenanceNetCounterForwarded => '转发数据包';
+
+  @override
+  String get maintenanceNetCounterNotForwardable => '无法转发的数据包';
+
+  @override
+  String get maintenanceNetCounterRedirectSent => '发送重定向';
+
+  @override
+  String get maintenanceNetCounterOpenTcp => '打开的 TCP 套接字';
+
+  @override
+  String get maintenanceNetCounterOpenRaw => '打开的原始 IP 套接字';
+
+  @override
+  String get maintenanceNetCounterOpenLocal => '打开的本地套接字';
+
+  @override
+  String get maintenanceNetCounterActiveOpens => '主动建立连接';
+
+  @override
+  String get maintenanceNetCounterPassiveOpens => '被动建立连接';
+
+  @override
+  String get maintenanceNetCounterAttemptFails => '连接尝试失败';
+
+  @override
+  String get maintenanceNetCounterEstablishedResets => '已建立连接重置';
+
+  @override
+  String get maintenanceNetCounterCurrentEstablished => '当前已建立连接';
+
+  @override
+  String get maintenanceNetCounterInSegments => '接收报文段';
+
+  @override
+  String get maintenanceNetCounterOutSegments => '发送报文段';
+
+  @override
+  String get maintenanceNetCounterRetransSegments => '重传报文段';
+
+  @override
+  String get maintenanceNetCounterInputErrors => '输入错误';
+
+  @override
+  String get maintenanceNetCounterOutputResets => '发送重置';
+
+  @override
+  String get maintenanceNetCounterInputPackets => '输入数据包';
+
+  @override
+  String get maintenanceNetCounterInputDeliveries => '输入交付';
+
+  @override
+  String get maintenanceNetCounterOutputRequests => '输出请求';
+
+  @override
+  String get maintenanceNetCounterInputDiscards => '输入丢弃';
+
+  @override
+  String get maintenanceNetCounterOutputDiscards => '输出丢弃';
+
+  @override
+  String get maintenanceNetCounterUnknownProtocols => '未知输入协议';
+
+  @override
+  String get maintenanceNetCounterInputHeaderErrors => '输入头部错误';
+
+  @override
+  String get maintenanceNetCounterInputAddressErrors => '输入地址错误';
+
+  @override
+  String get maintenanceNetCounterOutputNoRoutes => '输出无路由';
+
+  @override
+  String get maintenanceNetCounterInputDatagrams => '接收数据报';
+
+  @override
+  String get maintenanceNetCounterOutputDatagrams => '发送数据报';
+
+  @override
+  String get maintenanceNetCounterNoPorts => '无监听端口的数据报';
+
+  @override
+  String get maintenanceNetCounterReceiveBufferErrors => '接收缓冲区错误';
+
+  @override
+  String get maintenanceNetCounterSendBufferErrors => '发送缓冲区错误';
+
+  @override
+  String get maintenanceNetCounterInputChecksumErrors => '输入校验和错误';
+
+  @override
+  String get maintenanceNetCounterReassemblyRequests => '重组请求';
+
+  @override
+  String get maintenanceNetCounterReassemblyOk => '重组成功';
+
+  @override
+  String get maintenanceNetCounterReassemblyFails => '重组失败';
+
+  @override
+  String get maintenanceNetCounterFragmentOk => '分片成功';
+
+  @override
+  String get maintenanceNetCounterFragmentFails => '分片失败';
+
+  @override
+  String get maintenanceNetCounterFragmentsCreated => '创建分片';
+
+  @override
+  String get maintenanceNetCounterListenDrops => '监听队列丢弃';
+
+  @override
+  String get maintenanceNetCounterListenOverflows => '监听队列溢出';
+
+  @override
+  String get maintenanceNetCounterInputMessages => '接收报文';
+
+  @override
+  String get maintenanceNetCounterOutputMessages => '发送报文';
+
+  @override
+  String get maintenanceNetCounterInUse => '使用中的套接字';
+
+  @override
+  String get maintenanceNetCounterOrphan => '孤立套接字';
+
+  @override
+  String get maintenanceNetCounterTimeWait => '等待关闭的套接字';
+
+  @override
+  String get maintenanceNetCounterAllocated => '已分配套接字';
+
+  @override
+  String get maintenanceNetCounterMemoryPages => '内存页';
+
+  @override
+  String maintenanceReadoutUnknownMetric(String index) {
+    return '扩展指标 $index';
+  }
+
+  @override
+  String maintenanceReadoutUnknownGroup(String index) {
+    return '扩展统计 $index';
+  }
+
+  @override
+  String maintenanceReadoutRawMetric(String field) {
+    return '原始字段：$field';
+  }
+
+  @override
+  String get maintenanceReadoutInputHistogram => '接收报文类型分布';
+
+  @override
+  String get maintenanceReadoutOutputHistogram => '发送报文类型分布';
+
+  @override
+  String get maintenanceReadoutErrorHistogram => '生成错误类型分布';
+
+  @override
+  String maintenanceReadoutProtocolStats(String protocol) {
+    return '$protocol 协议统计';
+  }
+
+  @override
+  String get maintenanceReadoutFabricManager => 'GPU 互联管理服务';
+
+  @override
+  String get maintenanceReadoutSuccess => '成功';
+
+  @override
+  String get maintenanceReadoutNotFound => '未找到';
+
+  @override
+  String get maintenanceReadoutActivating => '启动中';
+
+  @override
+  String get maintenanceReadoutDeactivating => '停止中';
+
+  @override
+  String get maintenanceReadoutReloading => '重新加载中';
+
+  @override
+  String get maintenanceReadoutNotApplicable => '不适用';
+
+  @override
+  String get maintenanceReadoutNotSupported => '不支持';
+
+  @override
+  String get maintenanceReadoutAborted => '已中止';
+
+  @override
+  String get maintenanceReadoutMetric => '指标';
+
+  @override
+  String get maintenanceReadoutTotal => '总量';
+
+  @override
+  String get maintenanceReadoutFree => '空闲';
+
+  @override
+  String get maintenanceReadoutCurrent => '当前值';
+
+  @override
+  String get maintenanceReadoutSupported => '支持状态';
+
+  @override
+  String get maintenanceReadoutPersistence => '持久化模式';
+
+  @override
+  String get maintenanceReadoutAccounting => '记账模式';
+
+  @override
+  String get maintenanceReadoutDisplayActive => '显示器激活状态';
+
+  @override
+  String get maintenanceReadoutSingleBit => '单比特错误';
+
+  @override
+  String get maintenanceReadoutDoubleBit => '双比特错误';
+
+  @override
+  String get maintenanceReadoutCorrectable => '可纠正错误';
+
+  @override
+  String get maintenanceReadoutUncorrectable => '不可纠正错误';
+
+  @override
+  String get maintenanceReadoutVolatile => '驱动加载后累计';
+
+  @override
+  String get maintenanceReadoutAggregate => '全生命周期累计';
+
+  @override
+  String get maintenanceReadoutRetiredPages => '退役内存页';
+
+  @override
+  String get maintenanceReadoutRemappedRows => '重映射内存行';
+
+  @override
+  String get maintenanceReadoutMig => 'GPU 多实例模式';
+
+  @override
+  String get maintenanceReadoutClocks => '时钟频率';
+
+  @override
+  String get maintenanceReadoutMaxClocks => '最高时钟频率';
+
+  @override
+  String get maintenanceReadoutTemperatureLimit => '温度上限';
+
+  @override
+  String get maintenanceReadoutGpuIdle => 'GPU 空闲';
+
+  @override
+  String get maintenanceReadoutThermalSlowdown => '温度限制降频';
+
+  @override
+  String get maintenanceReadoutPowerCap => '功率限制';
+
+  @override
+  String get maintenanceReadoutHardwareSlowdown => '硬件降频';
+
+  @override
+  String get maintenanceReadoutServiceResult => '执行结果';
+
+  @override
+  String get maintenanceReadoutBind => '已绑定';
+
+  @override
+  String get maintenanceReadoutTentative => '地址检测中';
+
+  @override
+  String get maintenanceReadoutPreferred => '首选';
+
+  @override
+  String get maintenanceReadoutDeprecated => '已弃用';
+
+  @override
+  String get maintenanceReadoutDormant => '休眠';
+
+  @override
+  String get maintenanceReadoutRestartAlways => '始终重启';
+
+  @override
+  String get maintenanceReadoutRestartNever => '不重启';
+
+  @override
+  String get maintenanceReadoutRestartSuccess => '成功后重启';
+
+  @override
+  String get maintenanceReadoutRestartFailure => '失败后重启';
+
+  @override
+  String get maintenanceReadoutRestartAbnormal => '异常退出后重启';
+
+  @override
+  String get maintenanceReadoutRestartWatchdog => '监控超时后重启';
+
+  @override
+  String get maintenanceReadoutRestartAbort => '中止后重启';
+
+  @override
+  String get maintenanceReadoutNotifyMain => '仅主进程';
+
+  @override
+  String get maintenanceReadoutNotifyAll => '所有进程';
+
+  @override
+  String get maintenanceReadoutNotifyExec => '执行的进程';
+
+  @override
+  String get maintenanceReadoutKernelEvents => '内核事件';
+
+  @override
+  String get maintenanceReadoutKernelControl => '内核控制';
+
+  @override
+  String get maintenanceReadoutNetworkMonitoring => '网络监控';
+
+  @override
+  String get maintenanceReadoutBackgroundSockets => '后台空闲套接字';
+
+  @override
+  String get maintenanceReadoutNetworkApi => '网络接口统计';
+
+  @override
+  String get maintenanceReadoutWakePorts => '唤醒端口统计';
+
+  @override
+  String get maintenanceReadoutDropReasons => '数据包丢弃原因';
+
+  @override
+  String get maintenanceReadoutPortOffload => '本地端口卸载';
+
+  @override
+  String get maintenanceReadoutMbuf => '数据包缓冲区统计';
+
+  @override
+  String get maintenanceReadoutMultiMbuf => '多个数据包缓冲区';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -27814,4 +28447,637 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceNetworkAllow => '允許';
+
+  @override
+  String get maintenanceNetCounterPacketsSent => '傳送封包';
+
+  @override
+  String get maintenanceNetCounterPacketsReceived => '接收封包';
+
+  @override
+  String maintenanceNetCounterDataPackets(String v0) {
+    return '資料封包（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterRetransmittedData(String v0) {
+    return '重傳資料封包（$v0 位元組）';
+  }
+
+  @override
+  String get maintenanceNetCounterMtuResend => 'MTU 探測觸發重傳';
+
+  @override
+  String maintenanceNetCounterAckOnly(String v0) {
+    return '純確認封包（延遲 $v0 個）';
+  }
+
+  @override
+  String get maintenanceNetCounterUrgOnly => '純緊急旗標封包';
+
+  @override
+  String get maintenanceNetCounterWindowProbe => '視窗探測封包';
+
+  @override
+  String get maintenanceNetCounterWindowUpdate => '視窗更新封包';
+
+  @override
+  String get maintenanceNetCounterControlPacket => '控制封包';
+
+  @override
+  String get maintenanceNetCounterAfterFlowControl => '流量控制後傳送的資料封包';
+
+  @override
+  String get maintenanceNetCounterChallengeSyn => '非預期 SYN 觸發的質詢確認';
+
+  @override
+  String get maintenanceNetCounterChallengeRst => '非預期 RST 觸發的質詢確認';
+
+  @override
+  String get maintenanceNetCounterSoftwareChecksum => '軟體校驗和計算';
+
+  @override
+  String maintenanceNetCounterIpv4Segments(String v0) {
+    return 'IPv4 區段（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Segments(String v0) {
+    return 'IPv6 區段（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterAcknowledgments(String v0) {
+    return '確認封包（$v0 位元組）';
+  }
+
+  @override
+  String get maintenanceNetCounterDuplicateAck => '重複確認封包';
+
+  @override
+  String get maintenanceNetCounterUnsentAck => '未傳送資料的確認封包';
+
+  @override
+  String maintenanceNetCounterInSequence(String v0) {
+    return '依序接收的封包（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterDuplicatePacket(String v0) {
+    return '完全重複封包（$v0 位元組）';
+  }
+
+  @override
+  String get maintenanceNetCounterOldDuplicate => '舊重複封包';
+
+  @override
+  String get maintenanceNetCounterReceiveNoMemory => '記憶體不足丟棄的接收封包';
+
+  @override
+  String maintenanceNetCounterPartialDuplicate(String v0) {
+    return '部分重複封包（重複 $v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterOutOfOrder(String v0) {
+    return '亂序封包（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterBeyondWindow(String v0) {
+    return '超出視窗的封包（$v0 位元組）';
+  }
+
+  @override
+  String get maintenanceNetCounterRecoveredLoss => '遺失後復原的封包';
+
+  @override
+  String get maintenanceNetCounterAfterClose => '連線關閉後收到的封包';
+
+  @override
+  String get maintenanceNetCounterBadReset => '無效重設';
+
+  @override
+  String get maintenanceNetCounterBadChecksumDiscard => '校驗和錯誤丟棄封包';
+
+  @override
+  String get maintenanceNetCounterBadChecksum => '校驗和錯誤';
+
+  @override
+  String get maintenanceNetCounterBadHeaderOffset => '標頭位移錯誤丟棄封包';
+
+  @override
+  String get maintenanceNetCounterTooShort => '長度不足丟棄封包';
+
+  @override
+  String get maintenanceNetCounterConnectionRequests => '連線請求';
+
+  @override
+  String get maintenanceNetCounterConnectionAccepts => '接受連線';
+
+  @override
+  String get maintenanceNetCounterBadConnection => '連線嘗試失敗';
+
+  @override
+  String get maintenanceNetCounterListenOverflow => '監聽佇列溢位';
+
+  @override
+  String get maintenanceNetCounterEstablished => '已建立連線（含接受連線）';
+
+  @override
+  String maintenanceNetCounterClosedConnections(String v0) {
+    return '已關閉連線（丟棄 $v0 個）';
+  }
+
+  @override
+  String get maintenanceNetCounterRetransmitTimeout => '重傳逾時';
+
+  @override
+  String get maintenanceNetCounterPersistTimeout => '持續計時器逾時';
+
+  @override
+  String get maintenanceNetCounterKeepaliveTimeout => '保活逾時';
+
+  @override
+  String get maintenanceNetCounterKeepaliveProbe => '傳送保活探測';
+
+  @override
+  String get maintenanceNetCounterIcmpError => 'ICMP 錯誤處理呼叫';
+
+  @override
+  String get maintenanceNetCounterIcmpSuppressed => '原始訊息為 ICMP 錯誤而抑制回應';
+
+  @override
+  String get maintenanceNetCounterIcmpRateLimit => '速率限制抑制的錯誤回應';
+
+  @override
+  String get maintenanceNetCounterNoRoute => '無路由';
+
+  @override
+  String get maintenanceNetCounterAdminProhibited => '管理原則禁止';
+
+  @override
+  String get maintenanceNetCounterBeyondScope => '超出範圍';
+
+  @override
+  String get maintenanceNetCounterAddressUnreachable => '位址無法到達';
+
+  @override
+  String get maintenanceNetCounterPortUnreachable => '連接埠無法到達';
+
+  @override
+  String get maintenanceNetCounterPacketTooBig => '封包過大';
+
+  @override
+  String get maintenanceNetCounterTransitExceeded => '傳輸逾時';
+
+  @override
+  String get maintenanceNetCounterReassemblyExceeded => '重組逾時';
+
+  @override
+  String get maintenanceNetCounterHeaderError => '標頭欄位錯誤';
+
+  @override
+  String get maintenanceNetCounterUnknownNextHeader => '無法識別下一標頭';
+
+  @override
+  String get maintenanceNetCounterUnknownOption => '無法識別選項';
+
+  @override
+  String get maintenanceNetCounterRedirect => '重新導向';
+
+  @override
+  String get maintenanceNetCounterUnknown => '未知';
+
+  @override
+  String get maintenanceNetCounterUnreachable => '目的地無法到達';
+
+  @override
+  String get maintenanceNetCounterEcho => '回應請求';
+
+  @override
+  String get maintenanceNetCounterEchoReply => '回應回覆';
+
+  @override
+  String get maintenanceNetCounterRouterSolicit => '路由器請求';
+
+  @override
+  String get maintenanceNetCounterRouterAdvert => '路由器通告';
+
+  @override
+  String get maintenanceNetCounterNeighborSolicit => '鄰居請求';
+
+  @override
+  String get maintenanceNetCounterNeighborAdvert => '鄰居通告';
+
+  @override
+  String get maintenanceNetCounterMulticastQuery => '多播接聽查詢';
+
+  @override
+  String get maintenanceNetCounterMldReport => 'MLDv2 接聽報告';
+
+  @override
+  String get maintenanceNetCounterBadCode => '代碼欄位錯誤訊息';
+
+  @override
+  String get maintenanceNetCounterShortMessage => '訊息小於最小長度';
+
+  @override
+  String get maintenanceNetCounterBadLength => '訊息長度錯誤';
+
+  @override
+  String get maintenanceNetCounterResponses => '已產生回應訊息';
+
+  @override
+  String get maintenanceNetCounterDatagramsReceived => '接收資料報';
+
+  @override
+  String get maintenanceNetCounterDatagramsSent => '傳送資料報';
+
+  @override
+  String get maintenanceNetCounterIncompleteHeader => '標頭不完整';
+
+  @override
+  String get maintenanceNetCounterBadDataLength => '資料長度欄位錯誤';
+
+  @override
+  String get maintenanceNetCounterNoChecksum => '無校驗和封包';
+
+  @override
+  String get maintenanceNetCounterNoSocket => '無符合通訊端而丟棄';
+
+  @override
+  String get maintenanceNetCounterFullSocket => '通訊端緩衝區滿而丟棄';
+
+  @override
+  String get maintenanceNetCounterDelivered => '已交付封包';
+
+  @override
+  String maintenanceNetCounterIpv4Datagrams(String v0) {
+    return 'IPv4 資料報（$v0 位元組）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Datagrams(String v0) {
+    return 'IPv6 資料報（$v0 位元組）';
+  }
+
+  @override
+  String get maintenanceNetCounterTotalReceived => '接收封包總數';
+
+  @override
+  String get maintenanceNetCounterFragmentsReceived => '接收片段';
+
+  @override
+  String get maintenanceNetCounterReassembled => '重組成功';
+
+  @override
+  String get maintenanceNetCounterForHost => '傳往本機的封包';
+
+  @override
+  String get maintenanceNetCounterFromHost => '本機傳送的封包';
+
+  @override
+  String get maintenanceNetCounterForwarded => '轉送封包';
+
+  @override
+  String get maintenanceNetCounterNotForwardable => '無法轉送的封包';
+
+  @override
+  String get maintenanceNetCounterRedirectSent => '傳送重新導向';
+
+  @override
+  String get maintenanceNetCounterOpenTcp => '開啟的 TCP 通訊端';
+
+  @override
+  String get maintenanceNetCounterOpenRaw => '開啟的原始 IP 通訊端';
+
+  @override
+  String get maintenanceNetCounterOpenLocal => '開啟的本機通訊端';
+
+  @override
+  String get maintenanceNetCounterActiveOpens => '主動建立連線';
+
+  @override
+  String get maintenanceNetCounterPassiveOpens => '被動建立連線';
+
+  @override
+  String get maintenanceNetCounterAttemptFails => '連線嘗試失敗';
+
+  @override
+  String get maintenanceNetCounterEstablishedResets => '已建立連線重設';
+
+  @override
+  String get maintenanceNetCounterCurrentEstablished => '目前已建立連線';
+
+  @override
+  String get maintenanceNetCounterInSegments => '接收區段';
+
+  @override
+  String get maintenanceNetCounterOutSegments => '傳送區段';
+
+  @override
+  String get maintenanceNetCounterRetransSegments => '重傳區段';
+
+  @override
+  String get maintenanceNetCounterInputErrors => '輸入錯誤';
+
+  @override
+  String get maintenanceNetCounterOutputResets => '傳送重設';
+
+  @override
+  String get maintenanceNetCounterInputPackets => '輸入封包';
+
+  @override
+  String get maintenanceNetCounterInputDeliveries => '輸入交付';
+
+  @override
+  String get maintenanceNetCounterOutputRequests => '輸出請求';
+
+  @override
+  String get maintenanceNetCounterInputDiscards => '輸入丟棄';
+
+  @override
+  String get maintenanceNetCounterOutputDiscards => '輸出丟棄';
+
+  @override
+  String get maintenanceNetCounterUnknownProtocols => '未知輸入協定';
+
+  @override
+  String get maintenanceNetCounterInputHeaderErrors => '輸入標頭錯誤';
+
+  @override
+  String get maintenanceNetCounterInputAddressErrors => '輸入位址錯誤';
+
+  @override
+  String get maintenanceNetCounterOutputNoRoutes => '輸出無路由';
+
+  @override
+  String get maintenanceNetCounterInputDatagrams => '接收資料報';
+
+  @override
+  String get maintenanceNetCounterOutputDatagrams => '傳送資料報';
+
+  @override
+  String get maintenanceNetCounterNoPorts => '無監聽連接埠的資料報';
+
+  @override
+  String get maintenanceNetCounterReceiveBufferErrors => '接收緩衝區錯誤';
+
+  @override
+  String get maintenanceNetCounterSendBufferErrors => '傳送緩衝區錯誤';
+
+  @override
+  String get maintenanceNetCounterInputChecksumErrors => '輸入校驗和錯誤';
+
+  @override
+  String get maintenanceNetCounterReassemblyRequests => '重組請求';
+
+  @override
+  String get maintenanceNetCounterReassemblyOk => '重組成功';
+
+  @override
+  String get maintenanceNetCounterReassemblyFails => '重組失敗';
+
+  @override
+  String get maintenanceNetCounterFragmentOk => '分片成功';
+
+  @override
+  String get maintenanceNetCounterFragmentFails => '分片失敗';
+
+  @override
+  String get maintenanceNetCounterFragmentsCreated => '建立片段';
+
+  @override
+  String get maintenanceNetCounterListenDrops => '監聽佇列丟棄';
+
+  @override
+  String get maintenanceNetCounterListenOverflows => '監聽佇列溢位';
+
+  @override
+  String get maintenanceNetCounterInputMessages => '接收訊息';
+
+  @override
+  String get maintenanceNetCounterOutputMessages => '傳送訊息';
+
+  @override
+  String get maintenanceNetCounterInUse => '使用中的通訊端';
+
+  @override
+  String get maintenanceNetCounterOrphan => '孤立通訊端';
+
+  @override
+  String get maintenanceNetCounterTimeWait => '等待關閉的通訊端';
+
+  @override
+  String get maintenanceNetCounterAllocated => '已配置通訊端';
+
+  @override
+  String get maintenanceNetCounterMemoryPages => '記憶體頁';
+
+  @override
+  String maintenanceReadoutUnknownMetric(String index) {
+    return '擴充指標 $index';
+  }
+
+  @override
+  String maintenanceReadoutUnknownGroup(String index) {
+    return '擴充統計 $index';
+  }
+
+  @override
+  String maintenanceReadoutRawMetric(String field) {
+    return '原始欄位：$field';
+  }
+
+  @override
+  String get maintenanceReadoutInputHistogram => '接收訊息類型分布';
+
+  @override
+  String get maintenanceReadoutOutputHistogram => '傳送訊息類型分布';
+
+  @override
+  String get maintenanceReadoutErrorHistogram => '產生錯誤類型分布';
+
+  @override
+  String maintenanceReadoutProtocolStats(String protocol) {
+    return '$protocol 協定統計';
+  }
+
+  @override
+  String get maintenanceReadoutFabricManager => 'GPU 互連管理服務';
+
+  @override
+  String get maintenanceReadoutSuccess => '成功';
+
+  @override
+  String get maintenanceReadoutNotFound => '找不到';
+
+  @override
+  String get maintenanceReadoutActivating => '啟動中';
+
+  @override
+  String get maintenanceReadoutDeactivating => '停止中';
+
+  @override
+  String get maintenanceReadoutReloading => '重新載入中';
+
+  @override
+  String get maintenanceReadoutNotApplicable => '不適用';
+
+  @override
+  String get maintenanceReadoutNotSupported => '不支援';
+
+  @override
+  String get maintenanceReadoutAborted => '已中止';
+
+  @override
+  String get maintenanceReadoutMetric => '指標';
+
+  @override
+  String get maintenanceReadoutTotal => '總量';
+
+  @override
+  String get maintenanceReadoutFree => '可用';
+
+  @override
+  String get maintenanceReadoutCurrent => '目前值';
+
+  @override
+  String get maintenanceReadoutSupported => '支援狀態';
+
+  @override
+  String get maintenanceReadoutPersistence => '持續模式';
+
+  @override
+  String get maintenanceReadoutAccounting => '計量模式';
+
+  @override
+  String get maintenanceReadoutDisplayActive => '顯示器啟用狀態';
+
+  @override
+  String get maintenanceReadoutSingleBit => '單位元錯誤';
+
+  @override
+  String get maintenanceReadoutDoubleBit => '雙位元錯誤';
+
+  @override
+  String get maintenanceReadoutCorrectable => '可修正錯誤';
+
+  @override
+  String get maintenanceReadoutUncorrectable => '無法修正錯誤';
+
+  @override
+  String get maintenanceReadoutVolatile => '驅動程式載入後累計';
+
+  @override
+  String get maintenanceReadoutAggregate => '生命週期累計';
+
+  @override
+  String get maintenanceReadoutRetiredPages => '退役記憶體頁';
+
+  @override
+  String get maintenanceReadoutRemappedRows => '重新對映記憶體列';
+
+  @override
+  String get maintenanceReadoutMig => 'GPU 多執行個體模式';
+
+  @override
+  String get maintenanceReadoutClocks => '時脈頻率';
+
+  @override
+  String get maintenanceReadoutMaxClocks => '最高時脈頻率';
+
+  @override
+  String get maintenanceReadoutTemperatureLimit => '溫度上限';
+
+  @override
+  String get maintenanceReadoutGpuIdle => 'GPU 閒置';
+
+  @override
+  String get maintenanceReadoutThermalSlowdown => '溫度限制降頻';
+
+  @override
+  String get maintenanceReadoutPowerCap => '功率限制';
+
+  @override
+  String get maintenanceReadoutHardwareSlowdown => '硬體降頻';
+
+  @override
+  String get maintenanceReadoutServiceResult => '執行結果';
+
+  @override
+  String get maintenanceReadoutBind => '已繫結';
+
+  @override
+  String get maintenanceReadoutTentative => '位址偵測中';
+
+  @override
+  String get maintenanceReadoutPreferred => '慣用';
+
+  @override
+  String get maintenanceReadoutDeprecated => '已淘汰';
+
+  @override
+  String get maintenanceReadoutDormant => '休眠';
+
+  @override
+  String get maintenanceReadoutRestartAlways => '一律重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartNever => '不重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartSuccess => '成功後重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartFailure => '失敗後重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartAbnormal => '異常結束後重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartWatchdog => '監控逾時後重新啟動';
+
+  @override
+  String get maintenanceReadoutRestartAbort => '中止後重新啟動';
+
+  @override
+  String get maintenanceReadoutNotifyMain => '僅主程序';
+
+  @override
+  String get maintenanceReadoutNotifyAll => '所有程序';
+
+  @override
+  String get maintenanceReadoutNotifyExec => '執行的程序';
+
+  @override
+  String get maintenanceReadoutKernelEvents => '核心事件';
+
+  @override
+  String get maintenanceReadoutKernelControl => '核心控制';
+
+  @override
+  String get maintenanceReadoutNetworkMonitoring => '網路監控';
+
+  @override
+  String get maintenanceReadoutBackgroundSockets => '背景閒置通訊端';
+
+  @override
+  String get maintenanceReadoutNetworkApi => '網路介面統計';
+
+  @override
+  String get maintenanceReadoutWakePorts => '喚醒連接埠統計';
+
+  @override
+  String get maintenanceReadoutDropReasons => '封包丟棄原因';
+
+  @override
+  String get maintenanceReadoutPortOffload => '本機連接埠卸載';
+
+  @override
+  String get maintenanceReadoutMbuf => '封包緩衝區統計';
+
+  @override
+  String get maintenanceReadoutMultiMbuf => '多個封包緩衝區';
 }

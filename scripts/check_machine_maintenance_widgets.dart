@@ -757,6 +757,95 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('协议统计六种语言完整翻译、切换语言保留展开、长标签布局稳定', (tester) async {
+    const output = 'tcp:\\n\\t12 packets sent\\n\\t\\t4 data packets (2048 bytes) retransmitted\\n'
+      'icmp6:\\n\\t79 calls to icmp_error\\n\\tOutput histogram:\\n\\t\\tunreach: 79\\n'
+      '\\tInput histogram:\\n\\t\\tunreach: 807\\n';
+    for (final width in [360.0, 1200.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      for (final locale in AppLocalizations.supportedLocales) {
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(brightness: width == 360 ? Brightness.dark : Brightness.light,
+            fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width == 360 ? 1.5 : 1)), child: child!),
+          home: Scaffold(body: RepaintBoundary(key: const ValueKey('协议统计预览'), child: SingleChildScrollView(child:
+            _MaintenanceCard(title: '网络协议与错误统计', scrollBody: false, child: _MaintenanceReadout(text: output, section: 'network_stats')))))));
+        await tester.pumpAndSettle();
+        final context = tester.element(find.byType(_MaintenanceReadout).first);
+        final l = AppLocalizations.of(context)!;
+        expect(find.text(l.maintenanceNetCounterPacketsSent), findsOneWidget);
+        expect(find.text(l.maintenanceNetCounterRetransmittedData('2048')), findsOneWidget);
+        expect(find.text('unreach'), findsNothing);
+        expect(find.text('79'), findsNWidgets(2));
+        expect(find.text('807'), findsOneWidget);
+        expect(find.byType(_MaintenanceFields), findsNothing);
+        expect(find.byType(OpenHandOperationalRankTable), findsNWidgets(4));
+        for (final field in ['packet sent', 'URG only packet', 'resend initiated by MTU discovery',
+          'challenge ACK sent due to unexpected SYN', 'error not generated because rate limitation',
+          'calls to icmp_error', 'no route', 'address unreachable', 'beyond scope', 'unrecognized next header',
+          'ActiveOpens', 'PassiveOpens', 'InSegs', 'OutSegs', 'RetransSegs', 'InCsumErrors', 'InHdrErrors']) {
+          expect(maintenanceNetworkCounterLabel(context, field), isNotNull, reason: field);
+        }
+        expect(maintenanceNetworkCounterLabel(context, 'packet sent'), maintenanceNetworkCounterLabel(context, 'packets sent'));
+        expect(maintenanceNetworkCounterLabel(context, 'future_metric'), isNull);
+        expect(maintenanceNetworkCounterLabel(context, 'data packet ({v0} byte)'), isNull);
+        expect(maintenanceGpuFieldValue(context, 'Result', 'success'), l.maintenanceReadoutSuccess);
+        expect(maintenanceGpuFieldValue(context, 'LoadState', 'not-found'), l.maintenanceReadoutNotFound);
+        expect(maintenanceGpuFieldValue(context, 'SubState', 'dead'), l.maintenanceStopped);
+        expect(maintenanceGpuFieldValue(context, 'ActiveState', 'inactive'), l.maintenanceStopped);
+        expect(maintenanceGpuFieldValue(context, 'MemoryCurrent', '18446744073709551615'), l.maintenanceUnavailable);
+        expect(maintenanceGpuFieldValue(context, 'product_name', 'Success'), 'Success');
+        expect(maintenanceGpuFieldValue(context, 'path', '/tmp/active'), '/tmp/active');
+        expect(maintenanceGpuFieldLabel(context, 'ecc_errors/volatile/single_bit/total'),
+          l.maintenanceGpuDetailEcc + ' › ' + l.maintenanceReadoutVolatile + ' › ' + l.maintenanceReadoutSingleBit + ' › ' + l.maintenanceReadoutTotal);
+        expect(tester.takeException(), isNull);
+        if (locale.toString() == 'zh' && width == 1200 && Platform.environment['MAINTENANCE_FONT'] != null) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('协议统计预览')));
+            final image = await boundary.toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/openhand-network-i18n-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('统计未知字段保留来源且语言切换保留折叠状态', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(600, 900));
+    Future<void> show(Locale locale) async {
+      await tester.pumpWidget(MaterialApp(locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MaintenanceReadout(section: 'network_stats', text: 'tcp:\\n  7 future_metric'))));
+      await tester.pumpAndSettle();
+    }
+    await show(const Locale('zh'));
+    expect(find.text('扩展指标 1'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+    expect(find.byTooltip('原始字段：future_metric'), findsOneWidget);
+    expect(find.text('future_metric'), findsNothing);
+    final context = tester.element(find.byType(_MaintenanceReadout).first);
+    final l = AppLocalizations.of(context)!;
+    expect(_maintenanceReadoutValue(context, 'MemoryCurrent', '18446744073709551615'), l.maintenanceUnavailable);
+    expect(_maintenanceReadoutValue(context, 'Restart', 'on-failure'), l.maintenanceReadoutRestartFailure);
+    expect(_maintenanceReadoutValue(context, 'NotifyAccess', 'main'), l.maintenanceReadoutNotifyMain);
+    expect(maintenanceDetailValue(context, 'main', field: '进程'), 'main');
+    expect(maintenanceDetailValue(context, 'on-failure', field: '名称'), 'on-failure');
+    await tester.tap(find.text('TCP 协议统计')); await tester.pumpAndSettle();
+    expect(find.text('7'), findsNothing);
+    await show(const Locale('de'));
+    expect(find.text('7'), findsNothing);
+    final german = AppLocalizations.of(tester.element(find.byType(_MaintenanceReadout).first))!;
+    await tester.tap(find.text(german.maintenanceReadoutProtocolStats('TCP'))); await tester.pumpAndSettle();
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text(german.maintenanceReadoutUnknownMetric('1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('出口信息按当前语言分组，窄屏、大字体与明暗主题布局稳定', (tester) async {
     final report = MachineEgressReport.parse(jsonEncode({
       'ip': '2001:4860:4860::8888', 'country': 'United States', 'country_code': 'US',
@@ -2395,7 +2484,7 @@ void main() {
       ('addresses', '2: eth0: <UP,BROADCAST> mtu 1500 state UP\\n  inet 10.0.0.2/24 scope global eth0\\n  RX: bytes packets errors dropped\\n      1234 10 1 0', '接收 · 字节'),
       ('addresses', 'Ethernet adapter Ethernet:\\n   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\\n   IPv4 Address. . . . . . . . . . . : 192.168.1.2', 'MAC 地址'),
       ('neighbors', 'Neighbor Linklayer Address Netif Expire St Flgs Prbs\\nfe80::1%lo0 (incomplete) lo0 permanent R', '邻居地址'),
-      ('network_stats', 'TCP: inuse 2 orphan 0 tw 4 alloc 12 mem 0\\nUdp:\\n  12 datagrams received', 'TCP'),
+      ('network_stats', 'TCP: inuse 2 orphan 0 tw 4 alloc 12 mem 0\\nUdp:\\n  12 datagrams received', 'TCP 协议统计'),
       ('firewall_rules', 'Rule Name: Web\\nEnabled: Yes\\nDirection: In\\nAction: Allow\\nRule Name: SSH\\nEnabled: Yes\\nDirection: In\\nLocalPort: 22', 'SSH'),
     ];
     for (final brightness in Brightness.values) {
@@ -3443,7 +3532,7 @@ void main() {
     final service = _MaintenanceFixture();
     service.gpuOutput = ['__OH_OPS_platform__', 'Linux', '__OH_OPS_host__', 'GPU主机',
       '__OH_OPS_gpu_stack__', 'CUDA Toolkit\\tversion\\t12.8', 'cuDNN\\tversion\\t9.8',
-      '__OH_OPS_gpu_fabric__', 'LoadState=not-found',
+      '__OH_OPS_gpu_fabric__', 'LoadState=not-found', 'Result=success', 'ActiveState=inactive', 'SubState=dead', 'MemoryCurrent=18446744073709551615',
       '__OH_OPS_gpu_details__', '<nvidia_smi_log><gpu id="GPU-X"><ecc_errors>' +
         List.generate(30, (i) => '<metric_\${i}>\${700 + i}</metric_\${i}>').join() +
         '</ecc_errors><temperature><gpu_temp>42 C</gpu_temp></temperature></gpu></nvidia_smi_log>',
@@ -3458,6 +3547,15 @@ void main() {
     await tester.ensureVisible(find.text('GPU 管理'));
     await tester.tap(find.text('GPU 管理'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('GPU 互联管理服务'));
+    await tester.tap(find.text('GPU 互联管理服务')); await tester.pumpAndSettle();
+    expect(find.text('成功'), findsOneWidget);
+    expect(find.text('未找到'), findsOneWidget);
+    expect(find.text('未运行'), findsNWidgets(2));
+    expect(find.text('18446744073709551615'), findsNothing);
+    expect(find.text('not-found'), findsNothing);
+    expect(find.text('success'), findsNothing);
+    await tester.ensureVisible(find.text('CUDA Toolkit'));
     expect(find.text('CUDA Toolkit'), findsOneWidget);
     await tester.tap(find.text('CUDA Toolkit'));
     await tester.pumpAndSettle();

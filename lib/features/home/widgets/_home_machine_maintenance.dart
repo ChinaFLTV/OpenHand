@@ -1969,18 +1969,39 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                         subtitle:
                                             '${group.value.length} · ${l10n.maintenanceGpuFields}',
                                         child: _MaintenanceFields(
+                                          fieldKeys: [
+                                            for (final row in group.value)
+                                              row[0],
+                                          ],
                                           rows: [
                                             for (final row in group.value)
-                                              [fieldLabel(row[0]), row[1]],
+                                              [
+                                                fieldLabel(row[0]),
+                                                maintenanceGpuFieldValue(
+                                                  context,
+                                                  row[0],
+                                                  row[1],
+                                                ),
+                                              ],
                                           ],
                                         ),
                                       ),
                                   ],
                                 )
                               : _MaintenanceFields(
+                                  fieldKeys: [
+                                    for (final row in report.rows) row[0],
+                                  ],
                                   rows: [
                                     for (final row in report.rows)
-                                      [fieldLabel(row[0]), row[1]],
+                                      [
+                                        fieldLabel(row[0]),
+                                        maintenanceGpuFieldValue(
+                                          context,
+                                          row[0],
+                                          row[1],
+                                        ),
+                                      ],
                                   ],
                                 ),
                       ],
@@ -3616,7 +3637,7 @@ String _maintenanceReadoutValue(
       !plain.contains('%')) {
     return '$plain%';
   }
-  return maintenanceDetailValue(context, value);
+  return maintenanceDetailValue(context, value, field: key);
 }
 
 IconData _maintenanceFieldIcon(String key) => switch (key) {
@@ -5607,7 +5628,7 @@ class _MaintenanceSection extends StatelessWidget {
         horizontalTitleGap: 10,
         child: ExpansionTile(
           // 稳定组件身份，避免折叠状态与内部滚动位置共用存储键。
-          key: ValueKey(title),
+          key: ValueKey(('expansion', key ?? title)),
           initiallyExpanded: initiallyExpanded,
           shape: const Border(),
           collapsedShape: const Border(),
@@ -5722,7 +5743,15 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
           for (final entry in _data.groups.entries)
             _MaintenanceSection(
               key: ValueKey(entry.key),
-              title: maintenanceDetailLabel(context, entry.key),
+              title:
+                  widget.section == 'network_stats' ||
+                      widget.section == 'firewall_states'
+                  ? maintenanceNetworkGroupLabel(
+                      context,
+                      entry.key,
+                      _data.groups.keys.toList().indexOf(entry.key) + 1,
+                    )
+                  : entry.key,
               icon: Icons.hub_outlined,
               initiallyExpanded:
                   _data.groups.length <= 4 && entry.value.rows.length <= 12,
@@ -5825,6 +5854,46 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
     if (widget.section == 'logs') {
       return _MaintenanceLogTimeline(rows: _data.rows);
     }
+    if (_data.fields &&
+        (widget.section == 'network_stats' ||
+            widget.section == 'firewall_states')) {
+      final l = AppLocalizations.of(context)!;
+      final rows = <OpenHandOperationalRankRow>[];
+      for (var i = 0; i < _data.rows.length; i++) {
+        final field = _data.rows[i][0];
+        final known = maintenanceDetailLabel(context, field);
+        final label =
+            maintenanceNetworkCounterLabel(context, field) ??
+            (known != field || !RegExp('[A-Za-z]').hasMatch(field)
+                ? known
+                : l.maintenanceReadoutUnknownMetric('${i + 1}'));
+        rows.add(
+          OpenHandOperationalRankRow(
+            rowKey: (field, i),
+            value: 0,
+            cells: [label, maintenanceDetailValue(context, _data.rows[i][1])],
+            cellWidgets: [
+              Tooltip(
+                message: l.maintenanceReadoutRawMetric(field),
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              null,
+            ],
+          ),
+        );
+      }
+      return _MaintenanceTable(
+        headers: _data.headers,
+        rows: rows,
+        maxBodyHeight: 420,
+        paginate: rows.length > 20,
+      );
+    }
+
     if (_data.fields) {
       return _MaintenanceFields(
         fieldKeys: [for (final row in _data.rows) row[0]],

@@ -9174,5 +9174,330 @@
   "maintenanceNetworkListenersNote": "TCP affiche les écoutes ; UDP affiche les ports liés. Cela ne garantit pas l'accès depuis Internet.",
   "maintenanceNetworkResolverStatus": "État du résolveur",
   "maintenanceNetworkBlock": "Bloquer",
-  "maintenanceNetworkAllow": "Autoriser"
+  "maintenanceNetworkAllow": "Autoriser",
+  "maintenanceNetCounterPacketsSent": "Paquets envoyés",
+  "maintenanceNetCounterPacketsReceived": "Paquets reçus",
+  "maintenanceNetCounterDataPackets": "Paquets de données ({v0} octets)",
+  "@maintenanceNetCounterDataPackets": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmittedData": "Paquets retransmis ({v0} octets)",
+  "@maintenanceNetCounterRetransmittedData": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterMtuResend": "Retransmissions dues à la découverte MTU",
+  "maintenanceNetCounterAckOnly": "Paquets ACK seuls ({v0} retardés)",
+  "@maintenanceNetCounterAckOnly": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterUrgOnly": "Paquets URG seuls",
+  "maintenanceNetCounterWindowProbe": "Sondes de fenêtre",
+  "maintenanceNetCounterWindowUpdate": "Mises à jour de fenêtre",
+  "maintenanceNetCounterControlPacket": "Paquets de contrôle",
+  "maintenanceNetCounterAfterFlowControl": "Paquets envoyés après contrôle de flux",
+  "maintenanceNetCounterChallengeSyn": "ACK de vérification pour SYN inattendu",
+  "maintenanceNetCounterChallengeRst": "ACK de vérification pour RST inattendu",
+  "maintenanceNetCounterSoftwareChecksum": "Sommes de contrôle logicielles",
+  "maintenanceNetCounterIpv4Segments": "Segments IPv4 ({v0} octets)",
+  "@maintenanceNetCounterIpv4Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Segments": "Segments IPv6 ({v0} octets)",
+  "@maintenanceNetCounterIpv6Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterAcknowledgments": "Accusés de réception ({v0} octets)",
+  "@maintenanceNetCounterAcknowledgments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicateAck": "Accusés de réception en double",
+  "maintenanceNetCounterUnsentAck": "Accusés pour données non envoyées",
+  "maintenanceNetCounterInSequence": "Paquets reçus dans l’ordre ({v0} octets)",
+  "@maintenanceNetCounterInSequence": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicatePacket": "Paquets entièrement dupliqués ({v0} octets)",
+  "@maintenanceNetCounterDuplicatePacket": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOldDuplicate": "Anciens paquets dupliqués",
+  "maintenanceNetCounterReceiveNoMemory": "Paquets reçus perdus faute de mémoire",
+  "maintenanceNetCounterPartialDuplicate": "Paquets partiellement dupliqués ({v0} octets)",
+  "@maintenanceNetCounterPartialDuplicate": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOutOfOrder": "Paquets hors ordre ({v0} octets)",
+  "@maintenanceNetCounterOutOfOrder": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterBeyondWindow": "Paquets au-delà de la fenêtre ({v0} octets)",
+  "@maintenanceNetCounterBeyondWindow": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRecoveredLoss": "Paquets récupérés après perte",
+  "maintenanceNetCounterAfterClose": "Paquets reçus après fermeture",
+  "maintenanceNetCounterBadReset": "Réinitialisations invalides",
+  "maintenanceNetCounterBadChecksumDiscard": "Paquets rejetés pour somme de contrôle invalide",
+  "maintenanceNetCounterBadChecksum": "Erreurs de somme de contrôle",
+  "maintenanceNetCounterBadHeaderOffset": "Paquets rejetés pour décalage d’en-tête invalide",
+  "maintenanceNetCounterTooShort": "Paquets trop courts rejetés",
+  "maintenanceNetCounterConnectionRequests": "Demandes de connexion",
+  "maintenanceNetCounterConnectionAccepts": "Connexions acceptées",
+  "maintenanceNetCounterBadConnection": "Tentatives de connexion échouées",
+  "maintenanceNetCounterListenOverflow": "Débordements de file d’écoute",
+  "maintenanceNetCounterEstablished": "Connexions établies (y compris acceptées)",
+  "maintenanceNetCounterClosedConnections": "Connexions fermées ({v0} abandonnées)",
+  "@maintenanceNetCounterClosedConnections": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmitTimeout": "Délais de retransmission expirés",
+  "maintenanceNetCounterPersistTimeout": "Expirations du temporisateur de persistance",
+  "maintenanceNetCounterKeepaliveTimeout": "Délais de maintien expirés",
+  "maintenanceNetCounterKeepaliveProbe": "Sondes de maintien envoyées",
+  "maintenanceNetCounterIcmpError": "Appels au gestionnaire d’erreurs ICMP",
+  "maintenanceNetCounterIcmpSuppressed": "Erreurs supprimées pour erreur ICMP existante",
+  "maintenanceNetCounterIcmpRateLimit": "Erreurs supprimées par limitation de débit",
+  "maintenanceNetCounterNoRoute": "Aucune route",
+  "maintenanceNetCounterAdminProhibited": "Interdit administrativement",
+  "maintenanceNetCounterBeyondScope": "Hors portée",
+  "maintenanceNetCounterAddressUnreachable": "Adresse inaccessible",
+  "maintenanceNetCounterPortUnreachable": "Port inaccessible",
+  "maintenanceNetCounterPacketTooBig": "Paquet trop volumineux",
+  "maintenanceNetCounterTransitExceeded": "Temps de transit dépassé",
+  "maintenanceNetCounterReassemblyExceeded": "Délai de réassemblage dépassé",
+  "maintenanceNetCounterHeaderError": "Champ d’en-tête invalide",
+  "maintenanceNetCounterUnknownNextHeader": "En-tête suivant inconnu",
+  "maintenanceNetCounterUnknownOption": "Option inconnue",
+  "maintenanceNetCounterRedirect": "Redirections",
+  "maintenanceNetCounterUnknown": "Inconnu",
+  "maintenanceNetCounterUnreachable": "Destination inaccessible",
+  "maintenanceNetCounterEcho": "Requêtes d’écho",
+  "maintenanceNetCounterEchoReply": "Réponses d’écho",
+  "maintenanceNetCounterRouterSolicit": "Sollicitations de routeur",
+  "maintenanceNetCounterRouterAdvert": "Annonces de routeur",
+  "maintenanceNetCounterNeighborSolicit": "Sollicitations de voisin",
+  "maintenanceNetCounterNeighborAdvert": "Annonces de voisin",
+  "maintenanceNetCounterMulticastQuery": "Requêtes d’écoute multicast",
+  "maintenanceNetCounterMldReport": "Rapports d’écoute MLDv2",
+  "maintenanceNetCounterBadCode": "Messages avec codes invalides",
+  "maintenanceNetCounterShortMessage": "Messages trop courts",
+  "maintenanceNetCounterBadLength": "Messages de longueur invalide",
+  "maintenanceNetCounterResponses": "Réponses générées",
+  "maintenanceNetCounterDatagramsReceived": "Datagrammes reçus",
+  "maintenanceNetCounterDatagramsSent": "Datagrammes envoyés",
+  "maintenanceNetCounterIncompleteHeader": "En-têtes incomplets",
+  "maintenanceNetCounterBadDataLength": "Champs de longueur invalides",
+  "maintenanceNetCounterNoChecksum": "Paquets sans somme de contrôle",
+  "maintenanceNetCounterNoSocket": "Rejets sans socket correspondant",
+  "maintenanceNetCounterFullSocket": "Rejets pour tampons de socket pleins",
+  "maintenanceNetCounterDelivered": "Paquets livrés",
+  "maintenanceNetCounterIpv4Datagrams": "Datagrammes IPv4 ({v0} octets)",
+  "@maintenanceNetCounterIpv4Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Datagrams": "Datagrammes IPv6 ({v0} octets)",
+  "@maintenanceNetCounterIpv6Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterTotalReceived": "Total des paquets reçus",
+  "maintenanceNetCounterFragmentsReceived": "Fragments reçus",
+  "maintenanceNetCounterReassembled": "Réassemblages réussis",
+  "maintenanceNetCounterForHost": "Paquets destinés à cet hôte",
+  "maintenanceNetCounterFromHost": "Paquets envoyés par cet hôte",
+  "maintenanceNetCounterForwarded": "Paquets transférés",
+  "maintenanceNetCounterNotForwardable": "Paquets non transférables",
+  "maintenanceNetCounterRedirectSent": "Redirections envoyées",
+  "maintenanceNetCounterOpenTcp": "Sockets TCP ouverts",
+  "maintenanceNetCounterOpenRaw": "Sockets IP bruts ouverts",
+  "maintenanceNetCounterOpenLocal": "Sockets locaux ouverts",
+  "maintenanceNetCounterActiveOpens": "Ouvertures actives",
+  "maintenanceNetCounterPassiveOpens": "Ouvertures passives",
+  "maintenanceNetCounterAttemptFails": "Tentatives de connexion échouées",
+  "maintenanceNetCounterEstablishedResets": "Connexions établies réinitialisées",
+  "maintenanceNetCounterCurrentEstablished": "Connexions actuellement établies",
+  "maintenanceNetCounterInSegments": "Segments reçus",
+  "maintenanceNetCounterOutSegments": "Segments envoyés",
+  "maintenanceNetCounterRetransSegments": "Segments retransmis",
+  "maintenanceNetCounterInputErrors": "Erreurs d’entrée",
+  "maintenanceNetCounterOutputResets": "Réinitialisations envoyées",
+  "maintenanceNetCounterInputPackets": "Paquets entrants",
+  "maintenanceNetCounterInputDeliveries": "Livraisons entrantes",
+  "maintenanceNetCounterOutputRequests": "Requêtes sortantes",
+  "maintenanceNetCounterInputDiscards": "Rejets entrants",
+  "maintenanceNetCounterOutputDiscards": "Rejets sortants",
+  "maintenanceNetCounterUnknownProtocols": "Protocoles entrants inconnus",
+  "maintenanceNetCounterInputHeaderErrors": "Erreurs d’en-tête entrant",
+  "maintenanceNetCounterInputAddressErrors": "Erreurs d’adresse entrante",
+  "maintenanceNetCounterOutputNoRoutes": "Sorties sans route",
+  "maintenanceNetCounterInputDatagrams": "Datagrammes reçus",
+  "maintenanceNetCounterOutputDatagrams": "Datagrammes envoyés",
+  "maintenanceNetCounterNoPorts": "Datagrammes sans port d’écoute",
+  "maintenanceNetCounterReceiveBufferErrors": "Erreurs de tampon de réception",
+  "maintenanceNetCounterSendBufferErrors": "Erreurs de tampon d’envoi",
+  "maintenanceNetCounterInputChecksumErrors": "Erreurs de somme de contrôle entrante",
+  "maintenanceNetCounterReassemblyRequests": "Demandes de réassemblage",
+  "maintenanceNetCounterReassemblyOk": "Réassemblages réussis",
+  "maintenanceNetCounterReassemblyFails": "Échecs de réassemblage",
+  "maintenanceNetCounterFragmentOk": "Fragmentations réussies",
+  "maintenanceNetCounterFragmentFails": "Échecs de fragmentation",
+  "maintenanceNetCounterFragmentsCreated": "Fragments créés",
+  "maintenanceNetCounterListenDrops": "Rejets de file d’écoute",
+  "maintenanceNetCounterListenOverflows": "Débordements de file d’écoute",
+  "maintenanceNetCounterInputMessages": "Messages reçus",
+  "maintenanceNetCounterOutputMessages": "Messages envoyés",
+  "maintenanceNetCounterInUse": "Sockets utilisés",
+  "maintenanceNetCounterOrphan": "Sockets orphelins",
+  "maintenanceNetCounterTimeWait": "Sockets en attente de fermeture",
+  "maintenanceNetCounterAllocated": "Sockets alloués",
+  "maintenanceNetCounterMemoryPages": "Pages mémoire",
+  "maintenanceReadoutUnknownMetric": "Mesure supplémentaire {index}",
+  "@maintenanceReadoutUnknownMetric": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutUnknownGroup": "Statistiques supplémentaires {index}",
+  "@maintenanceReadoutUnknownGroup": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutRawMetric": "Champ d’origine : {field}",
+  "@maintenanceReadoutRawMetric": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutInputHistogram": "Types de messages reçus",
+  "maintenanceReadoutOutputHistogram": "Types de messages envoyés",
+  "maintenanceReadoutErrorHistogram": "Types d’erreurs générées",
+  "maintenanceReadoutProtocolStats": "Statistiques {protocol}",
+  "@maintenanceReadoutProtocolStats": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutFabricManager": "Service de gestion d’interconnexion GPU",
+  "maintenanceReadoutSuccess": "Réussi",
+  "maintenanceReadoutNotFound": "Introuvable",
+  "maintenanceReadoutActivating": "Démarrage",
+  "maintenanceReadoutDeactivating": "Arrêt en cours",
+  "maintenanceReadoutReloading": "Rechargement",
+  "maintenanceReadoutNotApplicable": "Sans objet",
+  "maintenanceReadoutNotSupported": "Non pris en charge",
+  "maintenanceReadoutAborted": "Interrompu",
+  "maintenanceReadoutMetric": "Indicateur",
+  "maintenanceReadoutTotal": "Total",
+  "maintenanceReadoutFree": "Libre",
+  "maintenanceReadoutCurrent": "Actuel",
+  "maintenanceReadoutSupported": "Prise en charge",
+  "maintenanceReadoutPersistence": "Mode persistant",
+  "maintenanceReadoutAccounting": "Mode de comptabilisation",
+  "maintenanceReadoutDisplayActive": "Affichage actif",
+  "maintenanceReadoutSingleBit": "Erreurs sur un bit",
+  "maintenanceReadoutDoubleBit": "Erreurs sur deux bits",
+  "maintenanceReadoutCorrectable": "Erreurs corrigibles",
+  "maintenanceReadoutUncorrectable": "Erreurs non corrigibles",
+  "maintenanceReadoutVolatile": "Depuis le chargement du pilote",
+  "maintenanceReadoutAggregate": "Cumul sur la durée de vie",
+  "maintenanceReadoutRetiredPages": "Pages retirées",
+  "maintenanceReadoutRemappedRows": "Lignes remappées",
+  "maintenanceReadoutMig": "Mode GPU multi-instance",
+  "maintenanceReadoutClocks": "Fréquences d’horloge",
+  "maintenanceReadoutMaxClocks": "Fréquences maximales",
+  "maintenanceReadoutTemperatureLimit": "Limite de température",
+  "maintenanceReadoutGpuIdle": "GPU au repos",
+  "maintenanceReadoutThermalSlowdown": "Limitation thermique",
+  "maintenanceReadoutPowerCap": "Plafond de puissance",
+  "maintenanceReadoutHardwareSlowdown": "Limitation matérielle",
+  "maintenanceReadoutServiceResult": "Résultat d’exécution",
+  "maintenanceReadoutBind": "Lié",
+  "maintenanceReadoutTentative": "Provisoire",
+  "maintenanceReadoutPreferred": "Préféré",
+  "maintenanceReadoutDeprecated": "Obsolète",
+  "maintenanceReadoutDormant": "Dormant",
+  "maintenanceReadoutRestartAlways": "Toujours redémarrer",
+  "maintenanceReadoutRestartNever": "Ne pas redémarrer",
+  "maintenanceReadoutRestartSuccess": "Redémarrer en cas de succès",
+  "maintenanceReadoutRestartFailure": "Redémarrer en cas d’échec",
+  "maintenanceReadoutRestartAbnormal": "Redémarrer après sortie anormale",
+  "maintenanceReadoutRestartWatchdog": "Redémarrer après expiration du watchdog",
+  "maintenanceReadoutRestartAbort": "Redémarrer après interruption",
+  "maintenanceReadoutNotifyMain": "Processus principal uniquement",
+  "maintenanceReadoutNotifyAll": "Tous les processus",
+  "maintenanceReadoutNotifyExec": "Processus exécutés",
+  "maintenanceReadoutKernelEvents": "Événements du noyau",
+  "maintenanceReadoutKernelControl": "Contrôle du noyau",
+  "maintenanceReadoutNetworkMonitoring": "Surveillance réseau",
+  "maintenanceReadoutBackgroundSockets": "Sockets inactifs en arrière-plan",
+  "maintenanceReadoutNetworkApi": "Statistiques de l’API réseau",
+  "maintenanceReadoutWakePorts": "Statistiques des ports de réveil",
+  "maintenanceReadoutDropReasons": "Motifs de rejet des paquets",
+  "maintenanceReadoutPortOffload": "Déchargement des ports locaux",
+  "maintenanceReadoutMbuf": "Statistiques des tampons de paquets",
+  "maintenanceReadoutMultiMbuf": "Tampons de paquets multiples"
 }

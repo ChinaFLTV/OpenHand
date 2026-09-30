@@ -10280,5 +10280,330 @@
   "maintenanceNetworkListenersNote": "TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。",
   "maintenanceNetworkResolverStatus": "解析器状态",
   "maintenanceNetworkBlock": "阻止",
-  "maintenanceNetworkAllow": "允许"
+  "maintenanceNetworkAllow": "允许",
+  "maintenanceNetCounterPacketsSent": "发送数据包",
+  "maintenanceNetCounterPacketsReceived": "接收数据包",
+  "maintenanceNetCounterDataPackets": "数据包（{v0} 字节）",
+  "@maintenanceNetCounterDataPackets": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmittedData": "重传数据包（{v0} 字节）",
+  "@maintenanceNetCounterRetransmittedData": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterMtuResend": "MTU 探测触发重传",
+  "maintenanceNetCounterAckOnly": "纯确认包（延迟 {v0} 个）",
+  "@maintenanceNetCounterAckOnly": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterUrgOnly": "纯紧急标志包",
+  "maintenanceNetCounterWindowProbe": "窗口探测包",
+  "maintenanceNetCounterWindowUpdate": "窗口更新包",
+  "maintenanceNetCounterControlPacket": "控制包",
+  "maintenanceNetCounterAfterFlowControl": "流控后发送的数据包",
+  "maintenanceNetCounterChallengeSyn": "异常 SYN 触发的质询确认",
+  "maintenanceNetCounterChallengeRst": "异常 RST 触发的质询确认",
+  "maintenanceNetCounterSoftwareChecksum": "软件校验和计算",
+  "maintenanceNetCounterIpv4Segments": "IPv4 报文段（{v0} 字节）",
+  "@maintenanceNetCounterIpv4Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Segments": "IPv6 报文段（{v0} 字节）",
+  "@maintenanceNetCounterIpv6Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterAcknowledgments": "确认包（{v0} 字节）",
+  "@maintenanceNetCounterAcknowledgments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicateAck": "重复确认包",
+  "maintenanceNetCounterUnsentAck": "未发送数据的确认包",
+  "maintenanceNetCounterInSequence": "按序接收的数据包（{v0} 字节）",
+  "@maintenanceNetCounterInSequence": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicatePacket": "完全重复包（{v0} 字节）",
+  "@maintenanceNetCounterDuplicatePacket": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOldDuplicate": "旧重复包",
+  "maintenanceNetCounterReceiveNoMemory": "内存不足丢弃的接收包",
+  "maintenanceNetCounterPartialDuplicate": "部分重复包（重复 {v0} 字节）",
+  "@maintenanceNetCounterPartialDuplicate": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOutOfOrder": "乱序包（{v0} 字节）",
+  "@maintenanceNetCounterOutOfOrder": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterBeyondWindow": "超出窗口的包（{v0} 字节）",
+  "@maintenanceNetCounterBeyondWindow": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRecoveredLoss": "丢失后恢复的包",
+  "maintenanceNetCounterAfterClose": "连接关闭后收到的包",
+  "maintenanceNetCounterBadReset": "无效重置",
+  "maintenanceNetCounterBadChecksumDiscard": "校验和错误丢弃包",
+  "maintenanceNetCounterBadChecksum": "校验和错误",
+  "maintenanceNetCounterBadHeaderOffset": "头部偏移错误丢弃包",
+  "maintenanceNetCounterTooShort": "长度不足丢弃包",
+  "maintenanceNetCounterConnectionRequests": "连接请求",
+  "maintenanceNetCounterConnectionAccepts": "接受连接",
+  "maintenanceNetCounterBadConnection": "连接尝试失败",
+  "maintenanceNetCounterListenOverflow": "监听队列溢出",
+  "maintenanceNetCounterEstablished": "已建立连接（含接受连接）",
+  "maintenanceNetCounterClosedConnections": "已关闭连接（丢弃 {v0} 个）",
+  "@maintenanceNetCounterClosedConnections": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmitTimeout": "重传超时",
+  "maintenanceNetCounterPersistTimeout": "持续定时器超时",
+  "maintenanceNetCounterKeepaliveTimeout": "保活超时",
+  "maintenanceNetCounterKeepaliveProbe": "发送保活探测",
+  "maintenanceNetCounterIcmpError": "ICMP 错误处理调用",
+  "maintenanceNetCounterIcmpSuppressed": "原报文为 ICMP 错误而抑制响应",
+  "maintenanceNetCounterIcmpRateLimit": "速率限制抑制的错误响应",
+  "maintenanceNetCounterNoRoute": "无路由",
+  "maintenanceNetCounterAdminProhibited": "管理策略禁止",
+  "maintenanceNetCounterBeyondScope": "超出作用域",
+  "maintenanceNetCounterAddressUnreachable": "地址不可达",
+  "maintenanceNetCounterPortUnreachable": "端口不可达",
+  "maintenanceNetCounterPacketTooBig": "数据包过大",
+  "maintenanceNetCounterTransitExceeded": "传输超时",
+  "maintenanceNetCounterReassemblyExceeded": "重组超时",
+  "maintenanceNetCounterHeaderError": "头部字段错误",
+  "maintenanceNetCounterUnknownNextHeader": "无法识别下一头部",
+  "maintenanceNetCounterUnknownOption": "无法识别选项",
+  "maintenanceNetCounterRedirect": "重定向",
+  "maintenanceNetCounterUnknown": "未知",
+  "maintenanceNetCounterUnreachable": "目标不可达",
+  "maintenanceNetCounterEcho": "回显请求",
+  "maintenanceNetCounterEchoReply": "回显应答",
+  "maintenanceNetCounterRouterSolicit": "路由器请求",
+  "maintenanceNetCounterRouterAdvert": "路由器通告",
+  "maintenanceNetCounterNeighborSolicit": "邻居请求",
+  "maintenanceNetCounterNeighborAdvert": "邻居通告",
+  "maintenanceNetCounterMulticastQuery": "组播侦听查询",
+  "maintenanceNetCounterMldReport": "MLDv2 侦听报告",
+  "maintenanceNetCounterBadCode": "代码字段错误报文",
+  "maintenanceNetCounterShortMessage": "报文小于最小长度",
+  "maintenanceNetCounterBadLength": "报文长度错误",
+  "maintenanceNetCounterResponses": "已生成响应报文",
+  "maintenanceNetCounterDatagramsReceived": "接收数据报",
+  "maintenanceNetCounterDatagramsSent": "发送数据报",
+  "maintenanceNetCounterIncompleteHeader": "头部不完整",
+  "maintenanceNetCounterBadDataLength": "数据长度字段错误",
+  "maintenanceNetCounterNoChecksum": "无校验和数据包",
+  "maintenanceNetCounterNoSocket": "无匹配套接字丢弃",
+  "maintenanceNetCounterFullSocket": "套接字缓冲区满丢弃",
+  "maintenanceNetCounterDelivered": "已交付数据包",
+  "maintenanceNetCounterIpv4Datagrams": "IPv4 数据报（{v0} 字节）",
+  "@maintenanceNetCounterIpv4Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Datagrams": "IPv6 数据报（{v0} 字节）",
+  "@maintenanceNetCounterIpv6Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterTotalReceived": "接收数据包总数",
+  "maintenanceNetCounterFragmentsReceived": "接收分片",
+  "maintenanceNetCounterReassembled": "重组成功",
+  "maintenanceNetCounterForHost": "发往本机的数据包",
+  "maintenanceNetCounterFromHost": "本机发送的数据包",
+  "maintenanceNetCounterForwarded": "转发数据包",
+  "maintenanceNetCounterNotForwardable": "无法转发的数据包",
+  "maintenanceNetCounterRedirectSent": "发送重定向",
+  "maintenanceNetCounterOpenTcp": "打开的 TCP 套接字",
+  "maintenanceNetCounterOpenRaw": "打开的原始 IP 套接字",
+  "maintenanceNetCounterOpenLocal": "打开的本地套接字",
+  "maintenanceNetCounterActiveOpens": "主动建立连接",
+  "maintenanceNetCounterPassiveOpens": "被动建立连接",
+  "maintenanceNetCounterAttemptFails": "连接尝试失败",
+  "maintenanceNetCounterEstablishedResets": "已建立连接重置",
+  "maintenanceNetCounterCurrentEstablished": "当前已建立连接",
+  "maintenanceNetCounterInSegments": "接收报文段",
+  "maintenanceNetCounterOutSegments": "发送报文段",
+  "maintenanceNetCounterRetransSegments": "重传报文段",
+  "maintenanceNetCounterInputErrors": "输入错误",
+  "maintenanceNetCounterOutputResets": "发送重置",
+  "maintenanceNetCounterInputPackets": "输入数据包",
+  "maintenanceNetCounterInputDeliveries": "输入交付",
+  "maintenanceNetCounterOutputRequests": "输出请求",
+  "maintenanceNetCounterInputDiscards": "输入丢弃",
+  "maintenanceNetCounterOutputDiscards": "输出丢弃",
+  "maintenanceNetCounterUnknownProtocols": "未知输入协议",
+  "maintenanceNetCounterInputHeaderErrors": "输入头部错误",
+  "maintenanceNetCounterInputAddressErrors": "输入地址错误",
+  "maintenanceNetCounterOutputNoRoutes": "输出无路由",
+  "maintenanceNetCounterInputDatagrams": "接收数据报",
+  "maintenanceNetCounterOutputDatagrams": "发送数据报",
+  "maintenanceNetCounterNoPorts": "无监听端口的数据报",
+  "maintenanceNetCounterReceiveBufferErrors": "接收缓冲区错误",
+  "maintenanceNetCounterSendBufferErrors": "发送缓冲区错误",
+  "maintenanceNetCounterInputChecksumErrors": "输入校验和错误",
+  "maintenanceNetCounterReassemblyRequests": "重组请求",
+  "maintenanceNetCounterReassemblyOk": "重组成功",
+  "maintenanceNetCounterReassemblyFails": "重组失败",
+  "maintenanceNetCounterFragmentOk": "分片成功",
+  "maintenanceNetCounterFragmentFails": "分片失败",
+  "maintenanceNetCounterFragmentsCreated": "创建分片",
+  "maintenanceNetCounterListenDrops": "监听队列丢弃",
+  "maintenanceNetCounterListenOverflows": "监听队列溢出",
+  "maintenanceNetCounterInputMessages": "接收报文",
+  "maintenanceNetCounterOutputMessages": "发送报文",
+  "maintenanceNetCounterInUse": "使用中的套接字",
+  "maintenanceNetCounterOrphan": "孤立套接字",
+  "maintenanceNetCounterTimeWait": "等待关闭的套接字",
+  "maintenanceNetCounterAllocated": "已分配套接字",
+  "maintenanceNetCounterMemoryPages": "内存页",
+  "maintenanceReadoutUnknownMetric": "扩展指标 {index}",
+  "@maintenanceReadoutUnknownMetric": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutUnknownGroup": "扩展统计 {index}",
+  "@maintenanceReadoutUnknownGroup": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutRawMetric": "原始字段：{field}",
+  "@maintenanceReadoutRawMetric": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutInputHistogram": "接收报文类型分布",
+  "maintenanceReadoutOutputHistogram": "发送报文类型分布",
+  "maintenanceReadoutErrorHistogram": "生成错误类型分布",
+  "maintenanceReadoutProtocolStats": "{protocol} 协议统计",
+  "@maintenanceReadoutProtocolStats": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutFabricManager": "GPU 互联管理服务",
+  "maintenanceReadoutSuccess": "成功",
+  "maintenanceReadoutNotFound": "未找到",
+  "maintenanceReadoutActivating": "启动中",
+  "maintenanceReadoutDeactivating": "停止中",
+  "maintenanceReadoutReloading": "重新加载中",
+  "maintenanceReadoutNotApplicable": "不适用",
+  "maintenanceReadoutNotSupported": "不支持",
+  "maintenanceReadoutAborted": "已中止",
+  "maintenanceReadoutMetric": "指标",
+  "maintenanceReadoutTotal": "总量",
+  "maintenanceReadoutFree": "空闲",
+  "maintenanceReadoutCurrent": "当前值",
+  "maintenanceReadoutSupported": "支持状态",
+  "maintenanceReadoutPersistence": "持久化模式",
+  "maintenanceReadoutAccounting": "记账模式",
+  "maintenanceReadoutDisplayActive": "显示器激活状态",
+  "maintenanceReadoutSingleBit": "单比特错误",
+  "maintenanceReadoutDoubleBit": "双比特错误",
+  "maintenanceReadoutCorrectable": "可纠正错误",
+  "maintenanceReadoutUncorrectable": "不可纠正错误",
+  "maintenanceReadoutVolatile": "驱动加载后累计",
+  "maintenanceReadoutAggregate": "全生命周期累计",
+  "maintenanceReadoutRetiredPages": "退役内存页",
+  "maintenanceReadoutRemappedRows": "重映射内存行",
+  "maintenanceReadoutMig": "GPU 多实例模式",
+  "maintenanceReadoutClocks": "时钟频率",
+  "maintenanceReadoutMaxClocks": "最高时钟频率",
+  "maintenanceReadoutTemperatureLimit": "温度上限",
+  "maintenanceReadoutGpuIdle": "GPU 空闲",
+  "maintenanceReadoutThermalSlowdown": "温度限制降频",
+  "maintenanceReadoutPowerCap": "功率限制",
+  "maintenanceReadoutHardwareSlowdown": "硬件降频",
+  "maintenanceReadoutServiceResult": "执行结果",
+  "maintenanceReadoutBind": "已绑定",
+  "maintenanceReadoutTentative": "地址检测中",
+  "maintenanceReadoutPreferred": "首选",
+  "maintenanceReadoutDeprecated": "已弃用",
+  "maintenanceReadoutDormant": "休眠",
+  "maintenanceReadoutRestartAlways": "始终重启",
+  "maintenanceReadoutRestartNever": "不重启",
+  "maintenanceReadoutRestartSuccess": "成功后重启",
+  "maintenanceReadoutRestartFailure": "失败后重启",
+  "maintenanceReadoutRestartAbnormal": "异常退出后重启",
+  "maintenanceReadoutRestartWatchdog": "监控超时后重启",
+  "maintenanceReadoutRestartAbort": "中止后重启",
+  "maintenanceReadoutNotifyMain": "仅主进程",
+  "maintenanceReadoutNotifyAll": "所有进程",
+  "maintenanceReadoutNotifyExec": "执行的进程",
+  "maintenanceReadoutKernelEvents": "内核事件",
+  "maintenanceReadoutKernelControl": "内核控制",
+  "maintenanceReadoutNetworkMonitoring": "网络监控",
+  "maintenanceReadoutBackgroundSockets": "后台空闲套接字",
+  "maintenanceReadoutNetworkApi": "网络接口统计",
+  "maintenanceReadoutWakePorts": "唤醒端口统计",
+  "maintenanceReadoutDropReasons": "数据包丢弃原因",
+  "maintenanceReadoutPortOffload": "本地端口卸载",
+  "maintenanceReadoutMbuf": "数据包缓冲区统计",
+  "maintenanceReadoutMultiMbuf": "多个数据包缓冲区"
 }

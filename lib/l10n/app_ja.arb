@@ -9174,5 +9174,330 @@
   "maintenanceNetworkListenersNote": "TCP は待受、UDP はバインド済みポートを表示します。インターネットからの到達性は保証しません。",
   "maintenanceNetworkResolverStatus": "リゾルバーの状態",
   "maintenanceNetworkBlock": "ブロック",
-  "maintenanceNetworkAllow": "許可"
+  "maintenanceNetworkAllow": "許可",
+  "maintenanceNetCounterPacketsSent": "送信パケット",
+  "maintenanceNetCounterPacketsReceived": "受信パケット",
+  "maintenanceNetCounterDataPackets": "データパケット（{v0} バイト）",
+  "@maintenanceNetCounterDataPackets": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmittedData": "再送データパケット（{v0} バイト）",
+  "@maintenanceNetCounterRetransmittedData": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterMtuResend": "MTU 探索による再送",
+  "maintenanceNetCounterAckOnly": "ACK のみのパケット（遅延 {v0}）",
+  "@maintenanceNetCounterAckOnly": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterUrgOnly": "URG のみのパケット",
+  "maintenanceNetCounterWindowProbe": "ウィンドウプローブ",
+  "maintenanceNetCounterWindowUpdate": "ウィンドウ更新",
+  "maintenanceNetCounterControlPacket": "制御パケット",
+  "maintenanceNetCounterAfterFlowControl": "フロー制御後の送信データパケット",
+  "maintenanceNetCounterChallengeSyn": "予期しない SYN へのチャレンジ ACK",
+  "maintenanceNetCounterChallengeRst": "予期しない RST へのチャレンジ ACK",
+  "maintenanceNetCounterSoftwareChecksum": "ソフトウェアチェックサム計算",
+  "maintenanceNetCounterIpv4Segments": "IPv4 セグメント（{v0} バイト）",
+  "@maintenanceNetCounterIpv4Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Segments": "IPv6 セグメント（{v0} バイト）",
+  "@maintenanceNetCounterIpv6Segments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterAcknowledgments": "確認応答（{v0} バイト）",
+  "@maintenanceNetCounterAcknowledgments": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicateAck": "重複確認応答",
+  "maintenanceNetCounterUnsentAck": "未送信データへの確認応答",
+  "maintenanceNetCounterInSequence": "順序どおりの受信パケット（{v0} バイト）",
+  "@maintenanceNetCounterInSequence": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterDuplicatePacket": "完全重複パケット（{v0} バイト）",
+  "@maintenanceNetCounterDuplicatePacket": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOldDuplicate": "古い重複パケット",
+  "maintenanceNetCounterReceiveNoMemory": "メモリ不足で破棄した受信パケット",
+  "maintenanceNetCounterPartialDuplicate": "一部重複パケット（重複 {v0} バイト）",
+  "@maintenanceNetCounterPartialDuplicate": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterOutOfOrder": "順序外パケット（{v0} バイト）",
+  "@maintenanceNetCounterOutOfOrder": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterBeyondWindow": "ウィンドウ外のパケット（{v0} バイト）",
+  "@maintenanceNetCounterBeyondWindow": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRecoveredLoss": "損失後に回復したパケット",
+  "maintenanceNetCounterAfterClose": "接続終了後の受信パケット",
+  "maintenanceNetCounterBadReset": "無効なリセット",
+  "maintenanceNetCounterBadChecksumDiscard": "チェックサムエラーによる破棄",
+  "maintenanceNetCounterBadChecksum": "チェックサムエラー",
+  "maintenanceNetCounterBadHeaderOffset": "ヘッダーオフセットエラーによる破棄",
+  "maintenanceNetCounterTooShort": "長さ不足による破棄",
+  "maintenanceNetCounterConnectionRequests": "接続要求",
+  "maintenanceNetCounterConnectionAccepts": "受け入れ接続",
+  "maintenanceNetCounterBadConnection": "接続試行失敗",
+  "maintenanceNetCounterListenOverflow": "リッスンキューのオーバーフロー",
+  "maintenanceNetCounterEstablished": "確立した接続（受け入れを含む）",
+  "maintenanceNetCounterClosedConnections": "終了した接続（破棄 {v0}）",
+  "@maintenanceNetCounterClosedConnections": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterRetransmitTimeout": "再送タイムアウト",
+  "maintenanceNetCounterPersistTimeout": "持続タイマーのタイムアウト",
+  "maintenanceNetCounterKeepaliveTimeout": "キープアライブタイムアウト",
+  "maintenanceNetCounterKeepaliveProbe": "送信キープアライブプローブ",
+  "maintenanceNetCounterIcmpError": "ICMP エラー処理の呼び出し",
+  "maintenanceNetCounterIcmpSuppressed": "既存 ICMP エラーに対する応答抑制",
+  "maintenanceNetCounterIcmpRateLimit": "レート制限によるエラー応答抑制",
+  "maintenanceNetCounterNoRoute": "経路なし",
+  "maintenanceNetCounterAdminProhibited": "管理ポリシーによる禁止",
+  "maintenanceNetCounterBeyondScope": "スコープ外",
+  "maintenanceNetCounterAddressUnreachable": "アドレス到達不能",
+  "maintenanceNetCounterPortUnreachable": "ポート到達不能",
+  "maintenanceNetCounterPacketTooBig": "パケットサイズ超過",
+  "maintenanceNetCounterTransitExceeded": "転送時間超過",
+  "maintenanceNetCounterReassemblyExceeded": "再構築時間超過",
+  "maintenanceNetCounterHeaderError": "ヘッダーフィールドエラー",
+  "maintenanceNetCounterUnknownNextHeader": "不明な次ヘッダー",
+  "maintenanceNetCounterUnknownOption": "不明なオプション",
+  "maintenanceNetCounterRedirect": "リダイレクト",
+  "maintenanceNetCounterUnknown": "不明",
+  "maintenanceNetCounterUnreachable": "宛先到達不能",
+  "maintenanceNetCounterEcho": "エコー要求",
+  "maintenanceNetCounterEchoReply": "エコー応答",
+  "maintenanceNetCounterRouterSolicit": "ルーター要請",
+  "maintenanceNetCounterRouterAdvert": "ルーター広告",
+  "maintenanceNetCounterNeighborSolicit": "近隣要請",
+  "maintenanceNetCounterNeighborAdvert": "近隣広告",
+  "maintenanceNetCounterMulticastQuery": "マルチキャストリスナー照会",
+  "maintenanceNetCounterMldReport": "MLDv2 リスナーレポート",
+  "maintenanceNetCounterBadCode": "コードフィールドが不正なメッセージ",
+  "maintenanceNetCounterShortMessage": "最小長未満のメッセージ",
+  "maintenanceNetCounterBadLength": "長さが不正なメッセージ",
+  "maintenanceNetCounterResponses": "生成された応答メッセージ",
+  "maintenanceNetCounterDatagramsReceived": "受信データグラム",
+  "maintenanceNetCounterDatagramsSent": "送信データグラム",
+  "maintenanceNetCounterIncompleteHeader": "不完全なヘッダー",
+  "maintenanceNetCounterBadDataLength": "データ長フィールドエラー",
+  "maintenanceNetCounterNoChecksum": "チェックサムなしパケット",
+  "maintenanceNetCounterNoSocket": "対応ソケットなしによる破棄",
+  "maintenanceNetCounterFullSocket": "ソケットバッファ満杯による破棄",
+  "maintenanceNetCounterDelivered": "配送済みパケット",
+  "maintenanceNetCounterIpv4Datagrams": "IPv4 データグラム（{v0} バイト）",
+  "@maintenanceNetCounterIpv4Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterIpv6Datagrams": "IPv6 データグラム（{v0} バイト）",
+  "@maintenanceNetCounterIpv6Datagrams": {
+    "placeholders": {
+      "v0": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceNetCounterTotalReceived": "受信パケット総数",
+  "maintenanceNetCounterFragmentsReceived": "受信フラグメント",
+  "maintenanceNetCounterReassembled": "再構築成功",
+  "maintenanceNetCounterForHost": "このホスト宛てのパケット",
+  "maintenanceNetCounterFromHost": "このホストからの送信パケット",
+  "maintenanceNetCounterForwarded": "転送パケット",
+  "maintenanceNetCounterNotForwardable": "転送不能パケット",
+  "maintenanceNetCounterRedirectSent": "送信リダイレクト",
+  "maintenanceNetCounterOpenTcp": "開いている TCP ソケット",
+  "maintenanceNetCounterOpenRaw": "開いている raw IP ソケット",
+  "maintenanceNetCounterOpenLocal": "開いているローカルソケット",
+  "maintenanceNetCounterActiveOpens": "能動接続開始",
+  "maintenanceNetCounterPassiveOpens": "受動接続開始",
+  "maintenanceNetCounterAttemptFails": "接続試行失敗",
+  "maintenanceNetCounterEstablishedResets": "確立済み接続のリセット",
+  "maintenanceNetCounterCurrentEstablished": "現在の確立済み接続",
+  "maintenanceNetCounterInSegments": "受信セグメント",
+  "maintenanceNetCounterOutSegments": "送信セグメント",
+  "maintenanceNetCounterRetransSegments": "再送セグメント",
+  "maintenanceNetCounterInputErrors": "入力エラー",
+  "maintenanceNetCounterOutputResets": "送信リセット",
+  "maintenanceNetCounterInputPackets": "入力パケット",
+  "maintenanceNetCounterInputDeliveries": "入力配送",
+  "maintenanceNetCounterOutputRequests": "出力要求",
+  "maintenanceNetCounterInputDiscards": "入力破棄",
+  "maintenanceNetCounterOutputDiscards": "出力破棄",
+  "maintenanceNetCounterUnknownProtocols": "不明な入力プロトコル",
+  "maintenanceNetCounterInputHeaderErrors": "入力ヘッダーエラー",
+  "maintenanceNetCounterInputAddressErrors": "入力アドレスエラー",
+  "maintenanceNetCounterOutputNoRoutes": "経路なし出力",
+  "maintenanceNetCounterInputDatagrams": "受信データグラム",
+  "maintenanceNetCounterOutputDatagrams": "送信データグラム",
+  "maintenanceNetCounterNoPorts": "待受ポートのないデータグラム",
+  "maintenanceNetCounterReceiveBufferErrors": "受信バッファエラー",
+  "maintenanceNetCounterSendBufferErrors": "送信バッファエラー",
+  "maintenanceNetCounterInputChecksumErrors": "入力チェックサムエラー",
+  "maintenanceNetCounterReassemblyRequests": "再構築要求",
+  "maintenanceNetCounterReassemblyOk": "再構築成功",
+  "maintenanceNetCounterReassemblyFails": "再構築失敗",
+  "maintenanceNetCounterFragmentOk": "フラグメント化成功",
+  "maintenanceNetCounterFragmentFails": "フラグメント化失敗",
+  "maintenanceNetCounterFragmentsCreated": "生成フラグメント",
+  "maintenanceNetCounterListenDrops": "リッスンキュー破棄",
+  "maintenanceNetCounterListenOverflows": "リッスンキューオーバーフロー",
+  "maintenanceNetCounterInputMessages": "受信メッセージ",
+  "maintenanceNetCounterOutputMessages": "送信メッセージ",
+  "maintenanceNetCounterInUse": "使用中ソケット",
+  "maintenanceNetCounterOrphan": "孤立ソケット",
+  "maintenanceNetCounterTimeWait": "終了待ちソケット",
+  "maintenanceNetCounterAllocated": "割り当て済みソケット",
+  "maintenanceNetCounterMemoryPages": "メモリページ",
+  "maintenanceReadoutUnknownMetric": "追加指標 {index}",
+  "@maintenanceReadoutUnknownMetric": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutUnknownGroup": "追加統計 {index}",
+  "@maintenanceReadoutUnknownGroup": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutRawMetric": "元のフィールド：{field}",
+  "@maintenanceReadoutRawMetric": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutInputHistogram": "受信メッセージ種別",
+  "maintenanceReadoutOutputHistogram": "送信メッセージ種別",
+  "maintenanceReadoutErrorHistogram": "生成エラー種別",
+  "maintenanceReadoutProtocolStats": "{protocol} 統計",
+  "@maintenanceReadoutProtocolStats": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceReadoutFabricManager": "GPU 相互接続管理サービス",
+  "maintenanceReadoutSuccess": "成功",
+  "maintenanceReadoutNotFound": "見つかりません",
+  "maintenanceReadoutActivating": "起動中",
+  "maintenanceReadoutDeactivating": "停止中",
+  "maintenanceReadoutReloading": "再読み込み中",
+  "maintenanceReadoutNotApplicable": "該当なし",
+  "maintenanceReadoutNotSupported": "未対応",
+  "maintenanceReadoutAborted": "中止",
+  "maintenanceReadoutMetric": "指標",
+  "maintenanceReadoutTotal": "合計",
+  "maintenanceReadoutFree": "空き",
+  "maintenanceReadoutCurrent": "現在値",
+  "maintenanceReadoutSupported": "対応状況",
+  "maintenanceReadoutPersistence": "永続化モード",
+  "maintenanceReadoutAccounting": "アカウンティングモード",
+  "maintenanceReadoutDisplayActive": "ディスプレイ有効状態",
+  "maintenanceReadoutSingleBit": "シングルビットエラー",
+  "maintenanceReadoutDoubleBit": "ダブルビットエラー",
+  "maintenanceReadoutCorrectable": "訂正可能エラー",
+  "maintenanceReadoutUncorrectable": "訂正不能エラー",
+  "maintenanceReadoutVolatile": "ドライバー読み込み以降",
+  "maintenanceReadoutAggregate": "全期間累計",
+  "maintenanceReadoutRetiredPages": "リタイア済みページ",
+  "maintenanceReadoutRemappedRows": "再マッピング済み行",
+  "maintenanceReadoutMig": "GPU マルチインスタンスモード",
+  "maintenanceReadoutClocks": "クロック周波数",
+  "maintenanceReadoutMaxClocks": "最大クロック周波数",
+  "maintenanceReadoutTemperatureLimit": "温度上限",
+  "maintenanceReadoutGpuIdle": "GPU アイドル",
+  "maintenanceReadoutThermalSlowdown": "温度制限による抑制",
+  "maintenanceReadoutPowerCap": "電力制限",
+  "maintenanceReadoutHardwareSlowdown": "ハードウェア抑制",
+  "maintenanceReadoutServiceResult": "実行結果",
+  "maintenanceReadoutBind": "バインド済み",
+  "maintenanceReadoutTentative": "アドレス検査中",
+  "maintenanceReadoutPreferred": "優先",
+  "maintenanceReadoutDeprecated": "非推奨",
+  "maintenanceReadoutDormant": "休止中",
+  "maintenanceReadoutRestartAlways": "常に再起動",
+  "maintenanceReadoutRestartNever": "再起動しない",
+  "maintenanceReadoutRestartSuccess": "成功時に再起動",
+  "maintenanceReadoutRestartFailure": "失敗時に再起動",
+  "maintenanceReadoutRestartAbnormal": "異常終了時に再起動",
+  "maintenanceReadoutRestartWatchdog": "監視タイムアウト時に再起動",
+  "maintenanceReadoutRestartAbort": "中止時に再起動",
+  "maintenanceReadoutNotifyMain": "メインプロセスのみ",
+  "maintenanceReadoutNotifyAll": "すべてのプロセス",
+  "maintenanceReadoutNotifyExec": "実行されたプロセス",
+  "maintenanceReadoutKernelEvents": "カーネルイベント",
+  "maintenanceReadoutKernelControl": "カーネル制御",
+  "maintenanceReadoutNetworkMonitoring": "ネットワーク監視",
+  "maintenanceReadoutBackgroundSockets": "バックグラウンドアイドルソケット",
+  "maintenanceReadoutNetworkApi": "ネットワーク API 統計",
+  "maintenanceReadoutWakePorts": "ウェイクポート統計",
+  "maintenanceReadoutDropReasons": "パケット破棄理由",
+  "maintenanceReadoutPortOffload": "ローカルポートオフロード",
+  "maintenanceReadoutMbuf": "パケットバッファ統計",
+  "maintenanceReadoutMultiMbuf": "複数のパケットバッファ"
 }

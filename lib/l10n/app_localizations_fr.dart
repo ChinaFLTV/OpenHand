@@ -14571,4 +14571,681 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceNetworkAllow => 'Autoriser';
+
+  @override
+  String get maintenanceNetCounterPacketsSent => 'Paquets envoyés';
+
+  @override
+  String get maintenanceNetCounterPacketsReceived => 'Paquets reçus';
+
+  @override
+  String maintenanceNetCounterDataPackets(String v0) {
+    return 'Paquets de données ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterRetransmittedData(String v0) {
+    return 'Paquets retransmis ($v0 octets)';
+  }
+
+  @override
+  String get maintenanceNetCounterMtuResend =>
+      'Retransmissions dues à la découverte MTU';
+
+  @override
+  String maintenanceNetCounterAckOnly(String v0) {
+    return 'Paquets ACK seuls ($v0 retardés)';
+  }
+
+  @override
+  String get maintenanceNetCounterUrgOnly => 'Paquets URG seuls';
+
+  @override
+  String get maintenanceNetCounterWindowProbe => 'Sondes de fenêtre';
+
+  @override
+  String get maintenanceNetCounterWindowUpdate => 'Mises à jour de fenêtre';
+
+  @override
+  String get maintenanceNetCounterControlPacket => 'Paquets de contrôle';
+
+  @override
+  String get maintenanceNetCounterAfterFlowControl =>
+      'Paquets envoyés après contrôle de flux';
+
+  @override
+  String get maintenanceNetCounterChallengeSyn =>
+      'ACK de vérification pour SYN inattendu';
+
+  @override
+  String get maintenanceNetCounterChallengeRst =>
+      'ACK de vérification pour RST inattendu';
+
+  @override
+  String get maintenanceNetCounterSoftwareChecksum =>
+      'Sommes de contrôle logicielles';
+
+  @override
+  String maintenanceNetCounterIpv4Segments(String v0) {
+    return 'Segments IPv4 ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Segments(String v0) {
+    return 'Segments IPv6 ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterAcknowledgments(String v0) {
+    return 'Accusés de réception ($v0 octets)';
+  }
+
+  @override
+  String get maintenanceNetCounterDuplicateAck =>
+      'Accusés de réception en double';
+
+  @override
+  String get maintenanceNetCounterUnsentAck =>
+      'Accusés pour données non envoyées';
+
+  @override
+  String maintenanceNetCounterInSequence(String v0) {
+    return 'Paquets reçus dans l’ordre ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterDuplicatePacket(String v0) {
+    return 'Paquets entièrement dupliqués ($v0 octets)';
+  }
+
+  @override
+  String get maintenanceNetCounterOldDuplicate => 'Anciens paquets dupliqués';
+
+  @override
+  String get maintenanceNetCounterReceiveNoMemory =>
+      'Paquets reçus perdus faute de mémoire';
+
+  @override
+  String maintenanceNetCounterPartialDuplicate(String v0) {
+    return 'Paquets partiellement dupliqués ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterOutOfOrder(String v0) {
+    return 'Paquets hors ordre ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterBeyondWindow(String v0) {
+    return 'Paquets au-delà de la fenêtre ($v0 octets)';
+  }
+
+  @override
+  String get maintenanceNetCounterRecoveredLoss =>
+      'Paquets récupérés après perte';
+
+  @override
+  String get maintenanceNetCounterAfterClose => 'Paquets reçus après fermeture';
+
+  @override
+  String get maintenanceNetCounterBadReset => 'Réinitialisations invalides';
+
+  @override
+  String get maintenanceNetCounterBadChecksumDiscard =>
+      'Paquets rejetés pour somme de contrôle invalide';
+
+  @override
+  String get maintenanceNetCounterBadChecksum => 'Erreurs de somme de contrôle';
+
+  @override
+  String get maintenanceNetCounterBadHeaderOffset =>
+      'Paquets rejetés pour décalage d’en-tête invalide';
+
+  @override
+  String get maintenanceNetCounterTooShort => 'Paquets trop courts rejetés';
+
+  @override
+  String get maintenanceNetCounterConnectionRequests => 'Demandes de connexion';
+
+  @override
+  String get maintenanceNetCounterConnectionAccepts => 'Connexions acceptées';
+
+  @override
+  String get maintenanceNetCounterBadConnection =>
+      'Tentatives de connexion échouées';
+
+  @override
+  String get maintenanceNetCounterListenOverflow =>
+      'Débordements de file d’écoute';
+
+  @override
+  String get maintenanceNetCounterEstablished =>
+      'Connexions établies (y compris acceptées)';
+
+  @override
+  String maintenanceNetCounterClosedConnections(String v0) {
+    return 'Connexions fermées ($v0 abandonnées)';
+  }
+
+  @override
+  String get maintenanceNetCounterRetransmitTimeout =>
+      'Délais de retransmission expirés';
+
+  @override
+  String get maintenanceNetCounterPersistTimeout =>
+      'Expirations du temporisateur de persistance';
+
+  @override
+  String get maintenanceNetCounterKeepaliveTimeout =>
+      'Délais de maintien expirés';
+
+  @override
+  String get maintenanceNetCounterKeepaliveProbe =>
+      'Sondes de maintien envoyées';
+
+  @override
+  String get maintenanceNetCounterIcmpError =>
+      'Appels au gestionnaire d’erreurs ICMP';
+
+  @override
+  String get maintenanceNetCounterIcmpSuppressed =>
+      'Erreurs supprimées pour erreur ICMP existante';
+
+  @override
+  String get maintenanceNetCounterIcmpRateLimit =>
+      'Erreurs supprimées par limitation de débit';
+
+  @override
+  String get maintenanceNetCounterNoRoute => 'Aucune route';
+
+  @override
+  String get maintenanceNetCounterAdminProhibited =>
+      'Interdit administrativement';
+
+  @override
+  String get maintenanceNetCounterBeyondScope => 'Hors portée';
+
+  @override
+  String get maintenanceNetCounterAddressUnreachable => 'Adresse inaccessible';
+
+  @override
+  String get maintenanceNetCounterPortUnreachable => 'Port inaccessible';
+
+  @override
+  String get maintenanceNetCounterPacketTooBig => 'Paquet trop volumineux';
+
+  @override
+  String get maintenanceNetCounterTransitExceeded => 'Temps de transit dépassé';
+
+  @override
+  String get maintenanceNetCounterReassemblyExceeded =>
+      'Délai de réassemblage dépassé';
+
+  @override
+  String get maintenanceNetCounterHeaderError => 'Champ d’en-tête invalide';
+
+  @override
+  String get maintenanceNetCounterUnknownNextHeader =>
+      'En-tête suivant inconnu';
+
+  @override
+  String get maintenanceNetCounterUnknownOption => 'Option inconnue';
+
+  @override
+  String get maintenanceNetCounterRedirect => 'Redirections';
+
+  @override
+  String get maintenanceNetCounterUnknown => 'Inconnu';
+
+  @override
+  String get maintenanceNetCounterUnreachable => 'Destination inaccessible';
+
+  @override
+  String get maintenanceNetCounterEcho => 'Requêtes d’écho';
+
+  @override
+  String get maintenanceNetCounterEchoReply => 'Réponses d’écho';
+
+  @override
+  String get maintenanceNetCounterRouterSolicit => 'Sollicitations de routeur';
+
+  @override
+  String get maintenanceNetCounterRouterAdvert => 'Annonces de routeur';
+
+  @override
+  String get maintenanceNetCounterNeighborSolicit => 'Sollicitations de voisin';
+
+  @override
+  String get maintenanceNetCounterNeighborAdvert => 'Annonces de voisin';
+
+  @override
+  String get maintenanceNetCounterMulticastQuery =>
+      'Requêtes d’écoute multicast';
+
+  @override
+  String get maintenanceNetCounterMldReport => 'Rapports d’écoute MLDv2';
+
+  @override
+  String get maintenanceNetCounterBadCode => 'Messages avec codes invalides';
+
+  @override
+  String get maintenanceNetCounterShortMessage => 'Messages trop courts';
+
+  @override
+  String get maintenanceNetCounterBadLength => 'Messages de longueur invalide';
+
+  @override
+  String get maintenanceNetCounterResponses => 'Réponses générées';
+
+  @override
+  String get maintenanceNetCounterDatagramsReceived => 'Datagrammes reçus';
+
+  @override
+  String get maintenanceNetCounterDatagramsSent => 'Datagrammes envoyés';
+
+  @override
+  String get maintenanceNetCounterIncompleteHeader => 'En-têtes incomplets';
+
+  @override
+  String get maintenanceNetCounterBadDataLength =>
+      'Champs de longueur invalides';
+
+  @override
+  String get maintenanceNetCounterNoChecksum =>
+      'Paquets sans somme de contrôle';
+
+  @override
+  String get maintenanceNetCounterNoSocket =>
+      'Rejets sans socket correspondant';
+
+  @override
+  String get maintenanceNetCounterFullSocket =>
+      'Rejets pour tampons de socket pleins';
+
+  @override
+  String get maintenanceNetCounterDelivered => 'Paquets livrés';
+
+  @override
+  String maintenanceNetCounterIpv4Datagrams(String v0) {
+    return 'Datagrammes IPv4 ($v0 octets)';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Datagrams(String v0) {
+    return 'Datagrammes IPv6 ($v0 octets)';
+  }
+
+  @override
+  String get maintenanceNetCounterTotalReceived => 'Total des paquets reçus';
+
+  @override
+  String get maintenanceNetCounterFragmentsReceived => 'Fragments reçus';
+
+  @override
+  String get maintenanceNetCounterReassembled => 'Réassemblages réussis';
+
+  @override
+  String get maintenanceNetCounterForHost => 'Paquets destinés à cet hôte';
+
+  @override
+  String get maintenanceNetCounterFromHost => 'Paquets envoyés par cet hôte';
+
+  @override
+  String get maintenanceNetCounterForwarded => 'Paquets transférés';
+
+  @override
+  String get maintenanceNetCounterNotForwardable => 'Paquets non transférables';
+
+  @override
+  String get maintenanceNetCounterRedirectSent => 'Redirections envoyées';
+
+  @override
+  String get maintenanceNetCounterOpenTcp => 'Sockets TCP ouverts';
+
+  @override
+  String get maintenanceNetCounterOpenRaw => 'Sockets IP bruts ouverts';
+
+  @override
+  String get maintenanceNetCounterOpenLocal => 'Sockets locaux ouverts';
+
+  @override
+  String get maintenanceNetCounterActiveOpens => 'Ouvertures actives';
+
+  @override
+  String get maintenanceNetCounterPassiveOpens => 'Ouvertures passives';
+
+  @override
+  String get maintenanceNetCounterAttemptFails =>
+      'Tentatives de connexion échouées';
+
+  @override
+  String get maintenanceNetCounterEstablishedResets =>
+      'Connexions établies réinitialisées';
+
+  @override
+  String get maintenanceNetCounterCurrentEstablished =>
+      'Connexions actuellement établies';
+
+  @override
+  String get maintenanceNetCounterInSegments => 'Segments reçus';
+
+  @override
+  String get maintenanceNetCounterOutSegments => 'Segments envoyés';
+
+  @override
+  String get maintenanceNetCounterRetransSegments => 'Segments retransmis';
+
+  @override
+  String get maintenanceNetCounterInputErrors => 'Erreurs d’entrée';
+
+  @override
+  String get maintenanceNetCounterOutputResets => 'Réinitialisations envoyées';
+
+  @override
+  String get maintenanceNetCounterInputPackets => 'Paquets entrants';
+
+  @override
+  String get maintenanceNetCounterInputDeliveries => 'Livraisons entrantes';
+
+  @override
+  String get maintenanceNetCounterOutputRequests => 'Requêtes sortantes';
+
+  @override
+  String get maintenanceNetCounterInputDiscards => 'Rejets entrants';
+
+  @override
+  String get maintenanceNetCounterOutputDiscards => 'Rejets sortants';
+
+  @override
+  String get maintenanceNetCounterUnknownProtocols =>
+      'Protocoles entrants inconnus';
+
+  @override
+  String get maintenanceNetCounterInputHeaderErrors =>
+      'Erreurs d’en-tête entrant';
+
+  @override
+  String get maintenanceNetCounterInputAddressErrors =>
+      'Erreurs d’adresse entrante';
+
+  @override
+  String get maintenanceNetCounterOutputNoRoutes => 'Sorties sans route';
+
+  @override
+  String get maintenanceNetCounterInputDatagrams => 'Datagrammes reçus';
+
+  @override
+  String get maintenanceNetCounterOutputDatagrams => 'Datagrammes envoyés';
+
+  @override
+  String get maintenanceNetCounterNoPorts => 'Datagrammes sans port d’écoute';
+
+  @override
+  String get maintenanceNetCounterReceiveBufferErrors =>
+      'Erreurs de tampon de réception';
+
+  @override
+  String get maintenanceNetCounterSendBufferErrors =>
+      'Erreurs de tampon d’envoi';
+
+  @override
+  String get maintenanceNetCounterInputChecksumErrors =>
+      'Erreurs de somme de contrôle entrante';
+
+  @override
+  String get maintenanceNetCounterReassemblyRequests =>
+      'Demandes de réassemblage';
+
+  @override
+  String get maintenanceNetCounterReassemblyOk => 'Réassemblages réussis';
+
+  @override
+  String get maintenanceNetCounterReassemblyFails => 'Échecs de réassemblage';
+
+  @override
+  String get maintenanceNetCounterFragmentOk => 'Fragmentations réussies';
+
+  @override
+  String get maintenanceNetCounterFragmentFails => 'Échecs de fragmentation';
+
+  @override
+  String get maintenanceNetCounterFragmentsCreated => 'Fragments créés';
+
+  @override
+  String get maintenanceNetCounterListenDrops => 'Rejets de file d’écoute';
+
+  @override
+  String get maintenanceNetCounterListenOverflows =>
+      'Débordements de file d’écoute';
+
+  @override
+  String get maintenanceNetCounterInputMessages => 'Messages reçus';
+
+  @override
+  String get maintenanceNetCounterOutputMessages => 'Messages envoyés';
+
+  @override
+  String get maintenanceNetCounterInUse => 'Sockets utilisés';
+
+  @override
+  String get maintenanceNetCounterOrphan => 'Sockets orphelins';
+
+  @override
+  String get maintenanceNetCounterTimeWait => 'Sockets en attente de fermeture';
+
+  @override
+  String get maintenanceNetCounterAllocated => 'Sockets alloués';
+
+  @override
+  String get maintenanceNetCounterMemoryPages => 'Pages mémoire';
+
+  @override
+  String maintenanceReadoutUnknownMetric(String index) {
+    return 'Mesure supplémentaire $index';
+  }
+
+  @override
+  String maintenanceReadoutUnknownGroup(String index) {
+    return 'Statistiques supplémentaires $index';
+  }
+
+  @override
+  String maintenanceReadoutRawMetric(String field) {
+    return 'Champ d’origine : $field';
+  }
+
+  @override
+  String get maintenanceReadoutInputHistogram => 'Types de messages reçus';
+
+  @override
+  String get maintenanceReadoutOutputHistogram => 'Types de messages envoyés';
+
+  @override
+  String get maintenanceReadoutErrorHistogram => 'Types d’erreurs générées';
+
+  @override
+  String maintenanceReadoutProtocolStats(String protocol) {
+    return 'Statistiques $protocol';
+  }
+
+  @override
+  String get maintenanceReadoutFabricManager =>
+      'Service de gestion d’interconnexion GPU';
+
+  @override
+  String get maintenanceReadoutSuccess => 'Réussi';
+
+  @override
+  String get maintenanceReadoutNotFound => 'Introuvable';
+
+  @override
+  String get maintenanceReadoutActivating => 'Démarrage';
+
+  @override
+  String get maintenanceReadoutDeactivating => 'Arrêt en cours';
+
+  @override
+  String get maintenanceReadoutReloading => 'Rechargement';
+
+  @override
+  String get maintenanceReadoutNotApplicable => 'Sans objet';
+
+  @override
+  String get maintenanceReadoutNotSupported => 'Non pris en charge';
+
+  @override
+  String get maintenanceReadoutAborted => 'Interrompu';
+
+  @override
+  String get maintenanceReadoutMetric => 'Indicateur';
+
+  @override
+  String get maintenanceReadoutTotal => 'Total';
+
+  @override
+  String get maintenanceReadoutFree => 'Libre';
+
+  @override
+  String get maintenanceReadoutCurrent => 'Actuel';
+
+  @override
+  String get maintenanceReadoutSupported => 'Prise en charge';
+
+  @override
+  String get maintenanceReadoutPersistence => 'Mode persistant';
+
+  @override
+  String get maintenanceReadoutAccounting => 'Mode de comptabilisation';
+
+  @override
+  String get maintenanceReadoutDisplayActive => 'Affichage actif';
+
+  @override
+  String get maintenanceReadoutSingleBit => 'Erreurs sur un bit';
+
+  @override
+  String get maintenanceReadoutDoubleBit => 'Erreurs sur deux bits';
+
+  @override
+  String get maintenanceReadoutCorrectable => 'Erreurs corrigibles';
+
+  @override
+  String get maintenanceReadoutUncorrectable => 'Erreurs non corrigibles';
+
+  @override
+  String get maintenanceReadoutVolatile => 'Depuis le chargement du pilote';
+
+  @override
+  String get maintenanceReadoutAggregate => 'Cumul sur la durée de vie';
+
+  @override
+  String get maintenanceReadoutRetiredPages => 'Pages retirées';
+
+  @override
+  String get maintenanceReadoutRemappedRows => 'Lignes remappées';
+
+  @override
+  String get maintenanceReadoutMig => 'Mode GPU multi-instance';
+
+  @override
+  String get maintenanceReadoutClocks => 'Fréquences d’horloge';
+
+  @override
+  String get maintenanceReadoutMaxClocks => 'Fréquences maximales';
+
+  @override
+  String get maintenanceReadoutTemperatureLimit => 'Limite de température';
+
+  @override
+  String get maintenanceReadoutGpuIdle => 'GPU au repos';
+
+  @override
+  String get maintenanceReadoutThermalSlowdown => 'Limitation thermique';
+
+  @override
+  String get maintenanceReadoutPowerCap => 'Plafond de puissance';
+
+  @override
+  String get maintenanceReadoutHardwareSlowdown => 'Limitation matérielle';
+
+  @override
+  String get maintenanceReadoutServiceResult => 'Résultat d’exécution';
+
+  @override
+  String get maintenanceReadoutBind => 'Lié';
+
+  @override
+  String get maintenanceReadoutTentative => 'Provisoire';
+
+  @override
+  String get maintenanceReadoutPreferred => 'Préféré';
+
+  @override
+  String get maintenanceReadoutDeprecated => 'Obsolète';
+
+  @override
+  String get maintenanceReadoutDormant => 'Dormant';
+
+  @override
+  String get maintenanceReadoutRestartAlways => 'Toujours redémarrer';
+
+  @override
+  String get maintenanceReadoutRestartNever => 'Ne pas redémarrer';
+
+  @override
+  String get maintenanceReadoutRestartSuccess => 'Redémarrer en cas de succès';
+
+  @override
+  String get maintenanceReadoutRestartFailure => 'Redémarrer en cas d’échec';
+
+  @override
+  String get maintenanceReadoutRestartAbnormal =>
+      'Redémarrer après sortie anormale';
+
+  @override
+  String get maintenanceReadoutRestartWatchdog =>
+      'Redémarrer après expiration du watchdog';
+
+  @override
+  String get maintenanceReadoutRestartAbort => 'Redémarrer après interruption';
+
+  @override
+  String get maintenanceReadoutNotifyMain => 'Processus principal uniquement';
+
+  @override
+  String get maintenanceReadoutNotifyAll => 'Tous les processus';
+
+  @override
+  String get maintenanceReadoutNotifyExec => 'Processus exécutés';
+
+  @override
+  String get maintenanceReadoutKernelEvents => 'Événements du noyau';
+
+  @override
+  String get maintenanceReadoutKernelControl => 'Contrôle du noyau';
+
+  @override
+  String get maintenanceReadoutNetworkMonitoring => 'Surveillance réseau';
+
+  @override
+  String get maintenanceReadoutBackgroundSockets =>
+      'Sockets inactifs en arrière-plan';
+
+  @override
+  String get maintenanceReadoutNetworkApi => 'Statistiques de l’API réseau';
+
+  @override
+  String get maintenanceReadoutWakePorts => 'Statistiques des ports de réveil';
+
+  @override
+  String get maintenanceReadoutDropReasons => 'Motifs de rejet des paquets';
+
+  @override
+  String get maintenanceReadoutPortOffload => 'Déchargement des ports locaux';
+
+  @override
+  String get maintenanceReadoutMbuf => 'Statistiques des tampons de paquets';
+
+  @override
+  String get maintenanceReadoutMultiMbuf => 'Tampons de paquets multiples';
 }

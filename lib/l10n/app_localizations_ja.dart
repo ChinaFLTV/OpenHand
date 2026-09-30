@@ -14051,4 +14051,637 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceNetworkAllow => '許可';
+
+  @override
+  String get maintenanceNetCounterPacketsSent => '送信パケット';
+
+  @override
+  String get maintenanceNetCounterPacketsReceived => '受信パケット';
+
+  @override
+  String maintenanceNetCounterDataPackets(String v0) {
+    return 'データパケット（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterRetransmittedData(String v0) {
+    return '再送データパケット（$v0 バイト）';
+  }
+
+  @override
+  String get maintenanceNetCounterMtuResend => 'MTU 探索による再送';
+
+  @override
+  String maintenanceNetCounterAckOnly(String v0) {
+    return 'ACK のみのパケット（遅延 $v0）';
+  }
+
+  @override
+  String get maintenanceNetCounterUrgOnly => 'URG のみのパケット';
+
+  @override
+  String get maintenanceNetCounterWindowProbe => 'ウィンドウプローブ';
+
+  @override
+  String get maintenanceNetCounterWindowUpdate => 'ウィンドウ更新';
+
+  @override
+  String get maintenanceNetCounterControlPacket => '制御パケット';
+
+  @override
+  String get maintenanceNetCounterAfterFlowControl => 'フロー制御後の送信データパケット';
+
+  @override
+  String get maintenanceNetCounterChallengeSyn => '予期しない SYN へのチャレンジ ACK';
+
+  @override
+  String get maintenanceNetCounterChallengeRst => '予期しない RST へのチャレンジ ACK';
+
+  @override
+  String get maintenanceNetCounterSoftwareChecksum => 'ソフトウェアチェックサム計算';
+
+  @override
+  String maintenanceNetCounterIpv4Segments(String v0) {
+    return 'IPv4 セグメント（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Segments(String v0) {
+    return 'IPv6 セグメント（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterAcknowledgments(String v0) {
+    return '確認応答（$v0 バイト）';
+  }
+
+  @override
+  String get maintenanceNetCounterDuplicateAck => '重複確認応答';
+
+  @override
+  String get maintenanceNetCounterUnsentAck => '未送信データへの確認応答';
+
+  @override
+  String maintenanceNetCounterInSequence(String v0) {
+    return '順序どおりの受信パケット（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterDuplicatePacket(String v0) {
+    return '完全重複パケット（$v0 バイト）';
+  }
+
+  @override
+  String get maintenanceNetCounterOldDuplicate => '古い重複パケット';
+
+  @override
+  String get maintenanceNetCounterReceiveNoMemory => 'メモリ不足で破棄した受信パケット';
+
+  @override
+  String maintenanceNetCounterPartialDuplicate(String v0) {
+    return '一部重複パケット（重複 $v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterOutOfOrder(String v0) {
+    return '順序外パケット（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterBeyondWindow(String v0) {
+    return 'ウィンドウ外のパケット（$v0 バイト）';
+  }
+
+  @override
+  String get maintenanceNetCounterRecoveredLoss => '損失後に回復したパケット';
+
+  @override
+  String get maintenanceNetCounterAfterClose => '接続終了後の受信パケット';
+
+  @override
+  String get maintenanceNetCounterBadReset => '無効なリセット';
+
+  @override
+  String get maintenanceNetCounterBadChecksumDiscard => 'チェックサムエラーによる破棄';
+
+  @override
+  String get maintenanceNetCounterBadChecksum => 'チェックサムエラー';
+
+  @override
+  String get maintenanceNetCounterBadHeaderOffset => 'ヘッダーオフセットエラーによる破棄';
+
+  @override
+  String get maintenanceNetCounterTooShort => '長さ不足による破棄';
+
+  @override
+  String get maintenanceNetCounterConnectionRequests => '接続要求';
+
+  @override
+  String get maintenanceNetCounterConnectionAccepts => '受け入れ接続';
+
+  @override
+  String get maintenanceNetCounterBadConnection => '接続試行失敗';
+
+  @override
+  String get maintenanceNetCounterListenOverflow => 'リッスンキューのオーバーフロー';
+
+  @override
+  String get maintenanceNetCounterEstablished => '確立した接続（受け入れを含む）';
+
+  @override
+  String maintenanceNetCounterClosedConnections(String v0) {
+    return '終了した接続（破棄 $v0）';
+  }
+
+  @override
+  String get maintenanceNetCounterRetransmitTimeout => '再送タイムアウト';
+
+  @override
+  String get maintenanceNetCounterPersistTimeout => '持続タイマーのタイムアウト';
+
+  @override
+  String get maintenanceNetCounterKeepaliveTimeout => 'キープアライブタイムアウト';
+
+  @override
+  String get maintenanceNetCounterKeepaliveProbe => '送信キープアライブプローブ';
+
+  @override
+  String get maintenanceNetCounterIcmpError => 'ICMP エラー処理の呼び出し';
+
+  @override
+  String get maintenanceNetCounterIcmpSuppressed => '既存 ICMP エラーに対する応答抑制';
+
+  @override
+  String get maintenanceNetCounterIcmpRateLimit => 'レート制限によるエラー応答抑制';
+
+  @override
+  String get maintenanceNetCounterNoRoute => '経路なし';
+
+  @override
+  String get maintenanceNetCounterAdminProhibited => '管理ポリシーによる禁止';
+
+  @override
+  String get maintenanceNetCounterBeyondScope => 'スコープ外';
+
+  @override
+  String get maintenanceNetCounterAddressUnreachable => 'アドレス到達不能';
+
+  @override
+  String get maintenanceNetCounterPortUnreachable => 'ポート到達不能';
+
+  @override
+  String get maintenanceNetCounterPacketTooBig => 'パケットサイズ超過';
+
+  @override
+  String get maintenanceNetCounterTransitExceeded => '転送時間超過';
+
+  @override
+  String get maintenanceNetCounterReassemblyExceeded => '再構築時間超過';
+
+  @override
+  String get maintenanceNetCounterHeaderError => 'ヘッダーフィールドエラー';
+
+  @override
+  String get maintenanceNetCounterUnknownNextHeader => '不明な次ヘッダー';
+
+  @override
+  String get maintenanceNetCounterUnknownOption => '不明なオプション';
+
+  @override
+  String get maintenanceNetCounterRedirect => 'リダイレクト';
+
+  @override
+  String get maintenanceNetCounterUnknown => '不明';
+
+  @override
+  String get maintenanceNetCounterUnreachable => '宛先到達不能';
+
+  @override
+  String get maintenanceNetCounterEcho => 'エコー要求';
+
+  @override
+  String get maintenanceNetCounterEchoReply => 'エコー応答';
+
+  @override
+  String get maintenanceNetCounterRouterSolicit => 'ルーター要請';
+
+  @override
+  String get maintenanceNetCounterRouterAdvert => 'ルーター広告';
+
+  @override
+  String get maintenanceNetCounterNeighborSolicit => '近隣要請';
+
+  @override
+  String get maintenanceNetCounterNeighborAdvert => '近隣広告';
+
+  @override
+  String get maintenanceNetCounterMulticastQuery => 'マルチキャストリスナー照会';
+
+  @override
+  String get maintenanceNetCounterMldReport => 'MLDv2 リスナーレポート';
+
+  @override
+  String get maintenanceNetCounterBadCode => 'コードフィールドが不正なメッセージ';
+
+  @override
+  String get maintenanceNetCounterShortMessage => '最小長未満のメッセージ';
+
+  @override
+  String get maintenanceNetCounterBadLength => '長さが不正なメッセージ';
+
+  @override
+  String get maintenanceNetCounterResponses => '生成された応答メッセージ';
+
+  @override
+  String get maintenanceNetCounterDatagramsReceived => '受信データグラム';
+
+  @override
+  String get maintenanceNetCounterDatagramsSent => '送信データグラム';
+
+  @override
+  String get maintenanceNetCounterIncompleteHeader => '不完全なヘッダー';
+
+  @override
+  String get maintenanceNetCounterBadDataLength => 'データ長フィールドエラー';
+
+  @override
+  String get maintenanceNetCounterNoChecksum => 'チェックサムなしパケット';
+
+  @override
+  String get maintenanceNetCounterNoSocket => '対応ソケットなしによる破棄';
+
+  @override
+  String get maintenanceNetCounterFullSocket => 'ソケットバッファ満杯による破棄';
+
+  @override
+  String get maintenanceNetCounterDelivered => '配送済みパケット';
+
+  @override
+  String maintenanceNetCounterIpv4Datagrams(String v0) {
+    return 'IPv4 データグラム（$v0 バイト）';
+  }
+
+  @override
+  String maintenanceNetCounterIpv6Datagrams(String v0) {
+    return 'IPv6 データグラム（$v0 バイト）';
+  }
+
+  @override
+  String get maintenanceNetCounterTotalReceived => '受信パケット総数';
+
+  @override
+  String get maintenanceNetCounterFragmentsReceived => '受信フラグメント';
+
+  @override
+  String get maintenanceNetCounterReassembled => '再構築成功';
+
+  @override
+  String get maintenanceNetCounterForHost => 'このホスト宛てのパケット';
+
+  @override
+  String get maintenanceNetCounterFromHost => 'このホストからの送信パケット';
+
+  @override
+  String get maintenanceNetCounterForwarded => '転送パケット';
+
+  @override
+  String get maintenanceNetCounterNotForwardable => '転送不能パケット';
+
+  @override
+  String get maintenanceNetCounterRedirectSent => '送信リダイレクト';
+
+  @override
+  String get maintenanceNetCounterOpenTcp => '開いている TCP ソケット';
+
+  @override
+  String get maintenanceNetCounterOpenRaw => '開いている raw IP ソケット';
+
+  @override
+  String get maintenanceNetCounterOpenLocal => '開いているローカルソケット';
+
+  @override
+  String get maintenanceNetCounterActiveOpens => '能動接続開始';
+
+  @override
+  String get maintenanceNetCounterPassiveOpens => '受動接続開始';
+
+  @override
+  String get maintenanceNetCounterAttemptFails => '接続試行失敗';
+
+  @override
+  String get maintenanceNetCounterEstablishedResets => '確立済み接続のリセット';
+
+  @override
+  String get maintenanceNetCounterCurrentEstablished => '現在の確立済み接続';
+
+  @override
+  String get maintenanceNetCounterInSegments => '受信セグメント';
+
+  @override
+  String get maintenanceNetCounterOutSegments => '送信セグメント';
+
+  @override
+  String get maintenanceNetCounterRetransSegments => '再送セグメント';
+
+  @override
+  String get maintenanceNetCounterInputErrors => '入力エラー';
+
+  @override
+  String get maintenanceNetCounterOutputResets => '送信リセット';
+
+  @override
+  String get maintenanceNetCounterInputPackets => '入力パケット';
+
+  @override
+  String get maintenanceNetCounterInputDeliveries => '入力配送';
+
+  @override
+  String get maintenanceNetCounterOutputRequests => '出力要求';
+
+  @override
+  String get maintenanceNetCounterInputDiscards => '入力破棄';
+
+  @override
+  String get maintenanceNetCounterOutputDiscards => '出力破棄';
+
+  @override
+  String get maintenanceNetCounterUnknownProtocols => '不明な入力プロトコル';
+
+  @override
+  String get maintenanceNetCounterInputHeaderErrors => '入力ヘッダーエラー';
+
+  @override
+  String get maintenanceNetCounterInputAddressErrors => '入力アドレスエラー';
+
+  @override
+  String get maintenanceNetCounterOutputNoRoutes => '経路なし出力';
+
+  @override
+  String get maintenanceNetCounterInputDatagrams => '受信データグラム';
+
+  @override
+  String get maintenanceNetCounterOutputDatagrams => '送信データグラム';
+
+  @override
+  String get maintenanceNetCounterNoPorts => '待受ポートのないデータグラム';
+
+  @override
+  String get maintenanceNetCounterReceiveBufferErrors => '受信バッファエラー';
+
+  @override
+  String get maintenanceNetCounterSendBufferErrors => '送信バッファエラー';
+
+  @override
+  String get maintenanceNetCounterInputChecksumErrors => '入力チェックサムエラー';
+
+  @override
+  String get maintenanceNetCounterReassemblyRequests => '再構築要求';
+
+  @override
+  String get maintenanceNetCounterReassemblyOk => '再構築成功';
+
+  @override
+  String get maintenanceNetCounterReassemblyFails => '再構築失敗';
+
+  @override
+  String get maintenanceNetCounterFragmentOk => 'フラグメント化成功';
+
+  @override
+  String get maintenanceNetCounterFragmentFails => 'フラグメント化失敗';
+
+  @override
+  String get maintenanceNetCounterFragmentsCreated => '生成フラグメント';
+
+  @override
+  String get maintenanceNetCounterListenDrops => 'リッスンキュー破棄';
+
+  @override
+  String get maintenanceNetCounterListenOverflows => 'リッスンキューオーバーフロー';
+
+  @override
+  String get maintenanceNetCounterInputMessages => '受信メッセージ';
+
+  @override
+  String get maintenanceNetCounterOutputMessages => '送信メッセージ';
+
+  @override
+  String get maintenanceNetCounterInUse => '使用中ソケット';
+
+  @override
+  String get maintenanceNetCounterOrphan => '孤立ソケット';
+
+  @override
+  String get maintenanceNetCounterTimeWait => '終了待ちソケット';
+
+  @override
+  String get maintenanceNetCounterAllocated => '割り当て済みソケット';
+
+  @override
+  String get maintenanceNetCounterMemoryPages => 'メモリページ';
+
+  @override
+  String maintenanceReadoutUnknownMetric(String index) {
+    return '追加指標 $index';
+  }
+
+  @override
+  String maintenanceReadoutUnknownGroup(String index) {
+    return '追加統計 $index';
+  }
+
+  @override
+  String maintenanceReadoutRawMetric(String field) {
+    return '元のフィールド：$field';
+  }
+
+  @override
+  String get maintenanceReadoutInputHistogram => '受信メッセージ種別';
+
+  @override
+  String get maintenanceReadoutOutputHistogram => '送信メッセージ種別';
+
+  @override
+  String get maintenanceReadoutErrorHistogram => '生成エラー種別';
+
+  @override
+  String maintenanceReadoutProtocolStats(String protocol) {
+    return '$protocol 統計';
+  }
+
+  @override
+  String get maintenanceReadoutFabricManager => 'GPU 相互接続管理サービス';
+
+  @override
+  String get maintenanceReadoutSuccess => '成功';
+
+  @override
+  String get maintenanceReadoutNotFound => '見つかりません';
+
+  @override
+  String get maintenanceReadoutActivating => '起動中';
+
+  @override
+  String get maintenanceReadoutDeactivating => '停止中';
+
+  @override
+  String get maintenanceReadoutReloading => '再読み込み中';
+
+  @override
+  String get maintenanceReadoutNotApplicable => '該当なし';
+
+  @override
+  String get maintenanceReadoutNotSupported => '未対応';
+
+  @override
+  String get maintenanceReadoutAborted => '中止';
+
+  @override
+  String get maintenanceReadoutMetric => '指標';
+
+  @override
+  String get maintenanceReadoutTotal => '合計';
+
+  @override
+  String get maintenanceReadoutFree => '空き';
+
+  @override
+  String get maintenanceReadoutCurrent => '現在値';
+
+  @override
+  String get maintenanceReadoutSupported => '対応状況';
+
+  @override
+  String get maintenanceReadoutPersistence => '永続化モード';
+
+  @override
+  String get maintenanceReadoutAccounting => 'アカウンティングモード';
+
+  @override
+  String get maintenanceReadoutDisplayActive => 'ディスプレイ有効状態';
+
+  @override
+  String get maintenanceReadoutSingleBit => 'シングルビットエラー';
+
+  @override
+  String get maintenanceReadoutDoubleBit => 'ダブルビットエラー';
+
+  @override
+  String get maintenanceReadoutCorrectable => '訂正可能エラー';
+
+  @override
+  String get maintenanceReadoutUncorrectable => '訂正不能エラー';
+
+  @override
+  String get maintenanceReadoutVolatile => 'ドライバー読み込み以降';
+
+  @override
+  String get maintenanceReadoutAggregate => '全期間累計';
+
+  @override
+  String get maintenanceReadoutRetiredPages => 'リタイア済みページ';
+
+  @override
+  String get maintenanceReadoutRemappedRows => '再マッピング済み行';
+
+  @override
+  String get maintenanceReadoutMig => 'GPU マルチインスタンスモード';
+
+  @override
+  String get maintenanceReadoutClocks => 'クロック周波数';
+
+  @override
+  String get maintenanceReadoutMaxClocks => '最大クロック周波数';
+
+  @override
+  String get maintenanceReadoutTemperatureLimit => '温度上限';
+
+  @override
+  String get maintenanceReadoutGpuIdle => 'GPU アイドル';
+
+  @override
+  String get maintenanceReadoutThermalSlowdown => '温度制限による抑制';
+
+  @override
+  String get maintenanceReadoutPowerCap => '電力制限';
+
+  @override
+  String get maintenanceReadoutHardwareSlowdown => 'ハードウェア抑制';
+
+  @override
+  String get maintenanceReadoutServiceResult => '実行結果';
+
+  @override
+  String get maintenanceReadoutBind => 'バインド済み';
+
+  @override
+  String get maintenanceReadoutTentative => 'アドレス検査中';
+
+  @override
+  String get maintenanceReadoutPreferred => '優先';
+
+  @override
+  String get maintenanceReadoutDeprecated => '非推奨';
+
+  @override
+  String get maintenanceReadoutDormant => '休止中';
+
+  @override
+  String get maintenanceReadoutRestartAlways => '常に再起動';
+
+  @override
+  String get maintenanceReadoutRestartNever => '再起動しない';
+
+  @override
+  String get maintenanceReadoutRestartSuccess => '成功時に再起動';
+
+  @override
+  String get maintenanceReadoutRestartFailure => '失敗時に再起動';
+
+  @override
+  String get maintenanceReadoutRestartAbnormal => '異常終了時に再起動';
+
+  @override
+  String get maintenanceReadoutRestartWatchdog => '監視タイムアウト時に再起動';
+
+  @override
+  String get maintenanceReadoutRestartAbort => '中止時に再起動';
+
+  @override
+  String get maintenanceReadoutNotifyMain => 'メインプロセスのみ';
+
+  @override
+  String get maintenanceReadoutNotifyAll => 'すべてのプロセス';
+
+  @override
+  String get maintenanceReadoutNotifyExec => '実行されたプロセス';
+
+  @override
+  String get maintenanceReadoutKernelEvents => 'カーネルイベント';
+
+  @override
+  String get maintenanceReadoutKernelControl => 'カーネル制御';
+
+  @override
+  String get maintenanceReadoutNetworkMonitoring => 'ネットワーク監視';
+
+  @override
+  String get maintenanceReadoutBackgroundSockets => 'バックグラウンドアイドルソケット';
+
+  @override
+  String get maintenanceReadoutNetworkApi => 'ネットワーク API 統計';
+
+  @override
+  String get maintenanceReadoutWakePorts => 'ウェイクポート統計';
+
+  @override
+  String get maintenanceReadoutDropReasons => 'パケット破棄理由';
+
+  @override
+  String get maintenanceReadoutPortOffload => 'ローカルポートオフロード';
+
+  @override
+  String get maintenanceReadoutMbuf => 'パケットバッファ統計';
+
+  @override
+  String get maintenanceReadoutMultiMbuf => '複数のパケットバッファ';
 }
