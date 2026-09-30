@@ -44,6 +44,7 @@ String parallelMaintenanceCommand(String command, int? workers, int tab) {
     workers: workers,
     prefix: prefix,
     common: split ? functions : '',
+    progressive: true,
     suffix: "printf '\\n__OH_OPS_end__\\n'",
   );
 }
@@ -55,6 +56,7 @@ String supervisedPosixCommands(
   String prefix = '',
   String suffix = '',
   String common = '',
+  bool progressive = false,
 }) {
   if (workers < 1 || workers > machineMaintenanceMaxWorkers || jobs.isEmpty) {
     throw ArgumentError('采集任务或并发数无效。');
@@ -66,6 +68,7 @@ $prefix
 ${_coordinatorPrelude.replaceAll('__WORKERS__', '${workers.clamp(1, jobs.length)}')}
 printf %s ${posixShellQuote(common)} > "\$oh_dir/common.sh"
 ${[for (var i = 0; i < jobs.length; i++) 'printf %s ${posixShellQuote("${jobs[i]}\n:")} > "\$oh_dir/$i.sh"'].join('\n')}
+${progressive ? _progressivePosixJobs(jobs.length) : '''
 oh_next=0
 while [ "\$oh_next" -lt ${jobs.length} ]; do
   oh_batch=""
@@ -80,10 +83,42 @@ while [ "\$oh_next" -lt ${jobs.length} ]; do
   [ -d "\$oh_dir" ] && [ ! -f "\$oh_dir/expired" ] || exit 1
 done
 ${[for (var i = 0; i < jobs.length; i++) 'cat "\$oh_dir/$i.out"'].join('\n')}
+'''}
 $suffix
 ''';
   return 'sh -c ${posixShellQuote(script)}';
 }
+
+/// 单工作项直接回传；多个工作项由协调器逐个发布，避免输出交错。
+String _progressivePosixJobs(int count) => count == 1
+    ? r'''
+oh_launch sh -c 'printf "%s\n" "$$" > "$1.pid"; exec sh "$1.sh"' sh "$oh_dir/0" &
+wait "$!" || exit 1
+[ ! -f "$oh_dir/expired" ] || exit 1
+'''
+    : '''
+printf '\\n__OH_OPS_flush__\\n'
+oh_next=0; oh_active=''; oh_count=0
+while [ "\$oh_next" -lt $count ] || [ "\$oh_count" -gt 0 ]; do
+  [ -d "\$oh_dir" ] && [ ! -f "\$oh_dir/expired" ] || exit 1
+  while [ "\$oh_count" -lt "\$oh_workers" ] && [ "\$oh_next" -lt $count ]; do
+    oh_launch sh -c 'printf "%s\\n" "\$\$" > "\$1.pid"; sh "\$1.sh"; oh_status=\$?; printf "%s\\n" "\$oh_status" > "\$1.done"; exit "\$oh_status"' sh "\$oh_dir/\$oh_next" > "\$oh_dir/\$oh_next.out" 2>&1 &
+    oh_active="\$oh_active \$oh_next:\$!"; oh_next=\$((oh_next + 1)); oh_count=\$((oh_count + 1))
+  done
+  oh_waiting=''; oh_finished=0
+  for oh_entry in \$oh_active; do
+    oh_index=\${oh_entry%%:*}; oh_pid=\${oh_entry#*:}
+    if [ -f "\$oh_dir/\$oh_index.done" ]; then
+      wait "\$oh_pid" || exit 1
+      cat "\$oh_dir/\$oh_index.out"
+      printf '\\n__OH_OPS_flush__\\n'
+      oh_count=\$((oh_count - 1)); oh_finished=1
+    else oh_waiting="\$oh_waiting \$oh_entry"; fi
+  done
+  oh_active=\$oh_waiting
+  [ "\$oh_count" = 0 ] || [ "\$oh_finished" = 1 ] || sleep .03
+done
+''';
 
 const _coordinatorPrelude = r'''
 oh_workers=__WORKERS__
@@ -163,7 +198,7 @@ String parallelWindowsMaintenanceCommand(
       );
   final common =
       '$outputPrelude\n'
-      'function ohEcho(text){if(typeof ohOut!="undefined")ohOut.WriteLine(text);else WScript.Echo(text);}';
+      'function ohEcho(text){if(typeof ohFrame!="undefined")ohFrame+=text+"\\n";if(typeof ohOut!="undefined")ohOut.WriteLine(text);else WScript.Echo(text);}';
   return '''
 var ohRawOutput=$rawOutput,ohMaxOutput=$maxOutputCharacters;
 var ohPrelude=${jsonEncode(common)};
@@ -175,6 +210,8 @@ $_windowsCoordinator
 
 const _windowsWorkerPrelude = r'''
 var ohFs=new ActiveXObject("Scripting.FileSystemObject"),ohOut=ohFs.CreateTextFile(WScript.Arguments(0),true,true);
+var ohSequence=0,ohFrame;
+function ohPublishSection(){var path=WScript.Arguments(0)+"."+ohSequence++,file=ohFs.CreateTextFile(path+".tmp",true,true);file.Write(ohFrame);file.Close();ohFs.MoveFile(path+".tmp",path+".ready");ohFrame="";}
 function ohTrack(pid){var p=wmi.Get("Win32_Process.Handle='"+pid+"'");var f=ohFs.CreateTextFile(WScript.Arguments(1)+"\\"+pid+".pid",true,true);f.Write(pid+"|"+p.CreationDate);f.Close();}
 try {
 ''';
@@ -202,25 +239,51 @@ for(var i=0;i<ohAncestors.length;i++)ohAncestorText.push('['+ohAncestors[i][0]+'
 var ohGuardText='var dir='+ohQuote(ohDir)+',ancestors=['+ohAncestorText.join(',')+'];\n'+ohGuardSource;
 ohFs.CreateFolder(ohDir);
 var ohGuard=null,ohActive=[],ohNext=0,ohDone=0,ohStart=new Date().getTime();
+var ohSequences=[],ohComplete=[];
+function ohPublish(output,index){
+  var parts=output.split(/__OH_OPS_([a-z_]+)__\r?\n/);
+  for(var j=1;j+1<parts.length;j+=2){
+    var key=parts[j];if(key=="end"){ohComplete[index]=true;continue;}
+    if(/^(platform|host|boot|uptime|encoding)$/.test(key))continue;
+    if(key=="notice"){warnings.push(decodeURIComponent(parts[j+1].replace(/\s+$/, "")));continue;}
+    var block="__OH_OPS_"+key+"__\n"+parts[j+1];
+    if(emitted+block.length>ohMaxOutput){truncated=true;continue;}
+    WScript.Echo(block);WScript.Echo("__OH_OPS_flush__");emitted+=block.length;
+  }
+}
+function ohDrain(index){
+  var sequence=ohSequences[index]||0,path=ohDir+"\\"+index+".out."+sequence+".ready";
+  while(ohFs.FileExists(path)){
+    ohPublish(ohRead(path),index);ohFs.DeleteFile(path,true);
+    sequence++;path=ohDir+"\\"+index+".out."+sequence+".ready";
+  }
+  ohSequences[index]=sequence;
+}
 try {
   ohWrite(ohDir+"\\guard.js",ohGuardText);
   ohGuard=ohShell.Exec('cscript.exe //nologo //T:35 "'+ohDir+'\\guard.js"');
   while(ohDone<ohJobs.length){
     if(ohGuard.Status!=0 || new Date().getTime()-ohStart>20000 || ohFs.FileExists(ohDir+"\\expired"))throw Error("并行采集超时或父进程已退出。");
     while(ohNext<ohJobs.length && ohActive.length<ohLimit){
-      var path=ohDir+"\\"+ohNext,script=path+".js";ohWrite(script,ohWorkerSource+ohPrelude+"\n"+ohJobs[ohNext]+"\nemit(\"end\",\"\");\n}finally{ohOut.Close();}");
+      var stream=ohRawOutput?"":"ohFrame='';var ohOriginalEmit=emit;emit=function(key,value){ohOriginalEmit(key,value);ohPublishSection();};outputLimit="+ohMaxOutput+";\n";
+      var path=ohDir+"\\"+ohNext,script=path+".js";ohWrite(script,ohWorkerSource+ohPrelude+"\n"+stream+ohJobs[ohNext]+"\nemit(\"end\",\"\");\n}finally{ohOut.Close();}");
       var child=ohShell.Exec('cscript.exe //nologo //T:20 "'+script+'" "'+path+'.out" "'+ohDir+'"');
       var identity=ohIdentity(child.ProcessID);if(identity)ohWrite(ohDir+"\\"+identity[0]+".pid",identity.join("|"));
       ohActive.push({process:child,index:ohNext++});
     }
-    for(var i=ohActive.length-1;i>=0;i--){if(ohActive[i].process.Status!=0){if(ohActive[i].process.ExitCode!=0)throw Error("采集子进程失败。");ohActive.splice(i,1);ohDone++;}}
+    for(var i=ohActive.length-1;i>=0;i--){
+      var item=ohActive[i];if(!ohRawOutput)ohDrain(item.index);
+      if(item.process.Status!=0){
+        if(item.process.ExitCode!=0)throw Error("采集子进程失败。");
+        if(!ohRawOutput){ohDrain(item.index);if(!ohComplete[item.index])throw Error("采集子进程结果不完整。");}
+        ohActive.splice(i,1);ohDone++;
+      }
+    }
     if(ohDone<ohJobs.length)WScript.Sleep(30);
   }
-  for(var i=0;i<ohJobs.length;i++){
+  if(ohRawOutput)for(var i=0;i<ohJobs.length;i++){
     var output=ohRead(ohDir+"\\"+i+".out");if(output.indexOf("__OH_OPS_end__")<0)throw Error("采集子进程结果不完整。");
-    if(ohRawOutput){WScript.StdOut.Write(output.replace(/__OH_OPS_end__\r?\n\s*$/, ""));continue;}
-    var parts=output.split(/__OH_OPS_([a-z_]+)__\r?\n/);
-    for(var j=1;j+1<parts.length;j+=2){var key=parts[j];if(/^(platform|host|boot|uptime|encoding|end)$/.test(key))continue;if(key=="notice"){warnings.push(decodeURIComponent(parts[j+1].replace(/\s+$/, "")));continue;}var block="__OH_OPS_"+key+"__\n"+parts[j+1];if(emitted+block.length>ohMaxOutput){truncated=true;continue;}WScript.Echo(block);emitted+=block.length;}
+    WScript.StdOut.Write(output.replace(/__OH_OPS_end__\r?\n\s*$/, ""));
   }
   if(!ohRawOutput)emit("end","");
 } catch(e){WScript.Echo("并行采集失败："+e.message);throw e;}

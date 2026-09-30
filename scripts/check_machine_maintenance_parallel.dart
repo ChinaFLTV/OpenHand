@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
@@ -62,7 +63,53 @@ section end
       times.add(timer.elapsedMilliseconds);
     }
     check(times.last < times.first * .8, '并行采集未带来预期提速');
-    stdout.writeln('1 / 2 / 4 / 8 个采集任务耗时：${times.join(' / ')} 毫秒；并发上限、输出隔离与清理通过。');
+    stdout.writeln(
+      '1 / 2 / 4 / 8 个采集任务耗时：${times.join(' / ')} 毫秒；并发上限、输出隔离与清理通过。',
+    );
+
+    for (final workers in [1, 2]) {
+      const command = r'''
+section() { printf '\n__OH_OPS_%s__\n' "$1"; }
+section platform
+printf 'Linux\n'
+section host
+printf '测试机器\n'
+section boot
+printf '启动标识\n'
+section uptime
+printf '30\n'
+section fast
+printf '已经完成\n'
+section slow
+sleep 1
+printf '缓慢任务完成\n'
+section end
+''';
+      final process = await Process.start('sh', [
+        '-c',
+        parallelMaintenanceCommand(command, workers, 0),
+      ], environment: environment);
+      final stream = MachineMaintenanceStream();
+      final output = StringBuffer();
+      var early = false;
+      final errors = utf8.decoder.bind(process.stderr).join();
+      await for (final chunk in utf8.decoder.bind(process.stdout)) {
+        output.write(chunk);
+        final data = stream.add(output.toString());
+        if (data?.text('fast') == '已经完成' && !data!.hasSection('slow')) {
+          early = true;
+        }
+      }
+      check(await process.exitCode == 0, '增量采集失败：${await errors}');
+      check(early, '并发 $workers 没有在慢任务完成前发布快任务');
+      check(
+        MachineMaintenanceSnapshot.parse(output.toString()).text('slow') ==
+            '缓慢任务完成',
+        '增量模式遗漏最终数据',
+      );
+      check(directory.listSync().whereType<Directory>().isEmpty, '增量采集遗留目录');
+    }
+    stdout.writeln('串行、并行采集均在慢任务结束前发布完整的快任务数据段。');
 
     for (final signal in [ProcessSignal.sigterm, ProcessSignal.sigkill]) {
       final witness = File('${directory.path}/child');

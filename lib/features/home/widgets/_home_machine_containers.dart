@@ -27,6 +27,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   List<MachineContainerEntry> _entries = [];
   String _metadata = '', _metrics = '', _error = '', _contextName = '';
   String _appliedScope = '';
+  final _kubernetesMetadata = <String, Object?>{};
   Map<String, String> _collectionIssues = {};
   bool _busy = false, _overlay = false, _autoRuntime = true;
   bool _listingFailed = false;
@@ -56,6 +57,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         _entries = [];
         _client = null;
         _metadata = '';
+        _kubernetesMetadata.clear();
         _metrics = '';
         _contextName = '';
         _listingFailed = false;
@@ -79,21 +81,22 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       if (!mounted) return;
       final client = selected.client;
       final entries = selected.entries;
-      if (client.runtime == MachineContainerRuntime.cri) {
-        try {
-          entries.addAll(
-            client.parse(
-              await client.execute(['pods', '-o', 'json']),
-              pods: true,
-            ),
-          );
-        } catch (error) {
-          errors['Pod 列表'] = '$error';
-        }
-      }
-      if (!mounted) return;
+      final sameTarget =
+          _client?.runtime == client.runtime &&
+          _client?.scope == client.scope &&
+          _contextName == client.contextName &&
+          listEquals(_client?.launcher, client.launcher);
       setState(() {
-        _entries = entries;
+        if (!sameTarget) {
+          _metadata = '';
+          _kubernetesMetadata.clear();
+          _metrics = '';
+        }
+        _entries = [
+          ...entries,
+          if (sameTarget && client.runtime == MachineContainerRuntime.cri)
+            ..._entries.where((entry) => entry.isPod),
+        ];
         _client = client;
         _runtime = client.runtime;
         _appliedScope = client.scope;
@@ -101,34 +104,55 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         _contextName = client.contextName;
         _listingFailed = false;
       });
-      try {
-        _metadata = await client.execute(client.metadataArguments);
-      } catch (error) {
-        _metadata = '$error';
-      }
-      if (!mounted) return;
-      if (_runtime == MachineContainerRuntime.kubernetes) {
+      if (client.runtime == MachineContainerRuntime.cri) {
         try {
-          final nodes = await client.execute(['get', 'nodes', '-o', 'json']);
-          _metadata = jsonEncode({
-            if (_metadata.trimLeft().startsWith('{'))
-              '版本': jsonDecode(_metadata),
-            '节点': jsonDecode(nodes),
-          });
+          final pods = client.parse(
+            await client.execute(['pods', '-o', 'json']),
+            pods: true,
+          );
+          if (!mounted) return;
+          setState(() => _entries = [...entries, ...pods]);
         } catch (error) {
-          errors['节点信息'] = '$error';
+          if (!mounted) return;
+          errors['Pod 列表'] = '$error';
+          setState(() => _collectionIssues = Map.of(errors));
         }
       }
-      if (!mounted) return;
       try {
-        _metrics = await client.execute(client.metricsArguments);
+        var metadata = await client.execute(client.metadataArguments);
+        if (!mounted) return;
+        if (client.runtime == MachineContainerRuntime.kubernetes) {
+          _kubernetesMetadata['版本'] = jsonDecode(metadata);
+          metadata = jsonEncode(_kubernetesMetadata);
+        }
+        if (_metadata != metadata) setState(() => _metadata = metadata);
       } catch (error) {
-        _metrics = '$error';
+        if (!mounted) return;
+        errors['运行时元数据与状态'] = '$error';
+        setState(() => _collectionIssues = Map.of(errors));
       }
-      if (!mounted) return;
-      setState(() {
-        _collectionIssues = errors;
-      });
+      if (client.runtime == MachineContainerRuntime.kubernetes) {
+        try {
+          final nodes = await client.execute(['get', 'nodes', '-o', 'json']);
+          if (!mounted) return;
+          _kubernetesMetadata['节点'] = jsonDecode(nodes);
+          final metadata = jsonEncode(_kubernetesMetadata);
+          if (_metadata != metadata) setState(() => _metadata = metadata);
+        } catch (error) {
+          if (!mounted) return;
+          errors['节点信息'] = '$error';
+          setState(() => _collectionIssues = Map.of(errors));
+        }
+      }
+      try {
+        final metrics = await client.execute(client.metricsArguments);
+        if (!mounted) return;
+        if (_metrics != metrics) setState(() => _metrics = metrics);
+      } catch (error) {
+        if (!mounted) return;
+        errors['实时资源采样'] = '$error';
+        setState(() => _collectionIssues = Map.of(errors));
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -339,6 +363,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       final hasNamespace =
           kubernetes || _runtime == MachineContainerRuntime.cri;
       return _MaintenanceCard(
+        key: ValueKey(('container-list', pods)),
         title:
             '${maintenanceLabel(context, pods ? 'Pod' : '容器')}'
             '${_client == null ? '' : ' · ${values.length}'}',
@@ -577,10 +602,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                           const SizedBox(height: 3),
                           Tooltip(
                             message: contextLabel,
-                            child: Text(
-                              contextLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: _MaintenanceValue(
+                              value: contextLabel,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),

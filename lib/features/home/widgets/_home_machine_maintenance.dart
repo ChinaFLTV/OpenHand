@@ -168,7 +168,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   final _gpuHistory = <String, List<({double time, double value})>>{};
   final _cpuHistory = <({double time, double value})>[];
   final _search = TextEditingController();
-  Timer? _timer;
+  Timer? _timer, _progressTimer;
   MachineMaintenancePlatformAdapter? _platform;
   String? _platformName;
   ({MachineTerminalCommandShell shell, String platform})? _detectedTarget;
@@ -210,6 +210,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _progressTimer?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -242,6 +243,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     bool probe = false,
     MachineTerminalCommandShell? shell,
     bool Function()? isCancelled,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
     sessionId: widget.sessionId,
     terminalId: widget.terminalId,
@@ -251,6 +253,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     commandShell:
         shell ?? (probe ? MachineTerminalCommandShell.probe : _commandShell),
     isCancelled: () => !mounted || _closing || (isCancelled?.call() ?? false),
+    onOutput: onOutput,
+    maxOutputCharacters: onOutput == null
+        ? null
+        : machineMaintenanceOutputLimit,
   );
 
   Future<void> _refresh({
@@ -276,6 +282,114 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
     _timer?.cancel();
     final tab = _tab;
+    final baseline = _snapshots[tab];
+    final beforeBaseline = _previous[tab];
+    var committed = false;
+    final sampledAt = DateTime.now().millisecondsSinceEpoch.toDouble();
+    final savedCpu = tab == 0 ? List.of(_cpuHistory) : null;
+    final savedGpu = tab == 4
+        ? {
+            for (final entry in _gpuHistory.entries)
+              entry.key: List.of(entry.value),
+          }
+        : null;
+    final savedLogs = tab == 5
+        ? {
+            for (final entry in _logBuffers.entries)
+              entry.key: MachineLogBuffer.copy(entry.value),
+          }
+        : null;
+    String? publishedIdentity = baseline?.identity;
+    final publishedLogs = <String, String>{
+      if (tab == 5 && baseline != null)
+        for (final source in machineLogSources)
+          source: baseline.text('log_$source'),
+    };
+    void updateTelemetry(MachineMaintenanceSnapshot next) {
+      final changedTarget = publishedIdentity != next.identity;
+      publishedIdentity = next.identity;
+      if (tab == 5) {
+        if (changedTarget) {
+          _logBuffers.clear();
+          publishedLogs.clear();
+        }
+        for (final source in machineLogSources) {
+          final raw = next.text('log_$source');
+          if (!next.receivedSection('log_$source') ||
+              publishedLogs[source] == raw) {
+            continue;
+          }
+          publishedLogs[source] = raw;
+          _logBuffers
+              .putIfAbsent(source, MachineLogBuffer.new)
+              .append(
+                next.text('log_$source'),
+                eventLog: next.text('platform') == 'Windows',
+              );
+        }
+      }
+      if (tab == 0) {
+        if (changedTarget) _cpuHistory.clear();
+        if (next.receivedSection('cpu') ||
+            next.receivedSection('cpu_percent')) {
+          final cpu = next.cpuUsage(baseline);
+          if (cpu != null && cpu.isFinite) {
+            _cpuHistory.removeWhere((point) => point.time == sampledAt);
+            _cpuHistory.add((time: sampledAt, value: cpu.clamp(0, 1)));
+            if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
+          }
+        }
+      }
+      if (tab == 4) {
+        if (changedTarget) _gpuHistory.clear();
+        final devices = next.gpu.devices;
+        if (next.isComplete) {
+          final ids = devices.map((device) => device.id).toSet();
+          _gpuHistory.removeWhere((id, _) => !ids.contains(id));
+        }
+        for (final device in devices) {
+          final section = switch (device.source) {
+            'NVIDIA SMI' =>
+              next.text('gpu_nvidia').isNotEmpty ? 'gpu_nvidia' : 'gpu_details',
+            'DRM / sysfs' => 'gpu_drm',
+            _ => 'gpu_accelerators',
+          };
+          if (!next.receivedSection(section)) continue;
+          final utilization = device.metrics['util'];
+          if (utilization == null) {
+            if (next.isComplete) _gpuHistory.remove(device.id);
+            continue;
+          }
+          final history = _gpuHistory.putIfAbsent(device.id, () => []);
+          history.removeWhere((point) => point.time == sampledAt);
+          history.add((time: sampledAt, value: utilization / 100));
+          if (history.length > 60) history.removeAt(0);
+        }
+      }
+    }
+
+    MachineMaintenanceSnapshot? pending;
+    Object? streamError;
+    final stream = MachineMaintenanceStream(
+      baseline: baseline,
+      beforeBaseline: beforeBaseline,
+    );
+    void publishProgress() {
+      _progressTimer = null;
+      final next = pending;
+      pending = null;
+      if (!mounted || _closing || tab != _tab || next == null) return;
+      setState(() {
+        if (baseline != null && baseline.identity == next.identity) {
+          _previous[tab] = baseline;
+        } else {
+          _previous.remove(tab);
+        }
+        _snapshots[tab] = next;
+        updateTelemetry(next);
+      });
+    }
+
     setState(() {
       _loading = true;
       _manualRefresh = manual;
@@ -328,55 +442,36 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ? target.shell
           : _requestedShell;
       final result = MachineMaintenanceSnapshot.parse(
-        await _run(_platform!.collect(tab, workers: _workers)),
-        previous: _snapshots[tab],
+        await _run(
+          _platform!.collect(tab, workers: _workers),
+          onOutput: (output) {
+            if (!mounted || _closing || streamError != null) return;
+            try {
+              final next = stream.add(output);
+              if (next == null) return;
+              pending = next;
+              _progressTimer ??= startSafeTimer(
+                const Duration(milliseconds: 48),
+                publishProgress,
+              );
+            } catch (error) {
+              streamError = error;
+            }
+          },
+        ),
+        previous: baseline,
       );
+      if (streamError != null) throw streamError!;
+      _progressTimer?.cancel();
+      _progressTimer = null;
+      pending = null;
       if (!mounted || _closing) return;
+      committed = true;
       setState(() {
-        final old = _snapshots[tab];
+        final old = baseline;
         if (old != null) _previous[tab] = old;
         _snapshots[tab] = result;
-        if (tab == 5) {
-          if (old?.identity != result.identity) _logBuffers.clear();
-          for (final source in machineLogSources) {
-            _logBuffers
-                .putIfAbsent(source, MachineLogBuffer.new)
-                .append(
-                  result.sections['log_$source'] ?? '',
-                  eventLog: result.sections['platform']?.trim() == 'Windows',
-                );
-          }
-        }
-        if (tab == 4) {
-          if (old?.identity != result.identity) _gpuHistory.clear();
-          final devices = MachineGpuSnapshot.parse(result.sections).devices;
-          final ids = devices.map((device) => device.id).toSet();
-          _gpuHistory.removeWhere((id, _) => !ids.contains(id));
-          for (final device in devices) {
-            final utilization = device.metrics['util'];
-            if (utilization == null) {
-              _gpuHistory.remove(device.id);
-              continue;
-            }
-            final history = _gpuHistory.putIfAbsent(device.id, () => []);
-            history.add((
-              time: DateTime.now().millisecondsSinceEpoch.toDouble(),
-              value: utilization / 100,
-            ));
-            if (history.length > 60) history.removeAt(0);
-          }
-        }
-        if (tab == 0) {
-          if (old?.identity != result.identity) _cpuHistory.clear();
-          final cpu = result.cpuUsage(old);
-          if (cpu != null && cpu.isFinite) {
-            _cpuHistory.add((
-              time: DateTime.now().millisecondsSinceEpoch.toDouble(),
-              value: cpu.clamp(0, 1),
-            ));
-          }
-          if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
-        }
+        updateTelemetry(result);
       });
       if (tab == 3 && _tab == 3) {
         await _loadEgress(result.identity, force: manual);
@@ -400,8 +495,38 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         });
       }
     } finally {
+      _progressTimer?.cancel();
+      _progressTimer = null;
+      pending = null;
       if (mounted && !_closing) {
         setState(() {
+          if (!committed && _snapshots[tab]?.isComplete == false) {
+            if (savedCpu != null) {
+              _cpuHistory
+                ..clear()
+                ..addAll(savedCpu);
+            }
+            if (savedGpu != null) {
+              _gpuHistory
+                ..clear()
+                ..addAll(savedGpu);
+            }
+            if (savedLogs != null) {
+              _logBuffers
+                ..clear()
+                ..addAll(savedLogs);
+            }
+            if (baseline == null) {
+              _snapshots.remove(tab);
+            } else {
+              _snapshots[tab] = baseline;
+            }
+            if (beforeBaseline == null) {
+              _previous.remove(tab);
+            } else {
+              _previous[tab] = beforeBaseline;
+            }
+          }
           _loading = false;
           _manualRefresh = false;
         });
@@ -905,7 +1030,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       size,
       Localizations.localeOf(context),
       motion,
-      data == null ? (_loading, _error) : null,
+      (data?.isComplete == false, _tab == 2 && _loading, _error),
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
@@ -1199,10 +1324,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _MaintenanceStatus(
-              label: _error != null ? '数据可能过期' : '采集成功',
+              label: _error != null
+                  ? '数据可能过期'
+                  : data.isComplete
+                  ? '采集成功'
+                  : '采集中',
               color: _error != null
                   ? OpenHandStatusColors.error
-                  : OpenHandStatusColors.success,
+                  : data.isComplete
+                  ? OpenHandStatusColors.success
+                  : cs.primary,
             ),
             const SizedBox(height: 10),
             _MaintenanceFacts(
@@ -1413,8 +1544,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            warning,
+                          child: _MaintenanceValue(
+                            value: warning,
+                            maxLines: null,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -1563,77 +1695,80 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     Color color,
     double? progress,
   ) {
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return Container(
+    return OpenHandOperationalLiveContent(
       key: ValueKey(title),
-      padding: const EdgeInsets.all(12),
-      decoration: _maintenanceTileDecoration(cs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _MaintenanceIconBadge(
-            icon: icon,
-            color: color,
-            size: 40,
-            iconSize: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  maintenanceLabel(context, title),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                _MaintenanceNumber(
-                  raw: value,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                  ),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 5),
+      preserveState: true,
+      value: (title, value, subtitle, icon, color, progress, motion),
+      builder: () => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: _maintenanceTileDecoration(cs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MaintenanceIconBadge(
+              icon: icon,
+              color: color,
+              size: 40,
+              iconSize: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    maintenanceLabel(context, subtitle),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maintenanceLabel(context, title),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
                   ),
+                  const SizedBox(height: 5),
+                  _MaintenanceNumber(
+                    raw: value,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    _MaintenanceValue(
+                      value: maintenanceLabel(context, subtitle),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (progress != null) const SizedBox(height: 7),
+                  if (progress != null)
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        begin: progress.clamp(0, 1),
+                        end: progress.clamp(0, 1),
+                      ),
+                      duration: motion.entranceDuration,
+                      curve: motion.curve.curve,
+                      builder: (_, value, _) => LinearProgressIndicator(
+                        value: value.clamp(0, 1),
+                        color: color,
+                        backgroundColor: color.withValues(alpha: .1),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 4),
                 ],
-                if (progress != null) const SizedBox(height: 7),
-                if (progress != null)
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(
-                      begin: progress.clamp(0, 1),
-                      end: progress.clamp(0, 1),
-                    ),
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion260,
-                    ),
-                    curve: kOpenHandSwitchInCurve,
-                    builder: (_, value, _) => LinearProgressIndicator(
-                      value: value.clamp(0, 1),
-                      color: color,
-                      backgroundColor: color.withValues(alpha: .1),
-                      minHeight: 4,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  )
-                else
-                  const SizedBox(height: 4),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1712,7 +1847,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   }
 
   Widget _gpu(MachineMaintenanceSnapshot data) {
-    final gpu = MachineGpuSnapshot.parse(data.sections);
+    final gpu = data.gpu;
     final reports = MachineGpuReport.parse(data.sections);
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
@@ -2056,14 +2191,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final rows = data.processes.toList();
     final pageSize = int.tryParse(data.text('page_size'));
     final ticksPerSecond = int.tryParse(data.text('clock_ticks'));
-    final old = _previous[1];
-    final previousProcesses = {
-      for (final p in old?.processes ?? <MachineMaintenanceProcess>[]) p.pid: p,
-    };
+    final sample = data.sampledData('processes');
+    final old = data.comparisonBase('processes', _previous[1]);
+    final previousProcesses = {for (final p in old.processes) p.pid: p};
     double? cpu(MachineMaintenanceProcess p) {
       final before = previousProcesses[p.pid];
-      final elapsed = (data.uptime ?? 0) - (old?.uptime ?? 0);
-      if (old?.identity != data.identity ||
+      final elapsed = (sample.uptime ?? 0) - (old.uptime ?? 0);
+      if (old.identity != sample.identity ||
           before == null ||
           before.started != p.started ||
           before.startToken != p.startToken ||
@@ -2731,7 +2865,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _MachineScheduledTaskPanel(
           key: ValueKey('scheduled-tasks-${data.identity}'),
           platform: data.text('platform'),
-          refreshToken: data,
+          refreshToken: data.isComplete ? data : null,
+          enabled: !_loading,
           onFailure: () {
             if (mounted) setState(() => _automatic = false);
           },
@@ -3024,7 +3159,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           children: [
             _metric(
               '已解析连接',
-              '${connections.length}',
+              data.hasSection('sockets') ? '${connections.length}' : '—',
               '',
               Icons.hub_outlined,
               OpenHandStatusColors.info,
@@ -3032,7 +3167,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
             _metric(
               '监听端口',
-              listeners.issue == null ? '${listeners.rows.length}' : '—',
+              data.hasSection('listeners') && listeners.issue == null
+                  ? '${listeners.rows.length}'
+                  : '—',
               '',
               Icons.settings_input_antenna_rounded,
               OpenHandStatusColors.success,
@@ -3040,7 +3177,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
             _metric(
               '网卡',
-              adapters.issue == null ? '${adapters.groups.length}' : '—',
+              data.hasSection('addresses') && adapters.issue == null
+                  ? '${adapters.groups.length}'
+                  : '—',
               '',
               Icons.settings_ethernet_rounded,
               OpenHandStatusColors.info,
@@ -3048,7 +3187,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             ),
             _metric(
               'DNS 服务器',
-              '${dns.length}',
+              data.hasSection('dns') ? '${dns.length}' : '—',
               '',
               Icons.language_rounded,
               OpenHandStatusColors.success,
@@ -3390,8 +3529,9 @@ class _MaintenanceEgressCard extends StatelessWidget {
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      SelectableText(
-                        data.ip,
+                      _MaintenanceValue(
+                        value: data.ip,
+                        selectable: true,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -3415,8 +3555,10 @@ class _MaintenanceEgressCard extends StatelessWidget {
                         const SizedBox(width: 8),
                       ],
                       Flexible(
-                        child: Text(
-                          '${l10n.maintenanceEgressSource} · ${data.source}\n${l10n.maintenanceUpdated(MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(data.collectedAt)))}',
+                        child: _MaintenanceValue(
+                          value:
+                              '${l10n.maintenanceEgressSource} · ${data.source}\n${l10n.maintenanceUpdated(MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(data.collectedAt)))}',
+                          maxLines: null,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                             height: 1.5,
@@ -3541,8 +3683,15 @@ class _MaintenanceEgressFields extends StatelessWidget {
                     ),
                   ),
                 );
-                final value = SelectableText(
-                  maintenanceEgressValue(context, report, row[0], row[1]),
+                final value = _MaintenanceValue(
+                  value: maintenanceEgressValue(
+                    context,
+                    report,
+                    row[0],
+                    row[1],
+                  ),
+                  selectable: true,
+                  maxLines: null,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                     height: 1.5,
@@ -3797,6 +3946,11 @@ class _MaintenanceMetricTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final cs = Theme.of(context).colorScheme;
     final locale = Localizations.localeOf(context);
     final icon = _maintenanceSectionIcon(section);
@@ -3812,13 +3966,22 @@ class _MaintenanceMetricTiles extends StatelessWidget {
       maxColumns: pressure ? 3 : 4,
       children: [
         for (var i = 0; i < table.rows.length; i++)
-          Builder(
+          OpenHandOperationalLiveContent(
             key: ValueKey((
               section,
               table.rows[i].first,
               pressure ? table.rows[i][1] : null,
             )),
-            builder: (context) {
+            preserveState: true,
+            value: (
+              table.rows[i].join("\u0000"),
+              table.headers.join("\u0000"),
+              section,
+              motion,
+              pressure,
+              tones[i % tones.length],
+            ),
+            builder: () {
               final row = table.rows[i];
               final tone = tones[i % tones.length];
               return Container(
@@ -3876,11 +4039,8 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                                             100)
                                         .clamp(0, 1),
                               ),
-                              duration: openHandMotionDuration(
-                                context,
-                                kOpenHandMotion260,
-                              ),
-                              curve: kOpenHandSwitchInCurve,
+                              duration: motion.entranceDuration,
+                              curve: motion.curve.curve,
                               builder: (_, value, _) => LinearProgressIndicator(
                                 value: value.clamp(0, 1),
                                 color: _maintenanceUsageColor(cs, value),
@@ -3980,10 +4140,8 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                                       ),
                                       if (row.length > 3) ...[
                                         const SizedBox(height: 6),
-                                        Text(
-                                          row[3],
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                        _MaintenanceValue(
+                                          value: row[3],
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -4137,7 +4295,7 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                 return TweenAnimationBuilder<double>(
                   key: ValueKey(id),
                   tween: Tween(begin: 0, end: 1),
-                  duration: openHandMotionDuration(context, motion.duration),
+                  duration: motion.entranceDuration,
                   builder: (_, value, child) =>
                       Opacity(opacity: value.clamp(0, 1), child: child),
                   child: CustomPaint(
@@ -4237,15 +4395,13 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
-                                        Text(
-                                          maintenanceDetailValue(
+                                        _MaintenanceValue(
+                                          value: maintenanceDetailValue(
                                             context,
                                             row == null
                                                 ? id.substring(6)
                                                 : row.cells[widget.nameColumn],
                                           ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w700,
                                             color: row == null
@@ -4293,8 +4449,9 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                                               ),
                                                         ),
                                                       ),
-                                                      child: Text(
-                                                        '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
+                                                      child: _MaintenanceValue(
+                                                        value:
+                                                            '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
                                                         style: TextStyle(
                                                           fontSize: 11,
                                                           fontWeight:
@@ -4311,8 +4468,10 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                         !widget.groupNames &&
                                         (widget.parents[id]?.isNotEmpty ??
                                             false))
-                                      Text(
-                                        '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                      _MaintenanceValue(
+                                        value:
+                                            '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                        maxLines: null,
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: cs.onSurfaceVariant,
@@ -4339,8 +4498,8 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                   color: cs.primary.withValues(alpha: .1),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
-                                child: Text(
-                                  '${branches.length}',
+                                child: _MaintenanceValue(
+                                  value: '${branches.length}',
                                   style: TextStyle(
                                     color: cs.primary,
                                     fontSize: 12,
@@ -4577,6 +4736,7 @@ class _MaintenanceTable extends StatelessWidget {
     paginate: paginate,
     compact: true,
     animateCellChanges: true,
+    animateRows: true,
     onRowTap: onRowTap,
     rowActions: rowActions,
     maxBodyHeight: limitToViewport
@@ -4621,7 +4781,12 @@ class _MaintenanceStatus extends StatelessWidget {
     alignment: Alignment.centerLeft,
     widthFactor: 1,
     heightFactor: 1,
-    child: Container(
+    child: AnimatedContainer(
+      duration: openHandMotionSettingsOf(
+        context,
+        OpenHandMotionSettingsScope.dialog,
+      ).entranceDuration,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
@@ -4634,10 +4799,8 @@ class _MaintenanceStatus extends StatelessWidget {
           Icon(Icons.circle, size: 7, color: color),
           const SizedBox(width: 5),
           Flexible(
-            child: Text(
-              maintenanceLabel(context, label),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: _MaintenanceValue(
+              value: maintenanceLabel(context, label),
               style: TextStyle(
                 color: color,
                 fontSize: 11,
@@ -4768,40 +4931,30 @@ class _MaintenanceValue extends StatelessWidget {
     required this.value,
     this.style,
     this.maxLines = 1,
+    this.selectable = false,
     this.alignment = Alignment.centerLeft,
   });
   final String value;
   final TextStyle? style;
-  final int maxLines;
+  final int? maxLines;
+  final bool selectable;
   final Alignment alignment;
 
   @override
-  Widget build(BuildContext context) {
-    context.watch<SettingsController?>();
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
-    return AnimatedSwitcher(
-      duration: motion.entranceDuration,
-      reverseDuration: motion.exitDuration,
-      layoutBuilder: (current, previous) =>
-          Stack(alignment: alignment, children: [...previous, ?current]),
-      transitionBuilder: (child, animation) => buildAnimationStyleTransition(
-        animation: animation,
-        settings: motion,
-        profile: kOpenHandLayoutSafeTransitionProfile,
-        child: child,
-      ),
-      child: Text(
-        value,
-        key: ValueKey(value),
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        style: style,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => OpenHandOperationalLiveContent(
+    value: (value, style, maxLines, selectable),
+    alignment: alignment,
+    builder: () => selectable
+        ? SelectableText(value, maxLines: maxLines, style: style)
+        : Text(
+            value,
+            maxLines: maxLines,
+            overflow: maxLines == null
+                ? TextOverflow.clip
+                : TextOverflow.ellipsis,
+            style: style,
+          ),
+  );
 }
 
 class _MaintenanceUsage extends StatelessWidget {
@@ -4816,55 +4969,67 @@ class _MaintenanceUsage extends StatelessWidget {
   final Color color;
   final IconData icon;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      children: [
-        _MaintenanceIconBadge(icon: icon, color: color, size: 28, iconSize: 14),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 64,
-          child: Text(
-            maintenanceLabel(context, label),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+  Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          _MaintenanceIconBadge(
+            icon: icon,
+            color: color,
+            size: 28,
+            iconSize: 14,
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(
-              begin: (value ?? 0).clamp(0, 1),
-              end: (value ?? 0).clamp(0, 1),
-            ),
-            duration: openHandMotionDuration(context, kOpenHandMotion260),
-            curve: kOpenHandSwitchInCurve,
-            builder: (_, progress, _) => LinearProgressIndicator(
-              value: progress.clamp(0, 1),
-              minHeight: 6,
-              color: color,
-              backgroundColor: color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(kOpenHandRadius4),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 64,
+            child: Text(
+              maintenanceLabel(context, label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 44,
-          child: _MaintenanceValue(
-            value: value == null ? '—' : '${(value! * 100).round()}%',
-            alignment: Alignment.centerRight,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: color,
+          const SizedBox(width: 10),
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(
+                begin: (value ?? 0).clamp(0, 1),
+                end: (value ?? 0).clamp(0, 1),
+              ),
+              duration: motion.entranceDuration,
+              curve: motion.curve.curve,
+              builder: (_, progress, _) => LinearProgressIndicator(
+                value: progress.clamp(0, 1),
+                minHeight: 6,
+                color: color,
+                backgroundColor: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius4),
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 44,
+            child: _MaintenanceValue(
+              value: value == null ? '—' : '${(value! * 100).round()}%',
+              alignment: Alignment.centerRight,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 以业务身份匹配卡片；间隔并入后续卡片，避免退场后遗留空白槽。
@@ -5254,8 +5419,9 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
                     child: SingleChildScrollView(
                       controller: _scrollController,
                       padding: const EdgeInsets.only(right: 10),
-                      child: Text(
-                        widget.message,
+                      child: _MaintenanceValue(
+                        value: widget.message,
+                        maxLines: null,
                         style: Theme.of(
                           context,
                         ).textTheme.bodySmall?.copyWith(color: color),
@@ -5451,9 +5617,18 @@ class _MaintenanceFields extends StatelessWidget {
           runSpacing: _maintenanceGridGap,
           children: [
             for (var i = 0; i < rows.length; i++)
-              Builder(
+              OpenHandOperationalLiveContent(
                 key: keys[i],
-                builder: (context) {
+                preserveState: true,
+                value: (
+                  rows[i].join("\u0000"),
+                  fieldKeys?[i],
+                  width,
+                  scale,
+                  style,
+                  motion,
+                ),
+                builder: () {
                   final label = rows[i][0];
                   final raw = rows[i][1].isEmpty ? '—' : rows[i][1];
                   final field = fieldKeys?[i] ?? label;
@@ -5518,7 +5693,7 @@ class _MaintenanceFields extends StatelessWidget {
                   }
 
                   return AnimatedContainer(
-                    key: ValueKey('maintenance-field-$i'),
+                    key: ValueKey('maintenance-field-$field'),
                     duration: motion.entranceDuration,
                     curve: OpenHandBoundedCurve(motion.curve.curve),
                     width: width,
@@ -5595,16 +5770,16 @@ class _MaintenanceFields extends StatelessWidget {
                                           borderRadius: BorderRadius.circular(
                                             6,
                                           ),
-                                          child: Text(
-                                            raw,
+                                          child: _MaintenanceValue(
+                                            value: raw,
                                             maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
                                             style: style,
                                           ),
                                         ),
                                       )
-                                    : SelectableText(
-                                        raw,
+                                    : _MaintenanceValue(
+                                        value: raw,
+                                        selectable: true,
                                         maxLines: 2,
                                         style: style,
                                       ),
@@ -6186,10 +6361,8 @@ class _MaintenanceCard extends StatelessWidget {
         _MaintenanceIconBadge(icon: icon, color: tone, size: 32, iconSize: 16),
         const SizedBox(width: 10),
         Flexible(
-          child: Text(
-            maintenanceLabel(context, title),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: _MaintenanceValue(
+            value: maintenanceLabel(context, title),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w800,
               fontSize: 13,
@@ -6413,6 +6586,7 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
           children: [
             for (final segment in segments)
               Padding(
+                key: ValueKey(segment.label),
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Semantics(
                   label:
@@ -6464,8 +6638,8 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      Text(
-                                        total > 0
+                                      _MaintenanceValue(
+                                        value: total > 0
                                             ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
                                             : '—',
                                         style: TextStyle(
@@ -6644,8 +6818,8 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
         ),
       ),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return _MaintenanceAnimatedColumn(
+      spacing: 8,
       children: [
         Row(
           children: [
@@ -6672,7 +6846,6 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
         if (visible.isEmpty)
           _MaintenanceEmptyHint(
             icon: Icons.account_tree_outlined,
@@ -6680,7 +6853,8 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
           ),
         for (final entry in visible.take(_maintenanceChartLimit))
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            key: ValueKey(entry.key),
+            padding: EdgeInsets.zero,
             child: Row(
               children: [
                 node(entry.key.$1, cs.primary),
@@ -6864,6 +7038,19 @@ class _MaintenanceTrendState extends State<_MaintenanceTrend>
   void didUpdateWidget(_MaintenanceTrend oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.points, widget.points)) _update();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    context.watch<SettingsController?>();
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    _curve = settings.curve.curve;
+    _animation.duration = settings.entranceDuration;
+    if (settings.disablesAnimation) _animation.value = 1;
   }
 
   @override
@@ -7427,14 +7614,18 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       if (_follow) {
-        final duration = openHandMotionDuration(context, kOpenHandMotion260);
+        final motion = openHandMotionSettingsOf(
+          context,
+          OpenHandMotionSettingsScope.dialog,
+        );
+        final duration = motion.entranceDuration;
         if (duration == Duration.zero) {
           _scroll.jumpTo(_scroll.position.maxScrollExtent);
         } else {
           _scroll.animateTo(
             _scroll.position.maxScrollExtent,
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: OpenHandBoundedCurve(motion.curve.curve),
           );
         }
       } else {
@@ -7645,8 +7836,9 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                               color: [cs.error, cs.tertiary, cs.primary][i],
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              '${names[i]} ${entries.where((e) => e.level == i).length}',
+                            _MaintenanceValue(
+                              value:
+                                  '${names[i]} ${entries.where((e) => e.level == i).length}',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: cs.onSurface),
                             ),

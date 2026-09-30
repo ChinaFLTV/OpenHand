@@ -89,6 +89,7 @@ $button
 ${_checks.replaceAll('MaterialApp(', '_SettingsApp(')}
 $_settingsHarness
 $_scheduledChecks
+$_incrementalChecks
 ''',
   );
 }
@@ -112,8 +113,9 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   Object? failure;
   Completer<String>? pending;
   MachineTerminalUploadCancelCheck? cancelled;
+  MachineTerminalCommandOutputCallback? outputCallback;
   @override
-  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, Duration timeout = const Duration(seconds: 30), int? maxOutputCharacters, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
+  Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, Duration timeout = const Duration(seconds: 30), int? maxOutputCharacters, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled, MachineTerminalCommandOutputCallback? onOutput}) async {
     if (containerRun != null && RegExp(r"^'(docker|kubectl|podman|nerdctl|crictl|k3s)' ").hasMatch(command)) return containerRun!(command);
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
@@ -127,9 +129,10 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
       if (egressPending != null) return egressPending!.future;
       return egressFail ? '{"success":false}' : '{"ip":"8.8.8.8","country":"United States","city":"Mountain View","connection":{"isp":"Google","asn":15169}}';
     }
-    if (maxOutputCharacters == machineScheduledTaskOutputLimit) {taskCalls++; return taskPending?.future ?? '__OH_TASK__\\tmeta\\tdGVzdGVy\\tVVRD\\tMjAyNi0wOS0zMA==\\n__OH_TASK__\\tavailable\\tY3Jvbg==\\n__OH_TASK__\\tcron\\tdXNlcjp0ZXN0ZXI=\\tdGVzdGVy\\tMCAxICogKiAqIGVjaG8gYmFja3VwCg==\\tMQ==\\n__OH_TASK_END__';}
+    if (onOutput == null && maxOutputCharacters == machineScheduledTaskOutputLimit) {taskCalls++; return taskPending?.future ?? '__OH_TASK__\\tmeta\\tdGVzdGVy\\tVVRD\\tMjAyNi0wOS0zMA==\\n__OH_TASK__\\tavailable\\tY3Jvbg==\\n__OH_TASK__\\tcron\\tdXNlcjp0ZXN0ZXI=\\tdGVzdGVy\\tMCAxICogKiAqIGVjaG8gYmFja3VwCg==\\tMQ==\\n__OH_TASK_END__';}
     expectSync(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
+    outputCallback = onOutput;
     calls++;
     lastCommand = command;
     if (Platform.environment['MAINTENANCE_REAL_DATA'] != null) {
@@ -230,6 +233,7 @@ __OH_OPS_end__
 
 void main() {
   scheduledTaskChecks();
+  incrementalChecks();
   setUpAll(() async {
     for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
       if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
@@ -292,7 +296,8 @@ void main() {
     expect(state._entries.where((entry) => entry.running).length, 2);
     expect(state._contextName, '测试集群');
     expect(state._listingFailed, isFalse);
-    expect(state._metrics, contains('Metrics API not available'));
+    expect(state._metrics, isEmpty);
+    expect(state._collectionIssues['实时资源采样'], contains('Metrics API not available'));
     expect(find.text('自动识别 · Kubernetes'), findsOneWidget);
     state._scope.text = 'forbidden';
     await state.refresh(); await tester.pumpAndSettle();
@@ -2352,7 +2357,7 @@ void main() {
             builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
             home: Scaffold(body: SingleChildScrollView(child: _MaintenanceFields(rows: fields)))));
           await tester.pumpAndSettle();
-          final rects = [for (var i = 0; i < fields.length; i++) tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')))];
+          final rects = [for (var i = 0; i < fields.length; i++) tester.getRect(find.byWidgetPredicate((w) => w is AnimatedContainer && w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('maintenance-field-')).at(i))];
           for (final rect in rects) {
             expect(rect.width, closeTo(rects.first.width, .01));
             expect(rect.height, closeTo(rects.first.height, .01));
@@ -2846,7 +2851,7 @@ void main() {
         home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(
           text: 'Name: worker\\nOptions: {\\n x = 1;\\n}\\nPID: 42\\nUser: test\\nPath: /tmp\\nConfig: {\\n y = 2;\\n}\\nEnd: done', section: 'status')))));
       await tester.pumpAndSettle();
-      final fields = find.byWidgetPredicate((widget) => widget is SizedBox && widget.key is ValueKey<String> && (widget.key as ValueKey<String>).value.startsWith('maintenance-field-'));
+      final fields = find.byWidgetPredicate((widget) => widget is AnimatedContainer && widget.key is ValueKey<String> && (widget.key as ValueKey<String>).value.startsWith('maintenance-field-'));
       final rows = <double, List<Rect>>{};
       final rects = [for (final element in fields.evaluate()) tester.getRect(find.byWidget(element.widget))];
       for (final rect in rects) {
@@ -3566,7 +3571,7 @@ void main() {
     expect(find.byType(_MaintenanceFacts), findsOneWidget);
     final fieldRows = <double, List<Rect>>{};
     for (var i = 0; i < 12; i++) {
-      final rect = tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')));
+      final rect = tester.getRect(find.byWidgetPredicate((w) => w is AnimatedContainer && w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('maintenance-field-')).at(i));
       (fieldRows[rect.top] ??= []).add(rect);
     }
     expect(fieldRows.values.map((row) => row.length), [4, 4, 4]);
@@ -3621,7 +3626,7 @@ void main() {
       await tester.pumpAndSettle();
       final layoutRows = <double, List<Rect>>{};
       for (var i = 0; i < count; i++) {
-        final rect = tester.getRect(find.byKey(ValueKey('maintenance-field-\$i')));
+        final rect = tester.getRect(find.byWidgetPredicate((w) => w is AnimatedContainer && w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('maintenance-field-')).at(i));
         (layoutRows[rect.top] ??= []).add(rect);
         expect(rect.width, closeTo(layoutRows.values.first.first.width, .01));
         expect(rect.right, lessThanOrEqualTo(width + .01));
@@ -4363,6 +4368,268 @@ void scheduledTaskChecks() {
     pending.complete('__OH_TASK_END__'); await opened; await tester.pumpAndSettle();
     expect(busy,isFalse); expect(tester.takeException(),isNull);
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+}
+''';
+
+const _incrementalChecks = r'''
+String incrementalWire(Map<String, String> sections, {bool complete = false}) => '${sections.entries.map((e) => '__OH_OPS_${e.key}__\n${e.value}\n').join()}__OH_OPS_${complete ? 'end' : 'flush'}__\n';
+Widget incrementalApp(_MaintenanceFixture service) => ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+  child: const _SettingsApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))));
+void incrementalChecks() {
+
+  testWidgets('列表增删平滑退场、重排保留数值模式，操作读取最新数据', (tester) async {
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(durationMs: 600,
+      entranceStyle: DialogAnimationStyle.springScale, exitStyle: DialogAnimationStyle.fade)));
+    var revision = 1; var changed = false; int? selected; late StateSetter update;
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: StatefulBuilder(builder: (context, setter) {
+        update = setter;
+        return _MaintenanceTable(headers: const ['名称', '数值'], onRowTap: (row) => selected = row.data as int,
+          rows: [for (final name in changed ? ['丙', '甲'] : ['甲', '乙']) OpenHandOperationalRankRow(
+            rowKey: name, value: 0, data: revision, cells: [name, name == '甲' ? '1234567' : '5'],
+            cellWidgets: [null, _MaintenanceNumber(raw: name == '甲' ? '1234567' : '5')])]);
+      }))));
+    await tester.pumpAndSettle();
+    final value = find.byWidgetPredicate((w) => w is _MaintenanceNumber && w.raw == '1234567');
+    final state = tester.state<_MaintenanceNumberState>(value);
+    await tester.tap(value); await tester.pumpAndSettle(); expect(state._exact, isTrue);
+    update(() { changed = true; revision = 2; }); await tester.pump(); await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('乙'), findsOneWidget); expect(find.text('乙').hitTestable(), findsNothing);
+    await tester.pumpAndSettle(); expect(find.text('乙'), findsNothing);
+    expect(identical(tester.state(value), state), isTrue); expect(state._exact, isTrue);
+    tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu).last).onDetails!();
+    expect(selected, 2); expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('分块刷新即时更新快卡、保留慢卡和缓存，完成提交且失败恢复', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final baseline = state._snapshots[0]!;
+    final cachedProcesses = baseline.processes;
+    final next = {...baseline.sections, 'uptime': '1020', 'memory': 'MemTotal: 8388608 kB\nMemAvailable: 2097152 kB'};
+    service.pending = Completer<String>();
+    final refresh = state._refresh(); await tester.pump();
+    final prefix = incrementalWire({for (final key in ['platform','host','boot','uptime']) key: next[key]!});
+    service.outputCallback!(prefix + incrementalWire({'memory': next['memory']!}));
+    await tester.pump(const Duration(milliseconds: 50)); await tester.pump();
+    final partial = state._snapshots[0]!;
+    expect(partial.isComplete, isFalse);
+    expect(partial.memory['MemAvailable'], 2097152 * 1024);
+    expect(partial.text('network'), baseline.text('network'));
+    expect(identical(partial.processes, cachedProcesses), isTrue);
+    expect(state._loading, isTrue);
+    final body = state._body;
+    service.outputCallback!(prefix + incrementalWire({'memory': next['memory']!}));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(identical(body, state._body), isTrue, reason: '重复输出不应触发重建');
+    service.pending!.complete(incrementalWire(next, complete: true));
+    await refresh; await tester.pumpAndSettle();
+    final committed = state._snapshots[0]!;
+    expect(committed.isComplete, isTrue); expect(state._loading, isFalse);
+    final history = List.of(state._cpuHistory);
+    service.pending = Completer<String>();
+    final failed = state._refresh(); await tester.pump();
+    service.outputCallback!(prefix + incrementalWire({'memory': 'MemTotal: 8388608 kB\nMemAvailable: 1024 kB'}));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(state._snapshots[0]!.memory['MemAvailable'], 1024 * 1024);
+    service.pending!.completeError(StateError('模拟末段失败'));
+    await failed; await tester.pumpAndSettle();
+    expect(identical(state._snapshots[0], committed), isTrue);
+    expect(state._cpuHistory, history); expect(state._progressTimer, isNull);
+    expect(state._error, '模拟末段失败');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('局部数据到达期间不抢占定时任务通道，完整提交只触发一次采集', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1100));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final sections = state._snapshots[0]!.sections;
+    service.pending = Completer<String>();
+    await tester.tap(find.text('系统服务')); await tester.pump();
+    final wire = incrementalWire(sections);
+    service.outputCallback!(wire);
+    await tester.pump(const Duration(milliseconds: 50)); await tester.pumpAndSettle();
+    final taskFinder = find.byType(_MachineScheduledTaskPanel);
+    await tester.scrollUntilVisible(taskFinder, 400, scrollable: find.descendant(of: find.byType(CustomScrollView).first, matching: find.byType(Scrollable)).first);
+    await tester.pumpAndSettle();
+    expect(service.taskCalls, 0); expect(state._scheduledTasksBusy, isFalse);
+    service.outputCallback!(wire + incrementalWire({'manager': sections['manager']!}));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(service.taskCalls, 0);
+    service.pending!.complete(incrementalWire(sections, complete: true)); service.pending = null;
+    await tester.pumpAndSettle();
+    expect(service.taskCalls, 1); expect(state._scheduledTasksBusy, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('分块更新切换和关闭后不发布迟到内容，回滚未完成日志', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    await tester.tap(find.text('日志管理')); await tester.pumpAndSettle();
+    final baseline = state._snapshots[5]!;
+    final count = state._logBuffers['system']?.entries.length ?? 0;
+    service.pending = Completer<String>();
+    final refreshing = state._refresh(); await tester.pump();
+    final wire = incrementalWire({for (final key in ['platform','host','boot','uptime']) key: baseline.text(key), 'log_system': '新增日志样本'});
+    service.outputCallback!(wire); await tester.pump(const Duration(milliseconds: 50));
+    expect(state._logBuffers['system']!.entries.length, greaterThan(count));
+    await tester.tap(find.text('运行总览')); await tester.pump();
+    service.outputCallback!(wire + incrementalWire({'log_kernel': '迟到内核日志'}));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(state._logBuffers['kernel']?.entries.any((e) => e.message.contains('迟到内核日志')) ?? false, isFalse);
+    service.pending!.completeError(StateError('模拟切换后失败')); service.pending = null;
+    await refreshing; await tester.pumpAndSettle();
+    expect(state._logBuffers['system']?.entries.length ?? 0, count);
+    expect(identical(state._snapshots[5], baseline), isTrue);
+    service.pending = Completer<String>(); final closing = state._refresh(); await tester.pump();
+    final callback = service.outputCallback!;
+    await tester.pumpWidget(const SizedBox());
+    callback(wire); service.pending!.complete(incrementalWire(baseline.sections, complete: true));
+    await closing; await tester.pump(const Duration(seconds: 1));
+    expect(state._progressTimer?.isActive ?? false, isFalse);
+    expect(tester.takeException(), isNull); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('数据过渡只重建变化值，快速往返限制退场层并遵循全局动画', (tester) async {
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(durationMs: 600,
+      entranceStyle: DialogAnimationStyle.fade, exitStyle: DialogAnimationStyle.fade)));
+    var value = '甲'; var builds = 0; var reduced = false; late StateSetter update;
+    await tester.pumpWidget(_SettingsApp(home: Scaffold(body: StatefulBuilder(builder: (context, setter) {
+      update = setter;
+      final current = value;
+      return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reduced), child: OpenHandOperationalLiveContent(
+        value: current, builder: () => Builder(builder: (_) { builds++; return Text(current); })));
+    }))));
+    await tester.pumpAndSettle(); final first = builds;
+    update(() {}); await tester.pumpAndSettle(); expect(builds, first);
+    update(() => value = '乙'); await tester.pump(); await tester.pump(const Duration(milliseconds: 80));
+    expect(builds, first + 1); expect(find.text('甲'), findsOneWidget); expect(find.text('乙'), findsOneWidget);
+    update(() => value = '甲'); await tester.pump();
+    update(() => value = '丙'); await tester.pump();
+    expect(find.byType(Text), findsNWidgets(2)); expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle(); expect(find.text('丙'), findsOneWidget);
+    update(() { reduced = true; value = '丁'; }); await tester.pump(); await tester.pump();
+    expect(find.text('丙'), findsNothing); expect(find.text('丁'), findsOneWidget);
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(entranceStyle: DialogAnimationStyle.none, exitStyle: DialogAnimationStyle.none)));
+    update(() { reduced = false; value = '戊'; }); await tester.pump(); await tester.pump();
+    expect(find.text('丁'), findsNothing); expect(find.text('戊'), findsOneWidget);
+    expect(tester.takeException(), isNull); await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('集群版本和节点独立更新，失败保留旧字段且不递归嵌套', (tester) async {
+    Completer<String>? version, nodes;
+    var invalidVersion = false;
+    Future<String> run(String command) async {
+      if (!command.startsWith("'kubectl'")) throw StateError('模拟运行时不可用');
+      if (command.contains("'current-context'")) return '测试集群';
+      if (command.contains("'get' 'pods'")) return '{"items":[]}';
+      if (command.contains("'version'")) return invalidVersion ? '{' : version?.future ?? '{"serverVersion":{"gitVersion":"v1"}}';
+      if (command.contains("'get' 'nodes'")) return nodes?.future ?? '{"items":[{"metadata":{"name":"节点一"}}]}';
+      return '';
+    }
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+        sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final original = jsonDecode(state._metadata) as Map;
+    version = Completer<String>(); nodes = Completer<String>();
+    final refresh = state.refresh(); await tester.pump();
+    expect(jsonDecode(state._metadata), original);
+    version.complete('{"serverVersion":{"gitVersion":"v2"}}'); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    final partial = jsonDecode(state._metadata) as Map;
+    expect(partial['版本'], {'serverVersion': {'gitVersion':'v2'}});
+    expect(partial['节点'], original['节点']); expect(state._busy, isTrue);
+    nodes.complete('{"items":[{"metadata":{"name":"节点二"}}]}');
+    await refresh; await tester.pumpAndSettle();
+    invalidVersion = true; nodes = null;
+    await state.refresh(); await tester.pumpAndSettle();
+    final recovered = jsonDecode(state._metadata) as Map;
+    expect(recovered['版本'], partial['版本']); expect(recovered['节点'], original['节点']);
+    expect(state._collectionIssues, contains('运行时元数据与状态'));
+    expect((recovered['版本'] as Map).containsKey('节点'), isFalse);
+    invalidVersion = false; version = Completer<String>(); nodes = Completer<String>();
+    state._scope.text = '新范围'; final changed = state.refresh(applyScope:true); await tester.pump();
+    expect(state._metadata, isEmpty); expect(state._kubernetesMetadata, isEmpty);
+    version.complete('{"serverVersion":{"gitVersion":"v3"}}'); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    expect((jsonDecode(state._metadata) as Map).containsKey('节点'), isFalse);
+    nodes.complete('{"items":[]}'); await changed; await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('CRI 刷新保留待更新 Pod，失败保留旧列表且切换范围清空旧记录', (tester) async {
+    Completer<String>? pods;
+    var revision = 1, fail = false;
+    Future<String> run(String command) async {
+      if (!command.startsWith("'crictl'")) throw StateError('模拟运行时不可用');
+      if (command.contains("'ps'")) return '{"containers":[{"id":"c$revision","metadata":{"name":"容器$revision"},"state":"CONTAINER_RUNNING"}]}';
+      if (command.contains("'pods'")) {
+        if (fail) throw StateError('模拟 Pod 采集失败');
+        return pods?.future ?? '{"items":[{"id":"p1","metadata":{"name":"Pod 一"},"state":"SANDBOX_READY"}]}';
+      }
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+        sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final previous = state._entries.singleWhere((entry) => entry.isPod);
+    revision = 2; pods = Completer<String>(); final refresh = state.refresh(); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    expect(state._entries.singleWhere((entry) => !entry.isPod).id, 'c2');
+    expect(state._entries.singleWhere((entry) => entry.isPod), same(previous)); expect(state._busy, isTrue);
+    pods.complete('{"items":[{"id":"p2","metadata":{"name":"Pod 二"},"state":"SANDBOX_READY"}]}');
+    await refresh; await tester.pumpAndSettle();
+    fail = true; revision = 3; await state.refresh(); await tester.pumpAndSettle();
+    expect(state._entries.map((entry) => entry.id), ['c3','p2']);
+    expect(state._collectionIssues['Pod 列表'], contains('模拟 Pod 采集失败'));
+    fail = false; pods = Completer<String>(); state._scope.text = 'unix:///测试.sock';
+    final changed = state.refresh(applyScope:true); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    expect(state._entries.where((entry) => entry.isPod), isEmpty);
+    pods.complete('{"items":[]}'); await changed; await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器元数据在指标完成前可见，指标失败保留上次有效值', (tester) async {
+    final metadata = Completer<String>(), metrics = Completer<String>();
+    var delay = true, fail = false;
+    Future<String> run(String command) async {
+      if (command.contains("'context' 'show'")) return 'default';
+      if (command.contains("'ps'")) return '{"ID":"abc","Names":"服务","State":"running"}';
+      if (command.contains("'info'")) return delay ? metadata.future : '{"ServerVersion":"28.0"}';
+      if (command.contains("'stats'")) { if (fail) throw StateError('模拟指标不可用'); return delay ? metrics.future : '{}'; }
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+        sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await tester.pump(); await tester.pump(const Duration(milliseconds: 700)); final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    expect(state._entries.single.name, '服务'); expect(state._busy, isTrue);
+    metadata.complete('{"ServerVersion":"27.0"}'); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    expect(state._metadata, contains('27.0')); expect(state._busy, isTrue);
+    metrics.complete('{"Name":"服务","CPUPerc":"4%"}'); await tester.pumpAndSettle();
+    expect(state._busy, isFalse); final previous = state._metrics;
+    delay = false; fail = true; await state.refresh(); await tester.pumpAndSettle();
+    expect(state._metadata, contains('28.0')); expect(state._metrics, previous);
+    expect(state._collectionIssues['实时资源采样'], contains('模拟指标不可用'));
+    expect(tester.takeException(), isNull); await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 }
 ''';

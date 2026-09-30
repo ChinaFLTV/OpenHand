@@ -123,6 +123,24 @@ docker() {
       await ready.future.timeout(const Duration(seconds: 5));
       await service.writeInput(sessionId: 'check', terminalId: terminal.id, data: '容器交互检查\n');
       expect((await interactive).output, contains('收到:容器交互检查'));
+
+      final incremental = Completer<MachineMaintenanceSnapshot>();
+      final stream = MachineMaintenanceStream();
+      var completed = false;
+      final collecting = files.runMaintenanceCommand(
+        sessionId: 'check', terminalId: terminal.id,
+        command: "printf '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n测试终端\\n__OH_OPS_boot__\\n测试启动\\n__OH_OPS_uptime__\\n10\\n__OH_OPS_memory__\\nMemTotal: 1024 kB\\n__OH_OPS_flush__\\n'; sleep 1; printf '__OH_OPS_cpu__\\ncpu 1 0 0 99 0 0 0 0\\n__OH_OPS_end__\\n'",
+        maxOutputCharacters: machineMaintenanceOutputLimit,
+        onOutput: (output) {
+          final value = stream.add(output);
+          if (value?.receivedSection('memory') == true && !incremental.isCompleted) incremental.complete(value);
+        },
+      ).whenComplete(() => completed = true);
+      final partial = await incremental.future.timeout(const Duration(seconds: 5));
+      expect(completed, isFalse, reason: '必须在命令完成前收到完整内存数据段');
+      expect(partial.memory['MemTotal'], 1024 * 1024);
+      expect(partial.hasSection('cpu'), isFalse);
+      expect(MachineMaintenanceSnapshot.parse(await collecting).hasSection('cpu'), isTrue);
       final large = await files.runMaintenanceCommand(sessionId: 'check', terminalId: terminal.id,
         command: "awk 'BEGIN { for(i=0;i<180000;i++) printf \"x\" }'",
         maxOutputCharacters: 200000);

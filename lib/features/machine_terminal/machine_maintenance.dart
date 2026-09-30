@@ -10,11 +10,20 @@ export 'machine_maintenance_logs.dart';
 
 const machineMaintenanceProcessLimit = 512;
 const machineMaintenanceInterval = Duration(seconds: 10);
+const machineMaintenanceOutputLimit = 4 * 1024 * 1024;
 const _sectionPrefix = '__OH_OPS_';
+final _maintenanceSectionMarker = RegExp(r'^__OH_OPS_([a-z_]+)__$');
 
-/// 协议只接受完整采样，避免把超时、终端回显或截断数据当成有效指标。
+/// 完整采样必须包含结束标记；增量采样仅用于展示已经闭合的数据段。
 class MachineMaintenanceSnapshot {
   MachineMaintenanceSnapshot(this.sections);
+
+  MachineMaintenanceSnapshot._progressive(
+    this.sections,
+    this._received,
+    this._baseline,
+    this._beforeBaseline,
+  );
 
   factory MachineMaintenanceSnapshot.parse(
     String output, {
@@ -25,8 +34,10 @@ class MachineMaintenanceSnapshot {
     final buffer = StringBuffer();
     var complete = false;
     for (final line in output.replaceAll('\r', '').split('\n')) {
-      if (RegExp(r'^__OH_OPS_[a-z_]+__$').hasMatch(line)) {
-        if (section != null) sections[section] = buffer.toString().trim();
+      if (_maintenanceSectionMarker.hasMatch(line)) {
+        if (section != null && section != 'flush' && section != 'end') {
+          sections[section] = buffer.toString().trim();
+        }
         buffer.clear();
         section = line.substring(_sectionPrefix.length, line.length - 2);
         if (section == 'end') complete = true;
@@ -46,23 +57,42 @@ class MachineMaintenanceSnapshot {
       throw UnsupportedError('目标系统不支持当前运维协议。');
     }
     final result = MachineMaintenanceSnapshot(Map.unmodifiable(sections));
-    if (previous != null && previous.identity == result.identity) {
-      for (final entry in previous._counterCache.entries) {
-        if (previous.text(entry.key) == result.text(entry.key)) {
-          result._counterCache[entry.key] = entry.value;
-        }
-      }
-      if (previous.text('memory') == result.text('memory')) {
-        result._memory = previous._memory;
-      }
-      if (previous.text('processes') == result.text('processes')) {
-        result._processes = previous._processes;
-      }
-    }
+    result._inherit(previous);
     return result;
   }
 
+  void _inherit(MachineMaintenanceSnapshot? previous) {
+    if (previous != null && previous.identity == identity) {
+      for (final entry in previous._counterCache.entries) {
+        if (previous.text(entry.key) == text(entry.key)) {
+          _counterCache[entry.key] = entry.value;
+        }
+      }
+      if (previous.text('memory') == text('memory')) {
+        _memory = previous._memory;
+      }
+      if (previous.text('processes') == text('processes')) {
+        _processes = previous._processes;
+      }
+      if (previous._gpu != null &&
+          previous.sections.entries
+              .where((entry) => entry.key.startsWith('gpu_'))
+              .every((entry) => sections[entry.key] == entry.value) &&
+          sections.keys
+              .where((key) => key.startsWith('gpu_'))
+              .every(previous.sections.containsKey)) {
+        _gpu = previous._gpu;
+      }
+    }
+  }
+
   final Map<String, String> sections;
+  Set<String>? _received;
+  MachineMaintenanceSnapshot? _baseline, _beforeBaseline;
+  bool get isComplete => _received == null;
+  bool hasSection(String name) => sections.containsKey(name);
+  bool receivedSection(String name) =>
+      _received?.contains(name) ?? hasSection(name);
   String text(String name) => sections[name] ?? '';
   double? get uptime => double.tryParse(text('uptime').split(' ').first);
   String get identity => '${text('platform')}|${text('host')}|${text('boot')}';
@@ -89,6 +119,8 @@ class MachineMaintenanceSnapshot {
 
   Map<String, int>? _memory;
   List<MachineMaintenanceProcess>? _processes;
+  MachineGpuSnapshot? _gpu;
+  MachineGpuSnapshot get gpu => _gpu ??= MachineGpuSnapshot.parse(sections);
 
   Map<String, int> get memory {
     if (_memory != null) return _memory!;
@@ -106,6 +138,11 @@ class MachineMaintenanceSnapshot {
   }
 
   double? cpuUsage(MachineMaintenanceSnapshot? previous, [String cpu = 'cpu']) {
+    if (_received != null &&
+        !_received!.contains('cpu') &&
+        !_received!.contains('cpu_percent')) {
+      return _baseline?.cpuUsage(_beforeBaseline, cpu);
+    }
     final direct = counters('cpu_percent')[cpu]?.firstOrNull;
     if (direct != null) return (direct / 10000).clamp(0, 1);
     if (previous == null || previous.identity != identity) return null;
@@ -129,6 +166,15 @@ class MachineMaintenanceSnapshot {
     int index, {
     int multiplier = 1,
   }) {
+    if (_received != null && !_received!.contains(section)) {
+      return _baseline?.rate(
+        _beforeBaseline,
+        section,
+        key,
+        index,
+        multiplier: multiplier,
+      );
+    }
     final seconds = uptime;
     final oldSeconds = previous?.uptime;
     if (previous == null ||
@@ -152,12 +198,89 @@ class MachineMaintenanceSnapshot {
     return (current[index] - old[index]) * multiplier / (seconds - oldSeconds);
   }
 
+  /// 尚未收到新进程数据时，保持上一轮的计数器与时间基线。
+  MachineMaintenanceSnapshot comparisonBase(
+    String section,
+    MachineMaintenanceSnapshot? previous,
+  ) => !receivedSection(section) && _baseline != null
+      ? _beforeBaseline ?? _baseline!
+      : previous ?? this;
+
+  MachineMaintenanceSnapshot sampledData(String section) =>
+      !receivedSection(section) && _baseline != null ? _baseline! : this;
+
   List<MachineMaintenanceProcess> get processes =>
       _processes ??= text('processes')
           .split('\n')
           .map(MachineMaintenanceProcess.parse)
           .whereType<MachineMaintenanceProcess>()
           .toList();
+}
+
+/// 只发布已经闭合的数据段，原始输出按新增字符解析，未到达的指标保留旧值。
+class MachineMaintenanceStream {
+  MachineMaintenanceStream({this.baseline, this.beforeBaseline});
+  final MachineMaintenanceSnapshot? baseline, beforeBaseline;
+  final _sections = <String, String>{};
+  final _body = StringBuffer();
+  String _tail = '', _anchor = '';
+  String? _section;
+  int _offset = 0;
+  MachineMaintenanceSnapshot? _last;
+
+  MachineMaintenanceSnapshot? add(String output) {
+    if (output.length > machineMaintenanceOutputLimit) {
+      throw const FormatException('运维输出超过读取上限。');
+    }
+    if (output.length < _offset ||
+        (_offset > 0 &&
+            output.substring(_offset - _anchor.length, _offset) != _anchor)) {
+      throw const FormatException('运维输出被截断，已停止增量更新。');
+    }
+    if (output.length == _offset) return null;
+    final lines = (_tail + output.substring(_offset)).split('\n');
+    _tail = lines.removeLast();
+    _offset = output.length;
+    _anchor = output.substring((_offset - 64).clamp(0, _offset));
+    var changed = false;
+    for (final raw in lines) {
+      final line = raw.replaceAll('\r', '');
+      final marker = _maintenanceSectionMarker.firstMatch(line);
+      if (marker == null) {
+        if (_section != null) _body.writeln(line);
+        continue;
+      }
+      if (_section != null) {
+        final encoded = _body.toString().trim();
+        final value = _sections['encoding'] == 'uri' && _section != 'encoding'
+            ? Uri.decodeComponent(encoded)
+            : encoded;
+        changed = _sections[_section] != value || changed;
+        _sections[_section!] = value;
+      }
+      _body.clear();
+      _section = const {'flush', 'end'}.contains(marker[1]) ? null : marker[1];
+    }
+    if (!changed ||
+        !const {'Linux', 'Darwin', 'Windows'}.contains(_sections['platform']) ||
+        (_sections['host'] ?? '').isEmpty ||
+        (_sections['boot'] ?? '').isEmpty ||
+        !_sections.containsKey('uptime')) {
+      return null;
+    }
+    final identity =
+        '${_sections['platform']}|${_sections['host']}|${_sections['boot']}';
+    final sameTarget = baseline?.identity == identity;
+    final result = MachineMaintenanceSnapshot._progressive(
+      Map.unmodifiable({if (sameTarget) ...baseline!.sections, ..._sections}),
+      Set.unmodifiable(_sections.keys),
+      sameTarget ? baseline : null,
+      sameTarget ? beforeBaseline : null,
+    );
+    result._inherit(_last ?? (sameTarget ? baseline : null));
+    _last = result;
+    return result;
+  }
 }
 
 class MachineMaintenanceProcess {

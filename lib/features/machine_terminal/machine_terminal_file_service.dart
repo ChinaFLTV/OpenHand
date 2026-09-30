@@ -324,6 +324,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     bool windowsScript = false,
     Duration timeout = _machineTerminalFileCommandTimeout,
     int? maxOutputCharacters,
+    MachineTerminalCommandOutputCallback? onOutput,
     MachineTerminalUploadCancelCheck? isCancelled,
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.posix,
@@ -343,6 +344,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           maxCommandBytes: _machineTerminalMaxMaintenanceCommandBytes,
           timeout: timeout,
           maxOutputCharacters: maxOutputCharacters,
+          onOutput: onOutput,
         );
       }
       String? captured;
@@ -355,13 +357,15 @@ class MachineTerminalFileService extends ChangeNotifier {
         isCancelled: isCancelled,
         commandShell: commandShell,
         maxCommandBytes: _machineTerminalMaxMaintenanceCommandBytes,
-        onOutput: maxOutputCharacters == null
+        onOutput: maxOutputCharacters == null && onOutput == null
             ? null
             : (output) {
-                if (output.length > maxOutputCharacters) {
+                if (maxOutputCharacters != null &&
+                    output.length > maxOutputCharacters) {
                   overflow = true;
                 } else {
                   captured = output;
+                  if (!(isCancelled?.call() ?? false)) onOutput?.call(output);
                 }
               },
       );
@@ -379,6 +383,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     int maxCommandBytes = _machineTerminalMaxStagedCommandBytes,
     Duration timeout = _machineTerminalFileCommandTimeout,
     int? maxOutputCharacters,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     if (utf8ByteLength(script) > maxCommandBytes) {
       throw StateError('运维脚本超出传输上限。');
@@ -422,13 +427,15 @@ class MachineTerminalFileService extends ChangeNotifier {
         command: transport.execute,
         commandShell: shell,
         timeout: deadline.limit(timeout),
-        onOutput: maxOutputCharacters == null
+        onOutput: maxOutputCharacters == null && onOutput == null
             ? null
             : (value) {
-                if (value.length > maxOutputCharacters) {
+                if (maxOutputCharacters != null &&
+                    value.length > maxOutputCharacters) {
                   overflow = true;
                 } else {
                   captured = value;
+                  if (!(isCancelled?.call() ?? false)) onOutput?.call(value);
                 }
               },
       );

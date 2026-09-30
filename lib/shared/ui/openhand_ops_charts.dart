@@ -8,18 +8,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'animated_menu.dart';
-import 'appear_once.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_anchored_popup_layout.dart';
+import 'openhand_animated_sliver_list.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
@@ -3708,6 +3710,7 @@ class _OpenHandOperationalRankTableState
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
     final hasActions = widget.onRowTap != null || widget.rowActions != null;
     final headers = [
       ...widget.headers,
@@ -4030,17 +4033,25 @@ class _OpenHandOperationalRankTableState
                                   horizontal: _kRankCellPadding,
                                 ),
                                 child: widget.animateCellChanges && !header
-                                    ? _OperationalLiveCell(
+                                    ? OpenHandOperationalLiveContent(
                                         preserveState:
+                                            hasActions &&
+                                                i == headers.length - 1 ||
                                             row!.cellWidgets != null &&
-                                            i < row.cellWidgets!.length &&
-                                            row.cellWidgets![i]
-                                                is StatefulWidget,
+                                                i < row.cellWidgets!.length &&
+                                                row.cellWidgets![i]
+                                                    is StatefulWidget,
                                         value: (
-                                          i < row.cells.length
+                                          i < row!.cells.length
                                               ? row.cells[i]
                                               : '--',
                                           subtitleFor(row, i),
+                                          displayWidths[i],
+                                          headers[i],
+                                          widget.columnAlignments[i],
+                                          hasActions && i == headers.length - 1
+                                              ? row
+                                              : null,
                                         ),
                                         builder: () => cellBody(
                                           header: false,
@@ -4143,6 +4154,40 @@ class _OpenHandOperationalRankTableState
                 );
               }
 
+              Widget buildRow(BuildContext context, int index) {
+                final row = pageRows[index];
+                Widget child = ColoredBox(
+                  color: index.isEven
+                      ? colors.surfaceContainerLowest
+                      : colors.surfaceContainerLow,
+                  child: rowFor(row, header: false),
+                );
+                if (widget.onRowTap != null) {
+                  child = MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => widget.onRowTap!(row),
+                      child: child,
+                    ),
+                  );
+                }
+                return SizedBox(
+                  key: keyedRows ? pageKeys[index] : null,
+                  height: rowHeight,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topLeft,
+                      minWidth: tableWidth,
+                      maxWidth: tableWidth,
+                      minHeight: rowHeight,
+                      maxHeight: rowHeight,
+                      child: child,
+                    ),
+                  ),
+                );
+              }
+
               return ClipRRect(
                 borderRadius: kOpenHandBorderRadius16,
                 child: DecoratedBox(
@@ -4181,52 +4226,52 @@ class _OpenHandOperationalRankTableState
                                     controller: _vertical,
                                     thumbVisibility:
                                         pageRows.length * rowHeight > bodyCap,
-                                    child: ListView.builder(
-                                      controller: _vertical,
-                                      primary: false,
-                                      padding: EdgeInsets.zero,
-                                      itemCount: pageRows.length,
-                                      findChildIndexCallback: keyedRows
-                                          ? (key) => rowIndices[key]
-                                          : null,
-                                      itemExtent: rowHeight,
-                                      physics: openHandDialogAwareScrollPhysics(
-                                        context,
-                                        fallback: const ClampingScrollPhysics(),
-                                      ),
-                                      itemBuilder: (context, index) {
-                                        final row = pageRows[index];
-                                        final painted = ColoredBox(
-                                          color: index.isEven
-                                              ? colors.surfaceContainerLowest
-                                              : colors.surfaceContainerLow,
-                                          child: rowFor(row, header: false),
-                                        );
-                                        Widget interactive = painted;
-                                        if (widget.onRowTap != null) {
-                                          interactive = MouseRegion(
-                                            cursor: SystemMouseCursors.click,
-                                            child: GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () =>
-                                                  widget.onRowTap!(row),
-                                              child: painted,
-                                            ),
-                                          );
-                                        }
-                                        if (widget.animateRows) {
-                                          interactive = SettingsAwareAppearOnce(
-                                            child: interactive,
-                                          );
-                                        }
-                                        return keyedRows
-                                            ? KeyedSubtree(
-                                                key: pageKeys[index],
-                                                child: interactive,
-                                              )
-                                            : interactive;
-                                      },
-                                    ),
+                                    child: widget.animateRows
+                                        ? CustomScrollView(
+                                            controller: _vertical,
+                                            primary: false,
+                                            physics:
+                                                openHandDialogAwareScrollPhysics(
+                                                  context,
+                                                  fallback:
+                                                      const ClampingScrollPhysics(),
+                                                ),
+                                            slivers: [
+                                              OpenHandAnimatedSliverList(
+                                                settings:
+                                                    openHandMotionSettingsOf(
+                                                      context,
+                                                      OpenHandMotionSettingsScope
+                                                          .dialog,
+                                                    ),
+                                                children: [
+                                                  for (
+                                                    var i = 0;
+                                                    i < pageRows.length;
+                                                    i++
+                                                  )
+                                                    buildRow(context, i),
+                                                ],
+                                              ),
+                                            ],
+                                          )
+                                        : ListView.builder(
+                                            controller: _vertical,
+                                            primary: false,
+                                            padding: EdgeInsets.zero,
+                                            itemCount: pageRows.length,
+                                            findChildIndexCallback: keyedRows
+                                                ? (key) => rowIndices[key]
+                                                : null,
+                                            itemExtent: rowHeight,
+                                            physics:
+                                                openHandDialogAwareScrollPhysics(
+                                                  context,
+                                                  fallback:
+                                                      const ClampingScrollPhysics(),
+                                                ),
+                                            itemBuilder: buildRow,
+                                          ),
                                   ),
                                 ),
                               ],
@@ -5096,31 +5141,43 @@ class _EmptyChartLabel extends StatelessWidget {
 }
 
 /// 保留未变化单元格的子树，数据变化只触发该单元格的过渡。
-class _OperationalLiveCell extends StatefulWidget {
-  const _OperationalLiveCell({
+class OpenHandOperationalLiveContent extends StatefulWidget {
+  const OpenHandOperationalLiveContent({
+    super.key,
     required this.value,
     required this.builder,
     this.preserveState = false,
+    this.alignment = Alignment.centerLeft,
   });
   final bool preserveState;
   final Object value;
+  final Alignment alignment;
   final Widget Function() builder;
 
   @override
-  State<_OperationalLiveCell> createState() => _OperationalLiveCellState();
+  State<OpenHandOperationalLiveContent> createState() =>
+      _OperationalLiveCellState();
 }
 
-class _OperationalLiveCellState extends State<_OperationalLiveCell> {
+class _OperationalLiveCellState extends State<OpenHandOperationalLiveContent> {
   Object? _identity;
   Widget? _child;
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final identity = (
       widget.value,
       widget.preserveState,
       Theme.of(context),
       Localizations.localeOf(context),
+      Directionality.of(context),
+      MediaQuery.textScalerOf(context),
+      DefaultTextStyle.of(context).style,
     );
     if (_identity != identity) {
       _identity = identity;
@@ -5129,20 +5186,30 @@ class _OperationalLiveCellState extends State<_OperationalLiveCell> {
           ? child
           : KeyedSubtree(key: ValueKey(identity), child: child);
     }
-    if (widget.preserveState) return _child!;
+    if (widget.preserveState || motion.disablesAnimation) return _child!;
     return AnimatedSwitcher(
-      duration: openHandMotionDuration(context, kOpenHandMotion260),
-      switchInCurve: kOpenHandSwitchInCurve,
-      switchOutCurve: kOpenHandSwitchOutCurve,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(
-            begin: .97,
-            end: 1,
-          ).chain(CurveTween(curve: kOpenHandEntranceCurve)).animate(animation),
-          child: child,
-        ),
+      duration: motion.entranceDuration,
+      reverseDuration: motion.exitDuration,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: widget.alignment,
+        children: [
+          for (final (child, outgoing) in [
+            if (previous.isNotEmpty && previous.last.key != current?.key)
+              (previous.last, true),
+            if (current != null) (current, false),
+          ])
+            ExcludeSemantics(
+              key: child.key,
+              excluding: outgoing,
+              child: IgnorePointer(ignoring: outgoing, child: child),
+            ),
+        ],
+      ),
+      transitionBuilder: (child, animation) => buildAnimationStyleTransition(
+        animation: animation,
+        settings: motion,
+        profile: kOpenHandLayoutSafeTransitionProfile,
+        child: child,
       ),
       child: _child,
     );

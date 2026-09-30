@@ -36,6 +36,7 @@ __OH_OPS_end__
 ''';
 
 Future<void> main() async {
+  checkStream();
   final before = MachineMaintenanceSnapshot.parse(sample());
   final after = MachineMaintenanceSnapshot.parse(
     sample(uptime: 20, user: 50, idle: 150, bytes: 1100),
@@ -191,4 +192,96 @@ Future<void> main() async {
     await directory.delete(recursive: true);
   }
   stdout.writeln('运维采样、速率换算、服务策略、注入防护与脚本检查通过。');
+}
+
+void checkStream() {
+  final before = MachineMaintenanceSnapshot.parse(sample());
+  final baseline = MachineMaintenanceSnapshot.parse(
+    sample(uptime: 20, user: 50, idle: 150, bytes: 1100),
+    previous: before,
+  );
+  final cachedMemory = baseline.memory;
+  final cachedGpu = baseline.gpu;
+  final next = sample(uptime: 30, user: 100, idle: 200, bytes: 3100);
+  final stream = MachineMaintenanceStream(
+    baseline: baseline,
+    beforeBaseline: before,
+  );
+  final boundary = next.indexOf('__OH_OPS_cpu__') + '__OH_OPS_cpu__\n'.length;
+  var partial = stream.add(next.substring(0, boundary))!;
+  check(!partial.isComplete && partial.uptime == 30, '元数据完成后未发布增量');
+  check(
+    partial.cpuUsage(baseline) == .4 &&
+        partial.rate(baseline, 'network', 'eth0', 0) == 100,
+    '未到达的计数器与新时间错误混算',
+  );
+  check(identical(partial.memory, cachedMemory), '未变化内存未复用解析结果');
+  check(identical(partial.gpu, cachedGpu), '未变化 GPU 数据重复解析');
+  check(stream.add(next.substring(0, boundary)) == null, '重复累计输出产生了刷新');
+  for (var i = boundary + 1; i <= next.length; i++) {
+    partial = stream.add(next.substring(0, i)) ?? partial;
+  }
+  check(
+    partial.cpuUsage(baseline) == .5 &&
+        partial.rate(baseline, 'network', 'eth0', 0) == 200,
+    '逐字符分片破坏指标计算',
+  );
+  check(!partial.isComplete, '增量输出不能代替命令成功');
+  final complete = MachineMaintenanceSnapshot.parse(next, previous: baseline);
+  check(
+    complete.isComplete && partial.text('memory') == complete.text('memory'),
+    '增量与完整结果不一致',
+  );
+  const prefix =
+      '__OH_OPS_platform__\nWindows\n__OH_OPS_host__\n%E6%B5%8B%E8%AF%95\n__OH_OPS_boot__\nboot\n__OH_OPS_uptime__\n10\n__OH_OPS_flush__\n';
+  final uriStream = MachineMaintenanceStream();
+  const encoded = '__OH_OPS_encoding__\nuri\n$prefix';
+  check(uriStream.add(encoded)!.text('host') == '测试', 'URI 协议没有按完整区段解码');
+  const broken = '$encoded\n__OH_OPS_details__\n%E6%B5';
+  check(uriStream.add(broken) == null, '未闭合的 URI 数据提前发布');
+  check(
+    uriStream.add('$broken%8B\n__OH_OPS_flush__\n')!.text('details') == '测',
+    '跨分片 URI 解码错误',
+  );
+  final emptyStream = MachineMaintenanceStream(baseline: baseline);
+  final identity = sample().substring(0, sample().indexOf('__OH_OPS_cpu__'));
+  final empty = emptyStream.add(
+    '$identity\n__OH_OPS_memory__\n__OH_OPS_flush__\n',
+  )!;
+  check(empty.receivedSection('memory') && empty.memory.isEmpty, '空数据段没有清除旧值');
+  check(
+    !empty.sections.containsKey('flush') &&
+        !partial.sections.containsKey('end'),
+    '控制标记混入数据',
+  );
+  final other = MachineMaintenanceStream(
+    baseline: baseline,
+  ).add("${identity.replaceAll('启动标识', '新启动标识')}__OH_OPS_flush__\n")!;
+  check(
+    !other.hasSection('memory') && other.cpuUsage(baseline) == null,
+    '跨机器或重启继承了旧数据',
+  );
+  for (final invalid in [
+    '短输出',
+    "${next.substring(0, next.length - 1)}修改",
+    'x' * (machineMaintenanceOutputLimit + 1),
+  ]) {
+    var rejected = false;
+    try {
+      stream.add(invalid);
+    } on FormatException {
+      rejected = true;
+    }
+    check(rejected, '截断、重置或超限数据未被拒绝');
+  }
+  var rejected = false;
+  try {
+    MachineMaintenanceSnapshot.parse(
+      next.replaceAll('__OH_OPS_end__', '__OH_OPS_flush__'),
+    );
+  } on FormatException {
+    rejected = true;
+  }
+  check(rejected, '仅完成局部采样被误判为整批成功');
+  stdout.writeln('增量分片、URI 边界、局部缓存、采样基线和异常协议检查通过。');
 }

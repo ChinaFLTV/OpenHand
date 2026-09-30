@@ -488,7 +488,7 @@ const _windowsParallelHarness = r'''
 const results=[];
 for(const script of scripts){
   const files=new Map(),processes=new Map(),pending=[];
-  const killed=[];let nextPid=200,tick=0,peak=0,guard=null,guardSource=null,failGuard=false;
+  const killed=[];let nextPid=200,tick=0,peak=0,guard=null,guardSource=null,failGuard=false,publishedWhileRunning=false;
   const owner={ProcessId:100,ParentProcessId:90,CreationDate:birth,CommandLine:'cscript C:\\ops.js'};
   processes.set(100,owner);processes.set(90,{ProcessId:90,ParentProcessId:0,CreationDate:'20260929090000.000000+000'});
   const normalize=p=>String(p).replace(/\\+/g,'\\');
@@ -498,6 +498,7 @@ for(const script of scripts){
     OpenTextFile:(path,mode,create,format)=>{const entry=files.get(normalize(path));if(!entry)throw Error('文件不存在：'+path);if(format==-1 && !entry.unicode)throw Error('Unicode 文件编码不匹配');return {AtEndOfStream:!entry.value.length,Read(n){this.AtEndOfStream=entry.value.length<=n;return entry.value.slice(0,n);},ReadAll:()=>entry.value,Close:()=>{}};},
     FileExists:path=>files.has(normalize(path)),
     DeleteFile:path=>files.delete(normalize(path)),
+    MoveFile:(from,to)=>{from=normalize(from);to=normalize(to);if(!files.has(from)||files.has(to))throw Error('原子发布路径无效');files.set(to,files.get(from));files.delete(from);},
     GetFolder:dir=>({Files:[...files.keys()].filter(p=>p.startsWith(normalize(dir)+'\\')).map(Path=>({Path}))}),
     DeleteFolder:dir=>{for(const key of files.keys())if(key.startsWith(normalize(dir)+'\\'))files.delete(key);},
   };}
@@ -518,7 +519,7 @@ for(const script of scripts){
       Enumerator:function(items){let i=0;this.atEnd=()=>i>=items.length;this.moveNext=()=>i++;this.item=()=>items[i];},
       GetObject:wmi,
       ActiveXObject:function(name){return name=='Scripting.FileSystemObject'?filesystem():name=='HNetCfg.FwPolicy2'?firewallPolicy():{Exec:exec,Environment:proxyEnvironment,RegRead:proxyRegistry};},
-      WScript:{StdOut:{Write:s=>output.push(String(s))},ScriptFullName:path,Arguments:i=>args[i],Echo:s=>output.push(String(s)),Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
+      WScript:{StdOut:{Write:s=>output.push(String(s))},ScriptFullName:path,Arguments:i=>args[i],Echo:s=>{if(path==='C:\\ops.js' && /^__OH_OPS_(?!(encoding|platform|host|boot|uptime|notice|end|flush)__)[a-z_]+__/.test(String(s)) && pending.some(p=>p.Status==0))publishedWhileRunning=true;output.push(String(s));},Quit:n=>{throw Error('退出：'+n+' '+output.join('\n'));},Sleep:n=>{
         tick+=n;
         for(const p of pending.splice(0)){p.Status=1;processes.delete(p.ProcessID);}
         if(guard && files.has('C:\\临时目录\\私有采集\\done')){const g=guard;guard=null;run(g.code,g.path);g.process.Status=1;}
@@ -544,6 +545,7 @@ for(const script of scripts){
   }
   const output=run(script,'C:\\ops.js');
   if(files.size)throw Error('采集目录未清理');
+  if(!script.includes('ohRawOutput=true') && !publishedWhileRunning)throw Error('全部工作进程结束前未发布任何数据段');
   if(peak>Number(script.match(/ohLimit=(\d+)/)[1]) || peak<1)throw Error('并发上限错误：'+peak);
   results.push(output);
   for(const expired of [false,true]){

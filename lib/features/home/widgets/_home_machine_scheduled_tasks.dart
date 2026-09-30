@@ -168,9 +168,11 @@ class _MachineScheduledTaskPanel extends StatefulWidget {
     required this.run,
     required this.onBusy,
     this.onFailure,
+    this.enabled = true,
   });
   final String platform;
-  final Object refreshToken;
+  final Object? refreshToken;
+  final bool enabled;
   final Future<String> Function(String, bool Function()) run;
   final ValueChanged<bool> onBusy;
   final VoidCallback? onFailure;
@@ -202,7 +204,10 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
   @override
   void didUpdateWidget(covariant _MachineScheduledTaskPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.refreshToken != oldWidget.refreshToken) _refresh();
+    if (widget.refreshToken != oldWidget.refreshToken ||
+        widget.enabled && !oldWidget.enabled) {
+      _refresh();
+    }
   }
 
   @override
@@ -212,7 +217,13 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
   }
 
   Future<void> _refresh() async {
-    if (_busy || _overlay || !mounted) return;
+    if (!widget.enabled ||
+        widget.refreshToken == null ||
+        _busy ||
+        _overlay ||
+        !mounted) {
+      return;
+    }
     widget.onBusy(true);
     setState(() {
       _busy = true;
@@ -241,7 +252,13 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
     bool edit = false,
     bool delete = false,
   }) async {
-    if (_busy || _overlay || _error != null || _data == null) return;
+    if (!widget.enabled ||
+        _busy ||
+        _overlay ||
+        _error != null ||
+        _data == null) {
+      return;
+    }
     setState(() => _overlay = true);
     widget.onBusy(true);
     var changed = false;
@@ -305,7 +322,7 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
     super.build(context);
     final l = AppLocalizations.of(context)!;
     final data = _data;
-    final blocked = _busy || _overlay || _error != null;
+    final blocked = !widget.enabled || _busy || _overlay || _error != null;
     final query = _search.text.trim().toLowerCase();
     final tasks =
         data?.tasks
@@ -329,13 +346,13 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
-            '${tasks.length}',
+          _MaintenanceValue(
+            value: '${tasks.length}',
             style: Theme.of(context).textTheme.titleSmall,
           ),
           _MachineTerminalIconButton(
             tooltip: l.maintenanceRefreshSection,
-            onPressed: _busy || _overlay ? null : _refresh,
+            onPressed: !widget.enabled || _busy || _overlay ? null : _refresh,
             icon: Icons.refresh_rounded,
           ),
           OutlinedButton.icon(
@@ -357,7 +374,7 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
       child: _MaintenanceAnimatedColumn(
         spacing: 12,
         children: [
-          if (_busy && data == null)
+          if ((_busy || !widget.enabled) && data == null)
             SizedBox(
               height: 180,
               child: Center(

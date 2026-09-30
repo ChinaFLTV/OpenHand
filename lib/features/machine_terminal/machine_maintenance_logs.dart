@@ -73,6 +73,13 @@ class MachineLogEntry {
 }
 
 class MachineLogBuffer {
+  MachineLogBuffer();
+  MachineLogBuffer.copy(MachineLogBuffer source) {
+    entries.addAll(source.entries);
+    _previous = List.of(source._previous);
+    error = source.error;
+    _sequence = source._sequence;
+  }
   final entries = <MachineLogEntry>[];
   List<String> _previous = [];
   String? error;
