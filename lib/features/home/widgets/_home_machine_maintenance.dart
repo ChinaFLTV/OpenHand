@@ -75,7 +75,10 @@ const _maintenanceTabIcons = <IconData>[
   Icons.health_and_safety_outlined,
   Icons.inventory_2_outlined,
 ];
-const _maintenanceDistributionMaxWidth = 600.0;
+const _maintenanceDistributionMaxWidth = 380.0;
+const _maintenanceDonutSize = 132.0;
+const _maintenanceDonutGap = 16.0;
+const _maintenanceDonutLegendMinWidth = 128.0;
 const _maintenanceCardRadius = kOpenHandRadius12;
 const _maintenanceNoOverlay = WidgetStatePropertyAll<Color?>(
   Colors.transparent,
@@ -1229,7 +1232,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final right = <Widget>[
       if (total != null && total > 0 && available != null)
         _MaintenanceCard(
-          maxWidth: _maintenanceDistributionMaxWidth,
           title: AppLocalizations.of(context)!.maintenanceMemoryShare,
           icon: Icons.donut_large_rounded,
           child: _MaintenanceVisual(
@@ -1719,7 +1721,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       if ((device.metrics['memoryTotal'] ?? 0) > 0 &&
                           device.metrics['memoryUsed'] != null)
                         _MaintenanceCard(
-                          maxWidth: _maintenanceDistributionMaxWidth,
                           title: l10n.maintenanceGpuMemoryUsed,
                           icon: Icons.pie_chart_outline_rounded,
                           child: _MaintenanceVisual(
@@ -2619,7 +2620,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: 12),
         _MaintenanceCard(
-          maxWidth: _maintenanceDistributionMaxWidth,
           title: AppLocalizations.of(context)!.maintenanceServiceShare,
           icon: Icons.pie_chart_outline_rounded,
           child: _MaintenanceVisual(
@@ -2930,7 +2930,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             minWidth: 340,
             children: [
               _MaintenanceCard(
-                maxWidth: _maintenanceDistributionMaxWidth,
                 title: AppLocalizations.of(context)!.maintenanceConnectionShare,
                 icon: Icons.donut_small_rounded,
                 child: _MaintenanceVisual(
@@ -4315,8 +4314,27 @@ class _MaintenanceGrid extends StatelessWidget {
         final count = math.min(columns, children.length - start);
         final width =
             (constraints.maxWidth - (count - 1) * _maintenanceGridGap) / count;
+        final widths = List<double>.filled(count, width);
+        final flexible = <int>[];
+        var spare = 0.0;
         for (var i = 0; i < count; i++) {
-          tiles.add(SizedBox(width: width, child: children[start + i]));
+          final child = children[start + i];
+          final preferred = child is _MaintenanceCard
+              ? child.preferredWidth(context)
+              : double.infinity;
+          if (preferred.isFinite) {
+            widths[i] = math.min(width, preferred);
+            spare += width - widths[i];
+          } else {
+            flexible.add(i);
+          }
+        }
+        // 紧凑卡释放的宽度交给同行内容卡，避免外框变窄但仍占着整列。
+        for (final i in flexible) {
+          widths[i] += spare / flexible.length;
+        }
+        for (var i = 0; i < count; i++) {
+          tiles.add(SizedBox(width: widths[i], child: children[start + i]));
         }
       }
       return _MaintenanceEqualHeightWrap(children: tiles);
@@ -5080,7 +5098,6 @@ class _MaintenanceCard extends StatelessWidget {
     this.icon = Icons.analytics_outlined,
     this.onOpen,
     this.maxHeight = 280,
-    this.maxWidth = double.infinity,
     this.scrollBody = true,
     this.contentPadding = const EdgeInsets.all(14),
     this.trailing,
@@ -5090,11 +5107,77 @@ class _MaintenanceCard extends StatelessWidget {
   final Widget child;
   final IconData icon;
   final VoidCallback? onOpen;
-  final double maxHeight, maxWidth;
+  final double maxHeight;
   final bool scrollBody;
   final EdgeInsetsGeometry contentPadding;
   final Widget? trailing;
   final Color? accent;
+
+  double preferredWidth(BuildContext context) {
+    if (child is! _MaintenanceVisual) return double.infinity;
+    final visual = child as _MaintenanceVisual;
+    if (!visual.donut) return double.infinity;
+    if (trailing != null) return _maintenanceDistributionMaxWidth;
+    final theme = Theme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    double measure(String text, TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    final base = DefaultTextStyle.of(context).style;
+    final total = visual.segments.fold<double>(
+      0,
+      (sum, item) => sum + item.safeValue,
+    );
+    var legendWidth = _maintenanceDonutLegendMinWidth * scaler.scale(12) / 12;
+    for (final item in visual.segments) {
+      final labelWidth = measure(item.label, base.copyWith(fontSize: 12));
+      final valueWidth = measure(
+        item.valueLabel ?? '${item.value}',
+        base.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+      );
+      final shareWidth = measure(
+        total > 0
+            ? '${(item.safeValue / total * 100).toStringAsFixed(1)}%'
+            : '—',
+        base.copyWith(fontSize: 11),
+      );
+      legendWidth = math.max(
+        legendWidth,
+        15 + math.max(labelWidth, valueWidth + 8 + shareWidth),
+      );
+    }
+    final headerWidth =
+        66 +
+        (onOpen == null ? 0 : 24) +
+        measure(
+          maintenanceLabel(context, title),
+          (theme.textTheme.titleSmall ?? base).copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        );
+    final bodyWidth =
+        _maintenanceDonutSize +
+        _maintenanceDonutGap +
+        legendWidth +
+        contentPadding.resolve(direction).horizontal +
+        2;
+    return math.min(
+      _maintenanceDistributionMaxWidth,
+      math.max(headerWidth, bodyWidth),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -5193,11 +5276,12 @@ class _MaintenanceCard extends StatelessWidget {
         ],
       ),
     );
-    return maxWidth.isFinite
+    final width = preferredWidth(context);
+    return width.isFinite
         ? Align(
             alignment: AlignmentDirectional.topStart,
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
+              constraints: BoxConstraints(maxWidth: width),
               child: card,
             ),
           )
@@ -5327,28 +5411,67 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                           ),
                           const SizedBox(width: 7),
                           Expanded(
-                            child: Tooltip(
-                              message: segment.label,
-                              child: Text(
-                                segment.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Tooltip(
+                                  message: segment.label,
+                                  child: Text(
+                                    segment.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: donut ? cs.onSurfaceVariant : null,
+                                    ),
+                                  ),
+                                ),
+                                if (donut) ...[
+                                  const SizedBox(height: 3),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 3,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      _MaintenanceValue(
+                                        value:
+                                            segment.valueLabel ??
+                                            '${segment.value}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      Text(
+                                        total > 0
+                                            ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
+                                            : '—',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            fit: FlexFit.tight,
-                            child: _MaintenanceValue(
-                              value: segment.valueLabel ?? '${segment.value}',
-                              alignment: Alignment.centerRight,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                          if (!donut) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              fit: FlexFit.tight,
+                              child: _MaintenanceValue(
+                                value: segment.valueLabel ?? '${segment.value}',
+                                alignment: Alignment.centerRight,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                       if (!donut) ...[
@@ -5363,17 +5486,7 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                           color: segment.color,
                           backgroundColor: segment.color.withValues(alpha: .10),
                         ),
-                      ] else
-                        Text(
-                          total > 0
-                              ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
-                              : '—',
-                          textAlign: TextAlign.end,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -5386,8 +5499,8 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
               .map((s) => '${s.label}: ${s.valueLabel ?? s.value}')
               .join(', '),
           child: SizedBox(
-            width: 132,
-            height: 132,
+            width: _maintenanceDonutSize,
+            height: _maintenanceDonutSize,
             child: RepaintBoundary(
               child: CustomPaint(
                 painter: OpenHandDonutChartPainter(
@@ -5413,12 +5526,23 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
           ),
         );
         return LayoutBuilder(
-          builder: (_, constraints) => constraints.maxWidth < 340
-              ? Column(children: [chart, const SizedBox(height: 12), legend])
+          builder: (_, constraints) =>
+              constraints.maxWidth <
+                  _maintenanceDonutSize +
+                      _maintenanceDonutGap +
+                      _maintenanceDonutLegendMinWidth *
+                          (MediaQuery.textScalerOf(context).scale(12) / 12)
+              ? Column(
+                  children: [
+                    chart,
+                    const SizedBox(height: _maintenanceDonutGap),
+                    legend,
+                  ],
+                )
               : Row(
                   children: [
                     chart,
-                    const SizedBox(width: 18),
+                    const SizedBox(width: _maintenanceDonutGap),
                     Expanded(child: legend),
                   ],
                 ),

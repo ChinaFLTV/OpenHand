@@ -230,6 +230,106 @@ void main() {
     expect(calls, 3);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('内存、服务、连接与显存分布卡均遵守紧凑宽度', (tester) async {
+    final service = _MaintenanceFixture();
+    for (final width in [1400.0, 360.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1100));
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+      final data = MachineMaintenanceSnapshot({...state._snapshots[0]!.sections,
+        'sockets': 'tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:*',
+        'gpu_nvidia': 'GPU-1,NVIDIA Test,550.1,00000000:01:00.0,45,1024,8192,60,80.5,150,1800,7000,0,P2',
+      });
+      for (final tab in [0, 2, 3, 4]) {
+        state.setState(() { state._snapshots[tab] = data; state._tab = tab; state._bodyIdentity = null; });
+        await tester.pumpAndSettle();
+        final cards = find.byWidgetPredicate((w) => w is _MaintenanceCard && w.child is _MaintenanceVisual && (w.child as _MaintenanceVisual).donut);
+        if (cards.evaluate().isEmpty) {
+          final page = find.descendant(of: find.byType(_MachineMaintenanceDialog), matching: find.byType(ListView)).first;
+          await tester.scrollUntilVisible(cards, 300, scrollable: find.descendant(of: page, matching: find.byType(Scrollable)).first);
+          await tester.pumpAndSettle();
+        }
+        expect(cards, findsOneWidget, reason: '分区 ' + tab.toString());
+        final painted = find.descendant(of: cards, matching: find.byWidgetPredicate((w) => w is Container && w.foregroundDecoration != null)).first;
+        expect(tester.getSize(painted).width, lessThanOrEqualTo(380));
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('分布图例聚合名称、数值和占比，窄屏大字体自动纵排', (tester) async {
+    for (final brightness in Brightness.values) {
+      for (final scale in [1.0, 1.8]) {
+        for (final width in [1280.0, 380.0, 300.0]) {
+          await tester.binding.setSurfaceSize(Size(width, 800));
+          await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: brightness == Brightness.light ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen) : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen),
+            home: MediaQuery(data: MediaQueryData(size: Size(width, 800), textScaler: TextScaler.linear(scale)),
+              child: const Scaffold(body: Align(alignment: Alignment.topLeft, child: _MaintenanceCard(
+                title: '服务状态分布',
+                child: _MaintenanceVisual(donut: true, segments: [
+                  OpenHandChartSegment(label: '未运行', value: 287, color: Colors.purple),
+                  OpenHandChartSegment(label: '运行中', value: 268, color: Colors.green),
+                ])))))));
+          await tester.pumpAndSettle();
+          final chart = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is OpenHandDonutChartPainter);
+          final chartRect = tester.getRect(chart);
+          final labelRect = tester.getRect(find.text('未运行'));
+          final valueRect = tester.getRect(find.text('287'));
+          final shareRect = tester.getRect(find.text('51.7%'));
+          final frame = find.descendant(of: find.byType(_MaintenanceCard), matching: find.byWidgetPredicate((w) => w is Container && w.foregroundDecoration != null)).first;
+          if (scale == 1) expect(tester.getSize(frame).width, lessThan(340));
+          expect(chartRect.size, const Size.square(132));
+          expect(valueRect.left, closeTo(labelRect.left, .5));
+          expect(valueRect.top - labelRect.bottom, inInclusiveRange(0, 5));
+          expect(shareRect.left - valueRect.right, inInclusiveRange(0, 10));
+          if (scale > 1 || width < 380) {
+            expect(labelRect.top, greaterThan(chartRect.bottom));
+          } else {
+            expect(labelRect.left, greaterThan(chartRect.right));
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('网格紧凑卡不保留空列，同排内容卡接收剩余宽度', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 600));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: _MaintenanceGrid(maxColumns: 2, children: [
+        _MaintenanceCard(title: '分布卡', child: _MaintenanceVisual(donut: true, segments: [
+          OpenHandChartSegment(label: '运行中', value: 268, color: Colors.green),
+          OpenHandChartSegment(label: '未运行', value: 287, color: Colors.purple),
+        ])),
+        _MaintenanceCard(title: '趋势卡', child: SizedBox(height: 120)),
+        _MaintenanceCard(title: '紧凑卡甲', child: _MaintenanceVisual(donut: true, segments: [
+          OpenHandChartSegment(label: '已用', value: 18, color: Colors.green),
+        ])),
+        _MaintenanceCard(title: '紧凑卡乙', child: _MaintenanceVisual(donut: true, segments: [
+          OpenHandChartSegment(label: '可用', value: 14, color: Colors.blue),
+        ])),
+      ]))));
+    await tester.pumpAndSettle();
+    final rects = [for (final card in find.byType(_MaintenanceCard).evaluate()) tester.getRect(find.byWidget(card.widget))];
+    expect(rects[0].width, lessThan(340));
+    expect(rects[1].left - rects[0].right, 12);
+    expect(rects[1].right, 1400);
+    expect(rects[2].width, lessThan(340));
+    expect(rects[3].width, lessThan(340));
+    expect(rects[3].left - rects[2].right, 12);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('更多按钮在明暗主题、紧凑行和列宽调整后保持方形且对齐表头', (tester) async {
     for (final brightness in Brightness.values) {
       for (final compact in [false, true]) {
