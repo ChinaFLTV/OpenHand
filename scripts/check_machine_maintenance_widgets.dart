@@ -184,6 +184,11 @@ __OH_OPS_end__
 }
 
 void main() {
+  setUpAll(() async {
+    for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+      if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
+    }
+  });
   setUp(() async { _testSettings = await SettingsController.create(store: _MemorySettingsStore()); });
   tearDown(() { _testSettings.dispose(); });
   testWidgets('容器运行时列表、状态菜单和窄屏布局可用', (tester) async {
@@ -201,10 +206,11 @@ void main() {
         shell: MachineTerminalCommandShell.automatic))));
       await tester.pumpAndSettle();
       expect(find.text('容器 · 1'), findsOneWidget);
-      expect(find.text('连接上下文：default'), findsOneWidget);
+      expect(find.text('连接上下文 · default'), findsOneWidget);
       expect(find.byType(OpenHandOperationalRowMenu), findsOneWidget);
       final rowMenu = tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
-      expect(rowMenu.actions.keys, containsAll(['详情', '日志', '终端', '文件管理', '停止', '暂停']));
+      expect(rowMenu.onDetails, isNotNull);
+      expect(rowMenu.actions.keys, containsAll(['日志', '终端', '文件管理', '停止', '暂停']));
       expect(rowMenu.actions.keys, isNot(contains('删除')));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -212,6 +218,169 @@ void main() {
     expect(calls.any((c) => c.contains("'--context' 'default' 'stats'")), isTrue);
     await tester.binding.setSurfaceSize(null);
   });
+  testWidgets('容器面板六种语言、窄屏与大字体保持一致的工具栏和状态布局', (tester) async {
+    final locales = [const Locale('zh'), const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+      const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')];
+    Future<String> run(String command) async {
+      if (command.contains("'context' 'show'")) return 'desktop-linux';
+      if (command.contains("'ps'")) return [
+        jsonEncode({'ID':'abc123','Names':'worker','State':'running','Image':'nginx:stable','CreatedAt':'2026-09-30 08:00:00 +0000 UTC'}),
+        jsonEncode({'ID':'abc124','Names':'paused-worker','State':'paused','Image':'redis:stable'}),
+      ].join(String.fromCharCode(10));
+      if (command.contains("'stats'")) return jsonEncode({'Name':'worker','CPUPerc':'4.2%','MemUsage':'128 MiB / 1 GiB','NetIO':'10 MB / 2 MB'});
+      return jsonEncode({'Name':'test-host','ServerVersion':'27.5.1','OperatingSystem':'Linux','Labels':['app=worker'],'ContainersRunning':1});
+    }
+    for (final locale in locales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [380.0, 1100.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1100));
+        final theme = width < 500 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.6 : 1)), child: child!),
+          home: Scaffold(body: RepaintBoundary(key: const ValueKey('容器面板预览'), child: _MachineContainerPanel(
+            sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.automatic)))));
+        await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
+        expect(find.text(l.maintenanceContainerContext + ' · desktop-linux'), findsOneWidget);
+        expect(find.text(l.maintenanceContainerList + ' · 2'), findsOneWidget);
+        expect(find.text(l.maintenanceContainerReady), findsNothing);
+        expect(find.text(l.maintenanceRestartCount), findsNothing);
+        final input = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == l.maintenanceContainerSearch);
+        expect(tester.getSize(input).height, _maintenanceControlHeight);
+        expect(tester.getSize(find.descendant(of: input, matching: find.byType(InputDecorator))).height, _maintenanceControlHeight);
+        expect(tester.getSize(find.byType(_MaintenanceToolbarMenu<MachineContainerRuntime>)).height, _maintenanceControlHeight);
+        expect(tester.getSize(find.byTooltip(l.maintenanceRefreshSection)).height, _maintenanceControlHeight);
+        expect(tester.getRect(find.byTooltip(l.maintenanceRefreshSection)).right, greaterThan(width - 32));
+        for (final decorated in tester.widgetList<DecoratedBox>(find.byType(DecoratedBox))) {
+          if (decorated.decoration is BoxDecoration) {
+            final decoration = decorated.decoration as BoxDecoration;
+            expect(decoration.gradient, isNull);
+            expect(decoration.boxShadow ?? [], isEmpty);
+          }
+        }
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('容器面板预览')));
+            final image = await boundary.toImage(); final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/container-panel-' + width.toInt().toString() + '.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+        state.setState(() => state._runtime = MachineContainerRuntime.containerd);
+        await tester.pumpAndSettle();
+        final scope = find.byTooltip(l.maintenanceContainerScopeDefault);
+        expect(scope, findsOneWidget);
+        expect(tester.getSize(find.descendant(of:scope, matching:find.byType(TextField))).height, _maintenanceControlHeight);
+        final metadata = find.text(l.maintenanceContainerMetadata);
+        await tester.scrollUntilVisible(metadata, 220, scrollable: find.descendant(of: find.byType(_MachineContainerPanel), matching: find.byType(Scrollable)).first); await tester.pumpAndSettle();
+        await tester.tap(metadata); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceContainerVersion), findsOneWidget);
+        expect(find.text('ServerVersion'), findsNothing);
+        expect(find.text('27.5.1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器运行时不可用时整个面板显示本地化诊断而非原始异常', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(760, 1100));
+    for (final locale in [const Locale('zh'), const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja'), const Locale.fromSubtags(languageCode:'zh',scriptCode:'Hant')]) {
+      final l = await AppLocalizations.delegate.load(locale);
+      final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+      await tester.pumpWidget(MaterialApp(theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:RepaintBoundary(key:const ValueKey('容器异常预览'),child:_MachineContainerPanel(
+          sessionId:'会话', terminalId:'终端', windows:false, shell:MachineTerminalCommandShell.automatic,
+          run:(_) async => throw StateError('failed to connect to the docker API at unix:///run/docker.sock: no such file or directory'))))));
+      await tester.pumpAndSettle();
+      expect(find.text(l.maintenanceContainerUnavailableTitle), findsOneWidget);
+      expect(find.text(l.maintenanceContainerNotConnected), findsOneWidget);
+      expect(find.text('unix:///run/docker.sock'), findsOneWidget);
+      expect(find.textContaining('Bad state:'), findsNothing);
+      expect(find.text(l.maintenanceContainerRunning), findsNothing);
+      expect(tester.takeException(),isNull);
+      if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+        await tester.runAsync(() async {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('容器异常预览')));
+          final image = await boundary.toImage(); final bytes = await image.toByteData(format:ui.ImageByteFormat.png);
+          await File('/tmp/container-panel-unavailable.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+        });
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器连接异常和嵌套元数据字段按当前语言显示并保留机器标识', (tester) async {
+    for (final locale in [const Locale('zh'), const Locale.fromSubtags(languageCode:'zh',scriptCode:'Hant'), const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')]) {
+      final l = await AppLocalizations.delegate.load(locale);
+      await tester.binding.setSurfaceSize(const Size(760, 1100));
+      await tester.pumpWidget(MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:SingleChildScrollView(child:Column(children:[
+          Builder(builder:(context) {
+            expect(maintenanceDetailLabel(context,'metadata / containerStatuses [1] / ready'),
+              l.maintenanceContainerMetadataFields + ' / ' + l.maintenanceContainers + ' [1] / ' + l.maintenanceContainerReady);
+            expect(maintenanceContainerState(context,'container_running'), l.maintenanceRunning);
+            expect(maintenanceContainerState(context,'pending'), l.maintenanceContainerPending);
+            expect(maintenanceDetailLabel(context,'compiler'), l.maintenanceContainerCompiler);
+            expect(maintenanceDetailLabel(context,'restartCount'), l.maintenanceRestartCount);
+            expect(maintenanceDetailLabel(context,'PublishAllPorts'), l.maintenanceContainerPublishAllPorts);
+            expect(maintenanceDetailLabel(context,'readinessProbe'), l.maintenanceContainerReadinessProbe);
+            expect(maintenanceContainerState(context,'example-custom-state'), 'example-custom-state');
+            return const _MaintenanceReadout(section:'container_details', text:'{"metadata":{"name":"worker-原始标识","namespace":"default","labels":{"app.example.io/name":"worker-原始标识"}},"status":{"phase":"Pending"}}');
+          }),
+          const _MaintenanceReadout(section:'containers', text:'Bad state: failed to connect to the docker API at unix:///run/docker.sock: no such file or directory'),
+        ])))));
+      await tester.pumpAndSettle();
+      expect(find.text(l.maintenanceContainerMetadataFields), findsOneWidget);
+      expect(find.text(l.maintenanceContainerPending), findsOneWidget);
+      expect(find.text(l.maintenanceContainerUnavailableTitle), findsOneWidget);
+      expect(find.text(l.maintenanceContainerNotConnected), findsOneWidget);
+      expect(find.text(l.maintenanceContainerConnectionAddress), findsOneWidget);
+      expect(find.text('unix:///run/docker.sock'), findsOneWidget);
+      expect(find.text('worker-原始标识'), findsNWidgets(2));
+      expect(find.textContaining('app.example.io/name'), findsOneWidget);
+      expect(find.textContaining('Bad state:'), findsNothing);
+      expect(tester.takeException(),isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器条目和更多菜单详情共用弹窗，语言切换刷新所有标签', (tester) async {
+    Future<String> run(String command) async {
+      if(command.contains("'context' 'show'")) return 'default';
+      if(command.contains("'ps'")) return '{"ID":"abc123","Names":"worker","State":"running","Image":"nginx"}';
+      if(command.contains("'inspect'")) return '{"Name":"worker","ServerVersion":"27.5.1","State":{"Status":"running"}}';
+      return '{}';
+    }
+    Widget screen(Locale locale) => MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_MachineContainerPanel(key:const ValueKey('保留容器状态'), sessionId:'会话', terminalId:'终端', run:run, windows:false,shell:MachineTerminalCommandShell.automatic)));
+    await tester.binding.setSurfaceSize(const Size(1100,900));
+    await tester.pumpWidget(screen(const Locale('zh'))); await tester.pumpAndSettle();
+    await tester.tap(find.text('worker')); await tester.pumpAndSettle();
+    final title = tester.widget<_MachineTerminalDialogHeader>(find.descendant(of:find.byType(_ContainerReportDialog),matching:find.byType(_MachineTerminalDialogHeader))).title;
+    expect(title,'worker · 详情'); expect(find.text('服务版本'),findsOneWidget);
+    await tester.tap(find.byTooltip('关闭')); await tester.pumpAndSettle();
+    await tester.pumpWidget(screen(const Locale('fr'))); await tester.pumpAndSettle();
+    final l = await AppLocalizations.delegate.load(const Locale('fr'));
+    expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
+    expect(find.text('容器运行时'),findsNothing);
+    final menu = tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
+    expect(menu.actions.keys,containsAll([l.maintenanceContainerLogs,l.maintenanceContainerStop,l.maintenanceContainerFileManager]));
+    menu.onDetails!(); await tester.pumpAndSettle();
+    expect(find.byType(_ContainerReportDialog),findsOneWidget);
+    expect(find.text('worker · ' + l.commonDetails),findsOneWidget);
+    expect(find.text(l.maintenanceContainerVersion),findsOneWidget);
+    expect(find.text('27.5.1'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+    await tester.tap(find.byTooltip('Fermer')); await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器报告手动刷新、自动刷新失败停止并清理定时器', (tester) async {
     var calls = 0;
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _ContainerReportDialog(
@@ -224,7 +393,7 @@ void main() {
     expect(calls, 2);
     await tester.pump(const Duration(seconds: 20));
     expect(calls, 2);
-    await tester.tap(find.byTooltip('刷新'));
+    await tester.tap(find.byTooltip('刷新详情'));
     await tester.pumpAndSettle();
     expect(calls, 3);
     await tester.pumpWidget(const SizedBox());

@@ -24436,6 +24436,918 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'控制台'**
   String get maintenanceConsole;
+
+  /// No description provided for @maintenanceContainerTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器管理'**
+  String get maintenanceContainerTab;
+
+  /// No description provided for @maintenanceContainerRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器运行时'**
+  String get maintenanceContainerRuntime;
+
+  /// No description provided for @maintenanceContainerList.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器'**
+  String get maintenanceContainerList;
+
+  /// No description provided for @maintenanceContainerPods.
+  ///
+  /// In zh, this message translates to:
+  /// **'Pod'**
+  String get maintenanceContainerPods;
+
+  /// No description provided for @maintenanceContainerScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'命名空间'**
+  String get maintenanceContainerScope;
+
+  /// No description provided for @maintenanceContainerScopeDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'命名空间（默认 default）'**
+  String get maintenanceContainerScopeDefault;
+
+  /// No description provided for @maintenanceContainerScopeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'命名空间（留空为全部）'**
+  String get maintenanceContainerScopeAll;
+
+  /// No description provided for @maintenanceContainerEndpoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'CRI 端点（留空使用默认配置）'**
+  String get maintenanceContainerEndpoint;
+
+  /// No description provided for @maintenanceContainerSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索名称、镜像、命名空间'**
+  String get maintenanceContainerSearch;
+
+  /// No description provided for @maintenanceContainerContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接上下文'**
+  String get maintenanceContainerContext;
+
+  /// No description provided for @maintenanceContainerNoRecords.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前范围没有记录'**
+  String get maintenanceContainerNoRecords;
+
+  /// No description provided for @maintenanceContainerMetrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'实时资源采样'**
+  String get maintenanceContainerMetrics;
+
+  /// No description provided for @maintenanceContainerMetadata.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时元数据与状态'**
+  String get maintenanceContainerMetadata;
+
+  /// No description provided for @maintenanceContainerSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 Pod 内的容器'**
+  String get maintenanceContainerSelect;
+
+  /// No description provided for @maintenanceContainerNoOperable.
+  ///
+  /// In zh, this message translates to:
+  /// **'该 Pod 暂无可操作的容器，请刷新后重试。'**
+  String get maintenanceContainerNoOperable;
+
+  /// No description provided for @maintenanceContainerStateImpact.
+  ///
+  /// In zh, this message translates to:
+  /// **'此操作会改变容器运行状态。'**
+  String get maintenanceContainerStateImpact;
+
+  /// No description provided for @maintenanceContainerDeleteImpact.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后无法撤销；挂载卷不会主动删除。'**
+  String get maintenanceContainerDeleteImpact;
+
+  /// No description provided for @maintenanceContainerPodRecreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制器管理的 Pod 删除后可能自动重建。'**
+  String get maintenanceContainerPodRecreated;
+
+  /// No description provided for @maintenanceContainerSubmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作已提交，请刷新查看当前状态。'**
+  String get maintenanceContainerSubmitted;
+
+  /// No description provided for @maintenanceContainerFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器文件'**
+  String get maintenanceContainerFiles;
+
+  /// No description provided for @maintenanceContainerTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'交互终端'**
+  String get maintenanceContainerTerminal;
+
+  /// No description provided for @maintenanceContainerConnecting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在连接容器终端…'**
+  String get maintenanceContainerConnecting;
+
+  /// No description provided for @maintenanceContainerTerminalClosed.
+  ///
+  /// In zh, this message translates to:
+  /// **'原终端已关闭，请重新连接。'**
+  String get maintenanceContainerTerminalClosed;
+
+  /// No description provided for @maintenanceContainerTerminalHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 exit 退出容器 Shell；单次连接最长 10 分钟。'**
+  String get maintenanceContainerTerminalHelp;
+
+  /// No description provided for @maintenanceContainerTerminalExited.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器终端已退出。'**
+  String get maintenanceContainerTerminalExited;
+
+  /// No description provided for @maintenanceContainerTerminalEnded.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器终端连接结束，请查看终端输出。'**
+  String get maintenanceContainerTerminalEnded;
+
+  /// No description provided for @maintenanceContainerStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动'**
+  String get maintenanceContainerStart;
+
+  /// No description provided for @maintenanceContainerStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止'**
+  String get maintenanceContainerStop;
+
+  /// No description provided for @maintenanceContainerRestart.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启'**
+  String get maintenanceContainerRestart;
+
+  /// No description provided for @maintenanceContainerResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get maintenanceContainerResume;
+
+  /// No description provided for @maintenanceContainerEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件'**
+  String get maintenanceContainerEvents;
+
+  /// No description provided for @maintenanceContainerReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪'**
+  String get maintenanceContainerReady;
+
+  /// No description provided for @maintenanceContainerPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待中'**
+  String get maintenanceContainerPending;
+
+  /// No description provided for @maintenanceContainerSucceeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get maintenanceContainerSucceeded;
+
+  /// No description provided for @maintenanceContainerTerminated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已终止'**
+  String get maintenanceContainerTerminated;
+
+  /// No description provided for @maintenanceContainerCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已创建'**
+  String get maintenanceContainerCreated;
+
+  /// No description provided for @maintenanceContainerRemoving.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除中'**
+  String get maintenanceContainerRemoving;
+
+  /// No description provided for @maintenanceContainerRestarting.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启中'**
+  String get maintenanceContainerRestarting;
+
+  /// No description provided for @maintenanceContainerNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点'**
+  String get maintenanceContainerNode;
+
+  /// No description provided for @maintenanceContainerVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务版本'**
+  String get maintenanceContainerVersion;
+
+  /// No description provided for @maintenanceContainerRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行中容器'**
+  String get maintenanceContainerRunning;
+
+  /// No description provided for @maintenanceContainerPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停容器'**
+  String get maintenanceContainerPaused;
+
+  /// No description provided for @maintenanceContainerStopped.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止容器'**
+  String get maintenanceContainerStopped;
+
+  /// No description provided for @maintenanceContainerConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置'**
+  String get maintenanceContainerConfig;
+
+  /// No description provided for @maintenanceContainerHostConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机配置'**
+  String get maintenanceContainerHostConfig;
+
+  /// No description provided for @maintenanceContainerNetworkConfig.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络配置'**
+  String get maintenanceContainerNetworkConfig;
+
+  /// No description provided for @maintenanceContainerLabels.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签'**
+  String get maintenanceContainerLabels;
+
+  /// No description provided for @maintenanceContainerAnnotations.
+  ///
+  /// In zh, this message translates to:
+  /// **'注解'**
+  String get maintenanceContainerAnnotations;
+
+  /// No description provided for @maintenanceContainerSpec.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行规格'**
+  String get maintenanceContainerSpec;
+
+  /// No description provided for @maintenanceContainerMetadataFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'元数据'**
+  String get maintenanceContainerMetadataFields;
+
+  /// No description provided for @maintenanceContainerConditions.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态条件'**
+  String get maintenanceContainerConditions;
+
+  /// No description provided for @maintenanceContainerEnvironment.
+  ///
+  /// In zh, this message translates to:
+  /// **'环境变量'**
+  String get maintenanceContainerEnvironment;
+
+  /// No description provided for @maintenanceContainerEntrypoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'入口命令'**
+  String get maintenanceContainerEntrypoint;
+
+  /// No description provided for @maintenanceContainerResources.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源配置'**
+  String get maintenanceContainerResources;
+
+  /// No description provided for @maintenanceContainerLimits.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源上限'**
+  String get maintenanceContainerLimits;
+
+  /// No description provided for @maintenanceContainerRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源请求'**
+  String get maintenanceContainerRequests;
+
+  /// No description provided for @maintenanceContainerVolumes.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储卷'**
+  String get maintenanceContainerVolumes;
+
+  /// No description provided for @maintenanceContainerEndpoints.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络端点'**
+  String get maintenanceContainerEndpoints;
+
+  /// No description provided for @maintenanceContainerNetworks.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络列表'**
+  String get maintenanceContainerNetworks;
+
+  /// No description provided for @maintenanceContainerDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储驱动'**
+  String get maintenanceContainerDriver;
+
+  /// No description provided for @maintenanceContainerCgroupDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制组驱动'**
+  String get maintenanceContainerCgroupDriver;
+
+  /// No description provided for @maintenanceContainerDataDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据目录'**
+  String get maintenanceContainerDataDirectory;
+
+  /// No description provided for @maintenanceContainerMemoryUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存用量 / 上限'**
+  String get maintenanceContainerMemoryUsage;
+
+  /// No description provided for @maintenanceContainerNetworkIO.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络接收 / 发送'**
+  String get maintenanceContainerNetworkIO;
+
+  /// No description provided for @maintenanceContainerBlockIO.
+  ///
+  /// In zh, this message translates to:
+  /// **'块 IO 读取 / 写入'**
+  String get maintenanceContainerBlockIO;
+
+  /// No description provided for @maintenanceContainerProcesses.
+  ///
+  /// In zh, this message translates to:
+  /// **'进程数'**
+  String get maintenanceContainerProcesses;
+
+  /// No description provided for @maintenanceContainerCpuUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 用量'**
+  String get maintenanceContainerCpuUsage;
+
+  /// No description provided for @maintenanceContainerMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存用量'**
+  String get maintenanceContainerMemory;
+
+  /// No description provided for @maintenanceContainerHealth.
+  ///
+  /// In zh, this message translates to:
+  /// **'健康检查'**
+  String get maintenanceContainerHealth;
+
+  /// No description provided for @maintenanceContainerImageId.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像标识'**
+  String get maintenanceContainerImageId;
+
+  /// No description provided for @maintenanceContainerContainerId.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器标识'**
+  String get maintenanceContainerContainerId;
+
+  /// No description provided for @maintenanceContainerOwner.
+  ///
+  /// In zh, this message translates to:
+  /// **'所属控制器'**
+  String get maintenanceContainerOwner;
+
+  /// No description provided for @maintenanceContainerMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断说明'**
+  String get maintenanceContainerMessage;
+
+  /// No description provided for @maintenanceContainerNoContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到当前连接上下文。'**
+  String get maintenanceContainerNoContext;
+
+  /// No description provided for @maintenanceContainerPermissionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账户无权读取'**
+  String get maintenanceContainerPermissionTitle;
+
+  /// No description provided for @maintenanceContainerTimeoutTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集响应超时'**
+  String get maintenanceContainerTimeoutTitle;
+
+  /// No description provided for @maintenanceContainerConnectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法连接服务'**
+  String get maintenanceContainerConnectionTitle;
+
+  /// No description provided for @maintenanceContainerUnavailableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器服务暂不可用'**
+  String get maintenanceContainerUnavailableTitle;
+
+  /// No description provided for @maintenanceContainerMissingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺少采集所需工具'**
+  String get maintenanceContainerMissingTitle;
+
+  /// No description provided for @maintenanceContainerFormatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集格式暂未识别'**
+  String get maintenanceContainerFormatTitle;
+
+  /// No description provided for @maintenanceContainerDataTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前数据暂不可用'**
+  String get maintenanceContainerDataTitle;
+
+  /// No description provided for @maintenanceContainerPermissionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查当前账户的访问权限后重试。'**
+  String get maintenanceContainerPermissionHelp;
+
+  /// No description provided for @maintenanceContainerConnectionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请确认目标服务已启动，并检查连接地址。'**
+  String get maintenanceContainerConnectionHelp;
+
+  /// No description provided for @maintenanceContainerRuntimeHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请确认所选容器运行时已启动，并检查连接上下文与端点。'**
+  String get maintenanceContainerRuntimeHelp;
+
+  /// No description provided for @maintenanceContainerTimeoutHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查目标服务的运行状态和连接，稍后重新采集。'**
+  String get maintenanceContainerTimeoutHelp;
+
+  /// No description provided for @maintenanceContainerMissingHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请确认目标机器已安装对应工具，且命令可在当前终端使用。'**
+  String get maintenanceContainerMissingHelp;
+
+  /// No description provided for @maintenanceContainerFormatHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前工具输出格式尚未识别，请检查工具版本和采集范围后重试。'**
+  String get maintenanceContainerFormatHelp;
+
+  /// No description provided for @maintenanceContainerDataHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查目标服务、权限和工具状态后重新采集。'**
+  String get maintenanceContainerDataHelp;
+
+  /// No description provided for @maintenanceContainerClientVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'客户端版本'**
+  String get maintenanceContainerClientVersion;
+
+  /// No description provided for @maintenanceContainerApiVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'API 版本'**
+  String get maintenanceContainerApiVersion;
+
+  /// No description provided for @maintenanceContainerGenericVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本'**
+  String get maintenanceContainerGenericVersion;
+
+  /// No description provided for @maintenanceContainerInitContainers.
+  ///
+  /// In zh, this message translates to:
+  /// **'初始化容器'**
+  String get maintenanceContainerInitContainers;
+
+  /// No description provided for @maintenanceContainerInitStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'初始化容器状态'**
+  String get maintenanceContainerInitStatus;
+
+  /// No description provided for @maintenanceContainerHostAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机地址'**
+  String get maintenanceContainerHostAddress;
+
+  /// No description provided for @maintenanceContainerRecords.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录'**
+  String get maintenanceContainerRecords;
+
+  /// No description provided for @maintenanceContainerPlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件'**
+  String get maintenanceContainerPlugins;
+
+  /// No description provided for @maintenanceContainerSecurity.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全选项'**
+  String get maintenanceContainerSecurity;
+
+  /// No description provided for @maintenanceContainerWarnings.
+  ///
+  /// In zh, this message translates to:
+  /// **'提醒'**
+  String get maintenanceContainerWarnings;
+
+  /// No description provided for @maintenanceContainerStartedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动时间'**
+  String get maintenanceContainerStartedAt;
+
+  /// No description provided for @maintenanceContainerFinishedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束时间'**
+  String get maintenanceContainerFinishedAt;
+
+  /// No description provided for @maintenanceContainerOutOfMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存不足'**
+  String get maintenanceContainerOutOfMemory;
+
+  /// No description provided for @maintenanceContainerReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'原因'**
+  String get maintenanceContainerReason;
+
+  /// No description provided for @maintenanceContainerResultCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果代码'**
+  String get maintenanceContainerResultCode;
+
+  /// No description provided for @maintenanceContainerResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果'**
+  String get maintenanceContainerResult;
+
+  /// No description provided for @maintenanceContainerConnectionAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接地址'**
+  String get maintenanceContainerConnectionAddress;
+
+  /// No description provided for @maintenanceContainerResourceStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源状态'**
+  String get maintenanceContainerResourceStatus;
+
+  /// No description provided for @maintenanceContainerDiagnosticStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'诊断状态'**
+  String get maintenanceContainerDiagnosticStatus;
+
+  /// No description provided for @maintenanceContainerPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取权限不足'**
+  String get maintenanceContainerPermissionDenied;
+
+  /// No description provided for @maintenanceContainerResponseTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标响应超时'**
+  String get maintenanceContainerResponseTimeout;
+
+  /// No description provided for @maintenanceContainerResponseTimeoutShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'响应超时'**
+  String get maintenanceContainerResponseTimeoutShort;
+
+  /// No description provided for @maintenanceContainerNotConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接未建立'**
+  String get maintenanceContainerNotConnected;
+
+  /// No description provided for @maintenanceContainerToolUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'所需工具不可用'**
+  String get maintenanceContainerToolUnavailable;
+
+  /// No description provided for @maintenanceContainerCollectionIncomplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集未完成'**
+  String get maintenanceContainerCollectionIncomplete;
+
+  /// No description provided for @maintenanceContainerSocketMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接文件不存在，请检查服务是否运行'**
+  String get maintenanceContainerSocketMissing;
+
+  /// No description provided for @maintenanceContainerDiagnosticFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分输出格式尚未识别，请检查采集工具版本和数据范围'**
+  String get maintenanceContainerDiagnosticFormat;
+
+  /// No description provided for @maintenanceContainerFileManager.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件管理'**
+  String get maintenanceContainerFileManager;
+
+  /// No description provided for @maintenanceContainerExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出'**
+  String get maintenanceContainerExit;
+
+  /// No description provided for @maintenanceContainerLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志'**
+  String get maintenanceContainerLogs;
+
+  /// No description provided for @maintenanceContainerDefaultRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认运行时'**
+  String get maintenanceContainerDefaultRuntime;
+
+  /// No description provided for @maintenanceContainerRuntimes.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用运行时'**
+  String get maintenanceContainerRuntimes;
+
+  /// No description provided for @maintenanceContainerLoggingDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志驱动'**
+  String get maintenanceContainerLoggingDriver;
+
+  /// No description provided for @maintenanceContainerCgroupVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制组版本'**
+  String get maintenanceContainerCgroupVersion;
+
+  /// No description provided for @maintenanceContainerDriverStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'驱动状态'**
+  String get maintenanceContainerDriverStatus;
+
+  /// No description provided for @maintenanceContainerRegistry.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像仓库配置'**
+  String get maintenanceContainerRegistry;
+
+  /// No description provided for @maintenanceContainerLiveRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务恢复时保持容器运行'**
+  String get maintenanceContainerLiveRestore;
+
+  /// No description provided for @maintenanceContainerLogPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志路径'**
+  String get maintenanceContainerLogPath;
+
+  /// No description provided for @maintenanceContainerPrivileged.
+  ///
+  /// In zh, this message translates to:
+  /// **'特权模式'**
+  String get maintenanceContainerPrivileged;
+
+  /// No description provided for @maintenanceContainerReadOnlyRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'根文件系统只读'**
+  String get maintenanceContainerReadOnlyRoot;
+
+  /// No description provided for @maintenanceContainerAutoRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后自动删除'**
+  String get maintenanceContainerAutoRemove;
+
+  /// No description provided for @maintenanceContainerNetworkMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络模式'**
+  String get maintenanceContainerNetworkMode;
+
+  /// No description provided for @maintenanceContainerPidMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'进程命名空间模式'**
+  String get maintenanceContainerPidMode;
+
+  /// No description provided for @maintenanceContainerIpcMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPC 命名空间模式'**
+  String get maintenanceContainerIpcMode;
+
+  /// No description provided for @maintenanceContainerCapabilitiesAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'额外授予的能力'**
+  String get maintenanceContainerCapabilitiesAdded;
+
+  /// No description provided for @maintenanceContainerCapabilitiesDropped.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除的能力'**
+  String get maintenanceContainerCapabilitiesDropped;
+
+  /// No description provided for @maintenanceContainerCpuShares.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 调度权重'**
+  String get maintenanceContainerCpuShares;
+
+  /// No description provided for @maintenanceContainerNanoCpus.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 配额（纳核）'**
+  String get maintenanceContainerNanoCpus;
+
+  /// No description provided for @maintenanceContainerMemoryReservation.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存预留'**
+  String get maintenanceContainerMemoryReservation;
+
+  /// No description provided for @maintenanceContainerPublishedPorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'暴露端口'**
+  String get maintenanceContainerPublishedPorts;
+
+  /// No description provided for @maintenanceContainerImagePolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像拉取策略'**
+  String get maintenanceContainerImagePolicy;
+
+  /// No description provided for @maintenanceContainerServiceAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务账户'**
+  String get maintenanceContainerServiceAccount;
+
+  /// No description provided for @maintenanceContainerScheduler.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度器'**
+  String get maintenanceContainerScheduler;
+
+  /// No description provided for @maintenanceContainerNodeSelector.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点选择条件'**
+  String get maintenanceContainerNodeSelector;
+
+  /// No description provided for @maintenanceContainerSecurityContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全上下文'**
+  String get maintenanceContainerSecurityContext;
+
+  /// No description provided for @maintenanceContainerPodList.
+  ///
+  /// In zh, this message translates to:
+  /// **'Pod 列表'**
+  String get maintenanceContainerPodList;
+
+  /// No description provided for @maintenanceContainerNodeInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点信息'**
+  String get maintenanceContainerNodeInfo;
+
+  /// No description provided for @maintenanceContainerCompiler.
+  ///
+  /// In zh, this message translates to:
+  /// **'编译器'**
+  String get maintenanceContainerCompiler;
+
+  /// No description provided for @maintenanceContainerGoVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'Go 版本'**
+  String get maintenanceContainerGoVersion;
+
+  /// No description provided for @maintenanceContainerGoroutines.
+  ///
+  /// In zh, this message translates to:
+  /// **'Go 协程数'**
+  String get maintenanceContainerGoroutines;
+
+  /// No description provided for @maintenanceContainerPublishAllPorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'发布全部端口'**
+  String get maintenanceContainerPublishAllPorts;
+
+  /// No description provided for @maintenanceContainerLivenessProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'存活探针'**
+  String get maintenanceContainerLivenessProbe;
+
+  /// No description provided for @maintenanceContainerReadinessProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪探针'**
+  String get maintenanceContainerReadinessProbe;
+
+  /// No description provided for @maintenanceContainerStartupProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动探针'**
+  String get maintenanceContainerStartupProbe;
 }
 
 class _AppLocalizationsDelegate

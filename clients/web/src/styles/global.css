@@ -520,12 +520,8 @@ html, body, #root {
   border: 1px solid color-mix(in srgb, var(--m3-outline) 62%, transparent);
   border-radius: var(--m3-radius-md);
   color: var(--m3-on-surface);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--m3-primary) 10%, transparent),
-      color-mix(in srgb, var(--m3-surface-container-high) 88%, transparent)),
-    var(--m3-surface-container-high);
-  box-shadow: var(--m3-elev-1);
+  background: var(--m3-surface-container-high);
+  box-shadow: none;
   contain: layout paint;
   isolation: isolate;
   transition:
@@ -539,9 +535,8 @@ html, body, #root {
 }
 .oh-audio-result-card:focus-within {
   border-color: var(--m3-primary);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--m3-primary) 18%, transparent),
-    var(--m3-elev-2);
+  outline: 2px solid var(--m3-primary);
+  outline-offset: 2px;
 }
 .oh-audio-native-engine {
   position: absolute;
@@ -2512,7 +2507,7 @@ button.oh-message-context-capsule {
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container) 82%, var(--m3-surface));
-  box-shadow: 0 14px 30px -32px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent);
+  box-shadow: none;
 }
 .oh-settings-summary-card,
 .oh-settings-boundary-card {
@@ -3082,7 +3077,7 @@ button.oh-message-context-capsule {
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container) 82%, var(--m3-surface));
-  box-shadow: 0 10px 26px -28px color-mix(in srgb, var(--m3-shadow, #000) 35%, transparent);
+  box-shadow: none;
   transition:
     border-color 220ms var(--oh-motion-emphasized),
     background-color 220ms var(--oh-motion-emphasized),
@@ -4188,7 +4183,7 @@ button.oh-message-context-capsule {
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container) 82%, var(--m3-surface));
-  box-shadow: 0 14px 30px -32px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent);
+  box-shadow: none;
 }
 .oh-files-panel-heading {
   display: flex;
@@ -11900,7 +11895,7 @@ button.oh-json-tree-row { cursor: pointer; }
 .oh-decision-add:disabled { opacity: .38; }
 @media (max-width: 560px) { .oh-decision-type { font-size: 12px; gap: 4px; } }
 
-/* 卡片悬停不叠加阴影；保留静态投影，避免悬停时把原有阴影抹掉。 */
+/* 信息卡片统一使用边框反馈，悬停不产生投影。 */
 .oh-decision-card,
 .oh-decision-block,
 .oh-decision-request,

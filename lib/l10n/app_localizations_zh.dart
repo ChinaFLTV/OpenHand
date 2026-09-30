@@ -13150,6 +13150,464 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceConsole => '控制台';
+
+  @override
+  String get maintenanceContainerTab => '容器管理';
+
+  @override
+  String get maintenanceContainerRuntime => '容器运行时';
+
+  @override
+  String get maintenanceContainerList => '容器';
+
+  @override
+  String get maintenanceContainerPods => 'Pod';
+
+  @override
+  String get maintenanceContainerScope => '命名空间';
+
+  @override
+  String get maintenanceContainerScopeDefault => '命名空间（默认 default）';
+
+  @override
+  String get maintenanceContainerScopeAll => '命名空间（留空为全部）';
+
+  @override
+  String get maintenanceContainerEndpoint => 'CRI 端点（留空使用默认配置）';
+
+  @override
+  String get maintenanceContainerSearch => '搜索名称、镜像、命名空间';
+
+  @override
+  String get maintenanceContainerContext => '连接上下文';
+
+  @override
+  String get maintenanceContainerNoRecords => '当前范围没有记录';
+
+  @override
+  String get maintenanceContainerMetrics => '实时资源采样';
+
+  @override
+  String get maintenanceContainerMetadata => '运行时元数据与状态';
+
+  @override
+  String get maintenanceContainerSelect => '选择 Pod 内的容器';
+
+  @override
+  String get maintenanceContainerNoOperable => '该 Pod 暂无可操作的容器，请刷新后重试。';
+
+  @override
+  String get maintenanceContainerStateImpact => '此操作会改变容器运行状态。';
+
+  @override
+  String get maintenanceContainerDeleteImpact => '删除后无法撤销；挂载卷不会主动删除。';
+
+  @override
+  String get maintenanceContainerPodRecreated => '控制器管理的 Pod 删除后可能自动重建。';
+
+  @override
+  String get maintenanceContainerSubmitted => '操作已提交，请刷新查看当前状态。';
+
+  @override
+  String get maintenanceContainerFiles => '容器文件';
+
+  @override
+  String get maintenanceContainerTerminal => '交互终端';
+
+  @override
+  String get maintenanceContainerConnecting => '正在连接容器终端…';
+
+  @override
+  String get maintenanceContainerTerminalClosed => '原终端已关闭，请重新连接。';
+
+  @override
+  String get maintenanceContainerTerminalHelp =>
+      '输入 exit 退出容器 Shell；单次连接最长 10 分钟。';
+
+  @override
+  String get maintenanceContainerTerminalExited => '容器终端已退出。';
+
+  @override
+  String get maintenanceContainerTerminalEnded => '容器终端连接结束，请查看终端输出。';
+
+  @override
+  String get maintenanceContainerStart => '启动';
+
+  @override
+  String get maintenanceContainerStop => '停止';
+
+  @override
+  String get maintenanceContainerRestart => '重启';
+
+  @override
+  String get maintenanceContainerResume => '恢复';
+
+  @override
+  String get maintenanceContainerEvents => '事件';
+
+  @override
+  String get maintenanceContainerReady => '就绪';
+
+  @override
+  String get maintenanceContainerPending => '等待中';
+
+  @override
+  String get maintenanceContainerSucceeded => '已完成';
+
+  @override
+  String get maintenanceContainerTerminated => '已终止';
+
+  @override
+  String get maintenanceContainerCreated => '已创建';
+
+  @override
+  String get maintenanceContainerRemoving => '删除中';
+
+  @override
+  String get maintenanceContainerRestarting => '重启中';
+
+  @override
+  String get maintenanceContainerNode => '节点';
+
+  @override
+  String get maintenanceContainerVersion => '服务版本';
+
+  @override
+  String get maintenanceContainerRunning => '运行中容器';
+
+  @override
+  String get maintenanceContainerPaused => '暂停容器';
+
+  @override
+  String get maintenanceContainerStopped => '停止容器';
+
+  @override
+  String get maintenanceContainerConfig => '配置';
+
+  @override
+  String get maintenanceContainerHostConfig => '主机配置';
+
+  @override
+  String get maintenanceContainerNetworkConfig => '网络配置';
+
+  @override
+  String get maintenanceContainerLabels => '标签';
+
+  @override
+  String get maintenanceContainerAnnotations => '注解';
+
+  @override
+  String get maintenanceContainerSpec => '运行规格';
+
+  @override
+  String get maintenanceContainerMetadataFields => '元数据';
+
+  @override
+  String get maintenanceContainerConditions => '状态条件';
+
+  @override
+  String get maintenanceContainerEnvironment => '环境变量';
+
+  @override
+  String get maintenanceContainerEntrypoint => '入口命令';
+
+  @override
+  String get maintenanceContainerResources => '资源配置';
+
+  @override
+  String get maintenanceContainerLimits => '资源上限';
+
+  @override
+  String get maintenanceContainerRequests => '资源请求';
+
+  @override
+  String get maintenanceContainerVolumes => '存储卷';
+
+  @override
+  String get maintenanceContainerEndpoints => '网络端点';
+
+  @override
+  String get maintenanceContainerNetworks => '网络列表';
+
+  @override
+  String get maintenanceContainerDriver => '存储驱动';
+
+  @override
+  String get maintenanceContainerCgroupDriver => '控制组驱动';
+
+  @override
+  String get maintenanceContainerDataDirectory => '数据目录';
+
+  @override
+  String get maintenanceContainerMemoryUsage => '内存用量 / 上限';
+
+  @override
+  String get maintenanceContainerNetworkIO => '网络接收 / 发送';
+
+  @override
+  String get maintenanceContainerBlockIO => '块 IO 读取 / 写入';
+
+  @override
+  String get maintenanceContainerProcesses => '进程数';
+
+  @override
+  String get maintenanceContainerCpuUsage => 'CPU 用量';
+
+  @override
+  String get maintenanceContainerMemory => '内存用量';
+
+  @override
+  String get maintenanceContainerHealth => '健康检查';
+
+  @override
+  String get maintenanceContainerImageId => '镜像标识';
+
+  @override
+  String get maintenanceContainerContainerId => '容器标识';
+
+  @override
+  String get maintenanceContainerOwner => '所属控制器';
+
+  @override
+  String get maintenanceContainerMessage => '诊断说明';
+
+  @override
+  String get maintenanceContainerNoContext => '未找到当前连接上下文。';
+
+  @override
+  String get maintenanceContainerPermissionTitle => '当前账户无权读取';
+
+  @override
+  String get maintenanceContainerTimeoutTitle => '采集响应超时';
+
+  @override
+  String get maintenanceContainerConnectionTitle => '暂时无法连接服务';
+
+  @override
+  String get maintenanceContainerUnavailableTitle => '容器服务暂不可用';
+
+  @override
+  String get maintenanceContainerMissingTitle => '缺少采集所需工具';
+
+  @override
+  String get maintenanceContainerFormatTitle => '采集格式暂未识别';
+
+  @override
+  String get maintenanceContainerDataTitle => '当前数据暂不可用';
+
+  @override
+  String get maintenanceContainerPermissionHelp => '请检查当前账户的访问权限后重试。';
+
+  @override
+  String get maintenanceContainerConnectionHelp => '请确认目标服务已启动，并检查连接地址。';
+
+  @override
+  String get maintenanceContainerRuntimeHelp => '请确认所选容器运行时已启动，并检查连接上下文与端点。';
+
+  @override
+  String get maintenanceContainerTimeoutHelp => '请检查目标服务的运行状态和连接，稍后重新采集。';
+
+  @override
+  String get maintenanceContainerMissingHelp => '请确认目标机器已安装对应工具，且命令可在当前终端使用。';
+
+  @override
+  String get maintenanceContainerFormatHelp => '当前工具输出格式尚未识别，请检查工具版本和采集范围后重试。';
+
+  @override
+  String get maintenanceContainerDataHelp => '请检查目标服务、权限和工具状态后重新采集。';
+
+  @override
+  String get maintenanceContainerClientVersion => '客户端版本';
+
+  @override
+  String get maintenanceContainerApiVersion => 'API 版本';
+
+  @override
+  String get maintenanceContainerGenericVersion => '版本';
+
+  @override
+  String get maintenanceContainerInitContainers => '初始化容器';
+
+  @override
+  String get maintenanceContainerInitStatus => '初始化容器状态';
+
+  @override
+  String get maintenanceContainerHostAddress => '主机地址';
+
+  @override
+  String get maintenanceContainerRecords => '记录';
+
+  @override
+  String get maintenanceContainerPlugins => '插件';
+
+  @override
+  String get maintenanceContainerSecurity => '安全选项';
+
+  @override
+  String get maintenanceContainerWarnings => '提醒';
+
+  @override
+  String get maintenanceContainerStartedAt => '启动时间';
+
+  @override
+  String get maintenanceContainerFinishedAt => '结束时间';
+
+  @override
+  String get maintenanceContainerOutOfMemory => '内存不足';
+
+  @override
+  String get maintenanceContainerReason => '原因';
+
+  @override
+  String get maintenanceContainerResultCode => '结果代码';
+
+  @override
+  String get maintenanceContainerResult => '结果';
+
+  @override
+  String get maintenanceContainerConnectionAddress => '连接地址';
+
+  @override
+  String get maintenanceContainerResourceStatus => '资源状态';
+
+  @override
+  String get maintenanceContainerDiagnosticStatus => '诊断状态';
+
+  @override
+  String get maintenanceContainerPermissionDenied => '读取权限不足';
+
+  @override
+  String get maintenanceContainerResponseTimeout => '目标响应超时';
+
+  @override
+  String get maintenanceContainerResponseTimeoutShort => '响应超时';
+
+  @override
+  String get maintenanceContainerNotConnected => '连接未建立';
+
+  @override
+  String get maintenanceContainerToolUnavailable => '所需工具不可用';
+
+  @override
+  String get maintenanceContainerCollectionIncomplete => '采集未完成';
+
+  @override
+  String get maintenanceContainerSocketMissing => '连接文件不存在，请检查服务是否运行';
+
+  @override
+  String get maintenanceContainerDiagnosticFormat =>
+      '部分输出格式尚未识别，请检查采集工具版本和数据范围';
+
+  @override
+  String get maintenanceContainerFileManager => '文件管理';
+
+  @override
+  String get maintenanceContainerExit => '退出';
+
+  @override
+  String get maintenanceContainerLogs => '日志';
+
+  @override
+  String get maintenanceContainerDefaultRuntime => '默认运行时';
+
+  @override
+  String get maintenanceContainerRuntimes => '可用运行时';
+
+  @override
+  String get maintenanceContainerLoggingDriver => '日志驱动';
+
+  @override
+  String get maintenanceContainerCgroupVersion => '控制组版本';
+
+  @override
+  String get maintenanceContainerDriverStatus => '驱动状态';
+
+  @override
+  String get maintenanceContainerRegistry => '镜像仓库配置';
+
+  @override
+  String get maintenanceContainerLiveRestore => '服务恢复时保持容器运行';
+
+  @override
+  String get maintenanceContainerLogPath => '日志路径';
+
+  @override
+  String get maintenanceContainerPrivileged => '特权模式';
+
+  @override
+  String get maintenanceContainerReadOnlyRoot => '根文件系统只读';
+
+  @override
+  String get maintenanceContainerAutoRemove => '退出后自动删除';
+
+  @override
+  String get maintenanceContainerNetworkMode => '网络模式';
+
+  @override
+  String get maintenanceContainerPidMode => '进程命名空间模式';
+
+  @override
+  String get maintenanceContainerIpcMode => 'IPC 命名空间模式';
+
+  @override
+  String get maintenanceContainerCapabilitiesAdded => '额外授予的能力';
+
+  @override
+  String get maintenanceContainerCapabilitiesDropped => '移除的能力';
+
+  @override
+  String get maintenanceContainerCpuShares => 'CPU 调度权重';
+
+  @override
+  String get maintenanceContainerNanoCpus => 'CPU 配额（纳核）';
+
+  @override
+  String get maintenanceContainerMemoryReservation => '内存预留';
+
+  @override
+  String get maintenanceContainerPublishedPorts => '暴露端口';
+
+  @override
+  String get maintenanceContainerImagePolicy => '镜像拉取策略';
+
+  @override
+  String get maintenanceContainerServiceAccount => '服务账户';
+
+  @override
+  String get maintenanceContainerScheduler => '调度器';
+
+  @override
+  String get maintenanceContainerNodeSelector => '节点选择条件';
+
+  @override
+  String get maintenanceContainerSecurityContext => '安全上下文';
+
+  @override
+  String get maintenanceContainerPodList => 'Pod 列表';
+
+  @override
+  String get maintenanceContainerNodeInfo => '节点信息';
+
+  @override
+  String get maintenanceContainerCompiler => '编译器';
+
+  @override
+  String get maintenanceContainerGoVersion => 'Go 版本';
+
+  @override
+  String get maintenanceContainerGoroutines => 'Go 协程数';
+
+  @override
+  String get maintenanceContainerPublishAllPorts => '发布全部端口';
+
+  @override
+  String get maintenanceContainerLivenessProbe => '存活探针';
+
+  @override
+  String get maintenanceContainerReadinessProbe => '就绪探针';
+
+  @override
+  String get maintenanceContainerStartupProbe => '启动探针';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26280,4 +26738,462 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceConsole => '主控台';
+
+  @override
+  String get maintenanceContainerTab => '容器管理';
+
+  @override
+  String get maintenanceContainerRuntime => '容器執行階段';
+
+  @override
+  String get maintenanceContainerList => '容器';
+
+  @override
+  String get maintenanceContainerPods => 'Pod';
+
+  @override
+  String get maintenanceContainerScope => '命名空間';
+
+  @override
+  String get maintenanceContainerScopeDefault => '命名空間（預設 default）';
+
+  @override
+  String get maintenanceContainerScopeAll => '命名空間（留空為全部）';
+
+  @override
+  String get maintenanceContainerEndpoint => 'CRI 端點（留空使用預設設定）';
+
+  @override
+  String get maintenanceContainerSearch => '搜尋名稱、映像、命名空間';
+
+  @override
+  String get maintenanceContainerContext => '連線內容';
+
+  @override
+  String get maintenanceContainerNoRecords => '目前範圍沒有記錄';
+
+  @override
+  String get maintenanceContainerMetrics => '即時資源取樣';
+
+  @override
+  String get maintenanceContainerMetadata => '執行階段中繼資料與狀態';
+
+  @override
+  String get maintenanceContainerSelect => '選擇 Pod 內的容器';
+
+  @override
+  String get maintenanceContainerNoOperable => '此 Pod 暫無可操作的容器，請重新整理後再試。';
+
+  @override
+  String get maintenanceContainerStateImpact => '此操作會變更容器執行狀態。';
+
+  @override
+  String get maintenanceContainerDeleteImpact => '刪除後無法復原；掛載磁碟區不會主動刪除。';
+
+  @override
+  String get maintenanceContainerPodRecreated => '控制器管理的 Pod 刪除後可能自動重建。';
+
+  @override
+  String get maintenanceContainerSubmitted => '操作已提交，請重新整理查看目前狀態。';
+
+  @override
+  String get maintenanceContainerFiles => '容器檔案';
+
+  @override
+  String get maintenanceContainerTerminal => '互動終端機';
+
+  @override
+  String get maintenanceContainerConnecting => '正在連線容器終端機…';
+
+  @override
+  String get maintenanceContainerTerminalClosed => '原終端機已關閉，請重新連線。';
+
+  @override
+  String get maintenanceContainerTerminalHelp =>
+      '輸入 exit 離開容器 Shell；單次連線最長 10 分鐘。';
+
+  @override
+  String get maintenanceContainerTerminalExited => '容器終端機已結束。';
+
+  @override
+  String get maintenanceContainerTerminalEnded => '容器終端機連線結束，請查看終端機輸出。';
+
+  @override
+  String get maintenanceContainerStart => '啟動';
+
+  @override
+  String get maintenanceContainerStop => '停止';
+
+  @override
+  String get maintenanceContainerRestart => '重新啟動';
+
+  @override
+  String get maintenanceContainerResume => '恢復';
+
+  @override
+  String get maintenanceContainerEvents => '事件';
+
+  @override
+  String get maintenanceContainerReady => '就緒';
+
+  @override
+  String get maintenanceContainerPending => '等待中';
+
+  @override
+  String get maintenanceContainerSucceeded => '已完成';
+
+  @override
+  String get maintenanceContainerTerminated => '已終止';
+
+  @override
+  String get maintenanceContainerCreated => '已建立';
+
+  @override
+  String get maintenanceContainerRemoving => '刪除中';
+
+  @override
+  String get maintenanceContainerRestarting => '重新啟動中';
+
+  @override
+  String get maintenanceContainerNode => '節點';
+
+  @override
+  String get maintenanceContainerVersion => '服務版本';
+
+  @override
+  String get maintenanceContainerRunning => '執行中的容器';
+
+  @override
+  String get maintenanceContainerPaused => '暫停的容器';
+
+  @override
+  String get maintenanceContainerStopped => '停止的容器';
+
+  @override
+  String get maintenanceContainerConfig => '設定';
+
+  @override
+  String get maintenanceContainerHostConfig => '主機設定';
+
+  @override
+  String get maintenanceContainerNetworkConfig => '網路設定';
+
+  @override
+  String get maintenanceContainerLabels => '標籤';
+
+  @override
+  String get maintenanceContainerAnnotations => '註解';
+
+  @override
+  String get maintenanceContainerSpec => '執行規格';
+
+  @override
+  String get maintenanceContainerMetadataFields => '中繼資料';
+
+  @override
+  String get maintenanceContainerConditions => '狀態條件';
+
+  @override
+  String get maintenanceContainerEnvironment => '環境變數';
+
+  @override
+  String get maintenanceContainerEntrypoint => '進入命令';
+
+  @override
+  String get maintenanceContainerResources => '資源設定';
+
+  @override
+  String get maintenanceContainerLimits => '資源上限';
+
+  @override
+  String get maintenanceContainerRequests => '資源要求';
+
+  @override
+  String get maintenanceContainerVolumes => '儲存磁碟區';
+
+  @override
+  String get maintenanceContainerEndpoints => '網路端點';
+
+  @override
+  String get maintenanceContainerNetworks => '網路清單';
+
+  @override
+  String get maintenanceContainerDriver => '儲存驅動程式';
+
+  @override
+  String get maintenanceContainerCgroupDriver => '控制群組驅動程式';
+
+  @override
+  String get maintenanceContainerDataDirectory => '資料目錄';
+
+  @override
+  String get maintenanceContainerMemoryUsage => '記憶體用量 / 上限';
+
+  @override
+  String get maintenanceContainerNetworkIO => '網路接收 / 傳送';
+
+  @override
+  String get maintenanceContainerBlockIO => '區塊 IO 讀取 / 寫入';
+
+  @override
+  String get maintenanceContainerProcesses => '處理程序數';
+
+  @override
+  String get maintenanceContainerCpuUsage => 'CPU 用量';
+
+  @override
+  String get maintenanceContainerMemory => '記憶體用量';
+
+  @override
+  String get maintenanceContainerHealth => '健康檢查';
+
+  @override
+  String get maintenanceContainerImageId => '映像識別碼';
+
+  @override
+  String get maintenanceContainerContainerId => '容器識別碼';
+
+  @override
+  String get maintenanceContainerOwner => '所屬控制器';
+
+  @override
+  String get maintenanceContainerMessage => '診斷說明';
+
+  @override
+  String get maintenanceContainerNoContext => '找不到目前連線內容。';
+
+  @override
+  String get maintenanceContainerPermissionTitle => '目前帳戶無權讀取';
+
+  @override
+  String get maintenanceContainerTimeoutTitle => '採集回應逾時';
+
+  @override
+  String get maintenanceContainerConnectionTitle => '暫時無法連線服務';
+
+  @override
+  String get maintenanceContainerUnavailableTitle => '容器服務暫時無法使用';
+
+  @override
+  String get maintenanceContainerMissingTitle => '缺少採集所需工具';
+
+  @override
+  String get maintenanceContainerFormatTitle => '採集格式尚未辨識';
+
+  @override
+  String get maintenanceContainerDataTitle => '目前資料暫時無法使用';
+
+  @override
+  String get maintenanceContainerPermissionHelp => '請檢查目前帳戶的存取權限後再試。';
+
+  @override
+  String get maintenanceContainerConnectionHelp => '請確認目標服務已啟動，並檢查連線位址。';
+
+  @override
+  String get maintenanceContainerRuntimeHelp => '請確認所選容器執行階段已啟動，並檢查連線內容與端點。';
+
+  @override
+  String get maintenanceContainerTimeoutHelp => '請檢查目標服務的執行狀態和連線，稍後重新採集。';
+
+  @override
+  String get maintenanceContainerMissingHelp => '請確認目標機器已安裝對應工具，且目前終端機可使用此命令。';
+
+  @override
+  String get maintenanceContainerFormatHelp => '目前工具輸出格式尚未辨識，請檢查工具版本和採集範圍後再試。';
+
+  @override
+  String get maintenanceContainerDataHelp => '請檢查目標服務、權限和工具狀態後重新採集。';
+
+  @override
+  String get maintenanceContainerClientVersion => '用戶端版本';
+
+  @override
+  String get maintenanceContainerApiVersion => 'API 版本';
+
+  @override
+  String get maintenanceContainerGenericVersion => '版本';
+
+  @override
+  String get maintenanceContainerInitContainers => '初始化容器';
+
+  @override
+  String get maintenanceContainerInitStatus => '初始化容器狀態';
+
+  @override
+  String get maintenanceContainerHostAddress => '主機位址';
+
+  @override
+  String get maintenanceContainerRecords => '記錄';
+
+  @override
+  String get maintenanceContainerPlugins => '外掛程式';
+
+  @override
+  String get maintenanceContainerSecurity => '安全選項';
+
+  @override
+  String get maintenanceContainerWarnings => '提醒';
+
+  @override
+  String get maintenanceContainerStartedAt => '啟動時間';
+
+  @override
+  String get maintenanceContainerFinishedAt => '結束時間';
+
+  @override
+  String get maintenanceContainerOutOfMemory => '記憶體不足';
+
+  @override
+  String get maintenanceContainerReason => '原因';
+
+  @override
+  String get maintenanceContainerResultCode => '結果代碼';
+
+  @override
+  String get maintenanceContainerResult => '結果';
+
+  @override
+  String get maintenanceContainerConnectionAddress => '連線位址';
+
+  @override
+  String get maintenanceContainerResourceStatus => '資源狀態';
+
+  @override
+  String get maintenanceContainerDiagnosticStatus => '診斷狀態';
+
+  @override
+  String get maintenanceContainerPermissionDenied => '讀取權限不足';
+
+  @override
+  String get maintenanceContainerResponseTimeout => '目標回應逾時';
+
+  @override
+  String get maintenanceContainerResponseTimeoutShort => '回應逾時';
+
+  @override
+  String get maintenanceContainerNotConnected => '連線尚未建立';
+
+  @override
+  String get maintenanceContainerToolUnavailable => '所需工具無法使用';
+
+  @override
+  String get maintenanceContainerCollectionIncomplete => '採集未完成';
+
+  @override
+  String get maintenanceContainerSocketMissing => '連線檔案不存在，請檢查服務是否執行';
+
+  @override
+  String get maintenanceContainerDiagnosticFormat =>
+      '部分輸出格式尚未辨識，請檢查採集工具版本和資料範圍';
+
+  @override
+  String get maintenanceContainerFileManager => '檔案管理';
+
+  @override
+  String get maintenanceContainerExit => '離開';
+
+  @override
+  String get maintenanceContainerLogs => '日誌';
+
+  @override
+  String get maintenanceContainerDefaultRuntime => '預設執行階段';
+
+  @override
+  String get maintenanceContainerRuntimes => '可用執行階段';
+
+  @override
+  String get maintenanceContainerLoggingDriver => '日誌驅動程式';
+
+  @override
+  String get maintenanceContainerCgroupVersion => '控制群組版本';
+
+  @override
+  String get maintenanceContainerDriverStatus => '驅動程式狀態';
+
+  @override
+  String get maintenanceContainerRegistry => '映像倉庫設定';
+
+  @override
+  String get maintenanceContainerLiveRestore => '服務復原時維持容器執行';
+
+  @override
+  String get maintenanceContainerLogPath => '日誌路徑';
+
+  @override
+  String get maintenanceContainerPrivileged => '特殊權限模式';
+
+  @override
+  String get maintenanceContainerReadOnlyRoot => '根檔案系統唯讀';
+
+  @override
+  String get maintenanceContainerAutoRemove => '結束後自動刪除';
+
+  @override
+  String get maintenanceContainerNetworkMode => '網路模式';
+
+  @override
+  String get maintenanceContainerPidMode => '處理程序命名空間模式';
+
+  @override
+  String get maintenanceContainerIpcMode => 'IPC 命名空間模式';
+
+  @override
+  String get maintenanceContainerCapabilitiesAdded => '額外授予的能力';
+
+  @override
+  String get maintenanceContainerCapabilitiesDropped => '移除的能力';
+
+  @override
+  String get maintenanceContainerCpuShares => 'CPU 排程權重';
+
+  @override
+  String get maintenanceContainerNanoCpus => 'CPU 配額（奈核心）';
+
+  @override
+  String get maintenanceContainerMemoryReservation => '記憶體保留';
+
+  @override
+  String get maintenanceContainerPublishedPorts => '公開連接埠';
+
+  @override
+  String get maintenanceContainerImagePolicy => '映像提取策略';
+
+  @override
+  String get maintenanceContainerServiceAccount => '服務帳戶';
+
+  @override
+  String get maintenanceContainerScheduler => '排程器';
+
+  @override
+  String get maintenanceContainerNodeSelector => '節點選擇條件';
+
+  @override
+  String get maintenanceContainerSecurityContext => '安全性內容';
+
+  @override
+  String get maintenanceContainerPodList => 'Pod 清單';
+
+  @override
+  String get maintenanceContainerNodeInfo => '節點資訊';
+
+  @override
+  String get maintenanceContainerCompiler => '編譯器';
+
+  @override
+  String get maintenanceContainerGoVersion => 'Go 版本';
+
+  @override
+  String get maintenanceContainerGoroutines => 'Go 協程數';
+
+  @override
+  String get maintenanceContainerPublishAllPorts => '發佈所有連接埠';
+
+  @override
+  String get maintenanceContainerLivenessProbe => '存活探查';
+
+  @override
+  String get maintenanceContainerReadinessProbe => '就緒探查';
+
+  @override
+  String get maintenanceContainerStartupProbe => '啟動探查';
 }

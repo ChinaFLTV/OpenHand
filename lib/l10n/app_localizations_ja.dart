@@ -13276,4 +13276,468 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceConsole => 'コンソール';
+
+  @override
+  String get maintenanceContainerTab => 'コンテナー';
+
+  @override
+  String get maintenanceContainerRuntime => 'コンテナーランタイム';
+
+  @override
+  String get maintenanceContainerList => 'コンテナー';
+
+  @override
+  String get maintenanceContainerPods => 'Pod';
+
+  @override
+  String get maintenanceContainerScope => '名前空間';
+
+  @override
+  String get maintenanceContainerScopeDefault => '名前空間（既定：default）';
+
+  @override
+  String get maintenanceContainerScopeAll => '名前空間（空欄：すべて）';
+
+  @override
+  String get maintenanceContainerEndpoint => 'CRI エンドポイント（空欄：既定）';
+
+  @override
+  String get maintenanceContainerSearch => '名前・イメージ・名前空間を検索';
+
+  @override
+  String get maintenanceContainerContext => '接続コンテキスト';
+
+  @override
+  String get maintenanceContainerNoRecords => 'この範囲に記録はありません';
+
+  @override
+  String get maintenanceContainerMetrics => 'リソースメトリクス';
+
+  @override
+  String get maintenanceContainerMetadata => 'ランタイムのメタデータと状態';
+
+  @override
+  String get maintenanceContainerSelect => 'Pod 内のコンテナーを選択';
+
+  @override
+  String get maintenanceContainerNoOperable =>
+      'この Pod に操作可能なコンテナーがありません。更新して再試行してください。';
+
+  @override
+  String get maintenanceContainerStateImpact => 'この操作はコンテナーの状態を変更します。';
+
+  @override
+  String get maintenanceContainerDeleteImpact =>
+      '削除は元に戻せません。マウントされたボリュームは保持されます。';
+
+  @override
+  String get maintenanceContainerPodRecreated =>
+      'コントローラーが削除した Pod を再作成する場合があります。';
+
+  @override
+  String get maintenanceContainerSubmitted => '操作を送信しました。更新して現在の状態を確認してください。';
+
+  @override
+  String get maintenanceContainerFiles => 'コンテナーファイル';
+
+  @override
+  String get maintenanceContainerTerminal => '対話型ターミナル';
+
+  @override
+  String get maintenanceContainerConnecting => 'コンテナーターミナルに接続中…';
+
+  @override
+  String get maintenanceContainerTerminalClosed => '元のターミナルは閉じています。再接続してください。';
+
+  @override
+  String get maintenanceContainerTerminalHelp =>
+      'exit でシェルを終了します。接続は最大 10 分間です。';
+
+  @override
+  String get maintenanceContainerTerminalExited => 'コンテナーターミナルを終了しました。';
+
+  @override
+  String get maintenanceContainerTerminalEnded => '接続が終了しました。ターミナル出力を確認してください。';
+
+  @override
+  String get maintenanceContainerStart => '起動';
+
+  @override
+  String get maintenanceContainerStop => '停止';
+
+  @override
+  String get maintenanceContainerRestart => '再起動';
+
+  @override
+  String get maintenanceContainerResume => '再開';
+
+  @override
+  String get maintenanceContainerEvents => 'イベント';
+
+  @override
+  String get maintenanceContainerReady => '準備完了';
+
+  @override
+  String get maintenanceContainerPending => '待機中';
+
+  @override
+  String get maintenanceContainerSucceeded => '完了';
+
+  @override
+  String get maintenanceContainerTerminated => '終了';
+
+  @override
+  String get maintenanceContainerCreated => '作成済み';
+
+  @override
+  String get maintenanceContainerRemoving => '削除中';
+
+  @override
+  String get maintenanceContainerRestarting => '再起動中';
+
+  @override
+  String get maintenanceContainerNode => 'ノード';
+
+  @override
+  String get maintenanceContainerVersion => 'サーバーバージョン';
+
+  @override
+  String get maintenanceContainerRunning => '実行中のコンテナー';
+
+  @override
+  String get maintenanceContainerPaused => '一時停止中のコンテナー';
+
+  @override
+  String get maintenanceContainerStopped => '停止中のコンテナー';
+
+  @override
+  String get maintenanceContainerConfig => '設定';
+
+  @override
+  String get maintenanceContainerHostConfig => 'ホスト設定';
+
+  @override
+  String get maintenanceContainerNetworkConfig => 'ネットワーク設定';
+
+  @override
+  String get maintenanceContainerLabels => 'ラベル';
+
+  @override
+  String get maintenanceContainerAnnotations => 'アノテーション';
+
+  @override
+  String get maintenanceContainerSpec => '仕様';
+
+  @override
+  String get maintenanceContainerMetadataFields => 'メタデータ';
+
+  @override
+  String get maintenanceContainerConditions => '状態条件';
+
+  @override
+  String get maintenanceContainerEnvironment => '環境変数';
+
+  @override
+  String get maintenanceContainerEntrypoint => 'エントリーポイント';
+
+  @override
+  String get maintenanceContainerResources => 'リソース設定';
+
+  @override
+  String get maintenanceContainerLimits => 'リソース上限';
+
+  @override
+  String get maintenanceContainerRequests => 'リソース要求';
+
+  @override
+  String get maintenanceContainerVolumes => 'ボリューム';
+
+  @override
+  String get maintenanceContainerEndpoints => 'ネットワークエンドポイント';
+
+  @override
+  String get maintenanceContainerNetworks => 'ネットワーク一覧';
+
+  @override
+  String get maintenanceContainerDriver => 'ストレージドライバー';
+
+  @override
+  String get maintenanceContainerCgroupDriver => 'cgroup ドライバー';
+
+  @override
+  String get maintenanceContainerDataDirectory => 'データディレクトリ';
+
+  @override
+  String get maintenanceContainerMemoryUsage => 'メモリ使用量 / 上限';
+
+  @override
+  String get maintenanceContainerNetworkIO => 'ネットワーク受信 / 送信';
+
+  @override
+  String get maintenanceContainerBlockIO => 'ブロック IO 読み取り / 書き込み';
+
+  @override
+  String get maintenanceContainerProcesses => 'プロセス数';
+
+  @override
+  String get maintenanceContainerCpuUsage => 'CPU 使用量';
+
+  @override
+  String get maintenanceContainerMemory => 'メモリ使用量';
+
+  @override
+  String get maintenanceContainerHealth => 'ヘルスチェック';
+
+  @override
+  String get maintenanceContainerImageId => 'イメージ ID';
+
+  @override
+  String get maintenanceContainerContainerId => 'コンテナー ID';
+
+  @override
+  String get maintenanceContainerOwner => '所有コントローラー';
+
+  @override
+  String get maintenanceContainerMessage => '診断メッセージ';
+
+  @override
+  String get maintenanceContainerNoContext => '現在の接続コンテキストが見つかりません。';
+
+  @override
+  String get maintenanceContainerPermissionTitle => '読み取り権限がありません';
+
+  @override
+  String get maintenanceContainerTimeoutTitle => '収集がタイムアウトしました';
+
+  @override
+  String get maintenanceContainerConnectionTitle => 'サービスに接続できません';
+
+  @override
+  String get maintenanceContainerUnavailableTitle => 'コンテナーサービスを利用できません';
+
+  @override
+  String get maintenanceContainerMissingTitle => '収集ツールがありません';
+
+  @override
+  String get maintenanceContainerFormatTitle => 'レポート形式を認識できません';
+
+  @override
+  String get maintenanceContainerDataTitle => 'データを利用できません';
+
+  @override
+  String get maintenanceContainerPermissionHelp => 'アカウントの権限を確認して再試行してください。';
+
+  @override
+  String get maintenanceContainerConnectionHelp => 'サービスの起動状態と接続先を確認してください。';
+
+  @override
+  String get maintenanceContainerRuntimeHelp =>
+      '選択したランタイムの起動状態・コンテキスト・接続先を確認してください。';
+
+  @override
+  String get maintenanceContainerTimeoutHelp => 'サービスの状態と接続を確認して再試行してください。';
+
+  @override
+  String get maintenanceContainerMissingHelp =>
+      '必要なツールをインストールし、ターミナルで利用できることを確認してください。';
+
+  @override
+  String get maintenanceContainerFormatHelp => 'ツールのバージョンと収集範囲を確認して再試行してください。';
+
+  @override
+  String get maintenanceContainerDataHelp => 'サービス・権限・ツールを確認して再収集してください。';
+
+  @override
+  String get maintenanceContainerClientVersion => 'クライアントバージョン';
+
+  @override
+  String get maintenanceContainerApiVersion => 'API バージョン';
+
+  @override
+  String get maintenanceContainerGenericVersion => 'バージョン';
+
+  @override
+  String get maintenanceContainerInitContainers => '初期化コンテナー';
+
+  @override
+  String get maintenanceContainerInitStatus => '初期化コンテナーの状態';
+
+  @override
+  String get maintenanceContainerHostAddress => 'ホストアドレス';
+
+  @override
+  String get maintenanceContainerRecords => '記録';
+
+  @override
+  String get maintenanceContainerPlugins => 'プラグイン';
+
+  @override
+  String get maintenanceContainerSecurity => 'セキュリティ設定';
+
+  @override
+  String get maintenanceContainerWarnings => '警告';
+
+  @override
+  String get maintenanceContainerStartedAt => '起動時刻';
+
+  @override
+  String get maintenanceContainerFinishedAt => '終了時刻';
+
+  @override
+  String get maintenanceContainerOutOfMemory => 'メモリ不足';
+
+  @override
+  String get maintenanceContainerReason => '原因';
+
+  @override
+  String get maintenanceContainerResultCode => '結果コード';
+
+  @override
+  String get maintenanceContainerResult => '結果';
+
+  @override
+  String get maintenanceContainerConnectionAddress => '接続先';
+
+  @override
+  String get maintenanceContainerResourceStatus => 'リソース状態';
+
+  @override
+  String get maintenanceContainerDiagnosticStatus => '診断状態';
+
+  @override
+  String get maintenanceContainerPermissionDenied => '読み取り権限が不足しています';
+
+  @override
+  String get maintenanceContainerResponseTimeout => '対象の応答がタイムアウトしました';
+
+  @override
+  String get maintenanceContainerResponseTimeoutShort => '応答がタイムアウトしました';
+
+  @override
+  String get maintenanceContainerNotConnected => '接続が確立されていません';
+
+  @override
+  String get maintenanceContainerToolUnavailable => '必要なツールを利用できません';
+
+  @override
+  String get maintenanceContainerCollectionIncomplete => '収集が完了していません';
+
+  @override
+  String get maintenanceContainerSocketMissing =>
+      'ソケットファイルがありません。サービスの起動状態を確認してください。';
+
+  @override
+  String get maintenanceContainerDiagnosticFormat =>
+      '一部の出力を認識できません。ツールのバージョンとデータ範囲を確認してください。';
+
+  @override
+  String get maintenanceContainerFileManager => 'ファイル管理';
+
+  @override
+  String get maintenanceContainerExit => '終了';
+
+  @override
+  String get maintenanceContainerLogs => 'ログ';
+
+  @override
+  String get maintenanceContainerDefaultRuntime => '既定のランタイム';
+
+  @override
+  String get maintenanceContainerRuntimes => '利用可能なランタイム';
+
+  @override
+  String get maintenanceContainerLoggingDriver => 'ログドライバー';
+
+  @override
+  String get maintenanceContainerCgroupVersion => 'cgroup バージョン';
+
+  @override
+  String get maintenanceContainerDriverStatus => 'ドライバー状態';
+
+  @override
+  String get maintenanceContainerRegistry => 'レジストリ設定';
+
+  @override
+  String get maintenanceContainerLiveRestore => 'デーモン復旧中もコンテナーを実行';
+
+  @override
+  String get maintenanceContainerLogPath => 'ログパス';
+
+  @override
+  String get maintenanceContainerPrivileged => '特権モード';
+
+  @override
+  String get maintenanceContainerReadOnlyRoot => 'ルートファイルシステムは読み取り専用';
+
+  @override
+  String get maintenanceContainerAutoRemove => '終了時に自動削除';
+
+  @override
+  String get maintenanceContainerNetworkMode => 'ネットワークモード';
+
+  @override
+  String get maintenanceContainerPidMode => 'PID 名前空間モード';
+
+  @override
+  String get maintenanceContainerIpcMode => 'IPC 名前空間モード';
+
+  @override
+  String get maintenanceContainerCapabilitiesAdded => '追加されたケーパビリティ';
+
+  @override
+  String get maintenanceContainerCapabilitiesDropped => '削除されたケーパビリティ';
+
+  @override
+  String get maintenanceContainerCpuShares => 'CPU スケジューリングの重み';
+
+  @override
+  String get maintenanceContainerNanoCpus => 'CPU クォータ（ナノコア）';
+
+  @override
+  String get maintenanceContainerMemoryReservation => 'メモリ予約';
+
+  @override
+  String get maintenanceContainerPublishedPorts => '公開ポート';
+
+  @override
+  String get maintenanceContainerImagePolicy => 'イメージ取得ポリシー';
+
+  @override
+  String get maintenanceContainerServiceAccount => 'サービスアカウント';
+
+  @override
+  String get maintenanceContainerScheduler => 'スケジューラー';
+
+  @override
+  String get maintenanceContainerNodeSelector => 'ノードセレクター';
+
+  @override
+  String get maintenanceContainerSecurityContext => 'セキュリティコンテキスト';
+
+  @override
+  String get maintenanceContainerPodList => 'Pod 一覧';
+
+  @override
+  String get maintenanceContainerNodeInfo => 'ノード情報';
+
+  @override
+  String get maintenanceContainerCompiler => 'コンパイラー';
+
+  @override
+  String get maintenanceContainerGoVersion => 'Go バージョン';
+
+  @override
+  String get maintenanceContainerGoroutines => 'Go ルーチン数';
+
+  @override
+  String get maintenanceContainerPublishAllPorts => 'すべてのポートを公開';
+
+  @override
+  String get maintenanceContainerLivenessProbe => '生存プローブ';
+
+  @override
+  String get maintenanceContainerReadinessProbe => '準備プローブ';
+
+  @override
+  String get maintenanceContainerStartupProbe => '起動プローブ';
 }

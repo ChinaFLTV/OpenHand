@@ -13573,4 +13573,484 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceConsole => 'Console';
+
+  @override
+  String get maintenanceContainerTab => 'Containers';
+
+  @override
+  String get maintenanceContainerRuntime => 'Container runtime';
+
+  @override
+  String get maintenanceContainerList => 'Containers';
+
+  @override
+  String get maintenanceContainerPods => 'Pods';
+
+  @override
+  String get maintenanceContainerScope => 'Namespace';
+
+  @override
+  String get maintenanceContainerScopeDefault => 'Namespace (default: default)';
+
+  @override
+  String get maintenanceContainerScopeAll => 'Namespace (empty for all)';
+
+  @override
+  String get maintenanceContainerEndpoint => 'CRI endpoint (empty for default)';
+
+  @override
+  String get maintenanceContainerSearch => 'Search name, image, namespace';
+
+  @override
+  String get maintenanceContainerContext => 'Connection context';
+
+  @override
+  String get maintenanceContainerNoRecords => 'No entries in this scope';
+
+  @override
+  String get maintenanceContainerMetrics => 'Resource metrics';
+
+  @override
+  String get maintenanceContainerMetadata => 'Runtime metadata and status';
+
+  @override
+  String get maintenanceContainerSelect => 'Select a container in the pod';
+
+  @override
+  String get maintenanceContainerNoOperable =>
+      'No available container in this pod. Refresh and retry.';
+
+  @override
+  String get maintenanceContainerStateImpact =>
+      'This operation changes the container state.';
+
+  @override
+  String get maintenanceContainerDeleteImpact =>
+      'Deletion cannot be undone. Mounted volumes are preserved.';
+
+  @override
+  String get maintenanceContainerPodRecreated =>
+      'A controller may recreate the deleted pod.';
+
+  @override
+  String get maintenanceContainerSubmitted =>
+      'Operation submitted. Refresh to view the current state.';
+
+  @override
+  String get maintenanceContainerFiles => 'Container files';
+
+  @override
+  String get maintenanceContainerTerminal => 'Interactive terminal';
+
+  @override
+  String get maintenanceContainerConnecting =>
+      'Connecting to the container terminal…';
+
+  @override
+  String get maintenanceContainerTerminalClosed =>
+      'The original terminal is closed. Reconnect.';
+
+  @override
+  String get maintenanceContainerTerminalHelp =>
+      'Type exit to leave the shell. Each connection lasts up to 10 minutes.';
+
+  @override
+  String get maintenanceContainerTerminalExited => 'Container terminal exited.';
+
+  @override
+  String get maintenanceContainerTerminalEnded =>
+      'Connection ended. Check the terminal output.';
+
+  @override
+  String get maintenanceContainerStart => 'Start';
+
+  @override
+  String get maintenanceContainerStop => 'Stop';
+
+  @override
+  String get maintenanceContainerRestart => 'Restart';
+
+  @override
+  String get maintenanceContainerResume => 'Resume';
+
+  @override
+  String get maintenanceContainerEvents => 'Events';
+
+  @override
+  String get maintenanceContainerReady => 'Ready';
+
+  @override
+  String get maintenanceContainerPending => 'Pending';
+
+  @override
+  String get maintenanceContainerSucceeded => 'Completed';
+
+  @override
+  String get maintenanceContainerTerminated => 'Terminated';
+
+  @override
+  String get maintenanceContainerCreated => 'Created';
+
+  @override
+  String get maintenanceContainerRemoving => 'Removing';
+
+  @override
+  String get maintenanceContainerRestarting => 'Restarting';
+
+  @override
+  String get maintenanceContainerNode => 'Node';
+
+  @override
+  String get maintenanceContainerVersion => 'Server version';
+
+  @override
+  String get maintenanceContainerRunning => 'Running containers';
+
+  @override
+  String get maintenanceContainerPaused => 'Paused containers';
+
+  @override
+  String get maintenanceContainerStopped => 'Stopped containers';
+
+  @override
+  String get maintenanceContainerConfig => 'Configuration';
+
+  @override
+  String get maintenanceContainerHostConfig => 'Host configuration';
+
+  @override
+  String get maintenanceContainerNetworkConfig => 'Network configuration';
+
+  @override
+  String get maintenanceContainerLabels => 'Labels';
+
+  @override
+  String get maintenanceContainerAnnotations => 'Annotations';
+
+  @override
+  String get maintenanceContainerSpec => 'Specification';
+
+  @override
+  String get maintenanceContainerMetadataFields => 'Metadata';
+
+  @override
+  String get maintenanceContainerConditions => 'Conditions';
+
+  @override
+  String get maintenanceContainerEnvironment => 'Environment variables';
+
+  @override
+  String get maintenanceContainerEntrypoint => 'Entrypoint';
+
+  @override
+  String get maintenanceContainerResources => 'Resources';
+
+  @override
+  String get maintenanceContainerLimits => 'Resource limits';
+
+  @override
+  String get maintenanceContainerRequests => 'Resource requests';
+
+  @override
+  String get maintenanceContainerVolumes => 'Volumes';
+
+  @override
+  String get maintenanceContainerEndpoints => 'Network endpoints';
+
+  @override
+  String get maintenanceContainerNetworks => 'Networks';
+
+  @override
+  String get maintenanceContainerDriver => 'Storage driver';
+
+  @override
+  String get maintenanceContainerCgroupDriver => 'Cgroup driver';
+
+  @override
+  String get maintenanceContainerDataDirectory => 'Data directory';
+
+  @override
+  String get maintenanceContainerMemoryUsage => 'Memory usage / limit';
+
+  @override
+  String get maintenanceContainerNetworkIO => 'Network receive / send';
+
+  @override
+  String get maintenanceContainerBlockIO => 'Block IO read / write';
+
+  @override
+  String get maintenanceContainerProcesses => 'Processes';
+
+  @override
+  String get maintenanceContainerCpuUsage => 'CPU usage';
+
+  @override
+  String get maintenanceContainerMemory => 'Memory usage';
+
+  @override
+  String get maintenanceContainerHealth => 'Health check';
+
+  @override
+  String get maintenanceContainerImageId => 'Image ID';
+
+  @override
+  String get maintenanceContainerContainerId => 'Container ID';
+
+  @override
+  String get maintenanceContainerOwner => 'Owner controller';
+
+  @override
+  String get maintenanceContainerMessage => 'Diagnostic message';
+
+  @override
+  String get maintenanceContainerNoContext =>
+      'No current connection context found.';
+
+  @override
+  String get maintenanceContainerPermissionTitle => 'Read access denied';
+
+  @override
+  String get maintenanceContainerTimeoutTitle => 'Collection timed out';
+
+  @override
+  String get maintenanceContainerConnectionTitle =>
+      'Service connection unavailable';
+
+  @override
+  String get maintenanceContainerUnavailableTitle =>
+      'Container service unavailable';
+
+  @override
+  String get maintenanceContainerMissingTitle => 'Collection tool missing';
+
+  @override
+  String get maintenanceContainerFormatTitle => 'Unrecognized report format';
+
+  @override
+  String get maintenanceContainerDataTitle => 'Data unavailable';
+
+  @override
+  String get maintenanceContainerPermissionHelp =>
+      'Check the account permissions and retry.';
+
+  @override
+  String get maintenanceContainerConnectionHelp =>
+      'Check that the service is running and verify its endpoint.';
+
+  @override
+  String get maintenanceContainerRuntimeHelp =>
+      'Check that the selected runtime is running and verify its context and endpoint.';
+
+  @override
+  String get maintenanceContainerTimeoutHelp =>
+      'Check the service status and connection, then retry.';
+
+  @override
+  String get maintenanceContainerMissingHelp =>
+      'Install the required tool and ensure it is available in the terminal.';
+
+  @override
+  String get maintenanceContainerFormatHelp =>
+      'Check the tool version and collection scope, then retry.';
+
+  @override
+  String get maintenanceContainerDataHelp =>
+      'Check the service, permissions and tools, then collect again.';
+
+  @override
+  String get maintenanceContainerClientVersion => 'Client version';
+
+  @override
+  String get maintenanceContainerApiVersion => 'API version';
+
+  @override
+  String get maintenanceContainerGenericVersion => 'Version';
+
+  @override
+  String get maintenanceContainerInitContainers => 'Init containers';
+
+  @override
+  String get maintenanceContainerInitStatus => 'Init container status';
+
+  @override
+  String get maintenanceContainerHostAddress => 'Host address';
+
+  @override
+  String get maintenanceContainerRecords => 'Records';
+
+  @override
+  String get maintenanceContainerPlugins => 'Plugins';
+
+  @override
+  String get maintenanceContainerSecurity => 'Security options';
+
+  @override
+  String get maintenanceContainerWarnings => 'Warnings';
+
+  @override
+  String get maintenanceContainerStartedAt => 'Started at';
+
+  @override
+  String get maintenanceContainerFinishedAt => 'Finished at';
+
+  @override
+  String get maintenanceContainerOutOfMemory => 'Out of memory';
+
+  @override
+  String get maintenanceContainerReason => 'Reason';
+
+  @override
+  String get maintenanceContainerResultCode => 'Result code';
+
+  @override
+  String get maintenanceContainerResult => 'Result';
+
+  @override
+  String get maintenanceContainerConnectionAddress => 'Connection endpoint';
+
+  @override
+  String get maintenanceContainerResourceStatus => 'Resource status';
+
+  @override
+  String get maintenanceContainerDiagnosticStatus => 'Diagnostic status';
+
+  @override
+  String get maintenanceContainerPermissionDenied =>
+      'Insufficient read permissions';
+
+  @override
+  String get maintenanceContainerResponseTimeout => 'Target response timed out';
+
+  @override
+  String get maintenanceContainerResponseTimeoutShort => 'Response timed out';
+
+  @override
+  String get maintenanceContainerNotConnected => 'Connection not established';
+
+  @override
+  String get maintenanceContainerToolUnavailable => 'Required tool unavailable';
+
+  @override
+  String get maintenanceContainerCollectionIncomplete =>
+      'Collection incomplete';
+
+  @override
+  String get maintenanceContainerSocketMissing =>
+      'Socket file missing. Check that the service is running.';
+
+  @override
+  String get maintenanceContainerDiagnosticFormat =>
+      'Some output is unrecognized. Check the tool version and data scope.';
+
+  @override
+  String get maintenanceContainerFileManager => 'File manager';
+
+  @override
+  String get maintenanceContainerExit => 'Exit';
+
+  @override
+  String get maintenanceContainerLogs => 'Logs';
+
+  @override
+  String get maintenanceContainerDefaultRuntime => 'Default runtime';
+
+  @override
+  String get maintenanceContainerRuntimes => 'Available runtimes';
+
+  @override
+  String get maintenanceContainerLoggingDriver => 'Logging driver';
+
+  @override
+  String get maintenanceContainerCgroupVersion => 'Cgroup version';
+
+  @override
+  String get maintenanceContainerDriverStatus => 'Driver status';
+
+  @override
+  String get maintenanceContainerRegistry => 'Registry configuration';
+
+  @override
+  String get maintenanceContainerLiveRestore =>
+      'Keep containers running during daemon recovery';
+
+  @override
+  String get maintenanceContainerLogPath => 'Log path';
+
+  @override
+  String get maintenanceContainerPrivileged => 'Privileged mode';
+
+  @override
+  String get maintenanceContainerReadOnlyRoot => 'Read-only root filesystem';
+
+  @override
+  String get maintenanceContainerAutoRemove => 'Auto-remove on exit';
+
+  @override
+  String get maintenanceContainerNetworkMode => 'Network mode';
+
+  @override
+  String get maintenanceContainerPidMode => 'PID namespace mode';
+
+  @override
+  String get maintenanceContainerIpcMode => 'IPC namespace mode';
+
+  @override
+  String get maintenanceContainerCapabilitiesAdded => 'Added capabilities';
+
+  @override
+  String get maintenanceContainerCapabilitiesDropped => 'Dropped capabilities';
+
+  @override
+  String get maintenanceContainerCpuShares => 'CPU scheduling weight';
+
+  @override
+  String get maintenanceContainerNanoCpus => 'CPU quota (nanocores)';
+
+  @override
+  String get maintenanceContainerMemoryReservation => 'Memory reservation';
+
+  @override
+  String get maintenanceContainerPublishedPorts => 'Exposed ports';
+
+  @override
+  String get maintenanceContainerImagePolicy => 'Image pull policy';
+
+  @override
+  String get maintenanceContainerServiceAccount => 'Service account';
+
+  @override
+  String get maintenanceContainerScheduler => 'Scheduler';
+
+  @override
+  String get maintenanceContainerNodeSelector => 'Node selector';
+
+  @override
+  String get maintenanceContainerSecurityContext => 'Security context';
+
+  @override
+  String get maintenanceContainerPodList => 'Pod list';
+
+  @override
+  String get maintenanceContainerNodeInfo => 'Node information';
+
+  @override
+  String get maintenanceContainerCompiler => 'Compiler';
+
+  @override
+  String get maintenanceContainerGoVersion => 'Go version';
+
+  @override
+  String get maintenanceContainerGoroutines => 'Goroutines';
+
+  @override
+  String get maintenanceContainerPublishAllPorts => 'Publish all ports';
+
+  @override
+  String get maintenanceContainerLivenessProbe => 'Liveness probe';
+
+  @override
+  String get maintenanceContainerReadinessProbe => 'Readiness probe';
+
+  @override
+  String get maintenanceContainerStartupProbe => 'Startup probe';
 }

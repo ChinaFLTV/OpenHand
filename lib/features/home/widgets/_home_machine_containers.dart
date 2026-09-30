@@ -170,7 +170,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 children: [
                   _MachineTerminalDialogHeader(
                     icon: Icons.inventory_2_outlined,
-                    title: '选择 Pod 内的容器',
+                    title: maintenanceLabel(dialogContext, '选择 Pod 内的容器'),
                     onClose: () => Navigator.pop(dialogContext),
                   ),
                   Flexible(
@@ -181,7 +181,12 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                           for (final container in containers)
                             ListTile(
                               title: Text(container.name),
-                              subtitle: Text(container.state),
+                              subtitle: Text(
+                                maintenanceContainerState(
+                                  dialogContext,
+                                  container.state,
+                                ),
+                              ),
                               onTap: () =>
                                   Navigator.pop(dialogContext, container),
                             ),
@@ -200,13 +205,14 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       if (['启动', '停止', '重启', '暂停', '恢复', '删除'].contains(action)) {
         final confirmed = await showOpenHandConfirmDialog(
           context: context,
-          title: '$action · ${entry.name}',
-          confirmLabel: '确认$action',
+          title: '${maintenanceLabel(context, action)} · ${entry.name}',
+          confirmLabel:
+              '${AppLocalizations.of(context)!.commonConfirm} ${maintenanceLabel(context, action)}',
           destructive: action != '启动' && action != '恢复',
           message:
-              '目标：${client.runtime.label} / ${entry.namespace.isEmpty ? client.scope : entry.namespace} / ${entry.name}\n'
-              '${action == '删除' ? '删除后无法撤销；挂载卷不会主动删除。' : '此操作会改变容器运行状态。'}'
-              '${entry.isPod ? '\n控制器管理的 Pod 删除后可能自动重建。' : ''}',
+              '${maintenanceDetailLabel(context, '目标')}：${client.runtime.label} / ${entry.namespace.isEmpty ? client.scope : entry.namespace} / ${entry.name}\n'
+              '${maintenanceLabel(context, action == '删除' ? '删除后无法撤销；挂载卷不会主动删除。' : '此操作会改变容器运行状态。')}'
+              '${entry.isPod ? '\n${maintenanceLabel(context, '控制器管理的 Pod 删除后可能自动重建。')}' : ''}',
         );
         if (confirmed != true || !mounted) return;
         final output = await client.act(entry, action);
@@ -214,8 +220,12 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         await showAnimatedDialog<void>(
           context: context,
           builder: (_) => _ContainerReportDialog(
-            title: '$action · ${entry.name}',
-            load: () async => output.isEmpty ? '操作已提交，请刷新查看当前状态。' : output,
+            title: '${maintenanceLabel(context, action)} · ${entry.name}',
+            load: () async => jsonEncode({
+              '结果': output.isEmpty
+                  ? maintenanceLabel(context, '操作已提交，请刷新查看当前状态。')
+                  : output,
+            }),
           ),
         );
       } else if (action == '终端') {
@@ -248,7 +258,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             builder: (_) => ChangeNotifierProvider.value(
               value: files,
               child: _MachineTerminalFileManagerDialog(
-                targetLabel: '${entry.name} · 容器文件',
+                targetLabel:
+                    '${entry.name} · ${maintenanceLabel(context, '容器文件')}',
                 sessionId: widget.sessionId,
                 terminalId: widget.terminalId,
               ),
@@ -264,7 +275,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         await showAnimatedDialog<void>(
           context: context,
           builder: (_) => _ContainerReportDialog(
-            title: '${entry.name} · $action',
+            title: '${entry.name} · ${maintenanceLabel(context, action)}',
             section: action == '日志' ? 'logs' : 'container_details',
             load: () async {
               await client.verify(entry);
@@ -313,23 +324,36 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         .toList();
     Widget table(bool pods) {
       final values = entries.where((e) => e.isPod == pods).toList();
+      final kubernetes = _runtime == MachineContainerRuntime.kubernetes;
+      final hasNamespace =
+          kubernetes || _runtime == MachineContainerRuntime.cri;
       return _MaintenanceCard(
-        title: '${pods ? 'Pod' : '容器'} · ${values.length}',
+        title:
+            '${maintenanceLabel(context, pods ? 'Pod' : '容器')} · ${values.length}',
         icon: pods ? Icons.layers_outlined : Icons.inventory_2_outlined,
         scrollBody: false,
         child: values.isEmpty
-            ? const _MaintenanceEmptyHint(message: '当前范围没有记录')
+            ? _MaintenanceEmptyHint(
+                message: maintenanceLabel(
+                  context,
+                  _error.isNotEmpty && _client == null
+                      ? '当前数据暂不可用'
+                      : '当前范围没有记录',
+                ),
+              )
             : _MaintenanceTable(
-                headers: const [
-                  '名称',
-                  '状态',
-                  '命名空间 / Pod',
-                  '镜像 / 节点',
-                  '就绪',
-                  '重启次数',
-                  '创建时间',
-                  '端口',
-                ],
+                headers:
+                    [
+                          '名称',
+                          '状态',
+                          if (hasNamespace) pods ? '命名空间' : '命名空间 / Pod',
+                          if (!pods || kubernetes) pods ? '节点' : '镜像',
+                          if (kubernetes) ...['就绪', '重启次数'],
+                          '创建时间',
+                          if (!pods && !kubernetes) '端口',
+                        ]
+                        .map((label) => maintenanceDetailLabel(context, label))
+                        .toList(),
                 maxBodyHeight: 360,
                 rowActions: (row) => {
                   if (!_busy && !_overlay)
@@ -338,9 +362,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                               row.data as MachineContainerEntry,
                             ) ??
                             <String>[])
-                      action: () =>
-                          _open(row.data as MachineContainerEntry, action),
+                      if (action != '详情')
+                        maintenanceLabel(context, action): () =>
+                            _open(row.data as MachineContainerEntry, action),
                 },
+                onRowTap: _busy || _overlay
+                    ? null
+                    : (row) => _open(row.data as MachineContainerEntry, '详情'),
                 rows: [
                   for (final entry in values)
                     OpenHandOperationalRankRow(
@@ -349,13 +377,41 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                       data: entry,
                       cells: [
                         entry.name,
-                        entry.state,
-                        '${entry.namespace} ${entry.pod}'.trim(),
-                        pods ? entry.node : entry.image,
-                        entry.ready,
-                        entry.restarts,
-                        entry.created,
-                        entry.ports,
+                        maintenanceContainerState(context, entry.state),
+                        if (hasNamespace)
+                          '${entry.namespace} ${entry.pod}'.trim(),
+                        if (!pods || kubernetes)
+                          pods ? entry.node : entry.image,
+                        if (kubernetes) ...[
+                          maintenanceDetailValue(context, entry.ready),
+                          entry.restarts,
+                        ],
+                        maintenanceDetailValue(context, entry.created),
+                        if (!pods && !kubernetes) entry.ports,
+                      ].map((value) => value.isEmpty ? '—' : value).toList(),
+                      cellWidgets: [
+                        null,
+                        Tooltip(
+                          message: entry.state,
+                          child: _MaintenanceStatus(
+                            label: maintenanceContainerState(
+                              context,
+                              entry.state,
+                            ),
+                            color: entry.running
+                                ? OpenHandStatusColors.success
+                                : entry.state.toLowerCase().contains('paused')
+                                ? OpenHandStatusColors.warning
+                                : entry.state.toLowerCase().contains('fail') ||
+                                      entry.state.toLowerCase().contains(
+                                        'backoff',
+                                      )
+                                ? OpenHandStatusColors.error
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                 ],
@@ -366,74 +422,148 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _MaintenanceToolbarMenu<MachineContainerRuntime>(
-              label: _runtime.label,
-              tooltip: '容器运行时',
-              value: _runtime,
-              enabled: !_busy && !_overlay,
-              items: {
-                for (final runtime in MachineContainerRuntime.values)
-                  runtime: runtime.label,
-              },
-              onSelected: (runtime) {
-                setState(() {
-                  _runtime = runtime;
-                  _scope.clear();
-                  _entries = [];
-                  _metadata = '';
-                  _metrics = '';
-                });
-                refresh();
-              },
-            ),
-            if (_runtime == MachineContainerRuntime.containerd ||
-                _runtime == MachineContainerRuntime.kubernetes ||
-                _runtime == MachineContainerRuntime.cri)
-              SizedBox(
-                width: 270,
-                child: TextField(
-                  controller: _scope,
-                  enabled: !_busy && !_overlay,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    labelText: _runtime == MachineContainerRuntime.containerd
-                        ? 'containerd 命名空间（默认 default）'
-                        : _runtime == MachineContainerRuntime.cri
-                        ? 'CRI 端点（空值使用默认配置）'
-                        : 'Kubernetes 命名空间（空值为全部）',
-                  ),
-                  onSubmitted: (_) => refresh(),
-                ),
-              ),
-            SizedBox(
-              width: 250,
-              child: TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  prefixIcon: Icon(Icons.search),
-                  hintText: '搜索名称、镜像、命名空间',
-                ),
-              ),
-            ),
-            IconButton(
+        _MaintenanceCard(
+          title: '容器运行时',
+          icon: Icons.inventory_2_outlined,
+          scrollBody: false,
+          trailing: SizedBox.square(
+            dimension: _maintenanceControlHeight,
+            child: _MachineTerminalIconButton(
               onPressed: _busy || _overlay ? null : refresh,
-              tooltip: '刷新容器数据',
-              icon: const Icon(Icons.refresh_rounded),
+              tooltip: maintenanceLabel(context, '刷新容器数据'),
+              icon: Icons.refresh_rounded,
             ),
-          ],
-        ),
-        if (_contextName.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('连接上下文：$_contextName'),
           ),
+          child: LayoutBuilder(
+            builder: (context, bounds) {
+              final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+              final inputWidth = math.min(bounds.maxWidth, 280 * scale);
+              final cs = Theme.of(context).colorScheme;
+              final border = OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: cs.outlineVariant),
+              );
+              InputDecoration decoration(String hint, {IconData? icon}) =>
+                  InputDecoration(
+                    hintText: hint,
+                    isDense: false,
+                    constraints: const BoxConstraints.tightFor(
+                      height: _maintenanceControlHeight,
+                    ),
+                    border: border,
+                    enabledBorder: border,
+                    disabledBorder: border,
+                    focusedBorder: border.copyWith(
+                      borderSide: BorderSide(color: cs.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    prefixIcon: icon == null ? null : Icon(icon, size: 16),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 34),
+                  );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MaintenanceToolbarMenu<MachineContainerRuntime>(
+                        label: _runtime.label,
+                        tooltip: '容器运行时',
+                        value: _runtime,
+                        enabled: !_busy && !_overlay,
+                        items: {
+                          for (final runtime in MachineContainerRuntime.values)
+                            runtime: runtime.label,
+                        },
+                        onSelected: (runtime) {
+                          setState(() {
+                            _runtime = runtime;
+                            _scope.clear();
+                            _contextName = '';
+                            _entries = [];
+                            _client = null;
+                            _metadata = '';
+                            _metrics = '';
+                          });
+                          refresh();
+                        },
+                      ),
+                      if (_runtime == MachineContainerRuntime.containerd ||
+                          _runtime == MachineContainerRuntime.kubernetes ||
+                          _runtime == MachineContainerRuntime.cri)
+                        SizedBox(
+                          width: inputWidth,
+                          height: _maintenanceControlHeight,
+                          child: Tooltip(
+                            message: maintenanceLabel(
+                              context,
+                              _runtime == MachineContainerRuntime.containerd
+                                  ? '命名空间（默认 default）'
+                                  : _runtime == MachineContainerRuntime.cri
+                                  ? 'CRI 端点（留空使用默认配置）'
+                                  : '命名空间（留空为全部）',
+                            ),
+                            child: TextField(
+                              controller: _scope,
+                              enabled: !_busy && !_overlay,
+                              style: Theme.of(context).textTheme.bodySmall,
+                              decoration: decoration(
+                                maintenanceLabel(
+                                  context,
+                                  _runtime == MachineContainerRuntime.containerd
+                                      ? '命名空间（默认 default）'
+                                      : _runtime == MachineContainerRuntime.cri
+                                      ? 'CRI 端点（留空使用默认配置）'
+                                      : '命名空间（留空为全部）',
+                                ),
+                              ),
+                              onSubmitted: (_) => refresh(),
+                            ),
+                          ),
+                        ),
+                      SizedBox(
+                        width: inputWidth,
+                        height: _maintenanceControlHeight,
+                        child: TextField(
+                          controller: _search,
+                          onChanged: (_) => setState(() {}),
+                          style: Theme.of(context).textTheme.bodySmall,
+                          decoration: decoration(
+                            maintenanceLabel(context, '搜索名称、镜像、命名空间'),
+                            icon: Icons.search_rounded,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_contextName.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.hub_outlined,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            '${maintenanceLabel(context, '连接上下文')} · $_contextName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
         if (_busy)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -442,7 +572,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         if (_error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: _MaintenanceReadout(text: _error, section: 'containers'),
+            child: _MaintenanceSection(
+              title: maintenanceLabel(context, '采集异常'),
+              icon: Icons.info_outline_rounded,
+              accent: OpenHandStatusColors.warning,
+              initiallyExpanded: true,
+              child: _MaintenanceReadout(text: _error, section: 'containers'),
+            ),
           ),
         if (_collectionIssues.isNotEmpty)
           _MaintenanceReadout(
@@ -451,7 +587,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               [],
               groups: {
                 for (final issue in _collectionIssues.entries)
-                  issue.key: MachineMaintenanceReadout(
+                  maintenanceDetailLabel(
+                    context,
+                    issue.key,
+                  ): MachineMaintenanceReadout(
                     ['名称', '数值'],
                     machineMaintenanceDiagnosticFields(issue.value),
                     fields: true,
@@ -466,6 +605,61 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             ),
           ),
         const SizedBox(height: 12),
+        if (_client != null) ...[
+          _MaintenanceGrid(
+            minWidth: 180,
+            children: [
+              for (final metric in [
+                (
+                  '运行中容器',
+                  _entries.where((e) => !e.isPod && e.running).length,
+                  OpenHandStatusColors.success,
+                  Icons.play_circle_outline_rounded,
+                ),
+                (
+                  '暂停容器',
+                  _entries
+                      .where(
+                        (e) =>
+                            !e.isPod &&
+                            e.state.toLowerCase().contains('paused'),
+                      )
+                      .length,
+                  OpenHandStatusColors.warning,
+                  Icons.pause_circle_outline_rounded,
+                ),
+                (
+                  '未运行',
+                  _entries
+                      .where(
+                        (e) =>
+                            !e.isPod &&
+                            !e.running &&
+                            !e.state.toLowerCase().contains('paused'),
+                      )
+                      .length,
+                  Theme.of(context).colorScheme.secondary,
+                  Icons.stop_circle_outlined,
+                ),
+              ])
+                _MaintenanceCard(
+                  title: metric.$1,
+                  icon: metric.$4,
+                  accent: metric.$3,
+                  scrollBody: false,
+                  child: _MaintenanceValue(
+                    value: '${metric.$2}',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: metric.$3,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_runtime == MachineContainerRuntime.kubernetes ||
             _runtime == MachineContainerRuntime.cri) ...[
           table(true),
@@ -484,9 +678,12 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         ),
         const SizedBox(height: 12),
         _MaintenanceSection(
-          title: '运行时元数据与状态',
+          title: maintenanceLabel(context, '运行时元数据与状态'),
           icon: Icons.inventory_2_outlined,
-          subtitle: _maintenanceOutputStatus(_metadata),
+          subtitle: maintenanceLabel(
+            context,
+            _maintenanceOutputStatus(_metadata),
+          ),
           child: _MaintenanceReadout(
             text: _metadata,
             section: 'container_metadata',
@@ -585,20 +782,25 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
             title: widget.title,
             onClose: () => Navigator.pop(context),
             trailingActions: [
-              IconButton(
-                tooltip: '自动刷新',
+              _MachineTerminalIconButton(
+                tooltip: maintenanceLabel(
+                  context,
+                  _automatic ? '暂停自动刷新' : '自动刷新',
+                ),
                 onPressed: () {
                   setState(() {
                     _automatic = !_automatic;
                   });
                   _schedule();
                 },
-                icon: Icon(_automatic ? Icons.pause : Icons.play_arrow),
+                icon: _automatic
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
               ),
-              IconButton(
-                tooltip: '刷新',
+              _MachineTerminalIconButton(
+                tooltip: maintenanceLabel(context, '刷新'),
                 onPressed: _busy ? null : _load,
-                icon: const Icon(Icons.refresh),
+                icon: Icons.refresh_rounded,
               ),
             ],
           ),
@@ -753,7 +955,7 @@ class _ContainerInteractiveTerminalState
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.terminal_rounded,
-              title: '${widget.title} · 交互终端',
+              title: '${widget.title} · ${maintenanceLabel(context, '交互终端')}',
               onClose: () {
                 if (!_active) {
                   Navigator.pop(context);
@@ -766,14 +968,14 @@ class _ContainerInteractiveTerminalState
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Expanded(child: Text(_status)),
+                  Expanded(child: Text(maintenanceLabel(context, _status))),
                   TextButton(
                     onPressed: _ready ? () => _send('\x03') : null,
                     child: const Text('Ctrl+C'),
                   ),
                   TextButton(
                     onPressed: _ready ? () => _send('\x04') : null,
-                    child: const Text('Ctrl+D / 退出'),
+                    child: Text('Ctrl+D / ${maintenanceLabel(context, '退出')}'),
                   ),
                 ],
               ),

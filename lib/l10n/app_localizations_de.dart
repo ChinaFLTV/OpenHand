@@ -13715,4 +13715,493 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceConsole => 'Konsole';
+
+  @override
+  String get maintenanceContainerTab => 'Container';
+
+  @override
+  String get maintenanceContainerRuntime => 'Container-Laufzeit';
+
+  @override
+  String get maintenanceContainerList => 'Container';
+
+  @override
+  String get maintenanceContainerPods => 'Pods';
+
+  @override
+  String get maintenanceContainerScope => 'Namensraum';
+
+  @override
+  String get maintenanceContainerScopeDefault =>
+      'Namensraum (Standard: default)';
+
+  @override
+  String get maintenanceContainerScopeAll => 'Namensraum (leer für alle)';
+
+  @override
+  String get maintenanceContainerEndpoint => 'CRI-Endpunkt (leer für Standard)';
+
+  @override
+  String get maintenanceContainerSearch => 'Name, Image, Namensraum suchen';
+
+  @override
+  String get maintenanceContainerContext => 'Verbindungskontext';
+
+  @override
+  String get maintenanceContainerNoRecords =>
+      'Keine Einträge in diesem Bereich';
+
+  @override
+  String get maintenanceContainerMetrics => 'Ressourcenmesswerte';
+
+  @override
+  String get maintenanceContainerMetadata => 'Laufzeitmetadaten und Status';
+
+  @override
+  String get maintenanceContainerSelect => 'Container im Pod auswählen';
+
+  @override
+  String get maintenanceContainerNoOperable =>
+      'Kein verfügbarer Container in diesem Pod. Aktualisieren und erneut versuchen.';
+
+  @override
+  String get maintenanceContainerStateImpact =>
+      'Dieser Vorgang ändert den Containerzustand.';
+
+  @override
+  String get maintenanceContainerDeleteImpact =>
+      'Löschen ist unwiderruflich. Eingebundene Volumes bleiben erhalten.';
+
+  @override
+  String get maintenanceContainerPodRecreated =>
+      'Ein Controller kann den gelöschten Pod neu erstellen.';
+
+  @override
+  String get maintenanceContainerSubmitted =>
+      'Vorgang übermittelt. Aktualisieren Sie den aktuellen Status.';
+
+  @override
+  String get maintenanceContainerFiles => 'Containerdateien';
+
+  @override
+  String get maintenanceContainerTerminal => 'Interaktives Terminal';
+
+  @override
+  String get maintenanceContainerConnecting =>
+      'Verbindung zum Containerterminal…';
+
+  @override
+  String get maintenanceContainerTerminalClosed =>
+      'Das ursprüngliche Terminal ist geschlossen. Verbinden Sie sich erneut.';
+
+  @override
+  String get maintenanceContainerTerminalHelp =>
+      'Geben Sie exit ein, um die Shell zu verlassen. Maximal 10 Minuten pro Verbindung.';
+
+  @override
+  String get maintenanceContainerTerminalExited => 'Containerterminal beendet.';
+
+  @override
+  String get maintenanceContainerTerminalEnded =>
+      'Verbindung beendet. Prüfen Sie die Terminalausgabe.';
+
+  @override
+  String get maintenanceContainerStart => 'Starten';
+
+  @override
+  String get maintenanceContainerStop => 'Stoppen';
+
+  @override
+  String get maintenanceContainerRestart => 'Neu starten';
+
+  @override
+  String get maintenanceContainerResume => 'Fortsetzen';
+
+  @override
+  String get maintenanceContainerEvents => 'Ereignisse';
+
+  @override
+  String get maintenanceContainerReady => 'Bereit';
+
+  @override
+  String get maintenanceContainerPending => 'Ausstehend';
+
+  @override
+  String get maintenanceContainerSucceeded => 'Abgeschlossen';
+
+  @override
+  String get maintenanceContainerTerminated => 'Beendet';
+
+  @override
+  String get maintenanceContainerCreated => 'Erstellt';
+
+  @override
+  String get maintenanceContainerRemoving => 'Wird entfernt';
+
+  @override
+  String get maintenanceContainerRestarting => 'Neustart';
+
+  @override
+  String get maintenanceContainerNode => 'Knoten';
+
+  @override
+  String get maintenanceContainerVersion => 'Serverversion';
+
+  @override
+  String get maintenanceContainerRunning => 'Laufende Container';
+
+  @override
+  String get maintenanceContainerPaused => 'Pausierte Container';
+
+  @override
+  String get maintenanceContainerStopped => 'Gestoppte Container';
+
+  @override
+  String get maintenanceContainerConfig => 'Konfiguration';
+
+  @override
+  String get maintenanceContainerHostConfig => 'Hostkonfiguration';
+
+  @override
+  String get maintenanceContainerNetworkConfig => 'Netzwerkkonfiguration';
+
+  @override
+  String get maintenanceContainerLabels => 'Labels';
+
+  @override
+  String get maintenanceContainerAnnotations => 'Anmerkungen';
+
+  @override
+  String get maintenanceContainerSpec => 'Spezifikation';
+
+  @override
+  String get maintenanceContainerMetadataFields => 'Metadaten';
+
+  @override
+  String get maintenanceContainerConditions => 'Bedingungen';
+
+  @override
+  String get maintenanceContainerEnvironment => 'Umgebungsvariablen';
+
+  @override
+  String get maintenanceContainerEntrypoint => 'Einstiegspunkt';
+
+  @override
+  String get maintenanceContainerResources => 'Ressourcen';
+
+  @override
+  String get maintenanceContainerLimits => 'Ressourcenlimits';
+
+  @override
+  String get maintenanceContainerRequests => 'Ressourcenanforderungen';
+
+  @override
+  String get maintenanceContainerVolumes => 'Volumes';
+
+  @override
+  String get maintenanceContainerEndpoints => 'Netzwerkendpunkte';
+
+  @override
+  String get maintenanceContainerNetworks => 'Netzwerke';
+
+  @override
+  String get maintenanceContainerDriver => 'Speichertreiber';
+
+  @override
+  String get maintenanceContainerCgroupDriver => 'Cgroup-Treiber';
+
+  @override
+  String get maintenanceContainerDataDirectory => 'Datenverzeichnis';
+
+  @override
+  String get maintenanceContainerMemoryUsage => 'Speichernutzung / Limit';
+
+  @override
+  String get maintenanceContainerNetworkIO => 'Netzwerk empfangen / gesendet';
+
+  @override
+  String get maintenanceContainerBlockIO => 'Block-IO lesen / schreiben';
+
+  @override
+  String get maintenanceContainerProcesses => 'Prozesse';
+
+  @override
+  String get maintenanceContainerCpuUsage => 'CPU-Nutzung';
+
+  @override
+  String get maintenanceContainerMemory => 'Speichernutzung';
+
+  @override
+  String get maintenanceContainerHealth => 'Zustandsprüfung';
+
+  @override
+  String get maintenanceContainerImageId => 'Image-ID';
+
+  @override
+  String get maintenanceContainerContainerId => 'Container-ID';
+
+  @override
+  String get maintenanceContainerOwner => 'Zuständiger Controller';
+
+  @override
+  String get maintenanceContainerMessage => 'Diagnosemeldung';
+
+  @override
+  String get maintenanceContainerNoContext =>
+      'Kein aktueller Verbindungskontext gefunden.';
+
+  @override
+  String get maintenanceContainerPermissionTitle => 'Lesezugriff verweigert';
+
+  @override
+  String get maintenanceContainerTimeoutTitle =>
+      'Zeitüberschreitung bei Erfassung';
+
+  @override
+  String get maintenanceContainerConnectionTitle =>
+      'Dienstverbindung nicht verfügbar';
+
+  @override
+  String get maintenanceContainerUnavailableTitle =>
+      'Containerdienst nicht verfügbar';
+
+  @override
+  String get maintenanceContainerMissingTitle => 'Erfassungswerkzeug fehlt';
+
+  @override
+  String get maintenanceContainerFormatTitle => 'Unbekanntes Berichtsformat';
+
+  @override
+  String get maintenanceContainerDataTitle => 'Daten nicht verfügbar';
+
+  @override
+  String get maintenanceContainerPermissionHelp =>
+      'Kontoberechtigungen prüfen und erneut versuchen.';
+
+  @override
+  String get maintenanceContainerConnectionHelp =>
+      'Prüfen Sie den Dienststatus und die Verbindungsadresse.';
+
+  @override
+  String get maintenanceContainerRuntimeHelp =>
+      'Prüfen Sie die ausgewählte Laufzeit, den Kontext und den Endpunkt.';
+
+  @override
+  String get maintenanceContainerTimeoutHelp =>
+      'Dienststatus und Verbindung prüfen, dann erneut versuchen.';
+
+  @override
+  String get maintenanceContainerMissingHelp =>
+      'Benötigtes Werkzeug installieren und im Terminal verfügbar machen.';
+
+  @override
+  String get maintenanceContainerFormatHelp =>
+      'Werkzeugversion und Erfassungsbereich prüfen, dann erneut versuchen.';
+
+  @override
+  String get maintenanceContainerDataHelp =>
+      'Dienst, Berechtigungen und Werkzeuge prüfen und erneut erfassen.';
+
+  @override
+  String get maintenanceContainerClientVersion => 'Clientversion';
+
+  @override
+  String get maintenanceContainerApiVersion => 'API-Version';
+
+  @override
+  String get maintenanceContainerGenericVersion => 'Version';
+
+  @override
+  String get maintenanceContainerInitContainers => 'Init-Container';
+
+  @override
+  String get maintenanceContainerInitStatus => 'Init-Containerstatus';
+
+  @override
+  String get maintenanceContainerHostAddress => 'Hostadresse';
+
+  @override
+  String get maintenanceContainerRecords => 'Einträge';
+
+  @override
+  String get maintenanceContainerPlugins => 'Plugins';
+
+  @override
+  String get maintenanceContainerSecurity => 'Sicherheitsoptionen';
+
+  @override
+  String get maintenanceContainerWarnings => 'Warnungen';
+
+  @override
+  String get maintenanceContainerStartedAt => 'Gestartet am';
+
+  @override
+  String get maintenanceContainerFinishedAt => 'Beendet am';
+
+  @override
+  String get maintenanceContainerOutOfMemory => 'Nicht genügend Speicher';
+
+  @override
+  String get maintenanceContainerReason => 'Ursache';
+
+  @override
+  String get maintenanceContainerResultCode => 'Ergebniscode';
+
+  @override
+  String get maintenanceContainerResult => 'Ergebnis';
+
+  @override
+  String get maintenanceContainerConnectionAddress => 'Verbindungsendpunkt';
+
+  @override
+  String get maintenanceContainerResourceStatus => 'Ressourcenstatus';
+
+  @override
+  String get maintenanceContainerDiagnosticStatus => 'Diagnosestatus';
+
+  @override
+  String get maintenanceContainerPermissionDenied =>
+      'Unzureichende Leseberechtigungen';
+
+  @override
+  String get maintenanceContainerResponseTimeout =>
+      'Zeitüberschreitung der Zielantwort';
+
+  @override
+  String get maintenanceContainerResponseTimeoutShort =>
+      'Antwortzeit überschritten';
+
+  @override
+  String get maintenanceContainerNotConnected => 'Verbindung nicht hergestellt';
+
+  @override
+  String get maintenanceContainerToolUnavailable =>
+      'Benötigtes Werkzeug nicht verfügbar';
+
+  @override
+  String get maintenanceContainerCollectionIncomplete =>
+      'Erfassung unvollständig';
+
+  @override
+  String get maintenanceContainerSocketMissing =>
+      'Socketdatei fehlt. Prüfen Sie den Dienststatus.';
+
+  @override
+  String get maintenanceContainerDiagnosticFormat =>
+      'Ausgabe teilweise unbekannt. Werkzeugversion und Datenbereich prüfen.';
+
+  @override
+  String get maintenanceContainerFileManager => 'Dateiverwaltung';
+
+  @override
+  String get maintenanceContainerExit => 'Beenden';
+
+  @override
+  String get maintenanceContainerLogs => 'Protokolle';
+
+  @override
+  String get maintenanceContainerDefaultRuntime => 'Standardlaufzeit';
+
+  @override
+  String get maintenanceContainerRuntimes => 'Verfügbare Laufzeiten';
+
+  @override
+  String get maintenanceContainerLoggingDriver => 'Protokolltreiber';
+
+  @override
+  String get maintenanceContainerCgroupVersion => 'Cgroup-Version';
+
+  @override
+  String get maintenanceContainerDriverStatus => 'Treiberstatus';
+
+  @override
+  String get maintenanceContainerRegistry => 'Registry-Konfiguration';
+
+  @override
+  String get maintenanceContainerLiveRestore =>
+      'Container bei Dienstwiederherstellung weiterführen';
+
+  @override
+  String get maintenanceContainerLogPath => 'Protokollpfad';
+
+  @override
+  String get maintenanceContainerPrivileged => 'Privilegierter Modus';
+
+  @override
+  String get maintenanceContainerReadOnlyRoot =>
+      'Schreibgeschütztes Root-Dateisystem';
+
+  @override
+  String get maintenanceContainerAutoRemove =>
+      'Beim Beenden automatisch entfernen';
+
+  @override
+  String get maintenanceContainerNetworkMode => 'Netzwerkmodus';
+
+  @override
+  String get maintenanceContainerPidMode => 'PID-Namensraummodus';
+
+  @override
+  String get maintenanceContainerIpcMode => 'IPC-Namensraummodus';
+
+  @override
+  String get maintenanceContainerCapabilitiesAdded => 'Zusätzliche Fähigkeiten';
+
+  @override
+  String get maintenanceContainerCapabilitiesDropped => 'Entfernte Fähigkeiten';
+
+  @override
+  String get maintenanceContainerCpuShares => 'CPU-Scheduling-Gewicht';
+
+  @override
+  String get maintenanceContainerNanoCpus => 'CPU-Kontingent (Nanokerne)';
+
+  @override
+  String get maintenanceContainerMemoryReservation => 'Speicherreservierung';
+
+  @override
+  String get maintenanceContainerPublishedPorts => 'Freigegebene Ports';
+
+  @override
+  String get maintenanceContainerImagePolicy => 'Image-Abrufrichtlinie';
+
+  @override
+  String get maintenanceContainerServiceAccount => 'Dienstkonto';
+
+  @override
+  String get maintenanceContainerScheduler => 'Scheduler';
+
+  @override
+  String get maintenanceContainerNodeSelector => 'Knotenauswahl';
+
+  @override
+  String get maintenanceContainerSecurityContext => 'Sicherheitskontext';
+
+  @override
+  String get maintenanceContainerPodList => 'Pod-Liste';
+
+  @override
+  String get maintenanceContainerNodeInfo => 'Knoteninformationen';
+
+  @override
+  String get maintenanceContainerCompiler => 'Compiler';
+
+  @override
+  String get maintenanceContainerGoVersion => 'Go-Version';
+
+  @override
+  String get maintenanceContainerGoroutines => 'Goroutinen';
+
+  @override
+  String get maintenanceContainerPublishAllPorts =>
+      'Alle Ports veröffentlichen';
+
+  @override
+  String get maintenanceContainerLivenessProbe => 'Lebendigkeitsprüfung';
+
+  @override
+  String get maintenanceContainerReadinessProbe => 'Bereitschaftsprüfung';
+
+  @override
+  String get maintenanceContainerStartupProbe => 'Startprüfung';
 }

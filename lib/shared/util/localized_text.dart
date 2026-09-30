@@ -228,6 +228,13 @@ String? _openHandInlineCatalogText(String languageCode, String en) {
 
 const Map<String, Map<String, String>>
 _openHandInlineTextCatalog = <String, Map<String, String>>{
+  'Details': <String, String>{'fr': 'Détails', 'de': 'Details', 'ja': '詳細'},
+  'Actions': <String, String>{'fr': 'Actions', 'de': 'Aktionen', 'ja': '操作'},
+  'More actions': <String, String>{
+    'fr': 'Plus d’actions',
+    'de': 'Weitere Aktionen',
+    'ja': 'その他の操作',
+  },
   'Add': <String, String>{'fr': 'Ajouter', 'de': 'Hinzufügen', 'ja': '追加'},
   'Add field': <String, String>{
     'fr': 'Ajouter un champ',

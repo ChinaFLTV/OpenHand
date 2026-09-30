@@ -3095,6 +3095,18 @@ String _maintenanceReadoutValue(
 ) {
   final normalized = key.trim();
   final plain = value.trim();
+  final leaf = normalized.split(' / ').last;
+  if (const {
+    'Status',
+    'State',
+    'state',
+    'status',
+    'phase',
+    '状态',
+  }.contains(leaf)) {
+    final state = maintenanceContainerState(context, plain);
+    if (state != plain) return state;
+  }
   if (const {'STAT', 'STATE', 'State', '状态', 'state'}.contains(normalized) &&
       RegExp(r'^[RSIZTD][<NsLsl+]*$').hasMatch(plain)) {
     return maintenanceLabel(context, _maintenanceProcessState(plain));
@@ -4928,9 +4940,9 @@ class _MaintenanceSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Tooltip(
-                message: title,
+                message: maintenanceDetailLabel(context, title),
                 child: Text(
-                  title,
+                  maintenanceDetailLabel(context, title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -4942,7 +4954,7 @@ class _MaintenanceSection extends StatelessWidget {
               if (subtitle != null) ...[
                 const SizedBox(height: 3),
                 Text(
-                  subtitle!,
+                  maintenanceLabel(context, subtitle!),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -5052,7 +5064,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         'timeout' => '请检查目标服务的运行状态和连接，稍后重新采集。',
         'connection' =>
           widget.section == 'containers'
-              ? '请确认 Docker 或 Podman 已启动，并检查当前连接地址与运行环境。'
+              ? '请确认所选容器运行时已启动，并检查连接上下文与端点。'
               : '请确认目标服务已启动，并检查连接地址。',
         'missing' => '请确认目标机器已安装对应工具，且命令可在当前终端使用。',
         'format' => '当前工具输出格式尚未识别，请检查工具版本和采集范围后重试。',
@@ -5084,14 +5096,14 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        maintenanceLabel(context, title),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        message,
+                        maintenanceLabel(context, message),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -5105,9 +5117,16 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
           if (widget.text.isNotEmpty || _data.rows.isNotEmpty) ...[
             const SizedBox(height: 8),
             _MaintenanceFields(
-              rows: _data.rows.isNotEmpty
-                  ? _data.rows
-                  : machineMaintenanceDiagnosticFields(widget.text),
+              rows: [
+                for (final row
+                    in _data.rows.isNotEmpty
+                        ? _data.rows
+                        : machineMaintenanceDiagnosticFields(widget.text))
+                  [
+                    maintenanceDetailLabel(context, row[0]),
+                    maintenanceDetailValue(context, row[1]),
+                  ],
+              ],
             ),
           ],
         ],
@@ -5400,7 +5419,13 @@ class _MaintenanceCard extends StatelessWidget {
                 ),
                 if (trailing != null) ...[
                   const SizedBox(width: 8),
-                  Flexible(child: trailing!),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      heightFactor: 1,
+                      child: trailing!,
+                    ),
+                  ),
                 ],
                 if (onOpen != null)
                   Tooltip(

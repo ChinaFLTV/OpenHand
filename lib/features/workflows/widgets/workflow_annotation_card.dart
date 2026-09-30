@@ -222,15 +222,6 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
                       : accent.withValues(alpha: 0.38),
                   width: widget.selected ? 2 : 1,
                 ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: colors.shadow.withValues(
-                      alpha: widget.selected ? 0.17 : 0.09,
-                    ),
-                    blurRadius: widget.selected ? 24 : 14,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -660,8 +651,7 @@ class _AnnotationToolbar extends StatelessWidget {
     final accent = workflowAnnotationAccentColor(annotation.theme, colors);
     return Material(
       color: colors.surfaceContainerHigh,
-      elevation: 7,
-      shadowColor: colors.shadow.withValues(alpha: 0.18),
+      shadowColor: Colors.transparent,
       borderRadius: kOpenHandBorderRadius12,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
