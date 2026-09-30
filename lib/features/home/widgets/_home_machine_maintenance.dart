@@ -1056,7 +1056,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     : null,
               ),
             ),
-            const Divider(height: 18),
+            const SizedBox(height: 8),
             _MaintenanceFacts(
               values: {
                 '运行时间': facts['运行时间']!,
@@ -1227,13 +1227,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         child: SizedBox(
           height: 190,
           child: _cpuHistory.length < 2
-              ? Center(
-                  child: Text(
-                    maintenanceLabel(
-                      context,
-                      _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
-                    ),
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              ? _MaintenanceEmptyHint(
+                  icon: Icons.show_chart_rounded,
+                  message: maintenanceLabel(
+                    context,
+                    _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
                   ),
                 )
               : _MaintenanceTrend(points: List.of(_cpuHistory)),
@@ -1258,10 +1256,33 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             if (warnings.isNotEmpty) const SizedBox(height: 10),
             for (final warning in warnings.take(6))
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  warning,
-                  style: TextStyle(fontSize: 12, color: cs.error),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DecoratedBox(
+                  decoration: _maintenanceTileDecoration(cs),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        const _MaintenanceIconBadge(
+                          icon: Icons.warning_amber_rounded,
+                          color: OpenHandStatusColors.error,
+                          size: 28,
+                          iconSize: 14,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            warning,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: cs.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -1799,10 +1820,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       shape: const Border(),
                       collapsedShape: const Border(),
                       tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                      leading: Icon(
-                        report.issue.isEmpty
+                      leading: _MaintenanceIconBadge(
+                        icon: report.issue.isEmpty
                             ? Icons.developer_board_outlined
                             : Icons.info_outline_rounded,
+                        color: report.issue.isEmpty
+                            ? cs.primary
+                            : OpenHandStatusColors.warning,
+                        size: 32,
+                        iconSize: 16,
                       ),
                       title: Text(
                         report.title == 'NVLink · counters'
@@ -2450,9 +2476,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     height: height,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        backgroundColor: cs.surface.withValues(alpha: .72),
+                        foregroundColor: cs.onSurface,
+                        side: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: .55),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
@@ -4946,8 +4979,12 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
 }
 
 class _MaintenanceEmptyHint extends StatelessWidget {
-  const _MaintenanceEmptyHint({required this.message});
+  const _MaintenanceEmptyHint({
+    required this.message,
+    this.icon = Icons.inbox_outlined,
+  });
   final String message;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -4957,7 +4994,7 @@ class _MaintenanceEmptyHint extends StatelessWidget {
       child: Row(
         children: [
           _MaintenanceIconBadge(
-            icon: Icons.inbox_outlined,
+            icon: icon,
             color: cs.onSurfaceVariant,
             size: 32,
             iconSize: 16,
