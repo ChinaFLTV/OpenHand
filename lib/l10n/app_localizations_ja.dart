@@ -14639,4 +14639,263 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceReadoutMultiMbuf => '複数のパケットバッファ';
+
+  @override
+  String get maintenanceTaskTitle => '定期タスク';
+
+  @override
+  String get maintenanceTaskAdd => '定期タスクを追加';
+
+  @override
+  String get maintenanceTaskEdit => '定期タスクを編集';
+
+  @override
+  String get maintenanceTaskSearch => 'タスク・コマンド・ユーザーを検索';
+
+  @override
+  String get maintenanceTaskEmpty => 'この範囲に定期タスクはありません';
+
+  @override
+  String get maintenanceTaskScheduled => '設定済み';
+
+  @override
+  String get maintenanceTaskReady => '待機中';
+
+  @override
+  String get maintenanceTaskQueued => 'キュー待ち';
+
+  @override
+  String get maintenanceTaskEnabled => '有効';
+
+  @override
+  String get maintenanceTaskDisabled => '無効';
+
+  @override
+  String get maintenanceTaskAll => 'すべてのスケジューラー';
+
+  @override
+  String get maintenanceTaskScheduler => 'スケジューラー';
+
+  @override
+  String get maintenanceTaskWindows => 'Windows タスク スケジューラ';
+
+  @override
+  String get maintenanceTaskSchedule => 'スケジュール';
+
+  @override
+  String get maintenanceTaskLast => '前回の実行';
+
+  @override
+  String get maintenanceTaskNext => '次回の実行';
+
+  @override
+  String get maintenanceTaskSampled => '取得時刻';
+
+  @override
+  String get maintenanceTaskNative => 'ネイティブ設定';
+
+  @override
+  String get maintenanceTaskEnvironment => '実行環境';
+
+  @override
+  String get maintenanceTaskReadOnly => 'この設定は読み取り専用か、現在のユーザーに変更権限がありません';
+
+  @override
+  String get maintenanceTaskDeleteConfirm =>
+      'この定期タスクを削除しますか？設定が削除され、今後の実行はスケジュールされなくなります。';
+
+  @override
+  String get maintenanceTaskSaveConfirm =>
+      '保存すると対象マシンのスケジュールが更新されます。読み込み済みのタイマーは再読み込みされます。';
+
+  @override
+  String get maintenanceTaskConflict => '別のプログラムがタスクを変更しました。更新してから再編集してください。';
+
+  @override
+  String get maintenanceTaskValidation => 'スケジュール、コマンド、設定形式を確認してください。';
+
+  @override
+  String get maintenanceTaskBusy => 'このユーザーのタスク変更が進行中です。しばらくしてから再試行してください。';
+
+  @override
+  String get maintenanceTaskLimit => '取得上限に達したため、一覧が不完全な可能性があります。';
+
+  @override
+  String get maintenanceTaskUnavailable => 'スケジューラーまたは関連データを取得できません';
+
+  @override
+  String get maintenanceTaskSaveFailed =>
+      '変更に失敗しました。エラーを確認し、更新して現在の状態を確認してください。';
+
+  @override
+  String get maintenanceTaskVerify => '操作後の検証に失敗しました。再送信せず、更新して確認してください。';
+
+  @override
+  String get maintenanceTaskRollback => '設定の復元が完了していません。対象の状態を直ちに確認してください。';
+
+  @override
+  String get maintenanceTaskCredentials =>
+      'このタスクにはシステム資格情報の再入力が必要です。対象マシンのタスク スケジューラで編集してください。';
+
+  @override
+  String get maintenanceTaskChangedTarget => '接続先が変更されました。保守パネルを開き直してください。';
+
+  @override
+  String get maintenanceTaskLogs => '実行ログ';
+
+  @override
+  String get maintenanceTaskNoLogs => '読み取り可能なタスクログはありません';
+
+  @override
+  String get maintenanceTaskStale => '更新に失敗したため前回のデータを保持しています。更新成功後に操作できます。';
+
+  @override
+  String get maintenanceTaskCron => 'Cron 式';
+
+  @override
+  String get maintenanceTaskStart => '開始時刻（対象マシンの現地時刻）';
+
+  @override
+  String get maintenanceTaskDays => '間隔（日）';
+
+  @override
+  String get maintenanceTaskArguments => '引数';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => '作業ディレクトリ';
+
+  @override
+  String get maintenanceTaskMissed => '未実行回数';
+
+  @override
+  String get maintenanceTaskPersistent => '未実行分を補完';
+
+  @override
+  String get maintenanceTaskAccuracy => 'スケジュール精度';
+
+  @override
+  String get maintenanceTaskRandomDelay => 'ランダム遅延';
+
+  @override
+  String get maintenanceTaskOverrides => '上書き設定';
+
+  @override
+  String get maintenanceTaskMonotonic => '単調クロックのトリガー';
+
+  @override
+  String get maintenanceTaskInterval => '実行間隔（秒）';
+
+  @override
+  String get maintenanceTaskCalendar => 'カレンダートリガー';
+
+  @override
+  String get maintenanceTaskRunAtLoad => '読み込み時に実行';
+
+  @override
+  String get maintenanceTaskKeepAlive => '実行を維持';
+
+  @override
+  String get maintenanceTaskStdout => '標準出力ログ';
+
+  @override
+  String get maintenanceTaskStderr => '標準エラーログ';
+
+  @override
+  String get maintenanceTaskLogon => 'ログオン方式';
+
+  @override
+  String get maintenanceTaskRunLevel => '実行権限';
+
+  @override
+  String get maintenanceTaskExecutionLimit => '実行時間の制限';
+
+  @override
+  String get maintenanceTaskParallel => '複数インスタンスの方針';
+
+  @override
+  String get maintenanceTaskBatteryStart => 'バッテリー使用時は開始しない';
+
+  @override
+  String get maintenanceTaskBatteryStop => 'バッテリーに切り替えたら停止';
+
+  @override
+  String get maintenanceTaskWake => 'スリープを解除して実行';
+
+  @override
+  String get maintenanceTaskDemand => '手動開始を許可';
+
+  @override
+  String get maintenanceTaskHidden => '非表示タスク';
+
+  @override
+  String get maintenanceTaskNetworkRequired => 'ネットワーク接続が必要';
+
+  @override
+  String get maintenanceTaskIdle => 'アイドル時のみ実行';
+
+  @override
+  String get maintenanceTaskHardTerminate => '強制終了を許可';
+
+  @override
+  String get maintenanceTaskTriggerBoot => '起動時';
+
+  @override
+  String get maintenanceTaskTriggerLogon => 'ログオン時';
+
+  @override
+  String get maintenanceTaskTriggerEvent => 'イベント時';
+
+  @override
+  String get maintenanceTaskTriggerTime => '時刻トリガー';
+
+  @override
+  String get maintenanceTaskTriggerSession => 'セッション状態トリガー';
+
+  @override
+  String get maintenanceTaskNativeProperty => 'ネイティブ属性';
+
+  @override
+  String get maintenanceTaskTotal => 'タスク総数';
+
+  @override
+  String get maintenanceTaskInteractive => 'ユーザーのログオン中のみ実行';
+
+  @override
+  String get maintenanceTaskPassword => 'パスワードログオン';
+
+  @override
+  String get maintenanceTaskNoPassword => 'パスワードなしのログオン';
+
+  @override
+  String get maintenanceTaskMixedLogon => '対話型またはパスワードログオン';
+
+  @override
+  String get maintenanceTaskIgnoreNew => '重複実行を無視';
+
+  @override
+  String get maintenanceTaskParallelRuns => '並列実行';
+
+  @override
+  String get maintenanceTaskStopExisting => '前の実行を停止';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => '標準権限';
+
+  @override
+  String get maintenanceTaskHighestPrivilege => '利用可能な最上位権限';
+
+  @override
+  String get maintenanceTaskAfterBoot => '起動後';
+
+  @override
+  String get maintenanceTaskAfterActive => '有効化後';
+
+  @override
+  String get maintenanceTaskAfterStartup => 'スケジューラーの起動後';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => 'サービスの有効化後';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => 'サービスの停止後';
 }

@@ -27076,6 +27076,516 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'多个数据包缓冲区'**
   String get maintenanceReadoutMultiMbuf;
+
+  /// No description provided for @maintenanceTaskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时任务'**
+  String get maintenanceTaskTitle;
+
+  /// No description provided for @maintenanceTaskAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增定时任务'**
+  String get maintenanceTaskAdd;
+
+  /// No description provided for @maintenanceTaskEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑定时任务'**
+  String get maintenanceTaskEdit;
+
+  /// No description provided for @maintenanceTaskSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索任务、命令、用户'**
+  String get maintenanceTaskSearch;
+
+  /// No description provided for @maintenanceTaskEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前范围没有定时任务'**
+  String get maintenanceTaskEmpty;
+
+  /// No description provided for @maintenanceTaskScheduled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置'**
+  String get maintenanceTaskScheduled;
+
+  /// No description provided for @maintenanceTaskReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待调度'**
+  String get maintenanceTaskReady;
+
+  /// No description provided for @maintenanceTaskQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'排队中'**
+  String get maintenanceTaskQueued;
+
+  /// No description provided for @maintenanceTaskEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已启用'**
+  String get maintenanceTaskEnabled;
+
+  /// No description provided for @maintenanceTaskDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已禁用'**
+  String get maintenanceTaskDisabled;
+
+  /// No description provided for @maintenanceTaskAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部调度器'**
+  String get maintenanceTaskAll;
+
+  /// No description provided for @maintenanceTaskScheduler.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度器'**
+  String get maintenanceTaskScheduler;
+
+  /// No description provided for @maintenanceTaskWindows.
+  ///
+  /// In zh, this message translates to:
+  /// **'Windows 任务计划程序'**
+  String get maintenanceTaskWindows;
+
+  /// No description provided for @maintenanceTaskSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度规则'**
+  String get maintenanceTaskSchedule;
+
+  /// No description provided for @maintenanceTaskLast.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近执行'**
+  String get maintenanceTaskLast;
+
+  /// No description provided for @maintenanceTaskNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下次执行'**
+  String get maintenanceTaskNext;
+
+  /// No description provided for @maintenanceTaskSampled.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集时间'**
+  String get maintenanceTaskSampled;
+
+  /// No description provided for @maintenanceTaskNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'原生配置'**
+  String get maintenanceTaskNative;
+
+  /// No description provided for @maintenanceTaskEnvironment.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行环境'**
+  String get maintenanceTaskEnvironment;
+
+  /// No description provided for @maintenanceTaskReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'此任务配置只读或当前用户无权修改'**
+  String get maintenanceTaskReadOnly;
+
+  /// No description provided for @maintenanceTaskDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除这个定时任务？配置将被移除，后续执行将停止调度。'**
+  String get maintenanceTaskDeleteConfirm;
+
+  /// No description provided for @maintenanceTaskSaveConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存后会更新目标机器的调度配置；已加载的原生定时器会重新加载。'**
+  String get maintenanceTaskSaveConfirm;
+
+  /// No description provided for @maintenanceTaskConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务配置已被其他程序修改，请刷新后重新编辑。'**
+  String get maintenanceTaskConflict;
+
+  /// No description provided for @maintenanceTaskValidation.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查调度规则、命令和原生配置格式。'**
+  String get maintenanceTaskValidation;
+
+  /// No description provided for @maintenanceTaskBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'该用户已有任务修改操作进行中，请稍后重试。'**
+  String get maintenanceTaskBusy;
+
+  /// No description provided for @maintenanceTaskLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据达到采集上限，当前列表可能不完整。'**
+  String get maintenanceTaskLimit;
+
+  /// No description provided for @maintenanceTaskUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度器或相关数据不可用'**
+  String get maintenanceTaskUnavailable;
+
+  /// No description provided for @maintenanceTaskSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务修改未成功，请检查错误详情并刷新确认当前状态。'**
+  String get maintenanceTaskSaveFailed;
+
+  /// No description provided for @maintenanceTaskVerify.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作后的配置校验未通过，请刷新确认，勿重复提交。'**
+  String get maintenanceTaskVerify;
+
+  /// No description provided for @maintenanceTaskRollback.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置恢复未完成，请立即检查目标机器的调度器状态。'**
+  String get maintenanceTaskRollback;
+
+  /// No description provided for @maintenanceTaskCredentials.
+  ///
+  /// In zh, this message translates to:
+  /// **'此任务需要重新提供系统凭据，请使用目标机器的任务计划程序修改。'**
+  String get maintenanceTaskCredentials;
+
+  /// No description provided for @maintenanceTaskChangedTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端目标已变化，请重新打开运维面板。'**
+  String get maintenanceTaskChangedTarget;
+
+  /// No description provided for @maintenanceTaskLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行日志'**
+  String get maintenanceTaskLogs;
+
+  /// No description provided for @maintenanceTaskNoLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可读取的任务日志'**
+  String get maintenanceTaskNoLogs;
+
+  /// No description provided for @maintenanceTaskStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务刷新失败，已保留上次数据；刷新成功后可继续操作。'**
+  String get maintenanceTaskStale;
+
+  /// No description provided for @maintenanceTaskCron.
+  ///
+  /// In zh, this message translates to:
+  /// **'Cron 表达式'**
+  String get maintenanceTaskCron;
+
+  /// No description provided for @maintenanceTaskStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间（目标机器当地时间）'**
+  String get maintenanceTaskStart;
+
+  /// No description provided for @maintenanceTaskDays.
+  ///
+  /// In zh, this message translates to:
+  /// **'间隔天数'**
+  String get maintenanceTaskDays;
+
+  /// No description provided for @maintenanceTaskArguments.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令参数'**
+  String get maintenanceTaskArguments;
+
+  /// No description provided for @maintenanceTaskWorkingDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作目录'**
+  String get maintenanceTaskWorkingDirectory;
+
+  /// No description provided for @maintenanceTaskMissed.
+  ///
+  /// In zh, this message translates to:
+  /// **'错过的执行次数'**
+  String get maintenanceTaskMissed;
+
+  /// No description provided for @maintenanceTaskPersistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'补跑错过的任务'**
+  String get maintenanceTaskPersistent;
+
+  /// No description provided for @maintenanceTaskAccuracy.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度精度'**
+  String get maintenanceTaskAccuracy;
+
+  /// No description provided for @maintenanceTaskRandomDelay.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机延迟'**
+  String get maintenanceTaskRandomDelay;
+
+  /// No description provided for @maintenanceTaskOverrides.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖配置'**
+  String get maintenanceTaskOverrides;
+
+  /// No description provided for @maintenanceTaskMonotonic.
+  ///
+  /// In zh, this message translates to:
+  /// **'单调时钟触发规则'**
+  String get maintenanceTaskMonotonic;
+
+  /// No description provided for @maintenanceTaskInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行间隔（秒）'**
+  String get maintenanceTaskInterval;
+
+  /// No description provided for @maintenanceTaskCalendar.
+  ///
+  /// In zh, this message translates to:
+  /// **'日历触发规则'**
+  String get maintenanceTaskCalendar;
+
+  /// No description provided for @maintenanceTaskRunAtLoad.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载后执行'**
+  String get maintenanceTaskRunAtLoad;
+
+  /// No description provided for @maintenanceTaskKeepAlive.
+  ///
+  /// In zh, this message translates to:
+  /// **'保持运行'**
+  String get maintenanceTaskKeepAlive;
+
+  /// No description provided for @maintenanceTaskStdout.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准输出日志'**
+  String get maintenanceTaskStdout;
+
+  /// No description provided for @maintenanceTaskStderr.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准错误日志'**
+  String get maintenanceTaskStderr;
+
+  /// No description provided for @maintenanceTaskLogon.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录方式'**
+  String get maintenanceTaskLogon;
+
+  /// No description provided for @maintenanceTaskRunLevel.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行权限'**
+  String get maintenanceTaskRunLevel;
+
+  /// No description provided for @maintenanceTaskExecutionLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行时限'**
+  String get maintenanceTaskExecutionLimit;
+
+  /// No description provided for @maintenanceTaskParallel.
+  ///
+  /// In zh, this message translates to:
+  /// **'重复执行策略'**
+  String get maintenanceTaskParallel;
+
+  /// No description provided for @maintenanceTaskBatteryStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用电池时禁止启动'**
+  String get maintenanceTaskBatteryStart;
+
+  /// No description provided for @maintenanceTaskBatteryStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换到电池时停止'**
+  String get maintenanceTaskBatteryStop;
+
+  /// No description provided for @maintenanceTaskWake.
+  ///
+  /// In zh, this message translates to:
+  /// **'唤醒机器执行'**
+  String get maintenanceTaskWake;
+
+  /// No description provided for @maintenanceTaskDemand.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许手动启动'**
+  String get maintenanceTaskDemand;
+
+  /// No description provided for @maintenanceTaskHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏任务'**
+  String get maintenanceTaskHidden;
+
+  /// No description provided for @maintenanceTaskNetworkRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要网络连接'**
+  String get maintenanceTaskNetworkRequired;
+
+  /// No description provided for @maintenanceTaskIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅空闲时执行'**
+  String get maintenanceTaskIdle;
+
+  /// No description provided for @maintenanceTaskHardTerminate.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许强制终止'**
+  String get maintenanceTaskHardTerminate;
+
+  /// No description provided for @maintenanceTaskTriggerBoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动时触发'**
+  String get maintenanceTaskTriggerBoot;
+
+  /// No description provided for @maintenanceTaskTriggerLogon.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录时触发'**
+  String get maintenanceTaskTriggerLogon;
+
+  /// No description provided for @maintenanceTaskTriggerEvent.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件触发'**
+  String get maintenanceTaskTriggerEvent;
+
+  /// No description provided for @maintenanceTaskTriggerTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间触发'**
+  String get maintenanceTaskTriggerTime;
+
+  /// No description provided for @maintenanceTaskTriggerSession.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话状态触发'**
+  String get maintenanceTaskTriggerSession;
+
+  /// No description provided for @maintenanceTaskNativeProperty.
+  ///
+  /// In zh, this message translates to:
+  /// **'原生属性'**
+  String get maintenanceTaskNativeProperty;
+
+  /// No description provided for @maintenanceTaskTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务总数'**
+  String get maintenanceTaskTotal;
+
+  /// No description provided for @maintenanceTaskInteractive.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅用户登录时运行'**
+  String get maintenanceTaskInteractive;
+
+  /// No description provided for @maintenanceTaskPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码登录'**
+  String get maintenanceTaskPassword;
+
+  /// No description provided for @maintenanceTaskNoPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'无密码登录'**
+  String get maintenanceTaskNoPassword;
+
+  /// No description provided for @maintenanceTaskMixedLogon.
+  ///
+  /// In zh, this message translates to:
+  /// **'交互或密码登录'**
+  String get maintenanceTaskMixedLogon;
+
+  /// No description provided for @maintenanceTaskIgnoreNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'忽略重复执行'**
+  String get maintenanceTaskIgnoreNew;
+
+  /// No description provided for @maintenanceTaskParallelRuns.
+  ///
+  /// In zh, this message translates to:
+  /// **'并行执行'**
+  String get maintenanceTaskParallelRuns;
+
+  /// No description provided for @maintenanceTaskStopExisting.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止上次执行'**
+  String get maintenanceTaskStopExisting;
+
+  /// No description provided for @maintenanceTaskLeastPrivilege.
+  ///
+  /// In zh, this message translates to:
+  /// **'普通权限'**
+  String get maintenanceTaskLeastPrivilege;
+
+  /// No description provided for @maintenanceTaskHighestPrivilege.
+  ///
+  /// In zh, this message translates to:
+  /// **'最高可用权限'**
+  String get maintenanceTaskHighestPrivilege;
+
+  /// No description provided for @maintenanceTaskAfterBoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动后'**
+  String get maintenanceTaskAfterBoot;
+
+  /// No description provided for @maintenanceTaskAfterActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'激活后'**
+  String get maintenanceTaskAfterActive;
+
+  /// No description provided for @maintenanceTaskAfterStartup.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度器启动后'**
+  String get maintenanceTaskAfterStartup;
+
+  /// No description provided for @maintenanceTaskAfterUnitActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务激活后'**
+  String get maintenanceTaskAfterUnitActive;
+
+  /// No description provided for @maintenanceTaskAfterUnitInactive.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务停止后'**
+  String get maintenanceTaskAfterUnitInactive;
 }
 
 class _AppLocalizationsDelegate

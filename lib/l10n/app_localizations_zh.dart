@@ -14507,6 +14507,261 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceReadoutMultiMbuf => '多个数据包缓冲区';
+
+  @override
+  String get maintenanceTaskTitle => '定时任务';
+
+  @override
+  String get maintenanceTaskAdd => '新增定时任务';
+
+  @override
+  String get maintenanceTaskEdit => '编辑定时任务';
+
+  @override
+  String get maintenanceTaskSearch => '搜索任务、命令、用户';
+
+  @override
+  String get maintenanceTaskEmpty => '当前范围没有定时任务';
+
+  @override
+  String get maintenanceTaskScheduled => '已配置';
+
+  @override
+  String get maintenanceTaskReady => '等待调度';
+
+  @override
+  String get maintenanceTaskQueued => '排队中';
+
+  @override
+  String get maintenanceTaskEnabled => '已启用';
+
+  @override
+  String get maintenanceTaskDisabled => '已禁用';
+
+  @override
+  String get maintenanceTaskAll => '全部调度器';
+
+  @override
+  String get maintenanceTaskScheduler => '调度器';
+
+  @override
+  String get maintenanceTaskWindows => 'Windows 任务计划程序';
+
+  @override
+  String get maintenanceTaskSchedule => '调度规则';
+
+  @override
+  String get maintenanceTaskLast => '最近执行';
+
+  @override
+  String get maintenanceTaskNext => '下次执行';
+
+  @override
+  String get maintenanceTaskSampled => '采集时间';
+
+  @override
+  String get maintenanceTaskNative => '原生配置';
+
+  @override
+  String get maintenanceTaskEnvironment => '执行环境';
+
+  @override
+  String get maintenanceTaskReadOnly => '此任务配置只读或当前用户无权修改';
+
+  @override
+  String get maintenanceTaskDeleteConfirm => '删除这个定时任务？配置将被移除，后续执行将停止调度。';
+
+  @override
+  String get maintenanceTaskSaveConfirm => '保存后会更新目标机器的调度配置；已加载的原生定时器会重新加载。';
+
+  @override
+  String get maintenanceTaskConflict => '任务配置已被其他程序修改，请刷新后重新编辑。';
+
+  @override
+  String get maintenanceTaskValidation => '请检查调度规则、命令和原生配置格式。';
+
+  @override
+  String get maintenanceTaskBusy => '该用户已有任务修改操作进行中，请稍后重试。';
+
+  @override
+  String get maintenanceTaskLimit => '数据达到采集上限，当前列表可能不完整。';
+
+  @override
+  String get maintenanceTaskUnavailable => '调度器或相关数据不可用';
+
+  @override
+  String get maintenanceTaskSaveFailed => '任务修改未成功，请检查错误详情并刷新确认当前状态。';
+
+  @override
+  String get maintenanceTaskVerify => '操作后的配置校验未通过，请刷新确认，勿重复提交。';
+
+  @override
+  String get maintenanceTaskRollback => '配置恢复未完成，请立即检查目标机器的调度器状态。';
+
+  @override
+  String get maintenanceTaskCredentials => '此任务需要重新提供系统凭据，请使用目标机器的任务计划程序修改。';
+
+  @override
+  String get maintenanceTaskChangedTarget => '终端目标已变化，请重新打开运维面板。';
+
+  @override
+  String get maintenanceTaskLogs => '运行日志';
+
+  @override
+  String get maintenanceTaskNoLogs => '没有可读取的任务日志';
+
+  @override
+  String get maintenanceTaskStale => '任务刷新失败，已保留上次数据；刷新成功后可继续操作。';
+
+  @override
+  String get maintenanceTaskCron => 'Cron 表达式';
+
+  @override
+  String get maintenanceTaskStart => '开始时间（目标机器当地时间）';
+
+  @override
+  String get maintenanceTaskDays => '间隔天数';
+
+  @override
+  String get maintenanceTaskArguments => '命令参数';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => '工作目录';
+
+  @override
+  String get maintenanceTaskMissed => '错过的执行次数';
+
+  @override
+  String get maintenanceTaskPersistent => '补跑错过的任务';
+
+  @override
+  String get maintenanceTaskAccuracy => '调度精度';
+
+  @override
+  String get maintenanceTaskRandomDelay => '随机延迟';
+
+  @override
+  String get maintenanceTaskOverrides => '覆盖配置';
+
+  @override
+  String get maintenanceTaskMonotonic => '单调时钟触发规则';
+
+  @override
+  String get maintenanceTaskInterval => '执行间隔（秒）';
+
+  @override
+  String get maintenanceTaskCalendar => '日历触发规则';
+
+  @override
+  String get maintenanceTaskRunAtLoad => '加载后执行';
+
+  @override
+  String get maintenanceTaskKeepAlive => '保持运行';
+
+  @override
+  String get maintenanceTaskStdout => '标准输出日志';
+
+  @override
+  String get maintenanceTaskStderr => '标准错误日志';
+
+  @override
+  String get maintenanceTaskLogon => '登录方式';
+
+  @override
+  String get maintenanceTaskRunLevel => '执行权限';
+
+  @override
+  String get maintenanceTaskExecutionLimit => '执行时限';
+
+  @override
+  String get maintenanceTaskParallel => '重复执行策略';
+
+  @override
+  String get maintenanceTaskBatteryStart => '使用电池时禁止启动';
+
+  @override
+  String get maintenanceTaskBatteryStop => '切换到电池时停止';
+
+  @override
+  String get maintenanceTaskWake => '唤醒机器执行';
+
+  @override
+  String get maintenanceTaskDemand => '允许手动启动';
+
+  @override
+  String get maintenanceTaskHidden => '隐藏任务';
+
+  @override
+  String get maintenanceTaskNetworkRequired => '需要网络连接';
+
+  @override
+  String get maintenanceTaskIdle => '仅空闲时执行';
+
+  @override
+  String get maintenanceTaskHardTerminate => '允许强制终止';
+
+  @override
+  String get maintenanceTaskTriggerBoot => '启动时触发';
+
+  @override
+  String get maintenanceTaskTriggerLogon => '登录时触发';
+
+  @override
+  String get maintenanceTaskTriggerEvent => '事件触发';
+
+  @override
+  String get maintenanceTaskTriggerTime => '时间触发';
+
+  @override
+  String get maintenanceTaskTriggerSession => '会话状态触发';
+
+  @override
+  String get maintenanceTaskNativeProperty => '原生属性';
+
+  @override
+  String get maintenanceTaskTotal => '任务总数';
+
+  @override
+  String get maintenanceTaskInteractive => '仅用户登录时运行';
+
+  @override
+  String get maintenanceTaskPassword => '密码登录';
+
+  @override
+  String get maintenanceTaskNoPassword => '无密码登录';
+
+  @override
+  String get maintenanceTaskMixedLogon => '交互或密码登录';
+
+  @override
+  String get maintenanceTaskIgnoreNew => '忽略重复执行';
+
+  @override
+  String get maintenanceTaskParallelRuns => '并行执行';
+
+  @override
+  String get maintenanceTaskStopExisting => '停止上次执行';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => '普通权限';
+
+  @override
+  String get maintenanceTaskHighestPrivilege => '最高可用权限';
+
+  @override
+  String get maintenanceTaskAfterBoot => '启动后';
+
+  @override
+  String get maintenanceTaskAfterActive => '激活后';
+
+  @override
+  String get maintenanceTaskAfterStartup => '调度器启动后';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => '服务激活后';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => '服务停止后';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -28994,4 +29249,259 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceReadoutMultiMbuf => '多個封包緩衝區';
+
+  @override
+  String get maintenanceTaskTitle => '排程工作';
+
+  @override
+  String get maintenanceTaskAdd => '新增排程工作';
+
+  @override
+  String get maintenanceTaskEdit => '編輯排程工作';
+
+  @override
+  String get maintenanceTaskSearch => '搜尋工作、命令、使用者';
+
+  @override
+  String get maintenanceTaskEmpty => '目前範圍沒有排程工作';
+
+  @override
+  String get maintenanceTaskScheduled => '已設定';
+
+  @override
+  String get maintenanceTaskReady => '等待排程';
+
+  @override
+  String get maintenanceTaskQueued => '佇列中';
+
+  @override
+  String get maintenanceTaskEnabled => '已啟用';
+
+  @override
+  String get maintenanceTaskDisabled => '已停用';
+
+  @override
+  String get maintenanceTaskAll => '全部排程器';
+
+  @override
+  String get maintenanceTaskScheduler => '排程器';
+
+  @override
+  String get maintenanceTaskWindows => 'Windows 工作排程器';
+
+  @override
+  String get maintenanceTaskSchedule => '排程規則';
+
+  @override
+  String get maintenanceTaskLast => '最近執行';
+
+  @override
+  String get maintenanceTaskNext => '下次執行';
+
+  @override
+  String get maintenanceTaskSampled => '擷取時間';
+
+  @override
+  String get maintenanceTaskNative => '原生設定';
+
+  @override
+  String get maintenanceTaskEnvironment => '執行環境';
+
+  @override
+  String get maintenanceTaskReadOnly => '此工作設定為唯讀或目前使用者無權修改';
+
+  @override
+  String get maintenanceTaskDeleteConfirm => '刪除此排程工作？設定將被移除，後續執行將停止排程。';
+
+  @override
+  String get maintenanceTaskSaveConfirm => '儲存後會更新目標機器的排程設定；已載入的原生計時器會重新載入。';
+
+  @override
+  String get maintenanceTaskConflict => '工作設定已被其他程式修改，請重新整理後再編輯。';
+
+  @override
+  String get maintenanceTaskValidation => '請檢查排程規則、命令及原生設定格式。';
+
+  @override
+  String get maintenanceTaskBusy => '此使用者已有工作修改進行中，請稍後重試。';
+
+  @override
+  String get maintenanceTaskLimit => '資料達到擷取上限，目前清單可能不完整。';
+
+  @override
+  String get maintenanceTaskUnavailable => '排程器或相關資料無法使用';
+
+  @override
+  String get maintenanceTaskSaveFailed => '工作修改未成功，請檢查錯誤詳情並重新整理確認目前狀態。';
+
+  @override
+  String get maintenanceTaskVerify => '操作後的設定驗證未通過，請重新整理確認，勿重複提交。';
+
+  @override
+  String get maintenanceTaskRollback => '設定還原未完成，請立即檢查目標機器的排程器狀態。';
+
+  @override
+  String get maintenanceTaskCredentials => '此工作需要重新提供系統認證，請使用目標機器的工作排程器修改。';
+
+  @override
+  String get maintenanceTaskChangedTarget => '終端目標已變更，請重新開啟維運面板。';
+
+  @override
+  String get maintenanceTaskLogs => '執行記錄';
+
+  @override
+  String get maintenanceTaskNoLogs => '沒有可讀取的工作記錄';
+
+  @override
+  String get maintenanceTaskStale => '工作重新整理失敗，已保留上次資料；重新整理成功後可繼續操作。';
+
+  @override
+  String get maintenanceTaskCron => 'Cron 運算式';
+
+  @override
+  String get maintenanceTaskStart => '開始時間（目標機器當地時間）';
+
+  @override
+  String get maintenanceTaskDays => '間隔天數';
+
+  @override
+  String get maintenanceTaskArguments => '命令參數';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => '工作目錄';
+
+  @override
+  String get maintenanceTaskMissed => '錯過的執行次數';
+
+  @override
+  String get maintenanceTaskPersistent => '補跑錯過的工作';
+
+  @override
+  String get maintenanceTaskAccuracy => '排程精度';
+
+  @override
+  String get maintenanceTaskRandomDelay => '隨機延遲';
+
+  @override
+  String get maintenanceTaskOverrides => '覆寫設定';
+
+  @override
+  String get maintenanceTaskMonotonic => '單調時鐘觸發規則';
+
+  @override
+  String get maintenanceTaskInterval => '執行間隔（秒）';
+
+  @override
+  String get maintenanceTaskCalendar => '日曆觸發規則';
+
+  @override
+  String get maintenanceTaskRunAtLoad => '載入後執行';
+
+  @override
+  String get maintenanceTaskKeepAlive => '保持執行';
+
+  @override
+  String get maintenanceTaskStdout => '標準輸出記錄';
+
+  @override
+  String get maintenanceTaskStderr => '標準錯誤記錄';
+
+  @override
+  String get maintenanceTaskLogon => '登入方式';
+
+  @override
+  String get maintenanceTaskRunLevel => '執行權限';
+
+  @override
+  String get maintenanceTaskExecutionLimit => '執行時限';
+
+  @override
+  String get maintenanceTaskParallel => '重複執行原則';
+
+  @override
+  String get maintenanceTaskBatteryStart => '使用電池時禁止啟動';
+
+  @override
+  String get maintenanceTaskBatteryStop => '切換至電池時停止';
+
+  @override
+  String get maintenanceTaskWake => '喚醒機器執行';
+
+  @override
+  String get maintenanceTaskDemand => '允許手動啟動';
+
+  @override
+  String get maintenanceTaskHidden => '隱藏工作';
+
+  @override
+  String get maintenanceTaskNetworkRequired => '需要網路連線';
+
+  @override
+  String get maintenanceTaskIdle => '僅閒置時執行';
+
+  @override
+  String get maintenanceTaskHardTerminate => '允許強制終止';
+
+  @override
+  String get maintenanceTaskTriggerBoot => '啟動時觸發';
+
+  @override
+  String get maintenanceTaskTriggerLogon => '登入時觸發';
+
+  @override
+  String get maintenanceTaskTriggerEvent => '事件觸發';
+
+  @override
+  String get maintenanceTaskTriggerTime => '時間觸發';
+
+  @override
+  String get maintenanceTaskTriggerSession => '工作階段狀態觸發';
+
+  @override
+  String get maintenanceTaskNativeProperty => '原生屬性';
+
+  @override
+  String get maintenanceTaskTotal => '工作總數';
+
+  @override
+  String get maintenanceTaskInteractive => '僅使用者登入時執行';
+
+  @override
+  String get maintenanceTaskPassword => '密碼登入';
+
+  @override
+  String get maintenanceTaskNoPassword => '無密碼登入';
+
+  @override
+  String get maintenanceTaskMixedLogon => '互動或密碼登入';
+
+  @override
+  String get maintenanceTaskIgnoreNew => '忽略重複執行';
+
+  @override
+  String get maintenanceTaskParallelRuns => '平行執行';
+
+  @override
+  String get maintenanceTaskStopExisting => '停止上次執行';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => '一般權限';
+
+  @override
+  String get maintenanceTaskHighestPrivilege => '最高可用權限';
+
+  @override
+  String get maintenanceTaskAfterBoot => '啟動後';
+
+  @override
+  String get maintenanceTaskAfterActive => '啟用後';
+
+  @override
+  String get maintenanceTaskAfterStartup => '排程器啟動後';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => '服務啟用後';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => '服務停止後';
 }

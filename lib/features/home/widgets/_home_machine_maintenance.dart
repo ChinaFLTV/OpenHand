@@ -187,6 +187,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
   int get _workers => context.read<SettingsController>().maintenanceWorkers;
   bool _savingWorkers = false;
+  int _scheduledTaskOperations = 0;
+  bool get _scheduledTasksBusy => _scheduledTaskOperations > 0;
+  Future<void>? _scheduledTaskPending;
+  bool _scheduledTasksRefreshPending = false;
   Object? _bodyIdentity;
   Widget? _body;
   MachineEgressReport? _egress;
@@ -224,6 +228,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _foreground &&
         !_loading &&
         !_detailOpen &&
+        !_scheduledTasksBusy &&
         _error == null) {
       _timer = startSafeTimer(
         Duration(seconds: _intervalSeconds),
@@ -254,6 +259,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     bool egressOnly = false,
   }) async {
     if (_loading || !mounted || _closing) return;
+    if (_scheduledTasksBusy) {
+      _scheduledTasksRefreshPending = true;
+      return;
+    }
     if (_tab == 7 && _platformName != null) {
       _timer?.cancel();
       await _containersKey.currentState?.refresh(applyScope: manual);
@@ -2298,6 +2307,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   }
 
   Widget _services(MachineMaintenanceSnapshot data) {
+    final targetPlatform = MachineMaintenancePlatformAdapter.forPlatform(
+      data.text('platform'),
+    );
+    final targetShell = _commandShell;
     final adapter = _platform?.servicesFor(data.text('manager'));
     final rows = data
         .text('services')
@@ -2585,7 +2598,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ),
             );
             final buttons = [
-              for (final name in const ['startup', 'timers'])
+              for (final name in const ['startup'])
                 if (data.text(name).isNotEmpty)
                   SizedBox(
                     height: height,
@@ -2715,6 +2728,57 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ),
         ),
         const SizedBox(height: 12),
+        _MachineScheduledTaskPanel(
+          key: ValueKey('scheduled-tasks-${data.identity}'),
+          platform: data.text('platform'),
+          refreshToken: data,
+          onFailure: () {
+            if (mounted) setState(() => _automatic = false);
+          },
+          onBusy: (busy) {
+            _scheduledTaskOperations += busy ? 1 : -1;
+            if (!_scheduledTasksBusy &&
+                _scheduledTasksRefreshPending &&
+                mounted &&
+                !_closing) {
+              _scheduledTasksRefreshPending = false;
+              scheduleMicrotask(() {
+                if (mounted && !_closing) _refresh();
+              });
+            }
+            _schedule();
+          },
+          run: (command, cancelled) async {
+            final previous = _scheduledTaskPending;
+            final completed = Completer<void>();
+            _scheduledTaskPending = completed.future;
+            try {
+              // 快速切回板块时等待旧请求收尾，已离开的排队请求不再执行。
+              await previous;
+              if (!mounted || _closing || cancelled()) {
+                throw const MachineTerminalUploadCancelled();
+              }
+              return await context
+                  .read<MachineTerminalFileService>()
+                  .runMaintenanceCommand(
+                    sessionId: widget.sessionId,
+                    terminalId: widget.terminalId,
+                    command: targetPlatform.bind(data, command),
+                    windowsScript: targetPlatform.windowsScript,
+                    commandShell: targetShell,
+                    timeout: machineScheduledTaskTimeout,
+                    maxOutputCharacters: machineScheduledTaskOutputLimit,
+                    isCancelled: () => !mounted || _closing || cancelled(),
+                  );
+            } finally {
+              completed.complete();
+              if (identical(_scheduledTaskPending, completed.future)) {
+                _scheduledTaskPending = null;
+              }
+            }
+          },
+        ),
+        const SizedBox(height: _maintenancePanelBottomInset),
       ],
     );
   }

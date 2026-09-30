@@ -218,6 +218,7 @@ part 'widgets/_home_machine_terminal_panel.dart';
 part 'widgets/_home_machine_terminal_file_manager.dart';
 part 'widgets/_home_machine_maintenance.dart';
 part 'widgets/_home_machine_containers.dart';
+part 'widgets/_home_machine_scheduled_tasks.dart';
 part 'widgets/_home_harness_annotations.dart';
 part 'widgets/_home_trajectory_dialog.dart';
 part 'widgets/_home_motion_tokens.dart';

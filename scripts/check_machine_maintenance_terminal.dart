@@ -18,6 +18,7 @@ import 'package:openhand/features/machine_terminal/machine_terminal_command_prot
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
 import 'package:openhand/features/machine_terminal/machine_containers.dart';
+import 'package:openhand/features/machine_terminal/machine_scheduled_tasks.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +67,38 @@ docker() {
       await directory.delete(recursive: true);
     }
   }, timeout: const Timeout(Duration(minutes: 1)));
+  test('真实终端完整传输较大定时任务定义并拒绝过期覆盖', () async {
+    if (Platform.isWindows) return;
+    final directory = await Directory.systemTemp.createTemp('openhand-task-terminal-');
+    final service = MachineTerminalService(sessionsDirectoryPath: directory.path);
+    final files = MachineTerminalFileService(service);
+    try {
+      final bin = await Directory('${directory.path}/bin').create();
+      final store = File('${directory.path}/cron');
+      final original = '${List.filled(500, '# 保留任务环境和注释').join('\n')}\n0 1 * * * echo preserved\n0 2 * * * echo selected\n';
+      await store.writeAsString(original);
+      final tool = File('${bin.path}/crontab');
+      await tool.writeAsString('#!/bin/sh\nif [ "\$1" = -u ]; then shift 2; fi\nif [ "\$1" = -l ]; then cat "\$TASK_STORE"; else cp "\$1" "\$TASK_STORE"; fi\n');
+      await Process.run('chmod', ['+x', tool.path]);
+      await service.ensureWorkspace(sessionId:'tasks',workingDirectory:directory.path,start:false);
+      final terminal=service.activeTerminal('tasks')!; await terminal.start();
+      terminal.writeInput('/bin/bash --noprofile --norc\n');
+      await Future<void>.delayed(const Duration(milliseconds:300));
+      terminal.writeInput('export PATH="${bin.path}:\$PATH" TASK_STORE="${store.path}"\n');
+      await Future<void>.delayed(const Duration(milliseconds:300));
+      Future<String> run(String command) => files.runMaintenanceCommand(sessionId:'tasks',terminalId:terminal.id,command:command,
+        commandShell:MachineTerminalCommandShell.posix,maxOutputCharacters:machineScheduledTaskOutputLimit,timeout:machineScheduledTaskTimeout);
+      String record(String kind,List<String> values) => '__OH_TASK__\t$kind\t${values.map((v)=>base64Encode(utf8.encode(v))).join('\t')}\n';
+      final data=MachineScheduledTaskSnapshot.parse('${record('meta',['tester','UTC','2026-09-30'])}${record('cron',['user:tester','tester',original,'1'])}__OH_TASK_END__');
+      final client=MachineScheduledTaskClient(platform:'Linux',run:run);
+      await client.saveCron(data,data.tasks.last,schedule:'0 3 * * *',command:'echo updated',enabled:true);
+      expect(await store.readAsString(),original.replaceAll('0 2 * * * echo selected','0 3 * * * echo updated'));
+      await expectLater(client.delete(data.tasks.first),throwsA(isA<MachineTaskException>().having((e)=>e.code,'冲突','conflict')));
+      expect((await run("printf '终端仍可用'")).trim(),'终端仍可用');
+    } finally {
+      await files.shutdown();files.dispose();await service.shutdown();service.dispose();await directory.delete(recursive:true);
+    }
+  },timeout:const Timeout(Duration(minutes:2)));
   test('真实登录终端连续采集、超时恢复和取消后复用', () async {
     final directory = await Directory.systemTemp.createTemp('openhand-terminal-check-');
     final service = MachineTerminalService(sessionsDirectoryPath: directory.path);

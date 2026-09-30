@@ -14977,4 +14977,275 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceReadoutMultiMbuf => 'Multiple packet buffers';
+
+  @override
+  String get maintenanceTaskTitle => 'Scheduled tasks';
+
+  @override
+  String get maintenanceTaskAdd => 'Add scheduled task';
+
+  @override
+  String get maintenanceTaskEdit => 'Edit scheduled task';
+
+  @override
+  String get maintenanceTaskSearch => 'Search tasks, commands, users';
+
+  @override
+  String get maintenanceTaskEmpty => 'No scheduled tasks in this scope';
+
+  @override
+  String get maintenanceTaskScheduled => 'Configured';
+
+  @override
+  String get maintenanceTaskReady => 'Ready';
+
+  @override
+  String get maintenanceTaskQueued => 'Queued';
+
+  @override
+  String get maintenanceTaskEnabled => 'Enabled';
+
+  @override
+  String get maintenanceTaskDisabled => 'Disabled';
+
+  @override
+  String get maintenanceTaskAll => 'All schedulers';
+
+  @override
+  String get maintenanceTaskScheduler => 'Scheduler';
+
+  @override
+  String get maintenanceTaskWindows => 'Windows Task Scheduler';
+
+  @override
+  String get maintenanceTaskSchedule => 'Schedule';
+
+  @override
+  String get maintenanceTaskLast => 'Last run';
+
+  @override
+  String get maintenanceTaskNext => 'Next run';
+
+  @override
+  String get maintenanceTaskSampled => 'Collected at';
+
+  @override
+  String get maintenanceTaskNative => 'Native configuration';
+
+  @override
+  String get maintenanceTaskEnvironment => 'Execution environment';
+
+  @override
+  String get maintenanceTaskReadOnly =>
+      'This task configuration is read-only or not writable by the current user';
+
+  @override
+  String get maintenanceTaskDeleteConfirm =>
+      'Delete this scheduled task? Its configuration will be removed and future runs will no longer be scheduled.';
+
+  @override
+  String get maintenanceTaskSaveConfirm =>
+      'Saving updates the target machine’s schedule. Loaded native timers will be reloaded.';
+
+  @override
+  String get maintenanceTaskConflict =>
+      'The task was changed by another program. Refresh before editing again.';
+
+  @override
+  String get maintenanceTaskValidation =>
+      'Check the schedule, command and native configuration format.';
+
+  @override
+  String get maintenanceTaskBusy =>
+      'Another task change is in progress for this user. Try again shortly.';
+
+  @override
+  String get maintenanceTaskLimit =>
+      'The collection limit was reached; the list may be incomplete.';
+
+  @override
+  String get maintenanceTaskUnavailable =>
+      'Scheduler or related data unavailable';
+
+  @override
+  String get maintenanceTaskSaveFailed =>
+      'The change did not succeed. Review the error and refresh to confirm the current state.';
+
+  @override
+  String get maintenanceTaskVerify =>
+      'Post-operation verification failed. Refresh to confirm; do not resubmit.';
+
+  @override
+  String get maintenanceTaskRollback =>
+      'Configuration recovery did not complete. Check the target scheduler immediately.';
+
+  @override
+  String get maintenanceTaskCredentials =>
+      'This task requires system credentials to be supplied again. Edit it in the target machine’s Task Scheduler.';
+
+  @override
+  String get maintenanceTaskChangedTarget =>
+      'The terminal target changed. Reopen the maintenance panel.';
+
+  @override
+  String get maintenanceTaskLogs => 'Run logs';
+
+  @override
+  String get maintenanceTaskNoLogs => 'No readable task logs';
+
+  @override
+  String get maintenanceTaskStale =>
+      'Task refresh failed. Previous data is retained; actions resume after a successful refresh.';
+
+  @override
+  String get maintenanceTaskCron => 'Cron expression';
+
+  @override
+  String get maintenanceTaskStart => 'Start time (target machine local time)';
+
+  @override
+  String get maintenanceTaskDays => 'Interval in days';
+
+  @override
+  String get maintenanceTaskArguments => 'Arguments';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => 'Working directory';
+
+  @override
+  String get maintenanceTaskMissed => 'Missed runs';
+
+  @override
+  String get maintenanceTaskPersistent => 'Run missed schedules';
+
+  @override
+  String get maintenanceTaskAccuracy => 'Schedule accuracy';
+
+  @override
+  String get maintenanceTaskRandomDelay => 'Random delay';
+
+  @override
+  String get maintenanceTaskOverrides => 'Configuration overrides';
+
+  @override
+  String get maintenanceTaskMonotonic => 'Monotonic trigger rules';
+
+  @override
+  String get maintenanceTaskInterval => 'Run interval (seconds)';
+
+  @override
+  String get maintenanceTaskCalendar => 'Calendar triggers';
+
+  @override
+  String get maintenanceTaskRunAtLoad => 'Run at load';
+
+  @override
+  String get maintenanceTaskKeepAlive => 'Keep alive';
+
+  @override
+  String get maintenanceTaskStdout => 'Standard output log';
+
+  @override
+  String get maintenanceTaskStderr => 'Standard error log';
+
+  @override
+  String get maintenanceTaskLogon => 'Logon type';
+
+  @override
+  String get maintenanceTaskRunLevel => 'Run level';
+
+  @override
+  String get maintenanceTaskExecutionLimit => 'Execution time limit';
+
+  @override
+  String get maintenanceTaskParallel => 'Multiple instance policy';
+
+  @override
+  String get maintenanceTaskBatteryStart => 'Do not start on battery power';
+
+  @override
+  String get maintenanceTaskBatteryStop =>
+      'Stop when switching to battery power';
+
+  @override
+  String get maintenanceTaskWake => 'Wake to run';
+
+  @override
+  String get maintenanceTaskDemand => 'Allow manual start';
+
+  @override
+  String get maintenanceTaskHidden => 'Hidden task';
+
+  @override
+  String get maintenanceTaskNetworkRequired => 'Network connection required';
+
+  @override
+  String get maintenanceTaskIdle => 'Run only when idle';
+
+  @override
+  String get maintenanceTaskHardTerminate => 'Allow forced termination';
+
+  @override
+  String get maintenanceTaskTriggerBoot => 'At startup';
+
+  @override
+  String get maintenanceTaskTriggerLogon => 'At logon';
+
+  @override
+  String get maintenanceTaskTriggerEvent => 'On event';
+
+  @override
+  String get maintenanceTaskTriggerTime => 'Time trigger';
+
+  @override
+  String get maintenanceTaskTriggerSession => 'Session state trigger';
+
+  @override
+  String get maintenanceTaskNativeProperty => 'Native property';
+
+  @override
+  String get maintenanceTaskTotal => 'Total tasks';
+
+  @override
+  String get maintenanceTaskInteractive =>
+      'Run only while the user is logged on';
+
+  @override
+  String get maintenanceTaskPassword => 'Password logon';
+
+  @override
+  String get maintenanceTaskNoPassword => 'Passwordless logon';
+
+  @override
+  String get maintenanceTaskMixedLogon => 'Interactive or password logon';
+
+  @override
+  String get maintenanceTaskIgnoreNew => 'Ignore overlapping runs';
+
+  @override
+  String get maintenanceTaskParallelRuns => 'Run in parallel';
+
+  @override
+  String get maintenanceTaskStopExisting => 'Stop the previous run';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => 'Standard privileges';
+
+  @override
+  String get maintenanceTaskHighestPrivilege => 'Highest available privileges';
+
+  @override
+  String get maintenanceTaskAfterBoot => 'After boot';
+
+  @override
+  String get maintenanceTaskAfterActive => 'After activation';
+
+  @override
+  String get maintenanceTaskAfterStartup => 'After scheduler startup';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => 'After service activation';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => 'After service stops';
 }

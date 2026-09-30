@@ -48,6 +48,7 @@ const int _machineTerminalInlineCommandBytes = 240;
 // 参数已拆成安全短行，适度合批以减少远端提示符往返。
 const int _machineTerminalStagedCommandChunkCharacters = 4 * kBytesPerKiB;
 const int _machineTerminalMaxStagedCommandBytes = 16 * kBytesPerKiB;
+const int _machineTerminalMaxMaintenanceCommandBytes = 512 * kBytesPerKiB;
 const int _machineTerminalMaxStagedPathCharacters = 4096;
 const int _machineTerminalMaxStagedPathBytes =
     _machineTerminalMaxStagedPathCharacters * 4;
@@ -339,6 +340,9 @@ class MachineTerminalFileService extends ChangeNotifier {
           command,
           commandShell,
           isCancelled,
+          maxCommandBytes: _machineTerminalMaxMaintenanceCommandBytes,
+          timeout: timeout,
+          maxOutputCharacters: maxOutputCharacters,
         );
       }
       String? captured;
@@ -350,6 +354,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         timeout: timeout,
         isCancelled: isCancelled,
         commandShell: commandShell,
+        maxCommandBytes: _machineTerminalMaxMaintenanceCommandBytes,
         onOutput: maxOutputCharacters == null
             ? null
             : (output) {
@@ -370,9 +375,12 @@ class MachineTerminalFileService extends ChangeNotifier {
     String terminalId,
     String script,
     MachineTerminalCommandShell shell,
-    MachineTerminalUploadCancelCheck? isCancelled,
-  ) async {
-    if (utf8ByteLength(script) > _machineTerminalMaxStagedCommandBytes) {
+    MachineTerminalUploadCancelCheck? isCancelled, {
+    int maxCommandBytes = _machineTerminalMaxStagedCommandBytes,
+    Duration timeout = _machineTerminalFileCommandTimeout,
+    int? maxOutputCharacters,
+  }) async {
+    if (utf8ByteLength(script) > maxCommandBytes) {
       throw StateError('运维脚本超出传输上限。');
     }
     final transport = MachineTerminalWindowsScript(
@@ -404,7 +412,29 @@ class MachineTerminalFileService extends ChangeNotifier {
       for (final command in transport.commands) {
         await run(command);
       }
-      return await run(transport.execute);
+      _ensureAvailable();
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      String? captured;
+      var overflow = false;
+      final output = await _runInlineCommand(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        command: transport.execute,
+        commandShell: shell,
+        timeout: deadline.limit(timeout),
+        onOutput: maxOutputCharacters == null
+            ? null
+            : (value) {
+                if (value.length > maxOutputCharacters) {
+                  overflow = true;
+                } else {
+                  captured = value;
+                }
+              },
+      );
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
+      if (overflow) throw const FormatException('命令输出超过读取上限，请缩小查询范围。');
+      return captured ?? output;
     } finally {
       deadline.stop();
       try {
@@ -1131,6 +1161,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
     MachineTerminalUploadCancelCheck? isCancelled,
+    int maxCommandBytes = _machineTerminalMaxStagedCommandBytes,
   }) async {
     if (scopedCommand != null) {
       _throwIfMachineTerminalTransferCancelled(isCancelled);
@@ -1142,7 +1173,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     if ((resolveMachineTerminalShell(commandShell) ==
             MachineTerminalCommandShell.posix) &&
         commandBytes > _machineTerminalInlineCommandBytes) {
-      if (commandBytes > _machineTerminalMaxStagedCommandBytes) {
+      if (commandBytes > maxCommandBytes) {
         throw StateError('远端文件命令过长。');
       }
       return _runStagedPosixCommand(

@@ -15148,4 +15148,277 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceReadoutMultiMbuf => 'Mehrere Paketpuffer';
+
+  @override
+  String get maintenanceTaskTitle => 'Geplante Aufgaben';
+
+  @override
+  String get maintenanceTaskAdd => 'Geplante Aufgabe hinzufügen';
+
+  @override
+  String get maintenanceTaskEdit => 'Geplante Aufgabe bearbeiten';
+
+  @override
+  String get maintenanceTaskSearch => 'Aufgaben, Befehle, Benutzer suchen';
+
+  @override
+  String get maintenanceTaskEmpty =>
+      'Keine geplanten Aufgaben in diesem Bereich';
+
+  @override
+  String get maintenanceTaskScheduled => 'Konfiguriert';
+
+  @override
+  String get maintenanceTaskReady => 'Bereit';
+
+  @override
+  String get maintenanceTaskQueued => 'In Warteschlange';
+
+  @override
+  String get maintenanceTaskEnabled => 'Aktiviert';
+
+  @override
+  String get maintenanceTaskDisabled => 'Deaktiviert';
+
+  @override
+  String get maintenanceTaskAll => 'Alle Zeitplaner';
+
+  @override
+  String get maintenanceTaskScheduler => 'Zeitplaner';
+
+  @override
+  String get maintenanceTaskWindows => 'Windows-Aufgabenplanung';
+
+  @override
+  String get maintenanceTaskSchedule => 'Zeitplan';
+
+  @override
+  String get maintenanceTaskLast => 'Letzte Ausführung';
+
+  @override
+  String get maintenanceTaskNext => 'Nächste Ausführung';
+
+  @override
+  String get maintenanceTaskSampled => 'Erfasst am';
+
+  @override
+  String get maintenanceTaskNative => 'Native Konfiguration';
+
+  @override
+  String get maintenanceTaskEnvironment => 'Ausführungsumgebung';
+
+  @override
+  String get maintenanceTaskReadOnly =>
+      'Diese Aufgabe ist schreibgeschützt oder für den aktuellen Benutzer nicht änderbar';
+
+  @override
+  String get maintenanceTaskDeleteConfirm =>
+      'Diese Aufgabe löschen? Die Konfiguration wird entfernt und zukünftige Ausführungen werden nicht mehr geplant.';
+
+  @override
+  String get maintenanceTaskSaveConfirm =>
+      'Beim Speichern wird der Zeitplan des Zielsystems aktualisiert. Geladene native Timer werden neu geladen.';
+
+  @override
+  String get maintenanceTaskConflict =>
+      'Die Aufgabe wurde extern geändert. Vor dem Bearbeiten aktualisieren.';
+
+  @override
+  String get maintenanceTaskValidation =>
+      'Zeitplan, Befehl und natives Konfigurationsformat prüfen.';
+
+  @override
+  String get maintenanceTaskBusy =>
+      'Für diesen Benutzer läuft bereits eine Aufgabenänderung. Bitte später erneut versuchen.';
+
+  @override
+  String get maintenanceTaskLimit =>
+      'Das Erfassungslimit wurde erreicht; die Liste ist möglicherweise unvollständig.';
+
+  @override
+  String get maintenanceTaskUnavailable =>
+      'Zeitplaner oder zugehörige Daten nicht verfügbar';
+
+  @override
+  String get maintenanceTaskSaveFailed =>
+      'Änderung fehlgeschlagen. Fehler prüfen und den aktuellen Zustand durch Aktualisieren bestätigen.';
+
+  @override
+  String get maintenanceTaskVerify =>
+      'Die Prüfung nach der Änderung ist fehlgeschlagen. Aktualisieren und nicht erneut absenden.';
+
+  @override
+  String get maintenanceTaskRollback =>
+      'Die Wiederherstellung ist unvollständig. Den Zeitplaner des Zielsystems sofort prüfen.';
+
+  @override
+  String get maintenanceTaskCredentials =>
+      'Diese Aufgabe benötigt erneut Systemanmeldedaten. Bitte in der Aufgabenplanung des Zielsystems bearbeiten.';
+
+  @override
+  String get maintenanceTaskChangedTarget =>
+      'Das Terminalziel wurde geändert. Wartungsfenster erneut öffnen.';
+
+  @override
+  String get maintenanceTaskLogs => 'Ausführungsprotokolle';
+
+  @override
+  String get maintenanceTaskNoLogs => 'Keine lesbaren Aufgabenprotokolle';
+
+  @override
+  String get maintenanceTaskStale =>
+      'Aktualisierung fehlgeschlagen. Vorherige Daten bleiben erhalten; Aktionen sind nach erfolgreicher Aktualisierung verfügbar.';
+
+  @override
+  String get maintenanceTaskCron => 'Cron-Ausdruck';
+
+  @override
+  String get maintenanceTaskStart => 'Startzeit (Ortszeit des Zielsystems)';
+
+  @override
+  String get maintenanceTaskDays => 'Intervall in Tagen';
+
+  @override
+  String get maintenanceTaskArguments => 'Argumente';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => 'Arbeitsverzeichnis';
+
+  @override
+  String get maintenanceTaskMissed => 'Verpasste Ausführungen';
+
+  @override
+  String get maintenanceTaskPersistent => 'Verpasste Termine nachholen';
+
+  @override
+  String get maintenanceTaskAccuracy => 'Zeitplangenauigkeit';
+
+  @override
+  String get maintenanceTaskRandomDelay => 'Zufällige Verzögerung';
+
+  @override
+  String get maintenanceTaskOverrides => 'Konfigurationsüberschreibungen';
+
+  @override
+  String get maintenanceTaskMonotonic => 'Monotone Auslöseregeln';
+
+  @override
+  String get maintenanceTaskInterval => 'Ausführungsintervall (Sekunden)';
+
+  @override
+  String get maintenanceTaskCalendar => 'Kalenderauslöser';
+
+  @override
+  String get maintenanceTaskRunAtLoad => 'Beim Laden ausführen';
+
+  @override
+  String get maintenanceTaskKeepAlive => 'Ausführung aufrechterhalten';
+
+  @override
+  String get maintenanceTaskStdout => 'Standardausgabeprotokoll';
+
+  @override
+  String get maintenanceTaskStderr => 'Standardfehlerprotokoll';
+
+  @override
+  String get maintenanceTaskLogon => 'Anmeldetyp';
+
+  @override
+  String get maintenanceTaskRunLevel => 'Ausführungsberechtigung';
+
+  @override
+  String get maintenanceTaskExecutionLimit => 'Ausführungszeitlimit';
+
+  @override
+  String get maintenanceTaskParallel => 'Mehrfachinstanz-Richtlinie';
+
+  @override
+  String get maintenanceTaskBatteryStart => 'Bei Akkubetrieb nicht starten';
+
+  @override
+  String get maintenanceTaskBatteryStop => 'Beim Wechsel zu Akku stoppen';
+
+  @override
+  String get maintenanceTaskWake => 'Zur Ausführung aufwecken';
+
+  @override
+  String get maintenanceTaskDemand => 'Manuellen Start erlauben';
+
+  @override
+  String get maintenanceTaskHidden => 'Versteckte Aufgabe';
+
+  @override
+  String get maintenanceTaskNetworkRequired =>
+      'Netzwerkverbindung erforderlich';
+
+  @override
+  String get maintenanceTaskIdle => 'Nur im Leerlauf ausführen';
+
+  @override
+  String get maintenanceTaskHardTerminate => 'Erzwungenes Beenden erlauben';
+
+  @override
+  String get maintenanceTaskTriggerBoot => 'Beim Start';
+
+  @override
+  String get maintenanceTaskTriggerLogon => 'Bei Anmeldung';
+
+  @override
+  String get maintenanceTaskTriggerEvent => 'Bei Ereignis';
+
+  @override
+  String get maintenanceTaskTriggerTime => 'Zeitauslöser';
+
+  @override
+  String get maintenanceTaskTriggerSession => 'Sitzungszustandsauslöser';
+
+  @override
+  String get maintenanceTaskNativeProperty => 'Native Eigenschaft';
+
+  @override
+  String get maintenanceTaskTotal => 'Aufgaben gesamt';
+
+  @override
+  String get maintenanceTaskInteractive =>
+      'Nur bei angemeldetem Benutzer ausführen';
+
+  @override
+  String get maintenanceTaskPassword => 'Kennwortanmeldung';
+
+  @override
+  String get maintenanceTaskNoPassword => 'Kennwortlose Anmeldung';
+
+  @override
+  String get maintenanceTaskMixedLogon => 'Interaktive oder Kennwortanmeldung';
+
+  @override
+  String get maintenanceTaskIgnoreNew => 'Überlappende Ausführungen ignorieren';
+
+  @override
+  String get maintenanceTaskParallelRuns => 'Parallel ausführen';
+
+  @override
+  String get maintenanceTaskStopExisting => 'Vorherige Ausführung stoppen';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => 'Standardberechtigungen';
+
+  @override
+  String get maintenanceTaskHighestPrivilege =>
+      'Höchste verfügbare Berechtigungen';
+
+  @override
+  String get maintenanceTaskAfterBoot => 'Nach Systemstart';
+
+  @override
+  String get maintenanceTaskAfterActive => 'Nach Aktivierung';
+
+  @override
+  String get maintenanceTaskAfterStartup => 'Nach Start des Zeitplaners';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => 'Nach Dienstaktivierung';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => 'Nach Dienstende';
 }

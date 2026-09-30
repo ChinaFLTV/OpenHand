@@ -15197,4 +15197,279 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceReadoutMultiMbuf => 'Tampons de paquets multiples';
+
+  @override
+  String get maintenanceTaskTitle => 'Tâches planifiées';
+
+  @override
+  String get maintenanceTaskAdd => 'Ajouter une tâche planifiée';
+
+  @override
+  String get maintenanceTaskEdit => 'Modifier la tâche planifiée';
+
+  @override
+  String get maintenanceTaskSearch =>
+      'Rechercher tâches, commandes, utilisateurs';
+
+  @override
+  String get maintenanceTaskEmpty => 'Aucune tâche planifiée dans cette portée';
+
+  @override
+  String get maintenanceTaskScheduled => 'Configurée';
+
+  @override
+  String get maintenanceTaskReady => 'Prête';
+
+  @override
+  String get maintenanceTaskQueued => 'En attente';
+
+  @override
+  String get maintenanceTaskEnabled => 'Activée';
+
+  @override
+  String get maintenanceTaskDisabled => 'Désactivée';
+
+  @override
+  String get maintenanceTaskAll => 'Tous les ordonnanceurs';
+
+  @override
+  String get maintenanceTaskScheduler => 'Ordonnanceur';
+
+  @override
+  String get maintenanceTaskWindows => 'Planificateur de tâches Windows';
+
+  @override
+  String get maintenanceTaskSchedule => 'Planification';
+
+  @override
+  String get maintenanceTaskLast => 'Dernière exécution';
+
+  @override
+  String get maintenanceTaskNext => 'Prochaine exécution';
+
+  @override
+  String get maintenanceTaskSampled => 'Collectée le';
+
+  @override
+  String get maintenanceTaskNative => 'Configuration native';
+
+  @override
+  String get maintenanceTaskEnvironment => 'Environnement d’exécution';
+
+  @override
+  String get maintenanceTaskReadOnly =>
+      'Cette configuration est en lecture seule ou non modifiable par cet utilisateur';
+
+  @override
+  String get maintenanceTaskDeleteConfirm =>
+      'Supprimer cette tâche ? Sa configuration sera supprimée et les exécutions futures ne seront plus planifiées.';
+
+  @override
+  String get maintenanceTaskSaveConfirm =>
+      'L’enregistrement met à jour la planification de la machine cible. Les minuteurs natifs chargés seront rechargés.';
+
+  @override
+  String get maintenanceTaskConflict =>
+      'La tâche a été modifiée par un autre programme. Actualisez avant de la modifier.';
+
+  @override
+  String get maintenanceTaskValidation =>
+      'Vérifiez la planification, la commande et le format de configuration.';
+
+  @override
+  String get maintenanceTaskBusy =>
+      'Une modification est déjà en cours pour cet utilisateur. Réessayez bientôt.';
+
+  @override
+  String get maintenanceTaskLimit =>
+      'La limite de collecte a été atteinte ; la liste peut être incomplète.';
+
+  @override
+  String get maintenanceTaskUnavailable =>
+      'Ordonnanceur ou données associées indisponibles';
+
+  @override
+  String get maintenanceTaskSaveFailed =>
+      'La modification a échoué. Consultez l’erreur et actualisez pour vérifier l’état actuel.';
+
+  @override
+  String get maintenanceTaskVerify =>
+      'La vérification après modification a échoué. Actualisez sans soumettre à nouveau.';
+
+  @override
+  String get maintenanceTaskRollback =>
+      'La restauration est incomplète. Vérifiez immédiatement l’ordonnanceur cible.';
+
+  @override
+  String get maintenanceTaskCredentials =>
+      'Cette tâche nécessite de nouveaux identifiants système. Modifiez-la dans le Planificateur de tâches de la machine cible.';
+
+  @override
+  String get maintenanceTaskChangedTarget =>
+      'La cible du terminal a changé. Rouvrez le panneau de maintenance.';
+
+  @override
+  String get maintenanceTaskLogs => 'Journaux d’exécution';
+
+  @override
+  String get maintenanceTaskNoLogs => 'Aucun journal de tâche lisible';
+
+  @override
+  String get maintenanceTaskStale =>
+      'Échec de l’actualisation. Les données précédentes sont conservées ; les actions reprendront après une actualisation réussie.';
+
+  @override
+  String get maintenanceTaskCron => 'Expression cron';
+
+  @override
+  String get maintenanceTaskStart =>
+      'Heure de début (heure locale de la machine cible)';
+
+  @override
+  String get maintenanceTaskDays => 'Intervalle en jours';
+
+  @override
+  String get maintenanceTaskArguments => 'Arguments';
+
+  @override
+  String get maintenanceTaskWorkingDirectory => 'Répertoire de travail';
+
+  @override
+  String get maintenanceTaskMissed => 'Exécutions manquées';
+
+  @override
+  String get maintenanceTaskPersistent => 'Rattraper les exécutions manquées';
+
+  @override
+  String get maintenanceTaskAccuracy => 'Précision de planification';
+
+  @override
+  String get maintenanceTaskRandomDelay => 'Délai aléatoire';
+
+  @override
+  String get maintenanceTaskOverrides => 'Surcharges de configuration';
+
+  @override
+  String get maintenanceTaskMonotonic => 'Règles de déclenchement monotones';
+
+  @override
+  String get maintenanceTaskInterval => 'Intervalle d’exécution (secondes)';
+
+  @override
+  String get maintenanceTaskCalendar => 'Déclencheurs calendaires';
+
+  @override
+  String get maintenanceTaskRunAtLoad => 'Exécuter au chargement';
+
+  @override
+  String get maintenanceTaskKeepAlive => 'Maintenir en exécution';
+
+  @override
+  String get maintenanceTaskStdout => 'Journal de sortie standard';
+
+  @override
+  String get maintenanceTaskStderr => 'Journal d’erreur standard';
+
+  @override
+  String get maintenanceTaskLogon => 'Type de connexion';
+
+  @override
+  String get maintenanceTaskRunLevel => 'Niveau d’exécution';
+
+  @override
+  String get maintenanceTaskExecutionLimit => 'Durée maximale d’exécution';
+
+  @override
+  String get maintenanceTaskParallel => 'Politique d’instances multiples';
+
+  @override
+  String get maintenanceTaskBatteryStart => 'Ne pas démarrer sur batterie';
+
+  @override
+  String get maintenanceTaskBatteryStop =>
+      'Arrêter lors du passage sur batterie';
+
+  @override
+  String get maintenanceTaskWake => 'Réveiller pour exécuter';
+
+  @override
+  String get maintenanceTaskDemand => 'Autoriser le démarrage manuel';
+
+  @override
+  String get maintenanceTaskHidden => 'Tâche masquée';
+
+  @override
+  String get maintenanceTaskNetworkRequired => 'Connexion réseau requise';
+
+  @override
+  String get maintenanceTaskIdle => 'Exécuter uniquement au repos';
+
+  @override
+  String get maintenanceTaskHardTerminate => 'Autoriser l’arrêt forcé';
+
+  @override
+  String get maintenanceTaskTriggerBoot => 'Au démarrage';
+
+  @override
+  String get maintenanceTaskTriggerLogon => 'À la connexion';
+
+  @override
+  String get maintenanceTaskTriggerEvent => 'Sur événement';
+
+  @override
+  String get maintenanceTaskTriggerTime => 'Déclencheur horaire';
+
+  @override
+  String get maintenanceTaskTriggerSession => 'Déclencheur d’état de session';
+
+  @override
+  String get maintenanceTaskNativeProperty => 'Propriété native';
+
+  @override
+  String get maintenanceTaskTotal => 'Total des tâches';
+
+  @override
+  String get maintenanceTaskInteractive =>
+      'Exécuter uniquement si l’utilisateur est connecté';
+
+  @override
+  String get maintenanceTaskPassword => 'Connexion avec mot de passe';
+
+  @override
+  String get maintenanceTaskNoPassword => 'Connexion sans mot de passe';
+
+  @override
+  String get maintenanceTaskMixedLogon =>
+      'Connexion interactive ou avec mot de passe';
+
+  @override
+  String get maintenanceTaskIgnoreNew => 'Ignorer les exécutions simultanées';
+
+  @override
+  String get maintenanceTaskParallelRuns => 'Exécuter en parallèle';
+
+  @override
+  String get maintenanceTaskStopExisting => 'Arrêter l’exécution précédente';
+
+  @override
+  String get maintenanceTaskLeastPrivilege => 'Privilèges standard';
+
+  @override
+  String get maintenanceTaskHighestPrivilege =>
+      'Privilèges les plus élevés disponibles';
+
+  @override
+  String get maintenanceTaskAfterBoot => 'Après démarrage';
+
+  @override
+  String get maintenanceTaskAfterActive => 'Après activation';
+
+  @override
+  String get maintenanceTaskAfterStartup => 'Après lancement de l’ordonnanceur';
+
+  @override
+  String get maintenanceTaskAfterUnitActive => 'Après activation du service';
+
+  @override
+  String get maintenanceTaskAfterUnitInactive => 'Après arrêt du service';
 }

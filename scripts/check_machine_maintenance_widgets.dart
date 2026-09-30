@@ -10,6 +10,9 @@ Future<void> main() async {
   final containerSource = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_containers.dart',
   ).readAsString();
+  final scheduledSource = await File(
+    '${root.path}/lib/features/home/widgets/_home_machine_scheduled_tasks.dart',
+  ).readAsString();
   final source = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_maintenance.dart',
   ).readAsString();
@@ -35,6 +38,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:xml/xml.dart' as xml;
 import 'package:openhand/shared/ui/bounded_animation.dart';
 import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:openhand/shared/ui/openhand_animated_sliver_list.dart';
@@ -72,6 +76,7 @@ import 'package:openhand/shared/util/localized_text.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
 ${containerSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
+${scheduledSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
 class _MachineTerminalFileManagerDialog extends StatelessWidget {
   const _MachineTerminalFileManagerDialog({required this.sessionId, required this.terminalId, this.targetLabel});
   final String sessionId, terminalId;
@@ -83,6 +88,7 @@ $header
 $button
 ${_checks.replaceAll('MaterialApp(', '_SettingsApp(')}
 $_settingsHarness
+$_scheduledChecks
 ''',
   );
 }
@@ -90,6 +96,8 @@ $_settingsHarness
 const _checks =
     '''
 class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTerminalFileService {
+  Completer<String>? taskPending;
+  int taskCalls = 0;
   int egressCalls = 0;
   bool egressFail = false;
   Completer<String>? egressPending;
@@ -119,6 +127,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
       if (egressPending != null) return egressPending!.future;
       return egressFail ? '{"success":false}' : '{"ip":"8.8.8.8","country":"United States","city":"Mountain View","connection":{"isp":"Google","asn":15169}}';
     }
+    if (maxOutputCharacters == machineScheduledTaskOutputLimit) {taskCalls++; return taskPending?.future ?? '__OH_TASK__\\tmeta\\tdGVzdGVy\\tVVRD\\tMjAyNi0wOS0zMA==\\n__OH_TASK__\\tavailable\\tY3Jvbg==\\n__OH_TASK__\\tcron\\tdXNlcjp0ZXN0ZXI=\\tdGVzdGVy\\tMCAxICogKiAqIGVjaG8gYmFja3VwCg==\\tMQ==\\n__OH_TASK_END__';}
     expectSync(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
     calls++;
@@ -220,6 +229,7 @@ __OH_OPS_end__
 }
 
 void main() {
+  scheduledTaskChecks();
   setUpAll(() async {
     for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
       if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
@@ -3077,12 +3087,14 @@ void main() {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         final field = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText != null);
-        await tester.ensureVisible(field);
-        await tester.tap(field);
+        for (final element in field.evaluate().toList()) {
+        final currentField = find.byWidget(element.widget);
+        await tester.ensureVisible(currentField);
+        await tester.tap(currentField);
         await tester.pumpAndSettle();
-        final decorator = tester.widget<InputDecorator>(find.descendant(of: field, matching: find.byType(InputDecorator)));
+        final decorator = tester.widget<InputDecorator>(find.descendant(of: currentField, matching: find.byType(InputDecorator)));
         expect(decorator.isFocused, isTrue);
-        final decoration = decorator.decoration.applyDefaults(Theme.of(tester.element(field)).inputDecorationTheme);
+        final decoration = decorator.decoration.applyDefaults(Theme.of(tester.element(currentField)).inputDecorationTheme);
         for (final border in [decoration.border, decoration.enabledBorder, decoration.disabledBorder,
           decoration.focusedBorder, decoration.errorBorder, decoration.focusedErrorBorder]) {
           expect(border, isA<OutlineInputBorder>());
@@ -3091,6 +3103,7 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        }
       }
       await tester.pumpWidget(const SizedBox());
     }
@@ -4047,6 +4060,49 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('定时任务采集期间切换分区会等待旧请求再刷新', (tester) async {
+    for (final returnToServices in [false, true]) {
+    final service = _MaintenanceFixture()..taskPending = Completer<String>();
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+      child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    await tester.tap(find.text('系统服务'));
+    await tester.pumpAndSettle();
+    final taskFinder = find.byType(_MachineScheduledTaskPanel);
+    await tester.scrollUntilVisible(taskFinder, 400, scrollable: find.descendant(of: find.byType(CustomScrollView).first, matching: find.byType(Scrollable)).first);
+    await tester.pump();
+    expect(service.taskCalls, 1);
+    expect(state._scheduledTasksBusy, isTrue);
+    final count = service.calls;
+    await tester.tap(find.text('进程管理'));
+    await tester.pump();
+    expect(service.calls, count, reason: '旧任务请求尚未结束，不得争抢终端');
+    expect(state._scheduledTasksRefreshPending, isTrue);
+    if (returnToServices) {
+      await tester.tap(find.text('系统服务')); await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(taskFinder, 400, scrollable: find.descendant(of: find.byType(CustomScrollView).first, matching: find.byType(Scrollable)).first);
+      await tester.pump();
+      expect(service.taskCalls, 1, reason: '切回板块时新请求应等待旧请求结束');
+    }
+    service.taskPending!.complete(taskFixture());
+    service.taskPending = null;
+    await tester.pumpAndSettle();
+    expect(service.calls, count + 1);
+    expect(service.lastCommand, contains(returnToServices ? 'section manager' : 'section processes'));
+    expect(state._scheduledTasksBusy, isFalse);
+    expect(state._scheduledTaskOperations, 0);
+    expect(state._scheduledTasksRefreshPending, isFalse);
+    expect(state._error, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+    }
+  });
+
   testWidgets('退场开始即取消采集，迟到结果不再更新面板', (tester) async {
     final service = _MaintenanceFixture();
     await tester.binding.setSurfaceSize(const Size(1280, 900));
@@ -4174,5 +4230,139 @@ class _SettingsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider<SettingsController>.value(value: _testSettings,
     child: MaterialApp(home: home, locale: locale, localizationsDelegates: localizationsDelegates, supportedLocales: supportedLocales, theme: theme, builder: builder));
+}
+''';
+
+const _scheduledChecks = r'''
+String taskRecord(String kind, List<String> fields) => '__OH_TASK__\t$kind\t${fields.map((v) => base64Encode(utf8.encode(v))).join('\t')}\n';
+String taskFixture() => '${taskRecord('meta',['tester','UTC +0000','2026-09-30T00:00:00Z'])}${taskRecord('available',['cron'])}${taskRecord('cron',['user:tester','tester','# 保留环境\nCRON_TZ=Asia/Shanghai\n0 9 * * * /opt/backup --daily\n# OPENHAND_DISABLED @hourly /opt/cleanup\n','1'])}__OH_TASK_END__';
+void scheduledTaskChecks() {
+  testWidgets('定时任务六语言与宽窄屏布局、空态和失败保留', (tester) async {
+    final previewKey = GlobalKey();
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final width in [1100.0,420.0]) {
+        for (final brightness in Brightness.values) {
+          var failed = false;
+          await tester.binding.setSurfaceSize(Size(width,900));
+          await tester.pumpWidget(_SettingsApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates,
+            supportedLocales:AppLocalizations.supportedLocales, theme:ThemeData(brightness:brightness,
+              fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+            home:Scaffold(body:RepaintBoundary(key:previewKey,child:SingleChildScrollView(child:_MachineScheduledTaskPanel(
+              platform:'Linux', refreshToken:0, onBusy:(_){}, run:(command,cancelled) async {
+                if(failed)throw const MachineTaskException('unavailable'); return taskFixture();
+              }))))));
+          await tester.pumpAndSettle();
+          final context=tester.element(find.byType(_MachineScheduledTaskPanel));
+          final l=AppLocalizations.of(context)!;
+          expect(find.text(l.maintenanceTaskTitle),findsOneWidget);
+          expect(find.text('/opt/backup --daily'),findsWidgets);
+          expect(tester.takeException(),isNull);
+          if(width==1100 && brightness==Brightness.light && locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+            await tester.runAsync(() async {
+              final boundary=previewKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+              final shot=await boundary.toImage(pixelRatio:1.5); final bytes=await shot.toByteData(format:ui.ImageByteFormat.png);
+              await File('/tmp/openhand-scheduled-tasks.png').writeAsBytes(bytes!.buffer.asUint8List()); shot.dispose();
+            });
+          }
+          failed=true;
+          await tester.tap(find.byTooltip(l.maintenanceRefreshSection)); await tester.pumpAndSettle();
+          expect(find.text('/opt/backup --daily'),findsWidgets);
+          expect(find.byType(OpenHandOperationalRowMenu),findsNothing);
+          expect(tester.takeException(),isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('任务编辑失败保留输入，保存仅修改选定配置', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1050,900));
+    var attempts=0;
+    String? command;
+    final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
+    final client=MachineScheduledTaskClient(platform:'Linux',run:(text) async {
+      if(text.contains('task_emit saved')) {
+        command=text; attempts++;
+        if(attempts==1) return '${taskRecord('error',['save','模拟拒绝'])}__OH_TASK_END__';
+        return '__OH_TASK__\tsaved\n__OH_TASK_END__';
+      }
+      return '__OH_TASK_END__';
+    });
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:Builder(builder:(context)=>TextButton(onPressed:()=>showAnimatedDialog<bool>(context:context,builder:(_)=>_MachineTaskDialog(platform:'Linux',snapshot:snapshot,task:snapshot.tasks.first,client:client,edit:true)),child:const Text('打开编辑'))))));
+    await tester.tap(find.text('打开编辑')); await tester.pumpAndSettle();
+    final state=tester.state<_MachineTaskDialogState>(find.byType(_MachineTaskDialog));
+    state._schedule.text='0 10 * * *'; state._command.text='/opt/backup --new';
+    await tester.tap(find.text('保存')); await tester.pumpAndSettle();
+    await tester.tap(find.text('保存').last); await tester.pumpAndSettle();
+    expect(attempts,1); expect(state._command.text,'/opt/backup --new');
+    expect(find.textContaining('模拟拒绝'),findsOneWidget);
+    await tester.tap(find.text('保存')); await tester.pumpAndSettle();
+    await tester.tap(find.text('保存').last); await tester.pumpAndSettle();
+    expect(attempts,2); expect(find.byType(_MachineTaskDialog),findsNothing);
+    expect(command,contains(base64Encode(utf8.encode('# 保留环境\nCRON_TZ=Asia/Shanghai\n0 10 * * * /opt/backup --new\n# OPENHAND_DISABLED @hourly /opt/cleanup\n'))));
+    expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('定时任务切换时取消未完成读取，关闭不再刷新', (tester) async {
+    final pending=Completer<String>(); bool Function()? cancelled; var busy=false;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:SingleChildScrollView(child:_MachineScheduledTaskPanel(platform:'Linux',refreshToken:0,onBusy:(value)=>busy=value,run:(command,check){cancelled=check;return pending.future;})))));
+    await tester.pump(); expect(busy,isTrue); expect(cancelled!(),isFalse);
+    await tester.pumpWidget(const SizedBox()); expect(cancelled!(),isTrue); expect(busy,isTrue);
+    pending.complete(taskFixture()); await tester.pumpAndSettle(); expect(busy,isFalse); expect(tester.takeException(),isNull);
+  });
+  testWidgets('定时任务新增弹窗适配六语言窄屏大字号与原生编辑', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420,800));
+    final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
+    for(final locale in AppLocalizations.supportedLocales) {
+      for(final platform in ['Linux','Windows']) {
+        await tester.pumpWidget(_SettingsApp(locale:locale,
+          localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.5)),child:child!),
+          home:Scaffold(body:Builder(builder:(context)=>TextButton(
+            onPressed:()=>showAnimatedDialog<void>(context:context,builder:(_)=>_MachineTaskDialog(
+              platform:platform,snapshot:snapshot,task:null,edit:true,
+              client:MachineScheduledTaskClient(platform:platform,run:(_)async=>throw StateError('布局验证不得执行远端命令')))),
+            child:const Text('打开任务'))))));
+        await tester.tap(find.text('打开任务')); await tester.pumpAndSettle();
+        final state=tester.state<_MachineTaskDialogState>(find.byType(_MachineTaskDialog));
+        final l=AppLocalizations.of(state.context)!;
+        expect(find.text(l.maintenanceTaskAdd),findsOneWidget);
+        expect(tester.takeException(),isNull);
+        if(platform=='Windows') {
+          state._name.text='备份任务'; state._command.text=r'C:\Tools & Jobs\backup.exe';
+          expect(state._start.text,'2026-10-01T09:00:00');
+          await tester.ensureVisible(find.text(l.maintenanceTaskNative));
+          await tester.tap(find.text(l.maintenanceTaskNative)); await tester.pumpAndSettle();
+          final definition=xml.XmlDocument.parse(state._definition.text);
+          expect(definition.findAllElements('Command').single.innerText,state._command.text);
+          expect(state._native,isTrue); expect(tester.takeException(),isNull);
+        }
+        await tester.tap(find.text(l.commonClose)); await tester.pumpAndSettle();
+        expect(find.byType(_MachineTaskDialog),findsNothing);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('关闭任务详情后等待后台读取释放终端', (tester) async {
+    final pending=Completer<String>(); bool Function()? cancelled; var busy=false; var calls=0;
+    await tester.binding.setSurfaceSize(const Size(1100,900));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:SingleChildScrollView(child:_MachineScheduledTaskPanel(platform:'Linux',refreshToken:0,onBusy:(value)=>busy=value,run:(command,check){
+        if(calls++==0)return Future.value(taskFixture()); cancelled=check; return pending.future;
+      })))));
+    await tester.pumpAndSettle();
+    final state=tester.state<_MachineScheduledTaskPanelState>(find.byType(_MachineScheduledTaskPanel));
+    final opened=state._open(state._data!.tasks.first);
+    await tester.pumpAndSettle(); expect(busy,isTrue); expect(cancelled!(),isFalse);
+    Navigator.of(tester.element(find.byType(_MachineTaskDialog))).pop();
+    await tester.pumpAndSettle(); expect(cancelled!(),isTrue); expect(busy,isTrue);
+    pending.complete('__OH_TASK_END__'); await opened; await tester.pumpAndSettle();
+    expect(busy,isFalse); expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
 }
 ''';
