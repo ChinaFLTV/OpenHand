@@ -1870,7 +1870,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       subtitle: Text(
                         report.issue.isEmpty
                             ? (report.raw.isNotEmpty
-                                  ? '只读采样 · 可选择复制'
+                                  ? '结构化只读采样'
                                   : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
                             : switch (report.issue) {
                                 'permission' || 'missing' || 'format' =>
@@ -1882,10 +1882,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ),
                       children: [
                         if (report.raw.isNotEmpty)
-                          OpenHandConsoleText(
-                            title: report.title,
+                          _MaintenanceReadout(
                             text: report.raw,
-                            maxHeight: 420,
+                            section: 'gpu_report',
                           ),
                         if (report.rows.isNotEmpty)
                           Padding(
@@ -3104,7 +3103,7 @@ String _maintenanceReadoutValue(
   final normalized = key.trim();
   final plain = value.trim();
   if (const {'STAT', 'STATE', 'State', '状态', 'state'}.contains(normalized) &&
-      RegExp('^[RSIZTD]').hasMatch(plain)) {
+      RegExp(r'^[RSIZTD][<NsLsl+]*$').hasMatch(plain)) {
     return maintenanceLabel(context, _maintenanceProcessState(plain));
   }
   if (const {'RSS', 'VSZ', '驻留内存', '虚拟内存'}.contains(normalized)) {
@@ -4655,20 +4654,12 @@ class _MaintenanceHealthContent extends StatelessWidget {
           ),
         ],
         if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
-          Material(
-            type: MaterialType.transparency,
-            child: ExpansionTile(
-              title: Text(maintenanceHealthLabel(context, 'diagnostic')),
-              tilePadding: EdgeInsets.zero,
-              shape: const Border(),
-              collapsedShape: const Border(),
-              children: [
-                OpenHandConsoleText(
-                  title: maintenanceHealthLabel(context, 'diagnostic'),
-                  text: raw,
-                  maxHeight: 160,
-                ),
-              ],
+          _MaintenanceCard(
+            title: maintenanceHealthLabel(context, 'diagnostic'),
+            icon: Icons.fact_check_outlined,
+            scrollBody: false,
+            child: _MaintenanceFields(
+              rows: machineMaintenanceDiagnosticFields(raw),
             ),
           ),
       ],
@@ -4782,7 +4773,8 @@ class _MaintenanceFields extends StatelessWidget {
 }
 
 class _MaintenanceReadout extends StatefulWidget {
-  const _MaintenanceReadout({required this.text, this.section = ''});
+  const _MaintenanceReadout({this.text = '', this.section = '', this.report});
+  final MachineMaintenanceReadout? report;
   final String text;
   final String section;
   @override
@@ -4794,49 +4786,58 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
   @override
   void initState() {
     super.initState();
-    _data = MachineMaintenanceReadout.parse(widget.text, widget.section);
+    _data =
+        widget.report ??
+        MachineMaintenanceReadout.parse(widget.text, widget.section);
   }
 
   @override
   void didUpdateWidget(covariant _MaintenanceReadout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text || oldWidget.section != widget.section) {
-      _data = MachineMaintenanceReadout.parse(widget.text, widget.section);
+    if (oldWidget.text != widget.text ||
+        oldWidget.section != widget.section ||
+        oldWidget.report != widget.report) {
+      _data =
+          widget.report ??
+          MachineMaintenanceReadout.parse(widget.text, widget.section);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_data.raw && widget.text.trim().isNotEmpty) {
-      final denied = RegExp(
-        'permission denied|operation not permitted|access.*denied',
-        caseSensitive: false,
-      ).hasMatch(widget.text);
-      final disabled =
-          widget.section == 'firewall' &&
-          widget.text.contains('Firewall is disabled');
+    if (_data.groups.isNotEmpty) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (denied || disabled) ...[
-            _MaintenanceEmptyHint(
-              message: [
-                if (disabled) '应用防火墙已关闭',
-                if (denied) '部分数据需要更高读取权限，已保留完整诊断信息',
-              ].join(' · '),
+          if (_data.rows.isNotEmpty) ...[
+            _MaintenanceReadout(
+              report: MachineMaintenanceReadout(
+                _data.headers,
+                _data.rows,
+                fields: _data.fields,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
           ],
-          OpenHandConsoleText(
-            title: _maintenanceSectionLabels[widget.section] ?? '采集报告',
-            text: widget.text,
-            maxHeight: 420,
-          ),
+          for (final entry in _data.groups.entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _MaintenanceCard(
+                title: maintenanceDetailLabel(context, entry.key),
+                icon: Icons.hub_outlined,
+                scrollBody: false,
+                child: _MaintenanceReadout(
+                  report: entry.value,
+                  section: widget.section,
+                ),
+              ),
+            ),
         ],
       );
     }
-    if (_data.issue case final issue?) {
+    if (_data.issue != null || _data.raw) {
+      final issue = _data.issue ?? 'format';
       final cs = Theme.of(context).colorScheme;
       final title = switch (issue) {
         'permission' => '当前账户无权读取',
@@ -4844,6 +4845,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         'connection' =>
           widget.section == 'containers' ? '容器服务暂不可用' : '暂时无法连接服务',
         'missing' => '缺少采集所需工具',
+        'format' => '采集格式暂未识别',
         _ => '当前数据暂不可用',
       };
       final message = switch (issue) {
@@ -4854,7 +4856,8 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
               ? '请确认 Docker 或 Podman 已启动，并检查当前连接地址与运行环境。'
               : '请确认目标服务已启动，并检查连接地址。',
         'missing' => '请确认目标机器已安装对应工具，且命令可在当前终端使用。',
-        _ => '请展开诊断信息查看原因，处理后重新采集。',
+        'format' => '当前工具输出格式尚未识别，请检查工具版本和采集范围后重试。',
+        _ => '请检查目标服务、权限和工具状态后重新采集。',
       };
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -4900,21 +4903,14 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          ExpansionTile(
-            title: const Text('原始诊断信息'),
-            leading: const Icon(Icons.terminal_rounded),
-            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-            shape: const Border(),
-            collapsedShape: const Border(),
-            children: [
-              OpenHandConsoleText(
-                title: '采集输出',
-                text: widget.text,
-                maxHeight: 240,
-              ),
-            ],
-          ),
+          if (widget.text.isNotEmpty || _data.rows.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _MaintenanceFields(
+              rows: _data.rows.isNotEmpty
+                  ? _data.rows
+                  : machineMaintenanceDiagnosticFields(widget.text),
+            ),
+          ],
         ],
       );
     }
@@ -5010,23 +5006,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       paginate: _data.rows.length > 20,
       maxBodyHeight: 480,
     );
-    if (widget.section != 'routes' && widget.section != 'sockets') return table;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        table,
-        ExpansionTile(
-          title: const Text('原始采集报告'),
-          children: [
-            OpenHandConsoleText(
-              title: '采集输出',
-              text: widget.text,
-              maxHeight: 360,
-            ),
-          ],
-        ),
-      ],
-    );
+    return table;
   }
 }
 
@@ -5736,7 +5716,9 @@ class _MaintenanceLogTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = rows.isEmpty
         ? ''
-        : rows.map((row) => row.join('  ')).join('\n');
+        : rows
+              .map((row) => row.first == '—' ? row.last : row.join('  '))
+              .join('\n');
     if (text.isNotEmpty && _maintenanceLogUnreadable(text)) {
       return _MaintenanceEmptyHint(
         message: AppLocalizations.of(context)!.maintenanceLogUnavailable,
@@ -6835,16 +6817,39 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                             ),
                             const SizedBox(height: 10),
                             if (_metadataKind == 'config')
-                              OpenHandConsoleText(
-                                title: titles['config']!,
-                                text:
-                                    widget.data
-                                        .text('log_config')
-                                        .trim()
-                                        .isEmpty
-                                    ? l.maintenanceLogEmpty
-                                    : widget.data.text('log_config'),
-                                maxHeight: 240,
+                              _MaintenanceReadout(
+                                report: MachineMaintenanceReadout(
+                                  [],
+                                  [],
+                                  groups: {
+                                    for (final path
+                                        in metadata['config']!
+                                            .map((row) => row[0])
+                                            .toSet())
+                                      path.isEmpty
+                                          ? titles['config']!
+                                          : path: MachineMaintenanceReadout(
+                                        ['名称', '数值'],
+                                        [
+                                          for (final row
+                                              in metadata['config']!.where(
+                                                (row) => row[0] == path,
+                                              ))
+                                            [
+                                              maintenanceHealthLabel(
+                                                context,
+                                                row[1],
+                                              ),
+                                              maintenanceHealthValue(
+                                                context,
+                                                row[2],
+                                              ),
+                                            ],
+                                        ],
+                                        fields: true,
+                                      ),
+                                  },
+                                ),
                               )
                             else
                               _MaintenanceTable(

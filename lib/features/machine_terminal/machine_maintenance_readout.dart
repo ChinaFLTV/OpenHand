@@ -1,3 +1,10 @@
+import 'dart:convert';
+
+part 'machine_maintenance_network_readout.dart';
+
+const _machineReadoutFieldLimit = 4096;
+const _machineReadoutDepthLimit = 16;
+
 const machineMaintenanceNetworkReports = {
   'addresses',
   'policy_routes',
@@ -16,14 +23,28 @@ const machineMaintenanceNetworkReports = {
 /// 仅识别采集输出开头的明确错误，日志正文和正常指标不参与错误推断。
 String? machineMaintenanceCollectionIssue(String output, String section) {
   if (section == 'logs' || section == 'command') return null;
-  final first = output.trimLeft().split('\n').first.trim();
+  final first = output
+      .trimLeft()
+      .split('\n')
+      .first
+      .trim()
+      .replaceFirst(
+        RegExp(r'^(?:Bad state|FormatException|Exception):\s*'),
+        '',
+      );
   final failure = RegExp(
-    r'^(?:failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|未安装|缺少|权限不足|无法连接|(?:docker|podman|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|pfctl|nft|iptables)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
+    r'^(?:you need administrator access|not authorised|not authorized|cannot talk to daemon|FATA\[.*?\].*|error:.*(?:failed|cannot|denied|not found|refused)|failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|查询失败|未安装|缺少|权限不足|无法连接|(?:docker|podman|crictl|nerdctl|ctr|kubectl|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|pfctl|nft|iptables|ip6tables-save|iptables-save)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
     caseSensitive: false,
   );
-  if (!failure.hasMatch(first)) return null;
+  if (!failure.hasMatch(first)) {
+    return RegExp(
+          '^(?:Bad state|FormatException|Exception):',
+        ).hasMatch(output.trimLeft())
+        ? 'unavailable'
+        : null;
+  }
   if (RegExp(
-    'permission denied|not permitted|access.*denied|权限不足|拒绝访问',
+    'permission denied|not permitted|access.*denied|administrator access|not authori[sz]ed|权限不足|拒绝访问',
     caseSensitive: false,
   ).hasMatch(first)) {
     return 'permission';
@@ -46,6 +67,58 @@ String? machineMaintenanceCollectionIssue(String output, String section) {
   return 'unavailable';
 }
 
+List<List<String>> machineMaintenanceDiagnosticFields(String output) {
+  final rows = <List<String>>[];
+  final issue = output
+      .split('\n')
+      .map((line) => machineMaintenanceCollectionIssue(line, 'diagnostic'))
+      .whereType<String>()
+      .firstOrNull;
+  final results = RegExp(
+    r'(?:result:|@@OH_RESULT:)\s*(\d+)(?:\s*\(([^)]+)\))?',
+  ).allMatches(output).toList();
+  final result =
+      results.where((r) => r[1] != '0').firstOrNull ?? results.firstOrNull;
+  if (issue != null) {
+    rows.add([
+      '原因',
+      switch (issue) {
+        'permission' => '读取权限不足',
+        'timeout' => '目标响应超时',
+        'connection' => '连接未建立',
+        'missing' => '所需工具不可用',
+        _ => '采集未完成',
+      },
+    ]);
+  }
+  if (result != null) {
+    rows.add(['结果代码', result[1]!]);
+    if (result[2] != null) {
+      rows.add(['结果', result[2] == 'Timeout' ? '响应超时' : result[2]!]);
+    }
+  }
+  final endpoint = RegExp(
+    r'(?:unix|https?|tcp)://[^\s;]+|/dev/[\w/.-]+',
+  ).firstMatch(output);
+  if (endpoint != null) {
+    rows.add(['连接地址', endpoint[0]!.replaceFirst(RegExp(r':$'), '')]);
+  }
+  if (output.contains('no such file or directory')) {
+    rows.add(['资源状态', '连接文件不存在，请检查服务是否运行']);
+  }
+  final statuses = RegExp(
+    r'@@OH_TIME:([^\n]+)\n[\s\S]*?@@OH_RESULT:(\d+)',
+  ).allMatches(output);
+  for (final status in statuses) {
+    rows.add([
+      '采集项 · ${status[1]}',
+      status[2] == '0' ? '成功' : '未完成 · 退出码 ${status[2]}',
+    ]);
+  }
+  if (rows.isEmpty) rows.add(['诊断状态', '部分输出格式尚未识别，请检查采集工具版本和数据范围']);
+  return rows;
+}
+
 /// 命令展示模型保留字段顺序、重复字段和完整值，不执行或改写采样内容。
 class MachineMaintenanceReadout {
   const MachineMaintenanceReadout(
@@ -54,12 +127,10 @@ class MachineMaintenanceReadout {
     this.fields = false,
     this.issue,
     this.raw = false,
+    this.groups = const {},
   });
 
   factory MachineMaintenanceReadout.parse(String output, String section) {
-    if (machineMaintenanceNetworkReports.contains(section)) {
-      return const MachineMaintenanceReadout([], [], raw: true);
-    }
     final issue = machineMaintenanceCollectionIssue(output, section);
     if (issue != null) return MachineMaintenanceReadout([], [], issue: issue);
     final lines = output
@@ -76,6 +147,40 @@ class MachineMaintenanceReadout {
           ].contains(line.trim()),
         )) {
       return const MachineMaintenanceReadout([], []);
+    }
+    if (machineMaintenanceNetworkReports.contains(section) ||
+        section == 'interfaces') {
+      return _parseMachineNetworkReadout(lines, section);
+    }
+    if (section != 'logs' &&
+        (output.trimLeft().startsWith('{') ||
+            output.trimLeft().startsWith('['))) {
+      try {
+        final documents = <dynamic>[];
+        try {
+          documents.add(jsonDecode(output));
+        } on FormatException {
+          for (final line in lines) {
+            documents.add(jsonDecode(line));
+          }
+        }
+        return _machineJsonReadout(
+          documents.length == 1 ? documents.single : documents,
+        );
+      } on FormatException {
+        // 非 JSON 的 launchd 配置继续按属性解析。
+        if (!output.contains('=')) {
+          return const MachineMaintenanceReadout([], [], issue: 'format');
+        }
+      }
+    }
+    if (section == 'memory' &&
+        lines.any((line) => line.contains('REGION TYPE'))) {
+      return _machineMemoryReadout(lines);
+    }
+    if (section == 'gpu_report') return _machineGpuReadout(lines);
+    if (section == 'container_metrics') {
+      return _machineColumnReadout(lines);
     }
     if (section == 'startup') {
       final entries = <List<String>>[];
@@ -142,8 +247,35 @@ class MachineMaintenanceReadout {
     final rows = <List<String>>[];
     if (section == 'sockets') {
       final macProcesses = lines.any((line) => line.contains('process:pid'));
+      String socketProcess(String details) {
+        final processes = RegExp(
+          r'"([^"]+)",pid=(\d+),fd=(\d+)',
+        ).allMatches(details).toList();
+        if (processes.isNotEmpty) {
+          return processes
+              .map((m) => '${m[1]} · PID ${m[2]} · FD ${m[3]}')
+              .join(' / ');
+        }
+        return '—';
+      }
+
       for (final line in lines) {
         final values = line.trim().split(RegExp(r'\s+'));
+        if (values.length >= 5 &&
+            RegExp(
+              r'^(?:ESTAB|LISTEN|UNCONN|SYN-SENT|SYN-RECV|FIN-WAIT-[12]|TIME-WAIT|CLOSE-WAIT|LAST-ACK|CLOSING|CLOSED)$',
+            ).hasMatch(values.first)) {
+          rows.add([
+            'TCP',
+            values[3],
+            values[4],
+            values[0],
+            values[1],
+            values[2],
+            socketProcess(values.skip(5).join(' ')),
+          ]);
+          continue;
+        }
         if (values.length < 4 ||
             !RegExp(
               r'^(tcp|udp)(?:4|6|46)?$',
@@ -190,22 +322,43 @@ class MachineMaintenanceReadout {
             values[1],
             values[2],
             values[3],
-            values.length > 6 ? values.skip(6).join(' ') : '—',
+            socketProcess(values.skip(6).join(' ')),
           ]);
         }
       }
-      if (rows.isNotEmpty) {
-        return MachineMaintenanceReadout([
-          '协议',
-          '本地地址',
-          '远端地址',
-          '状态',
-          '接收队列',
-          '发送队列',
-          '进程',
-        ], rows);
+      final unix = <List<String>>[];
+      var unixHeaders = <String>[];
+      for (final line in lines) {
+        final parts = line.trim().split(RegExp(r'\s+'));
+        if (parts.first == 'Address' && parts.contains('Type')) {
+          unixHeaders = parts;
+          continue;
+        }
+        if (unixHeaders.isEmpty ||
+            parts.length < 4 ||
+            !RegExp(r'^[\da-fA-F]+$').hasMatch(parts.first)) {
+          continue;
+        }
+        unix.add([
+          for (var i = 0; i < unixHeaders.length; i++)
+            i >= parts.length
+                ? '—'
+                : i == unixHeaders.length - 1
+                ? parts.skip(i).join(' ')
+                : parts[i],
+        ]);
       }
-      return const MachineMaintenanceReadout([], [], raw: true);
+      if (rows.isNotEmpty || unix.isNotEmpty) {
+        return MachineMaintenanceReadout(
+          ['协议', '本地地址', '远端地址', '状态', '接收队列', '发送队列', '进程'],
+          rows,
+          groups: {
+            if (unix.isNotEmpty)
+              '本地 UNIX 套接字': MachineMaintenanceReadout(unixHeaders, unix),
+          },
+        );
+      }
+      return const MachineMaintenanceReadout([], []);
     }
     if (section == 'users' &&
         !lines.any((line) => RegExp(r'LogonId\s*[:=]').hasMatch(line))) {
@@ -294,6 +447,14 @@ class MachineMaintenanceReadout {
       return MachineMaintenanceReadout(['时间', '消息'], rows);
     }
     if (section == 'routes') {
+      if (lines.any(
+        (line) =>
+            line.contains('IPv4 Route Table') ||
+            line.contains('IPv6 Route Table') ||
+            line.contains('网络目标'),
+      )) {
+        return _machineWindowsRouteReadout(lines);
+      }
       final bsd = lines.any(
         (line) =>
             RegExp(r'^Destination\s+Gateway\s+Flags').hasMatch(line.trim()),
@@ -339,6 +500,22 @@ class MachineMaintenanceReadout {
       }
       for (final line in lines) {
         final parts = line.trim().split(RegExp(r'\s+'));
+        if (parts.length >= 8 &&
+            RegExp(r'^\d+\.').hasMatch(parts.first) &&
+            RegExp(r'^\d+\.').hasMatch(parts[2])) {
+          rows.add([
+            parts[0],
+            parts[1],
+            parts.last,
+            '—',
+            '—',
+            '—',
+            '—',
+            parts[3],
+            '子网掩码 ${parts[2]}',
+          ]);
+          continue;
+        }
         const types = {
           'local',
           'broadcast',
@@ -357,7 +534,7 @@ class MachineMaintenanceReadout {
         ).hasMatch(destination)) {
           continue;
         }
-        // Windows 与旧版 netstat 输出使用不同列结构，保留完整报告。
+        // 过滤不同平台的表头，未知列结构交由格式提示处理。
         if (!parts.contains('dev') &&
             !parts.contains('via') &&
             !types.contains(parts.first)) {
@@ -483,6 +660,7 @@ class MachineMaintenanceReadout {
     final property = RegExp(
       r'^\s*(?:"([^"\n]+)"|([A-Za-z_][\w.() /%-]*?))\s*[:=]\s*(.*)$',
     );
+    var unparsed = 0;
     var depth = 0;
     var quoted = false;
     var escaped = false;
@@ -506,10 +684,20 @@ class MachineMaintenanceReadout {
         final match = property.firstMatch(line);
         if (match != null) {
           fields.add([(match[1] ?? match[2]!).trim(), match[3]!.trim()]);
-        } else if (fields.isNotEmpty && fields.last[0] == '描述') {
-          fields.last[1] += '\n$line';
+        } else if (lines.length == 1) {
+          fields.add(['说明', text]);
+        } else if (section == 'system' && text.startsWith('Darwin ')) {
+          final parts = text.split(RegExp(r'\s+'));
+          if (parts.length >= 3) {
+            fields.addAll([
+              ['内核', parts[0]],
+              ['主机名', parts[1]],
+              ['内核版本', parts[2]],
+            ]);
+          }
         } else {
-          fields.add(['描述', line]);
+          unparsed++;
+          continue;
         }
       }
       final value = depth > 0 ? line : fields.last[1];
@@ -532,11 +720,397 @@ class MachineMaintenanceReadout {
         }
       }
     }
-    return MachineMaintenanceReadout(['名称', '数值'], fields, fields: true);
+    final structured = <List<String>>[];
+    for (final field in fields) {
+      if (RegExp(r'^[{(\[]').hasMatch(field[1].trimLeft())) {
+        final parsed = _machinePropertyValue(field[1]);
+        final report = _machineJsonReadout({field[0]: parsed});
+        structured.addAll(report.rows);
+        for (final group in report.groups.entries) {
+          structured.addAll(
+            group.value.rows.map((row) => ['${field[0]} / ${row[0]}', row[1]]),
+          );
+        }
+      } else {
+        structured.add([
+          field[0],
+          field[1]
+              .replaceFirst(RegExp(r';$'), '')
+              .replaceAllMapped(RegExp(r'^"([\s\S]*)"$'), (m) => m[1]!),
+        ]);
+      }
+    }
+    if (unparsed > 0 && structured.isNotEmpty) {
+      structured.add(['解析状态', '已展示可识别字段，另有 $unparsed 行尚未匹配当前格式']);
+    }
+    return MachineMaintenanceReadout(
+      ['名称', '数值'],
+      structured,
+      fields: true,
+      issue: structured.isEmpty ? 'format' : null,
+    );
   }
   final List<String> headers;
   final List<List<String>> rows;
   final bool fields;
   final bool raw;
   final String? issue;
+  final Map<String, MachineMaintenanceReadout> groups;
+}
+
+/// 解析 launchd 与 systemd 的嵌套属性，保留字段路径和数组顺序。
+dynamic _machinePropertyValue(String text) {
+  final tokens =
+      RegExp(r'"(?:\\.|[^"\\])*"|=>|[{}()[\];,=\n]|[^"{}()[\];,=\n]+')
+          .allMatches(text)
+          .map((m) => m[0]!.trim())
+          .where((v) => v.isNotEmpty)
+          .toList();
+  var cursor = 0;
+  dynamic read(int depth) {
+    if (cursor >= tokens.length) return null;
+    final token = tokens[cursor++];
+    if (depth > _machineReadoutDepthLimit) return null;
+    if (const ['{', '(', '['].contains(token)) {
+      final close = token == '{'
+          ? '}'
+          : token == '('
+          ? ')'
+          : ']';
+      final fields = <String, dynamic>{};
+      final values = <dynamic>[];
+      while (cursor < tokens.length && tokens[cursor] != close) {
+        if (const [';', ','].contains(tokens[cursor])) {
+          cursor++;
+          continue;
+        }
+        var key = read(depth + 1);
+        if (cursor + 2 < tokens.length &&
+            tokens[cursor] == '[' &&
+            tokens[cursor + 1] == ']' &&
+            tokens[cursor + 2] == '=') {
+          key = '$key[]';
+          cursor += 2;
+        }
+        if (cursor < tokens.length &&
+            const ['=', '=>'].contains(tokens[cursor])) {
+          cursor++;
+          fields['$key'] = read(depth + 1);
+        } else {
+          values.add(key);
+        }
+      }
+      if (cursor < tokens.length) cursor++;
+      if (fields.isEmpty) return values;
+      if (values.isNotEmpty) fields['条目'] = values;
+      return fields;
+    }
+    if (token.startsWith('"') && token.endsWith('"')) {
+      try {
+        return jsonDecode(token);
+      } on FormatException {
+        return token.substring(1, token.length - 1);
+      }
+    }
+    return token;
+  }
+
+  return read(0);
+}
+
+MachineMaintenanceReadout _machineMemoryReadout(List<String> lines) {
+  final fields = <List<String>>[];
+  final groups = <String, MachineMaintenanceReadout>{};
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line.contains('REGION TYPE') || line.startsWith('MALLOC ZONE')) {
+      final columns = line.split(RegExp(r'\s{2,}'));
+      if (columns.length == 1) {
+        final rows = <List<String>>[];
+        while (i + 1 < lines.length) {
+          final match = RegExp(
+            r'^(.+?)\s+([\d.]+[KMGT]?)(?:\s+(.*))?$',
+          ).firstMatch(lines[i + 1].trim());
+          if (match == null) break;
+          i++;
+          rows.add([match[1]!, match[2]!, match[3] ?? '—']);
+        }
+        groups['内存区域'] = MachineMaintenanceReadout(['区域类型', '大小', '详情'], rows);
+        continue;
+      }
+      final previous = i > 0
+          ? lines[i - 1].trim().split(RegExp(r'\s+'))
+          : <String>[];
+      var prefix = 0;
+      final headers = <String>[
+        columns.first == 'REGION TYPE' ? '区域类型' : '分配区',
+        for (var c = 1; c < columns.length; c++)
+          columns[c].contains('%')
+              ? '碎片率'
+              : prefix < previous.length
+              ? '${previous[prefix++]} ${columns[c]}'
+              : columns[c],
+      ];
+      final rows = <List<String>>[];
+      var annotation = false;
+      while (i + 1 < lines.length) {
+        final row = lines[i + 1].trim();
+        if (RegExp(r'^[=\-\s]+$').hasMatch(row)) {
+          i++;
+          continue;
+        }
+        final cells = row.split(RegExp(r'\s{2,}'));
+        if (cells.length < 2 ||
+            !RegExp(r'^[\d.]+[KMGT%]?$').hasMatch(cells[1])) {
+          break;
+        }
+        i++;
+        if (!annotation && cells.length > headers.length) {
+          annotation = true;
+          headers.add('说明');
+          for (final old in rows) {
+            old.add('—');
+          }
+        }
+        rows.add([
+          for (var c = 0; c < headers.length; c++)
+            c >= cells.length
+                ? '—'
+                : annotation && c == headers.length - 1
+                ? cells.skip(c).join(' · ')
+                : cells[c],
+        ]);
+      }
+      groups[line.startsWith('MALLOC ZONE') ? '内存分配区' : '内存区域'] =
+          MachineMaintenanceReadout(headers, rows);
+    } else {
+      final pair = RegExp(r'^([^:]+):\s*(.+)$').firstMatch(line);
+      if (pair != null) {
+        final metrics = RegExp(
+          r'([\w_]+)=([^\s]+)',
+        ).allMatches(pair[2]!).toList();
+        if (metrics.isNotEmpty) {
+          fields.addAll(metrics.map((m) => ['${pair[1]} / ${m[1]}', m[2]!]));
+        } else {
+          fields.add([pair[1]!, pair[2]!]);
+        }
+      }
+    }
+  }
+  return MachineMaintenanceReadout(
+    ['名称', '数值'],
+    fields,
+    fields: true,
+    groups: groups,
+  );
+}
+
+MachineMaintenanceReadout _machineJsonReadout(dynamic value) {
+  final groups = <String, MachineMaintenanceReadout>{};
+  final fields = <List<String>>[];
+  var count = 0;
+  var limited = false;
+  void collect(dynamic item, String path, List<List<String>> rows, int depth) {
+    if (depth > _machineReadoutDepthLimit ||
+        count >= _machineReadoutFieldLimit) {
+      limited = true;
+      return;
+    }
+    if (item is Map) {
+      for (final entry in item.entries) {
+        collect(
+          entry.value,
+          path.isEmpty ? '${entry.key}' : '$path / ${entry.key}',
+          rows,
+          depth + 1,
+        );
+      }
+    } else if (item is List) {
+      if (item.every((e) => e is! Map && e is! List)) {
+        rows.add([path, item.map((e) => e?.toString() ?? '—').join(' · ')]);
+        count++;
+      } else {
+        for (var i = 0; i < item.length; i++) {
+          collect(item[i], '$path [${i + 1}]', rows, depth + 1);
+        }
+      }
+    } else {
+      rows.add([path.isEmpty ? '数值' : path, item?.toString() ?? '—']);
+      count++;
+    }
+  }
+
+  if (value is Map) {
+    for (final entry in value.entries) {
+      if (entry.value is Map ||
+          (entry.value is List &&
+              (entry.value as List).any((e) => e is Map || e is List))) {
+        final rows = <List<String>>[];
+        collect(entry.value, '', rows, 0);
+        groups['${entry.key}'] = MachineMaintenanceReadout(
+          ['名称', '数值'],
+          rows,
+          fields: true,
+        );
+      } else {
+        collect(entry.value, '${entry.key}', fields, 0);
+      }
+    }
+  } else if (value is List) {
+    for (
+      var i = 0;
+      i < value.length && count < _machineReadoutFieldLimit;
+      i++
+    ) {
+      final rows = <List<String>>[];
+      collect(value[i], '', rows, 0);
+      final item = value[i];
+      final name = item is Map
+          ? item['Name'] ??
+                item['name'] ??
+                item['ID'] ??
+                item['Id'] ??
+                item['id']
+          : null;
+      groups['${i + 1} · ${name ?? "记录"}'] = MachineMaintenanceReadout(
+        ['名称', '数值'],
+        rows,
+        fields: true,
+      );
+    }
+    if (groups.length < value.length) limited = true;
+  } else {
+    collect(value, '', fields, 0);
+  }
+  if (limited) {
+    fields.add([
+      '解析状态',
+      '报告过大或层级过深，已展示可解析字段（上限 $_machineReadoutFieldLimit 个）；请缩小采集范围。',
+    ]);
+  }
+  return MachineMaintenanceReadout(
+    ['名称', '数值'],
+    fields,
+    fields: true,
+    groups: groups,
+  );
+}
+
+MachineMaintenanceReadout _machineColumnReadout(List<String> lines) {
+  final useful = lines
+      .where(
+        (line) =>
+            !line.trim().startsWith('__GPU_') &&
+            !RegExp(r'^[+\-=\s]+$').hasMatch(line),
+      )
+      .toList();
+  final header = useful.indexWhere(
+    (line) =>
+        line.contains('CPU') ||
+        line.contains('GPU') ||
+        line.trim().startsWith('#Entity') ||
+        line.contains('MEMORY'),
+  );
+  if (header < 0) {
+    return const MachineMaintenanceReadout([], [], issue: 'format');
+  }
+  final title = useful[header].trim().replaceFirst(RegExp(r'^#\s*'), '');
+  final headings = title.split(RegExp(r'\s{2,}|\t'));
+  final headers = headings.length > 1 ? headings : title.split(RegExp(r'\s+'));
+  final rows = <List<String>>[];
+  for (final line in useful.skip(header + 1)) {
+    final parts = line.trim().split(RegExp(r'\s+'));
+    if (parts.length < headers.length) continue;
+    rows.add([
+      for (var i = 0; i < headers.length; i++)
+        i == headers.length - 1 ? parts.skip(i).join(' ') : parts[i],
+    ]);
+  }
+  return MachineMaintenanceReadout(headers, rows);
+}
+
+MachineMaintenanceReadout _machineGpuReadout(List<String> lines) {
+  final issue = machineMaintenanceCollectionIssue(lines.join('\n'), 'gpu');
+  if (issue != null) return MachineMaintenanceReadout([], [], issue: issue);
+  if (lines.any((line) => line.contains('__GPU_PROBE_EXIT_'))) {
+    return const MachineMaintenanceReadout([], [], issue: 'unavailable');
+  }
+  final devices = <List<String>>[];
+  for (final line in lines) {
+    final match = RegExp(
+      r'^\s*(GPU|MIG)\s+([^:]+):?\s*(.*?)\s*\(UUID:\s*([^)]+)\)',
+    ).firstMatch(line);
+    if (match != null) {
+      devices.add([match[1]!, match[2]!.trim(), match[3]!.trim(), match[4]!]);
+    }
+  }
+  if (devices.isNotEmpty) {
+    return MachineMaintenanceReadout(['类型', '编号 / 配置', '名称', 'UUID'], devices);
+  }
+  final topology = lines.indexWhere((line) => line.contains('CPU Affinity'));
+  if (topology >= 0) {
+    final headers = RegExp(
+      r'GPU\d+|NIC\d+|CPU Affinity|NUMA Affinity|GPU NUMA ID',
+    ).allMatches(lines[topology]).map((m) => m[0]!).toList();
+    final rows = <List<String>>[];
+    for (final line in lines.skip(topology + 1)) {
+      final parts = line.trim().split(RegExp(r'\s+'));
+      if (!RegExp(r'^(GPU|NIC)\d+$').hasMatch(parts.first)) continue;
+      rows.add([
+        for (var i = 0; i <= headers.length; i++)
+          i < parts.length ? parts[i] : '—',
+      ]);
+    }
+    return MachineMaintenanceReadout(['设备', ...headers], rows);
+  }
+  final entity = lines.indexWhere(
+    (line) => RegExp(r'^#\s*Entity\b').hasMatch(line),
+  );
+  if (entity >= 0) {
+    final headers = lines[entity]
+        .replaceFirst(RegExp(r'^#\s*Entity\s*'), '')
+        .trim()
+        .split(RegExp(r'\s+'));
+    final rows = <List<String>>[];
+    for (final line in lines.skip(entity + 1)) {
+      final parts = line.trim().split(RegExp(r'\s+'));
+      if (parts.length < 2 ||
+          !const ['GPU', 'CPU', 'GI', 'CI', 'SWITCH'].contains(parts.first)) {
+        continue;
+      }
+      rows.add([
+        for (var i = 0; i < headers.length + 2; i++)
+          i < parts.length ? parts[i] : '—',
+      ]);
+    }
+    return MachineMaintenanceReadout(['实体类型', '实体 ID', ...headers], rows);
+  }
+  final pipe = lines
+      .where((line) => line.trim().startsWith('|'))
+      .map((line) => line.trim().split('|').skip(1).toList()..removeLast())
+      .toList();
+  if (pipe.isNotEmpty) {
+    return MachineMaintenanceReadout(
+      ['名称', '数值'],
+      [
+        for (final row in pipe)
+          if (row.length >= 2 && row[1].trim().isNotEmpty)
+            [row[0].trim(), row.skip(1).map((c) => c.trim()).join(' · ')],
+      ],
+      fields: true,
+    );
+  }
+  final columns = _machineColumnReadout(lines);
+  if (columns.issue == null && columns.rows.isNotEmpty) return columns;
+  final fields = [
+    for (final line in lines)
+      if (RegExp(r'^([^:]+):\s*(.+)$').firstMatch(line) case final match?)
+        [match[1]!, match[2]!],
+  ];
+  return MachineMaintenanceReadout(
+    ['名称', '数值'],
+    fields,
+    fields: true,
+    issue: fields.isEmpty ? 'format' : null,
+  );
 }

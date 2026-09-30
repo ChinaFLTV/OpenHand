@@ -14,6 +14,7 @@ class MachineTimeReport {
     final windowsPeers = <Map<String, String>>[];
     final services = <Map<String, String>>[];
     var service = <String, String>{};
+    var measurementStart = 0;
     for (final original in raw.split('\n')) {
       var line = original.trim();
       if (pendingPeer.isNotEmpty) {
@@ -33,14 +34,19 @@ class MachineTimeReport {
       if (line.isEmpty) continue;
       if (line.startsWith('@@OH_TIME:')) {
         block = line.substring(10);
+        measurementStart = measurements.length;
         continue;
       }
       if (line.startsWith('@@OH_RESULT:')) {
         final code = line.substring(12);
         if (code != '0') {
+          if (block == 'SNTP 只读测量') {
+            measurements.removeRange(measurementStart, measurements.length);
+          }
           fields.add(['采集状态 · $block', '查询失败（退出码 $code），查看采集详情']);
           partial = true;
         }
+        block = '';
         continue;
       }
       if (block == 'SNTP 只读测量') {
@@ -51,6 +57,17 @@ class MachineTimeReport {
           measurements.add([sample[3]!, sample[4]!, sample[1]!, sample[2]!]);
           continue;
         }
+        final result = RegExp(r'^result:\s*\d+\s*\(([^)]+)\)').firstMatch(line);
+        final address = RegExp(r'^addr:\s*(\S+)').firstMatch(line);
+        if (result != null) {
+          fields.add([
+            'SNTP 测量结果',
+            result[1] == 'Timeout' ? '请求超时，未获得有效偏移样本' : result[1]!,
+          ]);
+        }
+        if (address != null) fields.add(['SNTP 目标地址', address[1]!]);
+        // 超时调试包中的十六进制时间与派生偏移不是有效采样。
+        continue;
       }
       final chrony = RegExp(
         r'^([\^=#])([*+\-?x~])\s+(\S+)\s+(\d+)\s+(-?\d+)\s+(\d+)\s+(\S+)\s+([^\[]+)\[\s*([^\]]+)\]\s+\+/-\s*(.+)$',

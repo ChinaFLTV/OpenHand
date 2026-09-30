@@ -24,6 +24,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
   String _metadata = '', _metrics = '', _error = '', _contextName = '';
+  Map<String, String> _collectionIssues = {};
   bool _busy = false, _overlay = false;
 
   @override
@@ -44,8 +45,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     setState(() {
       _busy = true;
       _error = '';
+      _collectionIssues = {};
     });
-    final errors = <String>[];
+    final errors = <String, String>{};
     var client = MachineContainerClient(
       runtime: _runtime,
       run: widget.run,
@@ -83,7 +85,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             ),
           );
         } catch (error) {
-          errors.add('Pod 列表：$error');
+          errors['Pod 列表'] = '$error';
         }
       }
       if (!mounted) return;
@@ -95,7 +97,6 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         _metadata = await client.execute(client.metadataArguments);
       } catch (error) {
         _metadata = '$error';
-        errors.add('运行时元数据暂不可用');
       }
       if (!mounted) return;
       if (_runtime == MachineContainerRuntime.kubernetes) {
@@ -106,7 +107,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             '节点': jsonDecode(nodes),
           });
         } catch (error) {
-          errors.add('节点信息：$error');
+          errors['节点信息'] = '$error';
         }
       }
       if (!mounted) return;
@@ -114,11 +115,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         _metrics = await client.execute(client.metricsArguments);
       } catch (error) {
         _metrics = '$error';
-        errors.add('监控指标暂不可用，请检查权限或指标服务');
       }
       if (!mounted) return;
       setState(() {
-        _error = errors.join('\n');
+        _collectionIssues = errors;
       });
     } catch (error) {
       if (mounted) {
@@ -265,6 +265,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           context: context,
           builder: (_) => _ContainerReportDialog(
             title: '${entry.name} · $action',
+            section: action == '日志' ? 'logs' : 'container_details',
             load: () async {
               await client.verify(entry);
               return action == '日志'
@@ -441,7 +442,28 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         if (_error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: _MaintenanceEmptyHint(message: _error),
+            child: _MaintenanceReadout(text: _error, section: 'containers'),
+          ),
+        if (_collectionIssues.isNotEmpty)
+          _MaintenanceReadout(
+            report: MachineMaintenanceReadout(
+              [],
+              [],
+              groups: {
+                for (final issue in _collectionIssues.entries)
+                  issue.key: MachineMaintenanceReadout(
+                    ['名称', '数值'],
+                    machineMaintenanceDiagnosticFields(issue.value),
+                    fields: true,
+                    issue:
+                        machineMaintenanceCollectionIssue(
+                          issue.value,
+                          'containers',
+                        ) ??
+                        'unavailable',
+                  ),
+              },
+            ),
           ),
         const SizedBox(height: 12),
         if (_runtime == MachineContainerRuntime.kubernetes ||
@@ -455,21 +477,16 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           title: '实时资源采样',
           icon: Icons.monitor_heart_outlined,
           scrollBody: false,
-          child: OpenHandConsoleText(
-            title: 'CPU · 内存 · 网络 · 块 IO · 进程（由运行时提供）',
-            text: _containerReportText(_metrics),
-            maxHeight: 300,
+          child: _MaintenanceReadout(
+            text: _metrics,
+            section: 'container_metrics',
           ),
         ),
         const SizedBox(height: 12),
         ExpansionTile(
           title: const Text('运行时元数据与状态'),
           children: [
-            OpenHandConsoleText(
-              title: _runtime.label,
-              text: _containerReportText(_metadata),
-              maxHeight: 440,
-            ),
+            _MaintenanceReadout(text: _metadata, section: 'container_metadata'),
           ],
         ),
       ],
@@ -477,16 +494,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   }
 }
 
-String _containerReportText(String text) {
-  try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(text));
-  } on FormatException {
-    return text;
-  }
-}
-
 class _ContainerReportDialog extends StatefulWidget {
-  const _ContainerReportDialog({required this.title, required this.load});
+  const _ContainerReportDialog({
+    required this.title,
+    required this.load,
+    this.section = 'container_details',
+  });
+  final String section;
   final String title;
   final Future<String> Function() load;
   @override
@@ -494,7 +508,7 @@ class _ContainerReportDialog extends StatefulWidget {
 }
 
 class _ContainerReportDialogState extends State<_ContainerReportDialog> {
-  String _text = '';
+  String _text = '', _error = '';
   bool _busy = false, _automatic = false;
   Timer? _timer;
   @override
@@ -514,18 +528,19 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
     _timer?.cancel();
     setState(() {
       _busy = true;
+      _error = '';
     });
     try {
       final text = await widget.load();
       if (mounted) {
         setState(() {
-          _text = _containerReportText(text);
+          _text = text;
         });
       }
     } catch (error) {
       if (mounted) {
         setState(() {
-          _text = '$error';
+          _error = '$error';
           _automatic = false;
         });
       }
@@ -588,10 +603,11 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
           Flexible(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: OpenHandConsoleText(
-                title: widget.title,
-                text: _text,
-                maxHeight: 560,
+              child: SingleChildScrollView(
+                child: _MaintenanceReadout(
+                  text: _error.isEmpty ? _text : _error,
+                  section: _error.isEmpty ? widget.section : 'containers',
+                ),
               ),
             ),
           ),

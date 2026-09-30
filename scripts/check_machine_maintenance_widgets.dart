@@ -212,8 +212,8 @@ void main() {
   });
   testWidgets('容器报告手动刷新、自动刷新失败停止并清理定时器', (tester) async {
     var calls = 0;
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _ContainerReportDialog(
-      title: '容器日志', load: () async { calls++; if (calls > 1) throw StateError('日志不可用'); return '第一行\\n第二行'; }))));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _ContainerReportDialog(
+      title: '容器日志', section: 'logs', load: () async { calls++; if (calls > 1) throw StateError('日志不可用'); return '第一行\\n第二行'; }))));
     await tester.pumpAndSettle();
     expect(find.textContaining('第一行'), findsOneWidget);
     await tester.tap(find.byTooltip('自动刷新'));
@@ -557,7 +557,7 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('健康字段结构化展示，错误原文默认折叠且宽窄屏无溢出', (tester) async {
+  testWidgets('健康字段与诊断结构化展示且宽窄屏无溢出', (tester) async {
     await tester.runAsync(() async {
       for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
         if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
@@ -681,7 +681,8 @@ void main() {
       });
     }
     await tester.tap(find.text('轮转策略 · 2')); await tester.pumpAndSettle();
-    expect(find.byWidgetPredicate((widget) => widget is SelectableText && (widget.textSpan?.toPlainText() ?? widget.data ?? '').contains('/etc/logrotate.conf')), findsOneWidget);
+    expect(find.text('/etc/logrotate.conf'), findsOneWidget);
+    expect(find.byType(_MaintenanceFields), findsOneWidget);
     await tester.tap(find.text('日志目录大小 · 1')); await tester.pumpAndSettle();
     expect(find.text(formatByteSize(4096 * 1024)), findsOneWidget);
     expect(find.text('/var/log'), findsOneWidget);
@@ -795,8 +796,8 @@ void main() {
     expect(find.text('/var/log/app.log'), findsOneWidget);
     state.setState(() => state._metadataKind = 'config');
     await tester.pumpAndSettle();
-    final config = tester.widgetList<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).where((w) => w.text.contains('/etc/logrotate.conf'));
-    expect(config.single.text, '/etc/logrotate.conf\\nweekly\\nrotate 7');
+    expect(find.text('/etc/logrotate.conf'), findsOneWidget);
+    expect(find.byType(_MaintenanceFields), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
@@ -814,7 +815,7 @@ void main() {
       expect(find.text('-0.00012 seconds'), findsOneWidget);
       expect(find.text('Chrony 时钟源'), findsOneWidget);
       expect(find.byType(_MaintenanceTable), findsOneWidget);
-      expect(find.byType(_MaintenanceFields), findsOneWidget);
+      expect(find.byType(_MaintenanceFields), findsWidgets);
       expect(find.text('部分指标不可用，已保留成功采集的数据'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -1595,7 +1596,96 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('防火墙混合输出保留原文且不生成伪指标', (tester) async {
+
+  testWidgets('跨平台网络详情按网卡和协议分组，宽窄窗口与明暗主题无溢出', (tester) async {
+    final samples = <(String, String, String)>[
+      ('addresses', 'en0: flags=8863<UP,BROADCAST,RUNNING> mtu 1500\\n  ether 02:00:00:00:00:01\\n  inet 192.168.1.2 netmask 0xffffff00\\n  status: active', 'IPv4 地址'),
+      ('addresses', '2: eth0: <UP,BROADCAST> mtu 1500 state UP\\n  inet 10.0.0.2/24 scope global eth0\\n  RX: bytes packets errors dropped\\n      1234 10 1 0', '接收 · 字节'),
+      ('addresses', 'Ethernet adapter Ethernet:\\n   Physical Address. . . . . . . . . : AA-BB-CC-DD-EE-FF\\n   IPv4 Address. . . . . . . . . . . : 192.168.1.2', 'MAC 地址'),
+      ('neighbors', 'Neighbor Linklayer Address Netif Expire St Flgs Prbs\\nfe80::1%lo0 (incomplete) lo0 permanent R', '邻居地址'),
+      ('network_stats', 'TCP: inuse 2 orphan 0 tw 4 alloc 12 mem 0\\nUdp:\\n  12 datagrams received', 'TCP'),
+      ('firewall_rules', 'Rule Name: Web\\nEnabled: Yes\\nDirection: In\\nAction: Allow\\nRule Name: SSH\\nEnabled: Yes\\nDirection: In\\nLocalPort: 22', 'SSH'),
+    ];
+    for (final brightness in Brightness.values) {
+      for (final width in [360.0, 1200.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        for (final sample in samples) {
+          final theme = brightness == Brightness.light ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen) : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+          await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+            theme: Platform.environment['MAINTENANCE_FONT'] == null ? theme : theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: '运维预览字体')),
+            home: Scaffold(body: RepaintBoundary(key: const ValueKey('网络结构化预览'), child: SingleChildScrollView(child: _MaintenanceReadout(section: sample.\$1, text: sample.\$2))))));
+          await tester.pumpAndSettle();
+          expect(find.text(sample.\$3), findsWidgets);
+          expect(find.byType(OpenHandConsoleText), findsNothing);
+          expect(find.textContaining('flags=8863'), findsNothing);
+          expect(tester.takeException(), isNull, reason: sample.\$1);
+          if (Platform.environment['MAINTENANCE_PREVIEW'] != null && brightness == Brightness.light && sample.\$2.startsWith('en0:')) {
+            await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('网络结构化预览')));
+              final image = await boundary.toImage();
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File('/tmp/maintenance-network-structured-\${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('空连接表头与空采样显示空态，容器嵌套元数据完整显示字段路径', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    for (final sample in <(String, String)>[
+      ('sockets', 'Active Multipath Internet connections\\nProto/ID Flags Local Address Foreign Address (state)'),
+      ('container_metrics', ''),
+    ]) {
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: sample.\$1, text: sample.\$2)))));
+      await tester.pumpAndSettle();
+      expect(find.text('暂无可用数据'), findsOneWidget);
+      expect(find.byType(OpenHandConsoleText), findsNothing);
+    }
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: 'container_details',
+        text: '[{"Name":"worker","State":{"Status":"running","ExitCode":0},"Mounts":[{"Source":"/data","Destination":"/app"}]}]')))));
+    await tester.pumpAndSettle();
+    expect(find.text('状态 / 状态'), findsOneWidget);
+    expect(find.text('/data'), findsOneWidget);
+    expect(find.text('/app'), findsOneWidget);
+    expect(find.textContaining('{"Name"'), findsNothing);
+    expect(find.byType(OpenHandConsoleText), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('SNTP 超时诊断显示结果和目标地址，不渲染十六进制或无效偏移', (tester) async {
+    const raw = '@@OH_TIME:SNTP 只读测量\\nsntp_exchange {\\n result: 6 (Timeout)\\n offset: FFFFFFFF (-1999861048.013298512)\\n delay: FFFFFFFF (-3999722096.026597023)\\n addr: 17.253.114.35\\n}\\n@@OH_RESULT:69';
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SingleChildScrollView(child: _MaintenanceHealthContent(
+        report: MachineHealthReport.parse('ntp', raw, '0'), raw: raw)))));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('请求超时'), findsOneWidget);
+    expect(find.text('17.253.114.35'), findsOneWidget);
+    expect(find.textContaining('FFFFFFFF'), findsNothing);
+    expect(find.textContaining('-1999861048'), findsNothing);
+    final diagnostic = find.text('采集详情与诊断');
+    await tester.ensureVisible(diagnostic);
+    expect(find.text('响应超时'), findsOneWidget);
+    expect(find.byType(OpenHandConsoleText), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('防火墙混合输出结构化显示设置与读取权限', (tester) async {
     await tester.binding.setSurfaceSize(const Size(520, 700));
     const raw = 'Firewall is disabled. (State = 0)\\npfctl: /dev/pf: Permission denied';
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
@@ -1603,15 +1693,17 @@ void main() {
       supportedLocales: AppLocalizations.supportedLocales,
       home: const Scaffold(body: SingleChildScrollView(child: _MaintenanceReadout(section: 'firewall', text: raw)))));
     await tester.pumpAndSettle();
-    expect(find.textContaining('应用防火墙已关闭'), findsOneWidget);
+    expect(find.text('应用防火墙'), findsOneWidget);
+    expect(find.text('关闭'), findsOneWidget);
+    expect(find.textContaining('权限不足，当前账户无法读取规则'), findsOneWidget);
     expect(find.textContaining('扩展指标'), findsNothing);
-    expect(tester.widget<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).text, raw);
+    expect(find.byType(OpenHandConsoleText), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('容器连接错误显示简洁提示并保留完整可选诊断', (tester) async {
+  testWidgets('容器连接错误显示原因、连接地址和处理建议', (tester) async {
     await tester.binding.setSurfaceSize(const Size(520, 700));
     const raw = 'failed to connect to the docker API at unix:///tmp/docker.sock: connect: no such file or directory';
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
@@ -1621,10 +1713,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('容器服务暂不可用'), findsOneWidget);
     expect(find.textContaining('扩展指标'), findsNothing);
-    await tester.tap(find.text('原始诊断信息'));
-    await tester.pumpAndSettle();
-    expect(find.byType(OpenHandConsoleText), findsOneWidget);
-    expect(tester.widget<OpenHandConsoleText>(find.byType(OpenHandConsoleText)).text, raw);
+    expect(find.text('unix:///tmp/docker.sock'), findsOneWidget);
+    expect(find.text('连接未建立'), findsOneWidget);
+    expect(find.byType(OpenHandConsoleText), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
@@ -1766,7 +1857,9 @@ void main() {
       expect(find.byType(_MaintenanceGrid), findsNothing);
       expect(find.text('2026-09-30 08:00:00 +0800'), findsOneWidget);
       expect(find.text('{'), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is SelectableText && (w.data ?? '').contains('"com.example.worker" = true;')), findsOneWidget);
+      expect(find.text('Mach 服务 / com.example.worker'), findsOneWidget);
+      expect(find.text('启用'), findsOneWidget);
+      expect(find.textContaining('= true;'), findsNothing);
       final header = tester.getRect(find.byType(_MachineTerminalDialogHeader));
       final cards = find.byType(_MaintenanceCard);
       expect(tester.getRect(cards.first).top - header.bottom, lessThanOrEqualTo(8));
@@ -2385,8 +2478,8 @@ void main() {
     await tester.ensureVisible(find.text('DCGM 单次遥测'));
     await tester.tap(find.text('DCGM 单次遥测'));
     await tester.pumpAndSettle();
-    expect(find.byType(OpenHandConsoleText), findsOneWidget);
-    expect(find.byType(SelectableText), findsWidgets);
+    expect(find.byType(OpenHandConsoleText), findsNothing);
+    expect(find.text('1500'), findsOneWidget);
     await tester.ensureVisible(find.text('GPU-X'));
     await tester.tap(find.text('GPU-X'));
     await tester.pumpAndSettle();
@@ -2399,7 +2492,7 @@ void main() {
     expect(find.text('729'), findsOneWidget);
 
     expect(find.byType(_MaintenanceFields), findsWidgets);
-    expect(find.byType(_MaintenanceTable), findsNothing);
+    expect(find.descendant(of: eccGroup, matching: find.byType(_MaintenanceTable)), findsNothing);
     expect(find.byType(OpenHandTablePagination), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

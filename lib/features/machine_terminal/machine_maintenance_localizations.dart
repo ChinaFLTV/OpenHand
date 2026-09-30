@@ -759,7 +759,73 @@ String? _maintenanceCounterLabel(
 
 String maintenanceDetailLabel(BuildContext context, String field) {
   final l10n = AppLocalizations.of(context)!;
+  if (field.contains(' / ')) {
+    return field
+        .split(' / ')
+        .map((part) => maintenanceDetailLabel(context, part))
+        .join(' / ');
+  }
   const aliases = {
+    'Status': '状态',
+    'VIRTUAL SIZE': '虚拟内存',
+    'RESIDENT SIZE': '驻留内存',
+    'DIRTY SIZE': '脏页',
+    'SWAPPED SIZE': '交换内存',
+    'VOLATILE SIZE': '易失内存',
+    'NONVOL SIZE': '非易失内存',
+    'EMPTY SIZE': '空闲区域',
+    'REGION COUNT (non-coalesced)': '区域数 · 未合并',
+    'REGION COUNT': '区域数',
+    'ALLOCATION COUNT': '分配数',
+    'BYTES ALLOCATED': '已分配字节',
+    'DIRTY+SWAP FRAG SIZE': '碎片大小',
+    'ReadOnly portion of Libraries': '只读库区域',
+    'Writable regions': '可写区域',
+    'resident': '驻留内存',
+    'written': '已写入内存',
+    'swapped_out': '换出内存',
+    'unallocated': '未分配内存',
+    'swapped_out_or_unallocated': '换出或未分配内存',
+    'Enabled': '启用',
+    'Direction': '方向',
+    'Action': '动作',
+    'LocalIP': '本地地址',
+    'RemoteIP': '远端地址',
+    'LocalPort': '本地端口',
+    'RemotePort': '远端端口',
+    'Protocol': '协议',
+    'ActiveOpens': '主动建立连接',
+    'PassiveOpens': '被动建立连接',
+    'InSegs': '接收段数',
+    'OutSegs': '发送段数',
+    'inuse': '使用中',
+    'orphan': '孤立套接字',
+    'tw': '等待关闭',
+    'alloc': '已分配',
+    'mem': '内存页',
+    'Config': '配置',
+    'HostConfig': '主机配置',
+    'NetworkSettings': '网络配置',
+    'Mounts': '挂载点',
+    'CPUPerc': 'CPU 使用率',
+    'MemUsage': '内存用量 / 上限',
+    'MemPerc': '内存使用率',
+    'NetIO': '网络接收 / 发送',
+    'BlockIO': '块 IO 读取 / 写入',
+    'PIDs': '进程数',
+    'ServerVersion': '服务版本',
+    'ContainersRunning': '运行中容器',
+    'ContainersPaused': '暂停容器',
+    'ContainersStopped': '停止容器',
+    'Driver': '驱动',
+    'CgroupDriver': '控制组驱动',
+    'OperatingSystem': '操作系统',
+    'DockerRootDir': '数据目录',
+    'CPU(cores)': 'CPU 用量',
+    'MEMORY(bytes)': '内存用量',
+    'CPU Affinity': 'CPU 亲和性',
+    'NUMA Affinity': 'NUMA 亲和性',
+    'GPU NUMA ID': 'GPU NUMA ID',
     'PPID': '父进程 ID',
     'USER': '用户',
     'STAT': '状态',
@@ -920,7 +986,7 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   }
   final legacy = maintenanceLocalizedOutput(context, '$field:');
   if (legacy != '$field:') return legacy.substring(0, legacy.length - 1);
-  return l10n.maintenanceExtendedMetric(field);
+  return field;
 }
 
 const _englishMonths = <String, int>{
@@ -998,6 +1064,13 @@ String maintenanceDetailValue(BuildContext context, String value) {
     'static' => '静态',
     'masked' => '已屏蔽',
     'active' || 'running' => '运行中',
+    'REACHABLE' || 'Reachable' => '可达',
+    'STALE' || 'Stale' => '已过期',
+    'INCOMPLETE' || 'Incomplete' => '未完成',
+    'FAILED' || 'Unreachable' => '不可达',
+    'DELAY' || 'Delay' => '等待探测',
+    'PROBE' || 'Probe' => '探测中',
+    'PERMANENT' || 'Permanent' => '永久',
     'inactive' || 'dead' => '未运行',
     'S (sleeping)' => '休眠',
     'R (running)' => '运行',
