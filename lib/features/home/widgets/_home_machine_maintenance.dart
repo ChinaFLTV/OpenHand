@@ -3967,8 +3967,11 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                         padding: EdgeInsetsDirectional.only(
                           start: 12 + math.min(depth, 8) * 20.0,
                           end: 12,
+                          top: 6,
+                          bottom: 6,
                         ),
                         child: Row(
+                          spacing: 8,
                           children: [
                             SizedBox(
                               width: 32,
@@ -4021,7 +4024,6 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                       ),
                                     ),
                             ),
-                            const SizedBox(width: 8),
                             Expanded(
                               child: InkWell(
                                 hoverColor: Colors.transparent,
@@ -4031,108 +4033,98 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                                 onTap: row == null
                                     ? null
                                     : () => widget.table.onRowTap?.call(row),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 4,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          Text(
-                                            maintenanceDetailValue(
-                                              context,
-                                              row == null
-                                                  ? id.substring(6)
-                                                  : row.cells[widget
-                                                        .nameColumn],
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: row == null
-                                                  ? cs.primary
-                                                  : cs.onSurface,
-                                            ),
-                                          ),
-                                          if (row != null)
-                                            for (final i
-                                                in widget.nameColumn == 1
-                                                    ? const [0, 2, 3, 4, 6]
-                                                    : const [1, 2, 3, 4])
-                                              if (i < row.cells.length &&
-                                                  i <
-                                                      widget
-                                                          .table
-                                                          .headers
-                                                          .length)
-                                                widget.table.headers[i] == '状态'
-                                                    ? _MaintenanceStatus(
-                                                        label: row.cells[i],
-                                                        color:
-                                                            _maintenanceStateColor(
-                                                              cs,
-                                                              row.cells[i],
-                                                            ),
-                                                      )
-                                                    : Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 1,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: cs
-                                                              .surfaceContainerHighest
-                                                              .withValues(
-                                                                alpha: .5,
-                                                              ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                          border: Border.all(
-                                                            color: cs
-                                                                .outlineVariant
-                                                                .withValues(
-                                                                  alpha: .45,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: cs
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                        ),
-                                                      ),
-                                        ],
-                                      ),
-                                      if (row != null &&
-                                          widget.nameColumn == 0 &&
-                                          !widget.groupNames &&
-                                          (widget.parents[id]?.isNotEmpty ??
-                                              false))
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  spacing: 4,
+                                  children: [
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
                                         Text(
-                                          '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                          maintenanceDetailValue(
+                                            context,
+                                            row == null
+                                                ? id.substring(6)
+                                                : row.cells[widget.nameColumn],
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
                                           style: TextStyle(
-                                            fontSize: 12,
-                                            color: cs.onSurfaceVariant,
+                                            fontWeight: FontWeight.w700,
+                                            color: row == null
+                                                ? cs.primary
+                                                : cs.onSurface,
                                           ),
                                         ),
-                                    ],
-                                  ),
+                                        if (row != null)
+                                          for (final i
+                                              in widget.nameColumn == 1
+                                                  ? const [0, 2, 3, 4, 6]
+                                                  : const [1, 2, 3, 4])
+                                            if (i < row.cells.length &&
+                                                i < widget.table.headers.length)
+                                              widget.table.headers[i] == '状态'
+                                                  ? _MaintenanceStatus(
+                                                      label: row.cells[i],
+                                                      color:
+                                                          _maintenanceStateColor(
+                                                            cs,
+                                                            row.cells[i],
+                                                          ),
+                                                    )
+                                                  : Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 1,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: cs
+                                                            .surfaceContainerHighest
+                                                            .withValues(
+                                                              alpha: .5,
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        border: Border.all(
+                                                          color: cs
+                                                              .outlineVariant
+                                                              .withValues(
+                                                                alpha: .45,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      child: Text(
+                                                        '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: cs
+                                                              .onSurfaceVariant,
+                                                        ),
+                                                      ),
+                                                    ),
+                                      ],
+                                    ),
+                                    if (row != null &&
+                                        widget.nameColumn == 0 &&
+                                        !widget.groupNames &&
+                                        (widget.parents[id]?.isNotEmpty ??
+                                            false))
+                                      Text(
+                                        '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
