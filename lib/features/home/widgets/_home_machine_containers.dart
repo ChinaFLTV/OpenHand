@@ -806,15 +806,26 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
           ),
           if (_busy) const LinearProgressIndicator(),
           Flexible(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SingleChildScrollView(
-                child: _MaintenanceReadout(
-                  text: _error.isEmpty ? _text : _error,
-                  section: _error.isEmpty ? widget.section : 'containers',
-                ),
-              ),
-            ),
+            child: _busy && _text.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: _MaintenanceEmptyHint(
+                        centered: true,
+                        icon: Icons.downloading_rounded,
+                        message: maintenanceLabel(context, '正在读取详情…'),
+                      ),
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SingleChildScrollView(
+                      child: _MaintenanceReadout(
+                        text: _error.isEmpty ? _text : _error,
+                        section: _error.isEmpty ? widget.section : 'containers',
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),

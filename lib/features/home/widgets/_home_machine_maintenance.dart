@@ -1653,7 +1653,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _MaintenanceEmptyHint(message: l10n.maintenanceGpuEmpty),
+          child: _MaintenanceEmptyHint(
+            message: l10n.maintenanceGpuEmpty,
+            centered: true,
+          ),
         ),
       );
     }
@@ -5205,9 +5208,11 @@ class _MaintenanceEmptyHint extends StatelessWidget {
   const _MaintenanceEmptyHint({
     required this.message,
     this.icon = Icons.inbox_outlined,
+    this.centered = false,
   });
   final String message;
   final IconData icon;
+  final bool centered;
 
   @override
   Widget build(BuildContext context) {
@@ -5215,6 +5220,7 @@ class _MaintenanceEmptyHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        mainAxisSize: centered ? MainAxisSize.min : MainAxisSize.max,
         children: [
           _MaintenanceIconBadge(
             icon: icon,
@@ -5223,9 +5229,11 @@ class _MaintenanceEmptyHint extends StatelessWidget {
             iconSize: 16,
           ),
           const SizedBox(width: 10),
-          Expanded(
+          Flexible(
+            fit: centered ? FlexFit.loose : FlexFit.tight,
             child: Text(
               message,
+              textAlign: centered ? TextAlign.center : TextAlign.start,
               style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
             ),
           ),
@@ -6515,6 +6523,7 @@ class _MachineMaintenanceDetailsState
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: _MaintenanceEmptyHint(
+                          centered: true,
                           icon: _busy
                               ? Icons.downloading_rounded
                               : Icons.cloud_off_rounded,

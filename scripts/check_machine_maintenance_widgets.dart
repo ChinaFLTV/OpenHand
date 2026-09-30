@@ -2662,6 +2662,64 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('居中提示在长文案、窄屏与放大文字下保持整体居中', (tester) async {
+    for (final width in [320.0, 1200.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 700));
+      await tester.pumpWidget(MaterialApp(home: MediaQuery(
+        data: MediaQueryData(size: Size(width, 700), textScaler: const TextScaler.linear(2)),
+        child: const Scaffold(body: Center(child: Padding(
+          padding: EdgeInsets.all(24), child: _MaintenanceEmptyHint(centered: true,
+            message: '正在读取详情，请稍候 / Chargement des détails en cours')))))));
+      await tester.pump();
+      final row = find.descendant(of: find.byType(_MaintenanceEmptyHint), matching: find.byType(Row));
+      expect(tester.getCenter(row).dx, closeTo(width / 2, .1));
+      expect(tester.getCenter(row).dy, closeTo(350, .1));
+      expect(tester.getRect(row).left, greaterThanOrEqualTo(24));
+      expect(tester.getRect(row).right, lessThanOrEqualTo(width - 24));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器详情首次加载居中，刷新时保留原有数据', (tester) async {
+    for (final width in [420.0, 1200.0]) {
+      for (final locale in [const Locale('zh'), const Locale('fr')]) {
+        await tester.binding.setSurfaceSize(Size(width, 850));
+        var pending = Completer<String>();
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: _ContainerReportDialog(title: 'worker', load: () => pending.future))));
+        await tester.pump();
+        final hint = find.byType(_MaintenanceEmptyHint);
+        final body = find.ancestor(of: hint, matching: find.byType(Flexible)).first;
+        final row = find.descendant(of: hint, matching: find.byType(Row));
+        expect(tester.getCenter(row).dx, closeTo(tester.getCenter(body).dx, .1));
+        expect(tester.getCenter(row).dy, closeTo(tester.getCenter(body).dy, .1));
+        final l = await AppLocalizations.delegate.load(locale);
+        expect(find.text(l.maintenanceLoadingDetails), findsOneWidget);
+        expect(find.byType(_MaintenanceReadout), findsNothing);
+        expect(tester.takeException(), isNull);
+        pending.complete('Name: worker');
+        await tester.pumpAndSettle();
+        expect(find.byType(_MaintenanceReadout), findsOneWidget);
+        pending = Completer<String>();
+        final state = tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog));
+        final refresh = state._load();
+        await tester.pump();
+        expect(find.byType(_MaintenanceReadout), findsOneWidget);
+        expect(find.text(l.maintenanceLoadingDetails), findsNothing);
+        pending.complete('Name: updated');
+        await refresh;
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('二级弹窗操作靠右等高，加载后按内容收拢', (tester) async {
     for (final width in [1100.0, 580.0]) {
       for (final actions in [
@@ -2695,6 +2753,11 @@ void main() {
         expect(find.byType(OutlinedButton), findsNothing);
         expect(progressRect.top, greaterThanOrEqualTo(headerRect.bottom));
         expect(progressRect.left, greaterThanOrEqualTo(headerRect.left));
+        final hint = find.byType(_MaintenanceEmptyHint);
+        final body = find.ancestor(of: hint, matching: find.byType(Center)).first;
+        final hintRow = find.descendant(of: hint, matching: find.byType(Row));
+        expect(tester.getCenter(hintRow).dx, closeTo(tester.getCenter(body).dx, .1));
+        expect(tester.getCenter(hintRow).dy, closeTo(tester.getCenter(body).dy, .1));
         expect(tester.takeException(), isNull);
         pending.complete('__OH_OPS_platform__\\nLinux\\n__OH_OPS_end__\\n');
         await tester.pumpAndSettle();
