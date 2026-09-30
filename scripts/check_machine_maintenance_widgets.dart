@@ -200,6 +200,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('容器 · 1'), findsOneWidget);
       expect(find.text('连接上下文：default'), findsOneWidget);
+      expect(find.byType(OpenHandOperationalRowMenu), findsOneWidget);
+      final rowMenu = tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
+      expect(rowMenu.actions.keys, containsAll(['详情', '日志', '终端', '文件管理', '停止', '暂停']));
+      expect(rowMenu.actions.keys, isNot(contains('删除')));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
@@ -225,6 +229,55 @@ void main() {
     await tester.pump(const Duration(seconds: 20));
     expect(calls, 3);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('更多按钮在明暗主题、紧凑行和列宽调整后保持方形且对齐表头', (tester) async {
+    for (final brightness in Brightness.values) {
+      for (final compact in [false, true]) {
+        for (final width in [1280.0, 420.0]) {
+          await tester.binding.setSurfaceSize(Size(width, 600));
+          await tester.pumpWidget(MaterialApp(
+            theme: brightness == Brightness.light ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen) : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen),
+            locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(body: Align(alignment: Alignment.topLeft, child: OpenHandOperationalRankTable(
+              headers: const ['PID', '进程', '状态', '累计 CPU 时间'], compact: compact,
+              rows: const [OpenHandOperationalRankRow(value: 1, cells: ['285', '测试进程', '休眠', '100 毫秒'])],
+              onRowTap: (_) {},
+            ))),
+          ));
+          await tester.pumpAndSettle();
+          final button = find.descendant(of: find.byType(OpenHandOperationalRowMenu), matching: find.byType(IconButton));
+          expect(tester.getSize(button), const Size.square(kOpenHandMenuIconButtonExtent));
+          expect(tester.getCenter(button).dx, closeTo(tester.getCenter(find.text('操作')).dx, .5));
+          final handle = find.byWidgetPredicate((w) => w is MouseRegion && w.cursor == SystemMouseCursors.resizeColumn).last;
+          await tester.drag(handle, const Offset(-1000, 0), warnIfMissed: false);
+          await tester.pumpAndSettle();
+          expect(tester.getSize(button), const Size.square(kOpenHandMenuIconButtonExtent));
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('共用图标菜单在狭窄和拉伸布局下不变成长胶囊，禁用时不打开', (tester) async {
+    for (final width in [28.0, 120.0]) {
+      await tester.pumpWidget(MaterialApp(theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+        home: Scaffold(body: Center(child: SizedBox(width: width, height: 80,
+          child: AnimatedPopupMenuButton<String>(enabled: false,
+            itemBuilder: (_) => [const PopupMenuItem(value: '详情', child: Text('详情'))]))))));
+      await tester.pumpAndSettle();
+      final button = tester.renderObject<RenderBox>(find.byType(IconButton));
+      final origin = button.localToGlobal(Offset.zero);
+      final end = button.localToGlobal(Offset(button.size.width, button.size.height));
+      expect(end.dx - origin.dx, closeTo(end.dy - origin.dy, .5));
+      expect(end.dx - origin.dx, lessThanOrEqualTo(width));
+      await tester.tap(find.byType(AnimatedPopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('详情'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
   });
   testWidgets('行点击和更多菜单详情共用入口，业务操作不触发行点击', (tester) async {
     const row = OpenHandOperationalRankRow(cells: ['测试条目'], value: 1);

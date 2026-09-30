@@ -328,14 +328,24 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                   '重启次数',
                   '创建时间',
                   '端口',
-                  '操作',
                 ],
                 maxBodyHeight: 360,
+                rowActions: (row) => {
+                  if (!_busy && !_overlay)
+                    for (final action
+                        in _client?.actions(
+                              row.data as MachineContainerEntry,
+                            ) ??
+                            <String>[])
+                      action: () =>
+                          _open(row.data as MachineContainerEntry, action),
+                },
                 rows: [
                   for (final entry in values)
                     OpenHandOperationalRankRow(
                       rowKey: '${entry.id}/${entry.name}',
                       value: 0,
+                      data: entry,
                       cells: [
                         entry.name,
                         entry.state,
@@ -345,28 +355,6 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         entry.restarts,
                         entry.created,
                         entry.ports,
-                        '',
-                      ],
-                      cellWidgets: [
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        AnimatedPopupMenuButton<String>(
-                          tooltip: '容器操作',
-                          enabled: !_busy && !_overlay,
-                          icon: const Icon(Icons.more_horiz_rounded),
-                          onSelected: (action) => _open(entry, action),
-                          itemBuilder: (_) => [
-                            for (final action
-                                in _client?.actions(entry) ?? <String>[])
-                              PopupMenuItem(value: action, child: Text(action)),
-                          ],
-                        ),
                       ],
                     ),
                 ],

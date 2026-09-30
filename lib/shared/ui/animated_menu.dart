@@ -9,6 +9,7 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_safe_scrollbar.dart';
@@ -1294,6 +1295,8 @@ class _AnimatedDropdownButtonFormFieldState<T> extends FormFieldState<T> {
   }
 }
 
+const double kOpenHandMenuIconButtonExtent = 40;
+
 /// [PopupMenuButton] 的动画替代实现，通过 [showAnimatedMenu] 显示菜单。
 class AnimatedPopupMenuButton<T> extends StatefulWidget {
   const AnimatedPopupMenuButton({
@@ -1406,18 +1409,45 @@ class _AnimatedPopupMenuButtonState<T>
       if (tooltip == null || tooltip.isEmpty) return pressed;
       return Tooltip(message: tooltip, child: pressed);
     }
-    return MicroPressFeedback(
-      enabled: widget.enabled,
-      scale: 0.92,
-      child: IconButton(
-        icon: widget.icon ?? const Icon(Icons.more_vert),
-        iconSize: widget.iconSize,
-        tooltip: widget.tooltip,
-        padding: widget.padding,
-        splashRadius: widget.splashRadius,
-        constraints: widget.buttonConstraints,
-        style: widget.style,
-        onPressed: widget.enabled ? _showMenu : null,
+    final colors = Theme.of(context).colorScheme;
+    final style = IconButton.styleFrom(
+      fixedSize: const Size.square(kOpenHandMenuIconButtonExtent),
+      minimumSize: const Size.square(kOpenHandMenuIconButtonExtent),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+      backgroundColor: colors.surface.withValues(alpha: .72),
+      foregroundColor: colors.onSurfaceVariant,
+      disabledBackgroundColor: Colors.transparent,
+      disabledForegroundColor: colors.onSurfaceVariant.withValues(alpha: .38),
+      hoverColor: colors.primary.withValues(alpha: .10),
+      focusColor: colors.primary.withValues(alpha: .14),
+      highlightColor: colors.primary.withValues(alpha: .16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      ),
+      side: BorderSide(color: colors.outlineVariant.withValues(alpha: .55)),
+      animationDuration: openHandMotionDuration(context, kOpenHandMotion140),
+    ).merge(widget.style);
+    // 先放松外部约束，避免行高或拉伸布局把图标按钮挤成长胶囊。
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: MicroPressFeedback(
+          enabled: widget.enabled,
+          scale: 0.92,
+          child: IconButton(
+            icon: widget.icon ?? const Icon(Icons.more_horiz_rounded),
+            iconSize: widget.iconSize ?? 20,
+            tooltip: widget.tooltip,
+            padding: widget.padding,
+            splashRadius: widget.splashRadius,
+            constraints: widget.buttonConstraints,
+            style: style,
+            onPressed: widget.enabled ? _showMenu : null,
+          ),
+        ),
       ),
     );
   }

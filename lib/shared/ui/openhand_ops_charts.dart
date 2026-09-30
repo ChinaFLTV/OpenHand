@@ -3804,7 +3804,8 @@ class _OpenHandOperationalRankTableState
         content + _kRankCellPadding * 2,
       );
       natural[i] = hasActions && i == columnCount - 1
-          ? math.max(kMinInteractiveDimension, content + _kRankCellPadding * 2)
+          ? math.max(kOpenHandMenuIconButtonExtent, content) +
+                _kRankCellPadding * 2
           : math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
     }
     final widths = _syncWidths(natural);
@@ -3894,9 +3895,10 @@ class _OpenHandOperationalRankTableState
                 required OpenHandOperationalRankRow? row,
               }) {
                 final headerText = headers[index];
-                final alignment =
-                    widget.columnAlignments[index] ??
-                    _rankCellAlignment(index, headerText);
+                final alignment = hasActions && index == headers.length - 1
+                    ? Alignment.center
+                    : widget.columnAlignments[index] ??
+                          _rankCellAlignment(index, headerText);
                 final textAlign = alignment.x < 0
                     ? TextAlign.left
                     : alignment.x > 0
@@ -4068,7 +4070,12 @@ class _OpenHandOperationalRankTableState
                                                     details.globalPosition.dx -
                                                     _dragStartX)
                                                 .clamp(
-                                                  _kRankUserMinWidth,
+                                                  hasActions &&
+                                                          i == columnCount - 1
+                                                      ? kOpenHandMenuIconButtonExtent +
+                                                            _kRankCellPadding *
+                                                                2
+                                                      : _kRankUserMinWidth,
                                                   _kRankUserMaxWidth,
                                                 );
                                         if ((current[i] - next).abs() < 0.5) {
