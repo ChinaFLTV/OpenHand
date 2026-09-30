@@ -867,50 +867,59 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           constraints: const BoxConstraints(
             maxWidth: _maintenanceNoticeMaxWidth,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (failed)
-                Icon(
-                  Icons.cloud_off_rounded,
-                  size: 36,
-                  color: theme.colorScheme.error,
-                )
-              else
-                SizedBox.square(
-                  dimension: 32,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    semanticsLabel: maintenanceLabel(context, '采集中'),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              Text(
-                maintenanceLabel(context, failed ? '机器状态暂不可用' : '采集中'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (failed) ...[
-                const SizedBox(height: 16),
-                _MaintenanceNotice(message: _error!, error: true),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, _maintenanceControlHeight),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
+          child: DecoratedBox(
+            decoration: _maintenanceTileDecoration(theme.colorScheme),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (failed)
+                    _MaintenanceIconBadge(
+                      icon: Icons.cloud_off_rounded,
+                      color: theme.colorScheme.error,
+                      size: 48,
+                      iconSize: 24,
+                    )
+                  else
+                    SizedBox.square(
+                      dimension: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        semanticsLabel: maintenanceLabel(context, '采集中'),
+                      ),
                     ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  const SizedBox(height: 16),
+                  Text(
+                    maintenanceLabel(context, failed ? '机器状态暂不可用' : '采集中'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  onPressed: _loading ? null : () => _refresh(manual: true),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(maintenanceLabel(context, '重新采集')),
-                ),
-              ],
-            ],
+                  if (failed) ...[
+                    const SizedBox(height: 16),
+                    _MaintenanceNotice(message: _error!, error: true),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(0, _maintenanceControlHeight),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 8,
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _loading ? null : () => _refresh(manual: true),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(maintenanceLabel(context, '重新采集')),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1806,9 +1815,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    l10n.maintenanceGpuComponentsHint,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  child: _MaintenanceEmptyHint(
+                    icon: Icons.info_outline_rounded,
+                    message: l10n.maintenanceGpuComponentsHint,
                   ),
                 ),
                 for (final report in reports)
@@ -3515,7 +3524,9 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
       child: entries.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(18),
-              child: Text(maintenanceLabel(context, '暂无可用数据')),
+              child: _MaintenanceEmptyHint(
+                message: maintenanceLabel(context, '暂无可用数据'),
+              ),
             )
           : ListView.builder(
               primary: false,
@@ -5465,7 +5476,11 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        if (visible.isEmpty) Text(maintenanceLabel(context, '暂无可用数据')),
+        if (visible.isEmpty)
+          _MaintenanceEmptyHint(
+            icon: Icons.account_tree_outlined,
+            message: maintenanceLabel(context, '暂无可用数据'),
+          ),
         for (final entry in visible.take(_maintenanceChartLimit))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -6118,11 +6133,16 @@ class _MachineMaintenanceDetailsState
             Flexible(
               child: _data == null
                   ? Center(
-                      heightFactor: 3,
-                      child: Text(
-                        maintenanceLabel(
-                          context,
-                          _busy ? '正在读取详情…' : '读取失败，请重试。',
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: _MaintenanceEmptyHint(
+                          icon: _busy
+                              ? Icons.downloading_rounded
+                              : Icons.cloud_off_rounded,
+                          message: maintenanceLabel(
+                            context,
+                            _busy ? '正在读取详情…' : '读取失败，请重试。',
+                          ),
                         ),
                       ),
                     )
