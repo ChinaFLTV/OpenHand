@@ -256,9 +256,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     if (_loading || !mounted || _closing) return;
     if (_tab == 7 && _platformName != null) {
       _timer?.cancel();
-      await _containersKey.currentState?.refresh();
+      await _containersKey.currentState?.refresh(applyScope: manual);
       if (!mounted || _closing) return;
-      if (_containersKey.currentState?._client == null) {
+      if (_containersKey.currentState?._client == null ||
+          _containersKey.currentState?._listingFailed == true) {
         setState(() => _automatic = false);
       }
       _schedule();
@@ -899,22 +900,27 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
+      Future<String> runContainerCommand(
+        String command, {
+        Duration timeout = const Duration(seconds: 20),
+      }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        command: command,
+        commandShell: _commandShell,
+        timeout: timeout,
+        maxOutputCharacters: machineContainerOutputLimit,
+        isCancelled: () => !mounted || _closing,
+      );
       return _MachineContainerPanel(
         key: _containersKey,
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         windows: _platformName == 'Windows',
         shell: _commandShell,
-        run: (command) =>
-            context.read<MachineTerminalFileService>().runMaintenanceCommand(
-              sessionId: widget.sessionId,
-              terminalId: widget.terminalId,
-              command: command,
-              commandShell: _commandShell,
-              timeout: const Duration(seconds: 20),
-              maxOutputCharacters: machineContainerOutputLimit,
-              isCancelled: () => !mounted || _closing,
-            ),
+        probe: (command) =>
+            runContainerCommand(command, timeout: machineContainerProbeTimeout),
+        run: runContainerCommand,
       );
     }
     if (_bodyIdentity != identity) {

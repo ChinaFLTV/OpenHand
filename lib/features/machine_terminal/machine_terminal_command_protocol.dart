@@ -24,8 +24,8 @@ String machineTerminalCommandPayload({
     case MachineTerminalCommandShell.probe:
       return 'echo __${beginMarker}__\r\n${command.replaceAll('\n', '\r\n')}\r\necho __${endMarker}__:0\r\n';
     case MachineTerminalCommandShell.powershell:
-      return "Write-Output ''; Write-Output '__${beginMarker}__'\r\n"
-          "& { \$ErrorActionPreference='Stop'; \$LASTEXITCODE=0; try { $command; "
+      return "& { Write-Output ''; Write-Output '__${beginMarker}__'; "
+          "\$ErrorActionPreference='Stop'; \$LASTEXITCODE=0; try { $command; "
           "if (-not \$?) { throw '命令执行失败。' }; "
           "Write-Output ''; Write-Output ('__${endMarker}__:' + \$LASTEXITCODE) "
           "} catch { Write-Output \$_; Write-Output ''; Write-Output '__${endMarker}__:1' } }\r\n";
@@ -34,11 +34,12 @@ String machineTerminalCommandPayload({
           '$command\r\n'
           'echo. & echo __${endMarker}__:%ERRORLEVEL%\r\n';
     default:
-      return "printf '\\n__%s__\\n' '$beginMarker'\n"
+      // 整帧作为一个复合命令执行，避免旧版 Bash 的 PS1/PS2 混入采集结果。
+      return "(\nprintf '\\n__%s__\\n' '$beginMarker'\n"
           '(\n$command\n)\n'
           '__openhand_status=\$?\n'
           'stty echo 2>/dev/null\n'
-          "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n";
+          "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n)\n";
   }
 }
 

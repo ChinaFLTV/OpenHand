@@ -13415,6 +13415,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceContainerTab => 'コンテナー';
 
   @override
+  String get maintenanceContainerAuto => '自動検出';
+
+  @override
   String get maintenanceContainerRuntime => 'コンテナーランタイム';
 
   @override

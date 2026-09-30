@@ -10046,6 +10046,7 @@
     "description": "服务器运维界面文案"
   },
   "maintenanceContainerTab": "容器管理",
+  "maintenanceContainerAuto": "自动识别",
   "maintenanceContainerRuntime": "容器运行时",
   "maintenanceContainerList": "容器",
   "maintenanceContainerPods": "Pod",

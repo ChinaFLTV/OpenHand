@@ -9,6 +9,7 @@ Future<void> main() => runFlutterWidgetCheck(
   name: 'machine_maintenance_terminal',
   source: r'''
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/machine_terminal/machine_terminal_service.dart';
@@ -16,9 +17,55 @@ import 'package:openhand/features/machine_terminal/machine_terminal_file_service
 import 'package:openhand/features/machine_terminal/machine_terminal_command_protocol.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance_platform.dart';
+import 'package:openhand/features/machine_terminal/machine_containers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('普通输入模式的交互 Bash 保持容器上下文和 JSON 输出纯净', () async {
+    if (Platform.isWindows) return;
+    final directory = await Directory.systemTemp.createTemp('openhand-container-terminal-');
+    final service = MachineTerminalService(sessionsDirectoryPath: directory.path);
+    final files = MachineTerminalFileService(service);
+    try {
+      await service.ensureWorkspace(sessionId: 'container-check', workingDirectory: directory.path, start: false);
+      final terminal = service.activeTerminal('container-check')!;
+      await terminal.start();
+      terminal.writeInput('/bin/bash --noprofile --norc\n');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      terminal.writeInput("PS1='[root@test ~]# '; PS2='> '; bind 'set enable-bracketed-paste off' 2>/dev/null\n");
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      Future<String> run(String command) => files.runMaintenanceCommand(
+        sessionId: 'container-check', terminalId: terminal.id, command: command,
+        maxOutputCharacters: machineContainerOutputLimit,
+        commandShell: MachineTerminalCommandShell.posix);
+      expect((await run("printf 'default\\n'")).trim(), 'default');
+      terminal.writeInput(r"""
+docker() {
+  case "$1" in
+    context) printf 'default\n';;
+    ps) printf '%s\n' '{"ID":"abc123","Names":"服务","State":"running"}';;
+    info) printf '%s\n' '{"ServerVersion":"27.5.1"}';;
+    stats) printf '%s\n' '{"Name":"服务","CPUPerc":"4.2%"}';;
+    *) return 64;;
+  esac
+}
+""");
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final selected = await discoverMachineContainers(run: run);
+      expect(selected.client.contextName, 'default');
+      expect(selected.entries.single.name, '服务');
+      expect(jsonDecode(await selected.client.execute(selected.client.metadataArguments))['ServerVersion'], '27.5.1');
+      expect(jsonDecode(await selected.client.execute(selected.client.metricsArguments))['CPUPerc'], '4.2%');
+      expect((await run("printf '%s\\n' '[root@test ~]# 这是数据' '> 这也是数据'")).trim(),
+          '[root@test ~]# 这是数据\n> 这也是数据');
+      await expectLater(run('exit 7'), throwsStateError);
+      expect((await run("printf '失败后可用'")).trim(), '失败后可用');
+    } finally {
+      await files.shutdown(); files.dispose();
+      await service.shutdown(); service.dispose();
+      await directory.delete(recursive: true);
+    }
+  }, timeout: const Timeout(Duration(minutes: 1)));
   test('真实登录终端连续采集、超时恢复和取消后复用', () async {
     final directory = await Directory.systemTemp.createTemp('openhand-terminal-check-');
     final service = MachineTerminalService(sessionsDirectoryPath: directory.path);

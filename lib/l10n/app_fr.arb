@@ -8967,6 +8967,7 @@
   "maintenanceArguments": "Arguments",
   "maintenanceConsole": "Console",
   "maintenanceContainerTab": "Conteneurs",
+  "maintenanceContainerAuto": "Détection automatique",
   "maintenanceContainerRuntime": "Moteur de conteneurs",
   "maintenanceContainerList": "Conteneurs",
   "maintenanceContainerPods": "Pods",

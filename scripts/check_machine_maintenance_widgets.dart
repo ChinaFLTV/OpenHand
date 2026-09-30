@@ -93,6 +93,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   int egressCalls = 0;
   bool egressFail = false;
   Completer<String>? egressPending;
+  Future<String> Function(String)? containerRun;
   int calls = 0;
   int probes = 0;
   String lastCommand = "";
@@ -105,6 +106,7 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   MachineTerminalUploadCancelCheck? cancelled;
   @override
   Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, Duration timeout = const Duration(seconds: 30), int? maxOutputCharacters, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled}) async {
+    if (containerRun != null && RegExp(r"^'(docker|kubectl|podman|nerdctl|crictl|k3s)' ").hasMatch(command)) return containerRun!(command);
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
@@ -249,9 +251,139 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
-    expect(calls.any((c) => c.contains("'--context' 'default' 'stats'")), isTrue);
+    expect(calls.any((c) => c.contains("'docker' 'stats'")), isTrue);
     await tester.binding.setSurfaceSize(null);
   });
+  testWidgets('Docker 不可用时发现 Kubernetes，指标失败保留列表且显式选择不跳转', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    final calls = <String>[];
+    Future<String> run(String command) async {
+      calls.add(command);
+      if (!command.startsWith("'kubectl'")) throw StateError('command not found');
+      if (command.contains("'current-context'")) return '测试集群';
+      if (command.contains("'-n' 'forbidden'")) throw StateError('permission denied');
+      if (command.contains("'get' 'pods'")) return jsonEncode({'items': [{
+        'metadata': {'uid':'pod-1', 'name':'web-pod', 'namespace':'production'},
+        'spec': {'nodeName':'node-1', 'containers':[{'name':'web', 'image':'nginx'}]},
+        'status': {'phase':'Running', 'containerStatuses':[{'name':'web', 'ready':true, 'state':{'running':{}}}]},
+      }]});
+      if (command.contains("'version'")) return '{"clientVersion":{"gitVersion":"v1.31"}}';
+      if (command.contains("'get' 'nodes'")) return '{"items":[]}';
+      throw StateError('Metrics API not available');
+    }
+    await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),
+      localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
+        windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    expect(state._runtime, MachineContainerRuntime.kubernetes);
+    expect(state._entries.length, 2);
+    expect(state._entries.where((entry) => entry.running).length, 2);
+    expect(state._contextName, '测试集群');
+    expect(state._listingFailed, isFalse);
+    expect(state._metrics, contains('Metrics API not available'));
+    expect(find.text('自动识别 · Kubernetes'), findsOneWidget);
+    state._scope.text = 'forbidden';
+    await state.refresh(); await tester.pumpAndSettle();
+    expect(state._entries.length, 2);
+    expect(state._scope.text, 'forbidden');
+    expect(state._appliedScope, '');
+    expect(calls.any((command) => command.contains("'-n' 'forbidden'")), isFalse);
+    await state.refresh(applyScope:true); await tester.pumpAndSettle();
+    expect(state._autoRuntime, isFalse);
+    expect(state._entries, isEmpty);
+    expect(state._client, isNull);
+    expect(state._listingFailed, isTrue);
+    expect(calls.any((command) => command.contains("'-n' 'forbidden'")), isTrue);
+    expect(calls.any((command) => command.startsWith("'k3s'")), isFalse);
+    final before = calls.where((command) => command.startsWith("'kubectl'")).length;
+    final menu = tester.widget<_MaintenanceToolbarMenu<String>>(find.byType(_MaintenanceToolbarMenu<String>));
+    menu.onSelected('docker');
+    await tester.pumpAndSettle();
+    expect(state._runtime, MachineContainerRuntime.docker);
+    expect(state._autoRuntime, isFalse);
+    expect(state._listingFailed, isTrue);
+    expect(state._client, isNull);
+    expect(find.text('容器 · 0'), findsNothing);
+    expect(calls.where((command) => command.startsWith("'kubectl'")).length, before);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器刷新失败保留已有数据并禁用操作，恢复后重新启用', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    var fail = false;
+    final calls = <String>[];
+    Future<String> run(String command) async {
+      calls.add(command);
+      if (fail) throw StateError('connection refused');
+      if (command.contains("'context' 'show'")) return 'default';
+      if (command.contains("'ps'")) return '{"ID":"abc123","Names":"worker","State":"running"}';
+      return '{}';
+    }
+    await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),
+      localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
+        windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final entry = state._entries.single;
+    fail = true;
+    await state.refresh(); await tester.pumpAndSettle();
+    expect(state._entries.single, same(entry));
+    expect(state._client, isNotNull);
+    expect(state._listingFailed, isTrue);
+    final attempts = calls.length;
+    await state._open(entry, '停止');
+    expect(calls.length, attempts);
+    fail = false;
+    await state.refresh(); await tester.pumpAndSettle();
+    expect(state._listingFailed, isFalse);
+    expect(state._collectionIssues, isEmpty);
+    expect(state._error, isEmpty);
+    expect(state._entries.single.name, 'worker');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('容器采集失败保留缓存时仍暂停自动刷新', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1100));
+    var fail = false;
+    var calls = 0;
+    final service = _MaintenanceFixture()..containerRun = (command) async {
+      calls++;
+      if (fail) throw StateError('connection refused');
+      if (command.contains("'context' 'show'")) return 'default';
+      if (command.contains("'ps'")) return '{"ID":"abc123","Names":"worker","State":"running"}';
+      return '{}';
+    };
+    await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value:service,
+      child:const MaterialApp(locale:Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+        supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:_MachineMaintenanceDialog(sessionId:'会话',terminalId:'终端')))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('容器管理')); await tester.pumpAndSettle();
+    await tester.tap(find.text('容器管理')); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final panel = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    expect(panel._entries.single.name, 'worker');
+    state.setState(() => state._automatic = true);
+    fail = true;
+    await state._refresh(detectShell:false); await tester.pumpAndSettle();
+    expect(panel._entries.single.name, 'worker');
+    expect(panel._listingFailed, isTrue);
+    expect(state._automatic, isFalse);
+    final stoppedCalls = calls;
+    await tester.pump(const Duration(seconds:30));
+    expect(calls, stoppedCalls);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器面板六种语言、窄屏与大字体保持一致的工具栏和状态布局', (tester) async {
     final locales = [const Locale('zh'), const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
       const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')];
@@ -284,7 +416,7 @@ void main() {
         final input = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == l.maintenanceContainerSearch);
         expect(tester.getSize(input).height, _maintenanceControlHeight);
         expect(tester.getSize(find.descendant(of: input, matching: find.byType(InputDecorator))).height, _maintenanceControlHeight);
-        expect(tester.getSize(find.byType(_MaintenanceToolbarMenu<MachineContainerRuntime>)).height, _maintenanceControlHeight);
+        expect(tester.getSize(find.byType(_MaintenanceToolbarMenu<String>)).height, _maintenanceControlHeight);
         final contextRect = tester.getRect(find.text(l.maintenanceContainerContext + ' · desktop-linux'));
         final searchRect = tester.getRect(input);
         if (width >= 500) {

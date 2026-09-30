@@ -13289,6 +13289,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceContainerTab => '容器管理';
 
   @override
+  String get maintenanceContainerAuto => '自动识别';
+
+  @override
   String get maintenanceContainerRuntime => '容器运行时';
 
   @override
@@ -27771,6 +27774,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerTab => '容器管理';
+
+  @override
+  String get maintenanceContainerAuto => '自動識別';
 
   @override
   String get maintenanceContainerRuntime => '容器執行階段';

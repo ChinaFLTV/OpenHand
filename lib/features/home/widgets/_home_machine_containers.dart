@@ -6,11 +6,13 @@ class _MachineContainerPanel extends StatefulWidget {
     required this.sessionId,
     required this.terminalId,
     required this.run,
+    this.probe,
     required this.windows,
     required this.shell,
   });
   final String sessionId, terminalId;
   final Future<String> Function(String) run;
+  final Future<String> Function(String)? probe;
   final bool windows;
   final MachineTerminalCommandShell shell;
   @override
@@ -24,8 +26,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
   String _metadata = '', _metrics = '', _error = '', _contextName = '';
+  String _appliedScope = '';
   Map<String, String> _collectionIssues = {};
-  bool _busy = false, _overlay = false;
+  bool _busy = false, _overlay = false, _autoRuntime = true;
+  bool _listingFailed = false;
 
   @override
   void initState() {
@@ -40,43 +44,42 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     super.dispose();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool reset = false, bool applyScope = false}) async {
     if (_busy || _overlay || !mounted) return;
+    final scope = reset || applyScope ? _scope.text.trim() : _appliedScope;
+    final preserveDraft =
+        !reset && !applyScope && _scope.text.trim() != _appliedScope;
     setState(() {
+      final scopeChanged = !reset && scope != _appliedScope;
+      if (scopeChanged) _autoRuntime = false;
+      if (reset || scopeChanged) {
+        _entries = [];
+        _client = null;
+        _metadata = '';
+        _metrics = '';
+        _contextName = '';
+        _listingFailed = false;
+      }
+      _appliedScope = scope;
       _busy = true;
       _error = '';
       _collectionIssues = {};
     });
     final errors = <String, String>{};
-    var client = MachineContainerClient(
-      runtime: _runtime,
-      run: widget.run,
-      scope: _scope.text.trim(),
-      windows: widget.windows,
-    );
     try {
-      if (_runtime == MachineContainerRuntime.kubernetes ||
-          _runtime == MachineContainerRuntime.docker) {
-        _contextName = (await client.execute(
-          _runtime == MachineContainerRuntime.kubernetes
-              ? ['config', 'current-context']
-              : ['context', 'show'],
-        )).trim();
-        if (_contextName.isEmpty) throw StateError('未找到当前连接上下文。');
-        client = MachineContainerClient(
-          runtime: _runtime,
-          run: widget.run,
-          scope: _scope.text.trim(),
-          contextName: _contextName,
-          windows: widget.windows,
-        );
-      } else {
-        _contextName = '';
-      }
+      final selected = await discoverMachineContainers(
+        run: widget.run,
+        probe: widget.probe,
+        runtime: _autoRuntime ? null : _runtime,
+        preferred: _client?.scope == scope ? _client : null,
+        scope: scope,
+        windows: widget.windows,
+        isCancelled: () => !mounted,
+      );
       if (!mounted) return;
-      final entries = client.parse(await client.execute(client.listArguments));
-      if (!mounted) return;
-      if (_runtime == MachineContainerRuntime.cri) {
+      final client = selected.client;
+      final entries = selected.entries;
+      if (client.runtime == MachineContainerRuntime.cri) {
         try {
           entries.addAll(
             client.parse(
@@ -92,6 +95,11 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       setState(() {
         _entries = entries;
         _client = client;
+        _runtime = client.runtime;
+        _appliedScope = client.scope;
+        if (!preserveDraft) _scope.text = client.scope;
+        _contextName = client.contextName;
+        _listingFailed = false;
       });
       try {
         _metadata = await client.execute(client.metadataArguments);
@@ -103,7 +111,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         try {
           final nodes = await client.execute(['get', 'nodes', '-o', 'json']);
           _metadata = jsonEncode({
-            '版本': jsonDecode(_metadata),
+            if (_metadata.trimLeft().startsWith('{'))
+              '版本': jsonDecode(_metadata),
             '节点': jsonDecode(nodes),
           });
         } catch (error) {
@@ -123,11 +132,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = '$error';
-          _entries = [];
-          _client = null;
-          _metadata = '';
-          _metrics = '';
+          _listingFailed = true;
+          if (error is MachineContainerDiscoveryException) {
+            _error = error.issues.values.first;
+            _collectionIssues = Map.fromEntries(error.issues.entries.skip(1));
+          } else {
+            _error = '$error';
+          }
         });
       }
     } finally {
@@ -141,7 +152,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
 
   Future<void> _open(MachineContainerEntry entry, String action) async {
     final client = _client;
-    if (_busy || _overlay || client == null) return;
+    if (_busy || _overlay || _listingFailed || client == null) return;
     setState(() {
       _overlay = true;
     });
@@ -329,16 +340,15 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           kubernetes || _runtime == MachineContainerRuntime.cri;
       return _MaintenanceCard(
         title:
-            '${maintenanceLabel(context, pods ? 'Pod' : '容器')} · ${values.length}',
+            '${maintenanceLabel(context, pods ? 'Pod' : '容器')}'
+            '${_client == null ? '' : ' · ${values.length}'}',
         icon: pods ? Icons.layers_outlined : Icons.inventory_2_outlined,
         scrollBody: false,
         child: values.isEmpty
             ? _MaintenanceEmptyHint(
                 message: maintenanceLabel(
                   context,
-                  _error.isNotEmpty && _client == null
-                      ? '当前数据暂不可用'
-                      : '当前范围没有记录',
+                  _listingFailed && _client == null ? '当前数据暂不可用' : '当前范围没有记录',
                 ),
               )
             : _MaintenanceTable(
@@ -356,7 +366,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         .toList(),
                 maxBodyHeight: 360,
                 rowActions: (row) => {
-                  if (!_busy && !_overlay)
+                  if (!_busy && !_overlay && !_listingFailed)
                     for (final action
                         in _client?.actions(
                               row.data as MachineContainerEntry,
@@ -366,7 +376,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         maintenanceLabel(context, action): () =>
                             _open(row.data as MachineContainerEntry, action),
                 },
-                onRowTap: _busy || _overlay
+                onRowTap: _busy || _overlay || _listingFailed
                     ? null
                     : (row) => _open(row.data as MachineContainerEntry, '详情'),
                 rows: [
@@ -483,27 +493,32 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 runSpacing: 10,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _MaintenanceToolbarMenu<MachineContainerRuntime>(
-                    label: _runtime.label,
+                  _MaintenanceToolbarMenu<String>(
+                    label: _autoRuntime
+                        ? '${AppLocalizations.of(context)!.maintenanceContainerAuto}'
+                              '${_client == null ? '' : ' · ${_runtime.label}'}'
+                        : _runtime.label,
                     tooltip: '容器运行时',
-                    value: _runtime,
+                    value: _autoRuntime ? 'auto' : _runtime.name,
                     enabled: !_busy && !_overlay,
                     items: {
+                      'auto': AppLocalizations.of(
+                        context,
+                      )!.maintenanceContainerAuto,
                       for (final runtime in MachineContainerRuntime.values)
-                        runtime: runtime.label,
+                        runtime.name: runtime.label,
                     },
-                    onSelected: (runtime) {
-                      if (runtime == _runtime) return;
+                    onSelected: (value) {
                       setState(() {
-                        _runtime = runtime;
+                        _autoRuntime = value == 'auto';
+                        if (!_autoRuntime) {
+                          _runtime = MachineContainerRuntime.values.byName(
+                            value,
+                          );
+                        }
                         _scope.clear();
-                        _contextName = '';
-                        _entries = [];
-                        _client = null;
-                        _metadata = '';
-                        _metrics = '';
                       });
-                      refresh();
+                      refresh(reset: true);
                     },
                   ),
                   if (hasScope)
@@ -517,7 +532,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                           enabled: !_busy && !_overlay,
                           style: theme.textTheme.bodySmall,
                           decoration: decoration(scopeHint),
-                          onSubmitted: (_) => refresh(),
+                          onSubmitted: (_) => refresh(applyScope: true),
                         ),
                       ),
                     ),
@@ -580,7 +595,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               final refreshButton = SizedBox.square(
                 dimension: _maintenanceControlHeight,
                 child: _MachineTerminalIconButton(
-                  onPressed: _busy || _overlay ? null : refresh,
+                  onPressed: _busy || _overlay
+                      ? null
+                      : () => refresh(applyScope: true),
                   tooltip: maintenanceLabel(context, '刷新容器数据'),
                   icon: Icons.refresh_rounded,
                 ),
@@ -621,27 +638,33 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           ),
         if (_collectionIssues.isNotEmpty) ...[
           const SizedBox(height: _maintenanceGridGap),
-          _MaintenanceReadout(
-            report: MachineMaintenanceReadout(
-              [],
-              [],
-              groups: {
-                for (final issue in _collectionIssues.entries)
-                  maintenanceDetailLabel(
-                    context,
-                    issue.key,
-                  ): MachineMaintenanceReadout(
-                    ['名称', '数值'],
-                    machineMaintenanceDiagnosticFields(issue.value),
-                    fields: true,
-                    issue:
-                        machineMaintenanceCollectionIssue(
-                          issue.value,
-                          'containers',
-                        ) ??
-                        'unavailable',
-                  ),
-              },
+          _MaintenanceSection(
+            title: maintenanceLabel(context, '诊断项目'),
+            icon: Icons.manage_search_rounded,
+            initiallyExpanded: !_listingFailed,
+            child: _MaintenanceReadout(
+              section: 'containers',
+              report: MachineMaintenanceReadout(
+                [],
+                [],
+                groups: {
+                  for (final issue in _collectionIssues.entries)
+                    maintenanceDetailLabel(
+                      context,
+                      issue.key,
+                    ): MachineMaintenanceReadout(
+                      ['名称', '数值'],
+                      machineMaintenanceDiagnosticFields(issue.value),
+                      fields: true,
+                      issue:
+                          machineMaintenanceCollectionIssue(
+                            issue.value,
+                            'containers',
+                          ) ??
+                          'unavailable',
+                    ),
+                },
+              ),
             ),
           ),
         ],

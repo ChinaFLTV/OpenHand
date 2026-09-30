@@ -13901,6 +13901,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get maintenanceContainerTab => 'Conteneurs';
 
   @override
+  String get maintenanceContainerAuto => 'Détection automatique';
+
+  @override
   String get maintenanceContainerRuntime => 'Moteur de conteneurs';
 
   @override

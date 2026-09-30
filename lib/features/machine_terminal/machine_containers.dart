@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
 
 const machineContainerOutputLimit = 2 * 1024 * 1024;
+const machineContainerProbeTimeout = Duration(seconds: 6);
+const machineContainerDiscoveryTimeout = Duration(seconds: 40);
+const _machineContainerNamespaceLimit = 8;
 
 enum MachineContainerRuntime {
   docker('Docker', 'docker'),
@@ -13,6 +17,130 @@ enum MachineContainerRuntime {
 
   const MachineContainerRuntime(this.label, this.executable);
   final String label, executable;
+}
+
+typedef MachineContainerSelection = ({
+  MachineContainerClient client,
+  List<MachineContainerEntry> entries,
+});
+
+class MachineContainerDiscoveryException implements Exception {
+  const MachineContainerDiscoveryException(this.issues);
+  final Map<String, String> issues;
+
+  @override
+  String toString() =>
+      issues.entries.map((entry) => '${entry.key}: ${entry.value}').join('\n');
+}
+
+/// 先复用已确认的连接；首次自动识别优先选择有记录的运行时。
+Future<MachineContainerSelection> discoverMachineContainers({
+  required Future<String> Function(String) run,
+  Future<String> Function(String)? probe,
+  MachineContainerClient? preferred,
+  MachineContainerRuntime? runtime,
+  String scope = '',
+  bool windows = false,
+  bool Function()? isCancelled,
+}) async {
+  final elapsed = Stopwatch()..start();
+  void checkCancelled() {
+    if (isCancelled?.call() ?? false) throw StateError('容器采集已取消。');
+  }
+
+  Future<String> query(String command, {bool connected = false}) async {
+    checkCancelled();
+    if (elapsed.elapsed >= machineContainerDiscoveryTimeout) {
+      throw TimeoutException('容器运行时识别超时。');
+    }
+    final result = await (connected ? run : probe ?? run)(command);
+    checkCancelled();
+    return result;
+  }
+
+  final runtimes = runtime == null
+      ? [
+          MachineContainerRuntime.docker,
+          MachineContainerRuntime.kubernetes,
+          MachineContainerRuntime.podman,
+          MachineContainerRuntime.containerd,
+          MachineContainerRuntime.cri,
+        ]
+      : [runtime];
+  final candidates = [
+    if (preferred != null)
+      preferred.copyWith(run: (command) => query(command, connected: true)),
+    for (final candidate in runtimes)
+      MachineContainerClient(
+        runtime: candidate,
+        run: (command) => query(command, connected: runtime != null),
+        scope: runtime == null ? '' : scope,
+        windows: windows,
+      ),
+    if (!windows && runtime == null)
+      for (final candidate in [
+        MachineContainerRuntime.kubernetes,
+        MachineContainerRuntime.cri,
+      ])
+        MachineContainerClient(
+          runtime: candidate,
+          run: query,
+          launcher: ['k3s', candidate.executable],
+        ),
+  ];
+  final issues = <String, String>{};
+  final attempted = <(MachineContainerRuntime, String, String)>{};
+  MachineContainerSelection? empty;
+  try {
+    for (var client in candidates) {
+      checkCancelled();
+      final executable = client.launcher.isEmpty
+          ? client.runtime.executable
+          : client.launcher.join(' ');
+      if (!attempted.add((client.runtime, executable, client.scope))) continue;
+      if (elapsed.elapsed >= machineContainerDiscoveryTimeout) break;
+      try {
+        client = await client.resolveContext();
+        final entries = client.parse(
+          await client.execute(client.listArguments),
+        );
+        final selection = (client: client.copyWith(run: run), entries: entries);
+        if (entries.isNotEmpty ||
+            runtime != null ||
+            preferred != null && client.runtime == preferred.runtime) {
+          return selection;
+        }
+        empty ??= selection;
+        if (client.runtime == MachineContainerRuntime.containerd &&
+            scope.isEmpty) {
+          final namespaces = (await client.execute(['namespace', 'ls', '-q']))
+              .split('\n')
+              .map((name) => name.trim())
+              .where((name) => name.isNotEmpty && name != 'default')
+              .toSet()
+              .take(_machineContainerNamespaceLimit);
+          for (final namespace in namespaces) {
+            final scoped = client.copyWith(scope: namespace);
+            final rows = scoped.parse(
+              await scoped.execute(scoped.listArguments),
+            );
+            if (rows.isNotEmpty) {
+              return (client: scoped.copyWith(run: run), entries: rows);
+            }
+          }
+        }
+      } on Exception catch (error) {
+        issues[executable] = '$error';
+      } on StateError catch (error) {
+        issues[executable] = '$error';
+      }
+    }
+    checkCancelled();
+    if (empty != null) return empty;
+    throw MachineContainerDiscoveryException(issues);
+  } finally {
+    elapsed.stop();
+  }
 }
 
 class MachineContainerEntry {
@@ -56,17 +184,37 @@ class MachineContainerClient {
     this.scope = '',
     this.contextName = '',
     this.windows = false,
+    this.launcher = const [],
+    this.inheritDockerHost = false,
   });
   final MachineContainerRuntime runtime;
   final Future<String> Function(String command) run;
   final String scope, contextName;
   final bool windows;
+  final List<String> launcher;
+  final bool inheritDockerHost;
+
+  MachineContainerClient copyWith({
+    Future<String> Function(String command)? run,
+    String? scope,
+    String? contextName,
+    bool? inheritDockerHost,
+  }) => MachineContainerClient(
+    runtime: runtime,
+    run: run ?? this.run,
+    scope: scope ?? this.scope,
+    contextName: contextName ?? this.contextName,
+    windows: windows,
+    launcher: launcher,
+    inheritDockerHost: inheritDockerHost ?? this.inheritDockerHost,
+  );
 
   String command(List<String> arguments) {
     final args = [
-      runtime.executable,
+      if (launcher.isEmpty) runtime.executable else ...launcher,
       if (runtime == MachineContainerRuntime.docker &&
-          contextName.isNotEmpty) ...[
+          contextName.isNotEmpty &&
+          !inheritDockerHost) ...[
         '--context',
         contextName,
       ],
@@ -103,6 +251,36 @@ class MachineContainerClient {
     return output;
   }
 
+  /// 上下文查询只是可选能力，旧版客户端不支持时仍以实际列表查询为准。
+  Future<MachineContainerClient> resolveContext() async {
+    if (contextName.isNotEmpty ||
+        (runtime != MachineContainerRuntime.docker &&
+            runtime != MachineContainerRuntime.kubernetes)) {
+      return this;
+    }
+    String name;
+    try {
+      name = (await execute(
+        runtime == MachineContainerRuntime.docker
+            ? ['context', 'show']
+            : ['config', 'current-context'],
+      )).trim();
+    } on Exception {
+      return this;
+    } on StateError {
+      return this;
+    }
+    if (name.isEmpty || name.contains(RegExp(r'[\r\n\x00-\x1f]'))) {
+      return this;
+    }
+    return copyWith(
+      contextName: name,
+      // 默认上下文不能覆盖目标终端通过 DOCKER_HOST 选定的连接。
+      inheritDockerHost:
+          runtime == MachineContainerRuntime.docker && name == 'default',
+    );
+  }
+
   List<String> get listArguments => switch (runtime) {
     MachineContainerRuntime.kubernetes => [
       'get',
@@ -133,11 +311,15 @@ class MachineContainerClient {
 
   List<MachineContainerEntry> parse(String output, {bool pods = false}) {
     final trimmed = output.trim();
-    if (trimmed.isEmpty) return [];
+    final structured =
+        runtime == MachineContainerRuntime.kubernetes ||
+        runtime == MachineContainerRuntime.cri;
+    if (trimmed.isEmpty) {
+      if (structured) throw const FormatException('容器列表响应为空。');
+      return [];
+    }
     dynamic decoded;
-    if (runtime == MachineContainerRuntime.kubernetes ||
-        runtime == MachineContainerRuntime.cri ||
-        trimmed.startsWith('[')) {
+    if (structured || trimmed.startsWith('[')) {
       decoded = jsonDecode(trimmed);
     } else {
       decoded = trimmed
@@ -147,15 +329,29 @@ class MachineContainerClient {
           .toList();
     }
     final result = <MachineContainerEntry>[];
-    String value(dynamic value) => value?.toString() ?? '';
+    String value(dynamic value) => value is List
+        ? value.map((item) => item.toString()).join(', ')
+        : value?.toString() ?? '';
+    if (structured &&
+        (decoded is! Map ||
+            decoded[runtime == MachineContainerRuntime.kubernetes || pods
+                    ? 'items'
+                    : 'containers']
+                is! List)) {
+      throw const FormatException('容器列表响应格式无效。');
+    }
     if (runtime == MachineContainerRuntime.kubernetes) {
       for (final item in (decoded['items'] as List? ?? [])) {
+        if (item is! Map) throw const FormatException('Pod 列表条目格式无效。');
         final m = Map<String, dynamic>.from(item['metadata'] as Map? ?? {});
         final status = item['status'] as Map? ?? {};
         final spec = item['spec'] as Map? ?? {};
         final namespace = value(m['namespace']);
         final name = value(m['name']);
         final uid = value(m['uid']);
+        if (name.isEmpty || uid.isEmpty || namespace.isEmpty) {
+          throw const FormatException('Pod 列表缺少身份字段。');
+        }
         final statuses = <dynamic>[
           ...?status['containerStatuses'],
           ...?status['initContainerStatuses'],
@@ -209,14 +405,23 @@ class MachineContainerClient {
           ? decoded
           : decoded[pods ? 'items' : 'containers'] as List? ?? [];
       for (final raw in items) {
-        final m = Map<String, dynamic>.from(raw as Map);
+        if (raw is! Map) throw const FormatException('容器列表条目格式无效。');
+        final m = Map<String, dynamic>.from(raw);
         final meta = m['metadata'] as Map? ?? {};
         final image = m['image'];
+        final id = value(m['ID'] ?? m['Id'] ?? m['id']);
+        final state = value(m['State'] ?? m['Status'] ?? m['state']);
+        if (id.isEmpty) throw const FormatException('容器列表缺少身份字段。');
         result.add(
           MachineContainerEntry(
-            id: value(m['ID'] ?? m['Id'] ?? m['id']),
+            id: id,
             name: value(m['Names'] ?? m['Name'] ?? meta['name'] ?? m['id']),
-            state: value(m['State'] ?? m['Status'] ?? m['state']),
+            state: switch (state.toLowerCase()) {
+              final status when status.startsWith('up ') =>
+                status.contains('(paused)') ? 'paused' : 'running',
+              final status when status.startsWith('exited ') => 'exited',
+              _ => state,
+            },
             image: value(image is Map ? image['image'] : m['Image'] ?? image),
             created: value(m['CreatedAt'] ?? m['createdAt']),
             ports: value(m['Ports']),

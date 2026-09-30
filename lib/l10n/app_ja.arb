@@ -8967,6 +8967,7 @@
   "maintenanceArguments": "起動引数",
   "maintenanceConsole": "コンソール",
   "maintenanceContainerTab": "コンテナー",
+  "maintenanceContainerAuto": "自動検出",
   "maintenanceContainerRuntime": "コンテナーランタイム",
   "maintenanceContainerList": "コンテナー",
   "maintenanceContainerPods": "Pod",

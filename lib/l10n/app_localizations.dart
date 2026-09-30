@@ -24713,6 +24713,12 @@ abstract class AppLocalizations {
   /// **'容器管理'**
   String get maintenanceContainerTab;
 
+  /// No description provided for @maintenanceContainerAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动识别'**
+  String get maintenanceContainerAuto;
+
   /// No description provided for @maintenanceContainerRuntime.
   ///
   /// In zh, this message translates to:

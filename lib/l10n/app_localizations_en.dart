@@ -13710,6 +13710,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceContainerTab => 'Containers';
 
   @override
+  String get maintenanceContainerAuto => 'Auto-detect';
+
+  @override
   String get maintenanceContainerRuntime => 'Container runtime';
 
   @override

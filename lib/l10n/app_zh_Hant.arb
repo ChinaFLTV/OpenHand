@@ -8967,6 +8967,7 @@
   "maintenanceArguments": "啟動參數",
   "maintenanceConsole": "主控台",
   "maintenanceContainerTab": "容器管理",
+  "maintenanceContainerAuto": "自動識別",
   "maintenanceContainerRuntime": "容器執行階段",
   "maintenanceContainerList": "容器",
   "maintenanceContainerPods": "Pod",

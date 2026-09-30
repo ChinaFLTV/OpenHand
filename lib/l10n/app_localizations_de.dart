@@ -13851,6 +13851,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceContainerTab => 'Container';
 
   @override
+  String get maintenanceContainerAuto => 'Automatisch erkennen';
+
+  @override
   String get maintenanceContainerRuntime => 'Container-Laufzeit';
 
   @override

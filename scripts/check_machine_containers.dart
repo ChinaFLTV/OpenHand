@@ -22,6 +22,14 @@ Future<void> main() async {
 {"ID":"def456","Names":"暂停服务","State":"paused"}
 ''');
   check(containers.length == 2 && containers.first.running, 'Docker 列表解析失败');
+  final statuses = docker.parse('''
+{"ID":"up-1","Names":"服务","Status":"Up 2 minutes"}
+{"ID":"paused-1","Names":"暂停服务","Status":"Up 2 minutes (Paused)"}
+''');
+  check(
+    statuses.first.running && statuses.last.state == 'paused',
+    '只有 Status 的客户端未识别运行和暂停状态',
+  );
   check(docker.actions(containers.first).contains('文件管理'), '运行容器缺少文件入口');
   check(!docker.actions(containers.last).contains('删除'), '暂停容器不应提供直接删除');
   check(docker.actions(containers.last).contains('恢复'), '暂停容器缺少恢复');
@@ -129,5 +137,158 @@ Future<void> main() async {
     rejected = true;
   }
   check(rejected, '超大报告未限制');
-  stdout.writeln('容器解析、状态菜单、作用域引用、Pod 身份与输出限制检查通过。');
+  final discoveryCalls = <String>[];
+  Future<String> autoRun(String command) async {
+    discoveryCalls.add(command);
+    if (command.startsWith("'docker'")) {
+      return command.contains("'context' 'show'") ? 'default' : '';
+    }
+    if (command.startsWith("'kubectl'")) {
+      return command.contains("'current-context'")
+          ? '生产集群'
+          : jsonEncode({
+              'items': [pod],
+            });
+    }
+    throw StateError('不应探测已有数据之后的运行时。');
+  }
+
+  final detected = await discoverMachineContainers(run: autoRun);
+  check(
+    detected.client.runtime == MachineContainerRuntime.kubernetes &&
+        detected.entries.length == 3,
+    '空 Docker 列表阻断了 Kubernetes 发现',
+  );
+  check(detected.client.contextName == '生产集群', 'Kubernetes 上下文未保留');
+  check(discoveryCalls.length == 4, '有数据后仍在重复探测运行时');
+  discoveryCalls.clear();
+  await discoverMachineContainers(
+    run: autoRun,
+    probe: (_) async => throw StateError('已连接运行时不应重新发现。'),
+    preferred: detected.client,
+  );
+  check(discoveryCalls.length == 1, '刷新没有复用已有运行时');
+
+  for (final legacy in [false, true]) {
+    final selected = await discoverMachineContainers(
+      runtime: MachineContainerRuntime.docker,
+      run: (command) async {
+        if (command.contains("'context' 'show'")) {
+          if (legacy) {
+            throw StateError("docker: 'context' is not a docker command.");
+          }
+          return 'default';
+        }
+        check(!command.contains("'--context'"), '默认上下文覆盖了 DOCKER_HOST');
+        return '{"ID":"legacy-1","Names":"服务","State":"running"}';
+      },
+    );
+    check(selected.entries.single.running, '旧版 Docker 的列表被上下文探测阻断');
+  }
+
+  final namespaced = await discoverMachineContainers(
+    run: (command) async {
+      if (!command.startsWith("'nerdctl'")) {
+        throw StateError('command not found');
+      }
+      if (command.contains("'namespace' 'ls' '-q'")) return 'default\nk8s.io\n';
+      return command.contains("'--namespace' 'k8s.io'")
+          ? '{"ID":"worker-1","Names":"工作负载","State":"running"}'
+          : '';
+    },
+  );
+  check(
+    namespaced.client.scope == 'k8s.io' && namespaced.entries.length == 1,
+    'containerd 的非默认命名空间未被发现',
+  );
+  check(
+    namespaced.client.command(['info']).contains("'--namespace' 'k8s.io'"),
+    '后续操作丢失 containerd 命名空间',
+  );
+
+  final embedded = await discoverMachineContainers(
+    run: (command) async {
+      if (!command.startsWith("'k3s' 'kubectl'")) {
+        throw StateError('command not found');
+      }
+      return command.contains("'current-context'")
+          ? 'default'
+          : jsonEncode({
+              'items': [pod],
+            });
+    },
+  );
+  check(
+    embedded.client.launcher.join(' ') == 'k3s kubectl' &&
+        embedded.entries.length == 3,
+    'K3s 内置客户端未被发现',
+  );
+  check(
+    embedded.client
+        .execCommand(embedded.entries[1], 'pwd')
+        .startsWith("'k3s' 'kubectl'"),
+    '容器操作丢失已探测的命令入口',
+  );
+
+  var cancelled = false;
+  var cancellationCalls = 0;
+  try {
+    await discoverMachineContainers(
+      run: (_) async {
+        cancellationCalls++;
+        cancelled = true;
+        return 'default';
+      },
+      isCancelled: () => cancelled,
+    );
+    throw StateError('取消后不应继续返回结果。');
+  } on StateError catch (error) {
+    check(error.message == '容器采集已取消。', '取消原因被吞掉');
+  }
+  check(cancellationCalls == 1, '取消后仍在发送命令');
+
+  var explicitCalls = 0;
+  try {
+    await discoverMachineContainers(
+      runtime: MachineContainerRuntime.docker,
+      run: (command) async {
+        explicitCalls++;
+        check(command.startsWith("'docker'"), '显式选择的运行时被静默切换');
+        throw StateError('permission denied');
+      },
+    );
+    throw StateError('所有查询失败不应返回空容器列表。');
+  } on MachineContainerDiscoveryException catch (error) {
+    check(
+      error.issues.keys.single == 'docker' &&
+          error.issues.values.single.contains('permission denied'),
+      '运行时诊断丢失原始原因',
+    );
+  }
+  check(explicitCalls == 2, '显式选择存在重复查询');
+
+  for (final client in [kube, cri]) {
+    for (final invalid in ['', '{}', '{"error":"unavailable"}']) {
+      rejected = false;
+      try {
+        client.parse(invalid);
+      } on FormatException {
+        rejected = true;
+      }
+      check(rejected, '结构无效的响应被误判为空列表');
+    }
+  }
+  final podman = MachineContainerClient(
+    runtime: MachineContainerRuntime.podman,
+    run: (_) async => '',
+  );
+  check(
+    podman
+            .parse('[{"Id":"podman-1","Names":["web"],"State":"running"}]')
+            .single
+            .name ==
+        'web',
+    'Podman 名称数组未规范化',
+  );
+  stdout.writeln('容器解析、自动发现、旧版客户端、命名空间、取消、状态菜单、作用域与输出限制检查通过。');
 }
