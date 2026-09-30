@@ -37,10 +37,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceEgressPending => '出口情報の取得待ち';
 
   @override
-  String get maintenanceEgressNote =>
-      '対象マシンから取得します。プロキシや経路により結果は変わります。IP の位置は概算で、データセンター情報は提供元から取得できる場合のみ表示します。';
-
-  @override
   String get maintenanceEgressLocation => '所在地';
 
   @override
@@ -11191,9 +11187,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceRefreshSection => '現在の区分を更新';
 
   @override
-  String get maintenanceFooter => '現在の端末 · 補助コマンドは保存されません · 速度には2回の測定が必要';
-
-  @override
   String get maintenanceConnecting => '端末に接続中';
 
   @override
@@ -11204,9 +11197,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceCollectionFailed => '収集を完了できませんでした';
-
-  @override
-  String get maintenanceLoadingHelp => '収集後にリソース、プロセス、サービス、ネットワーク状態を表示します。';
 
   @override
   String get maintenanceRetryHelp => '端末の接続とコマンドプロンプトを確認して再試行してください。';
@@ -11258,9 +11248,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTargetPlatform => '接続先プラットフォーム';
-
-  @override
-  String get maintenanceRateHelp => '速度は連続する測定から計算します。取得できない値は推測しません。';
 
   @override
   String get maintenancePerCore => 'コア別負荷';
@@ -11336,10 +11323,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceNoAlerts => 'しきい値の通知はありません';
-
-  @override
-  String get maintenanceAlertHelp =>
-      'CPU とメモリの通知しきい値は85%です。ディスクの全情報は詳細で確認できます。';
 
   @override
   String get maintenanceCpuUsage => 'CPU 使用率';
@@ -11441,9 +11424,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceFailedServices => '異常なサービス';
 
   @override
-  String get maintenanceFailedServiceHelp => '明示的に失敗が報告された項目のみ集計';
-
-  @override
   String get maintenanceSearchService => 'サービスを絞り込み';
 
   @override
@@ -11469,15 +11449,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceParsedConnections => '解析済み接続';
-
-  @override
-  String get maintenanceConnectionHelp => '現在のサンプルの TCP / UDP';
-
-  @override
-  String get maintenanceDnsHelp => '現在のシステム設定から解析';
-
-  @override
-  String get maintenanceDiagnosticHelp => '経路、ログ、タスク、セキュリティ';
 
   @override
   String get maintenanceNotProvided => '未提供';
@@ -11514,9 +11485,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceConfirm => '実行を確認';
-
-  @override
-  String get maintenanceDetailSubtitle => 'リアルタイム詳細 · 一部の項目には追加権限が必要';
 
   @override
   String get maintenanceRefreshDetails => '詳細を更新';
@@ -13258,10 +13226,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceGpuComponents => 'GPU コンポーネントと診断';
 
   @override
-  String get maintenanceGpuComponentsHint =>
-      'バージョンはツールまたはインストール記録に基づきます。ドライバーの CUDA 対応版はツールキットの導入版とは異なります。負荷・温度・プロセスはデバイスの指標です。NVLink GB/s はリンク速度です。';
-
-  @override
   String get maintenanceGpuFields => '指標とメタデータ';
 
   @override
@@ -13518,10 +13482,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceContainerTerminalClosed => '元のターミナルは閉じています。再接続してください。';
-
-  @override
-  String get maintenanceContainerTerminalHelp =>
-      'exit でシェルを終了します。接続は最大 10 分間です。';
 
   @override
   String get maintenanceContainerTerminalExited => 'コンテナーターミナルを終了しました。';
@@ -13933,10 +13893,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceNetworkFirewallNat => 'ファイアウォールと NAT';
 
   @override
-  String get maintenanceNetworkProxyNote =>
-      'プロキシ設定は取得元ごとに表示します。端末の環境変数はシステム全体の設定ではありません。';
-
-  @override
   String get maintenanceNetworkTerminalEnvironment => '端末環境';
 
   @override
@@ -14038,10 +13994,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceNetworkDefaultOutbound => '既定の送信';
-
-  @override
-  String get maintenanceNetworkListenersNote =>
-      'TCP は待受、UDP はバインド済みポートを表示します。インターネットからの到達性は保証しません。';
 
   @override
   String get maintenanceNetworkResolverStatus => 'リゾルバーの状態';

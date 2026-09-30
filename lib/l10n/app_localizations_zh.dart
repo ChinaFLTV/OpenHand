@@ -36,10 +36,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceEgressPending => '等待查询出口信息';
 
   @override
-  String get maintenanceEgressNote =>
-      '由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。';
-
-  @override
   String get maintenanceEgressLocation => '地理位置';
 
   @override
@@ -11069,9 +11065,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceRefreshSection => '刷新当前分区';
 
   @override
-  String get maintenanceFooter => '当前终端 · 辅助命令不持久化 · 速率需两次采样';
-
-  @override
   String get maintenanceConnecting => '正在连接当前终端';
 
   @override
@@ -11082,9 +11075,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceCollectionFailed => '未能完成本次采集';
-
-  @override
-  String get maintenanceLoadingHelp => '数据就绪后将显示资源、进程、服务与网络状态。';
 
   @override
   String get maintenanceRetryHelp => '请确认终端已连接并处于命令提示符，再重新采集。';
@@ -11136,9 +11126,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTargetPlatform => '目标平台';
-
-  @override
-  String get maintenanceRateHelp => '速率根据连续采样计算；不可用字段不作推断。';
 
   @override
   String get maintenancePerCore => '每核负载';
@@ -11214,9 +11201,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceNoAlerts => '暂无阈值提醒';
-
-  @override
-  String get maintenanceAlertHelp => '依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。';
 
   @override
   String get maintenanceCpuUsage => 'CPU 使用率';
@@ -11318,9 +11302,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceFailedServices => '异常服务';
 
   @override
-  String get maintenanceFailedServiceHelp => '仅统计明确报告失败的条目';
-
-  @override
   String get maintenanceSearchService => '筛选服务';
 
   @override
@@ -11346,15 +11327,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceParsedConnections => '已解析连接';
-
-  @override
-  String get maintenanceConnectionHelp => '当前采样中的 TCP / UDP';
-
-  @override
-  String get maintenanceDnsHelp => '解析自当前系统配置';
-
-  @override
-  String get maintenanceDiagnosticHelp => '路由、日志、任务与安全';
 
   @override
   String get maintenanceNotProvided => '未提供';
@@ -11391,9 +11363,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceConfirm => '确认执行';
-
-  @override
-  String get maintenanceDetailSubtitle => '实时详情 · 部分字段需要更高权限';
 
   @override
   String get maintenanceRefreshDetails => '刷新详情';
@@ -13131,10 +13100,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceGpuComponents => 'GPU 组件与设备诊断';
 
   @override
-  String get maintenanceGpuComponentsHint =>
-      '软件版本来自工具或安装记录；驱动 CUDA 兼容版本不代表已安装工具包。温度、负载和进程指标归属实际设备。NVLink 的 GB/s 为链路速率，不是实时流量。';
-
-  @override
   String get maintenanceGpuFields => '指标与元数据';
 
   @override
@@ -13388,10 +13353,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceContainerTerminalClosed => '原终端已关闭，请重新连接。';
-
-  @override
-  String get maintenanceContainerTerminalHelp =>
-      '输入 exit 退出容器 Shell；单次连接最长 10 分钟。';
 
   @override
   String get maintenanceContainerTerminalExited => '容器终端已退出。';
@@ -13800,9 +13761,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceNetworkFirewallNat => '防火墙与 NAT';
 
   @override
-  String get maintenanceNetworkProxyNote => '代理设置按来源显示；终端环境变量不代表系统全局代理。';
-
-  @override
   String get maintenanceNetworkTerminalEnvironment => '终端环境';
 
   @override
@@ -13904,10 +13862,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceNetworkDefaultOutbound => '默认出站';
-
-  @override
-  String get maintenanceNetworkListenersNote =>
-      'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。';
 
   @override
   String get maintenanceNetworkResolverStatus => '解析器状态';
@@ -14582,10 +14536,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceEgressPending => '等待查詢出口資訊';
-
-  @override
-  String get maintenanceEgressNote =>
-      '由目標機器查詢，結果可能受代理與出口路由影響。IP 定位為近似結果；機房資訊僅在資料來源提供時顯示。';
 
   @override
   String get maintenanceEgressLocation => '地理位置';
@@ -25599,9 +25549,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceRefreshSection => '重新整理目前區域';
 
   @override
-  String get maintenanceFooter => '目前終端 · 輔助命令不儲存 · 速率需兩次採樣';
-
-  @override
   String get maintenanceConnecting => '正在連線目前終端';
 
   @override
@@ -25612,9 +25559,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceCollectionFailed => '無法完成本次採集';
-
-  @override
-  String get maintenanceLoadingHelp => '資料就緒後將顯示資源、程序、服務與網路狀態。';
 
   @override
   String get maintenanceRetryHelp => '請確認終端已連線並處於命令提示字元，再重新採集。';
@@ -25666,9 +25610,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTargetPlatform => '目標平台';
-
-  @override
-  String get maintenanceRateHelp => '速率依連續採樣計算；不可用欄位不作推測。';
 
   @override
   String get maintenancePerCore => '每核心負載';
@@ -25744,9 +25685,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceNoAlerts => '沒有閾值提醒';
-
-  @override
-  String get maintenanceAlertHelp => '依目前 CPU 與記憶體採樣，提醒閾值為 85%；完整磁碟資訊可在詳情查看。';
 
   @override
   String get maintenanceCpuUsage => 'CPU 使用率';
@@ -25848,9 +25786,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceFailedServices => '異常服務';
 
   @override
-  String get maintenanceFailedServiceHelp => '僅統計明確回報失敗的項目';
-
-  @override
   String get maintenanceSearchService => '篩選服務';
 
   @override
@@ -25876,15 +25811,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceParsedConnections => '已解析連線';
-
-  @override
-  String get maintenanceConnectionHelp => '目前採樣中的 TCP / UDP';
-
-  @override
-  String get maintenanceDnsHelp => '解析自目前系統設定';
-
-  @override
-  String get maintenanceDiagnosticHelp => '路由、日誌、工作與安全';
 
   @override
   String get maintenanceNotProvided => '未提供';
@@ -25921,9 +25847,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceConfirm => '確認執行';
-
-  @override
-  String get maintenanceDetailSubtitle => '即時詳情 · 部分欄位需要更高權限';
 
   @override
   String get maintenanceRefreshDetails => '重新整理詳情';
@@ -27661,10 +27584,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceGpuComponents => 'GPU 元件與裝置診斷';
 
   @override
-  String get maintenanceGpuComponentsHint =>
-      '軟體版本來自工具或安裝記錄；驅動 CUDA 相容版本不代表已安裝工具包。溫度、負載及程序指標屬於實際裝置。NVLink 的 GB/s 為鏈路速率，並非即時流量。';
-
-  @override
   String get maintenanceGpuFields => '指標與中繼資料';
 
   @override
@@ -27918,10 +27837,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerTerminalClosed => '原終端機已關閉，請重新連線。';
-
-  @override
-  String get maintenanceContainerTerminalHelp =>
-      '輸入 exit 離開容器 Shell；單次連線最長 10 分鐘。';
 
   @override
   String get maintenanceContainerTerminalExited => '容器終端機已結束。';
@@ -28330,9 +28245,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceNetworkFirewallNat => '防火牆與 NAT';
 
   @override
-  String get maintenanceNetworkProxyNote => '代理設定依來源顯示；終端環境變數不代表系統全域代理。';
-
-  @override
   String get maintenanceNetworkTerminalEnvironment => '終端環境';
 
   @override
@@ -28434,10 +28346,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceNetworkDefaultOutbound => '預設輸出';
-
-  @override
-  String get maintenanceNetworkListenersNote =>
-      'TCP 僅顯示監聽狀態；UDP 顯示繫結連接埠，不代表可從網際網路存取。';
 
   @override
   String get maintenanceNetworkResolverStatus => '解析器狀態';

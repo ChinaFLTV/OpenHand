@@ -1921,10 +1921,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             child: _MaintenanceAnimatedColumn(
               spacing: _maintenanceGridGap,
               children: [
-                _MaintenanceEmptyHint(
-                  icon: Icons.info_outline_rounded,
-                  message: l10n.maintenanceGpuComponentsHint,
-                ),
                 for (final report in reports)
                   _MaintenanceSection(
                     key: ValueKey('gpu-component-${report.title}'),
@@ -1939,7 +1935,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         : report.title,
                     subtitle: report.issue.isEmpty
                         ? (report.raw.isNotEmpty
-                              ? '结构化只读采样'
+                              ? null
                               : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
                         : switch (report.issue) {
                             'permission' || 'missing' || 'format' =>
@@ -3044,21 +3040,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               icon: Icons.settings_input_antenna_rounded,
               scrollBody: false,
               onOpen: () => _showCollected('监听端口', data.text('listeners')),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MaintenanceReadout(report: listeners, section: 'listeners'),
-                  const SizedBox(height: 8),
-                  Text(
-                    maintenanceLabel(
-                      context,
-                      'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。',
-                    ),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                ],
+              child: _MaintenanceReadout(
+                report: listeners,
+                section: 'listeners',
               ),
             ),
             _MaintenanceCard(
@@ -3146,18 +3130,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           title: maintenanceLabel(context, '系统网络代理'),
           icon: Icons.lan_outlined,
           scrollBody: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MaintenanceReadout(text: data.text('proxy'), section: 'proxy'),
-              const SizedBox(height: 8),
-              Text(
-                maintenanceLabel(context, '代理设置按来源显示；终端环境变量不代表系统全局代理。'),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ],
+          child: _MaintenanceReadout(
+            text: data.text('proxy'),
+            section: 'proxy',
           ),
         ),
         const SizedBox(height: _maintenanceGridGap),
@@ -3436,13 +3411,6 @@ class _MaintenanceEgressCard extends StatelessWidget {
                   ),
                 ),
           ],
-          Text(
-            l10n.maintenanceEgressNote,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
         ],
       ),
     );

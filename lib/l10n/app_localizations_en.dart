@@ -40,10 +40,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceEgressPending => 'Waiting for egress lookup';
 
   @override
-  String get maintenanceEgressNote =>
-      'Queried from the target machine; proxies and routing may affect the result. IP location is approximate; data center details appear only when supplied by the provider.';
-
-  @override
   String get maintenanceEgressLocation => 'Location';
 
   @override
@@ -11437,10 +11433,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceRefreshSection => 'Refresh current section';
 
   @override
-  String get maintenanceFooter =>
-      'Current terminal · helper commands are not saved · rates need two samples';
-
-  @override
   String get maintenanceConnecting => 'Connecting to the terminal';
 
   @override
@@ -11451,10 +11443,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceCollectionFailed => 'Collection could not be completed';
-
-  @override
-  String get maintenanceLoadingHelp =>
-      'Resources, processes, services and network status appear when ready.';
 
   @override
   String get maintenanceRetryHelp =>
@@ -11507,10 +11495,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceTargetPlatform => 'Target platform';
-
-  @override
-  String get maintenanceRateHelp =>
-      'Rates use consecutive samples; unavailable fields are not inferred.';
 
   @override
   String get maintenancePerCore => 'Per-core load';
@@ -11586,10 +11570,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceNoAlerts => 'No threshold alerts';
-
-  @override
-  String get maintenanceAlertHelp =>
-      'CPU and memory alerts use an 85% threshold. Full disk information is available in details.';
 
   @override
   String get maintenanceCpuUsage => 'CPU usage';
@@ -11692,10 +11672,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceFailedServices => 'Failed services';
 
   @override
-  String get maintenanceFailedServiceHelp =>
-      'Only explicitly reported failures are counted';
-
-  @override
   String get maintenanceSearchService => 'Filter services';
 
   @override
@@ -11722,15 +11698,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceParsedConnections => 'Parsed connections';
-
-  @override
-  String get maintenanceConnectionHelp => 'TCP / UDP in the current sample';
-
-  @override
-  String get maintenanceDnsHelp => 'Parsed from current system configuration';
-
-  @override
-  String get maintenanceDiagnosticHelp => 'Routes, logs, tasks and security';
 
   @override
   String get maintenanceNotProvided => 'Not provided';
@@ -11767,10 +11734,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceConfirm => 'Confirm execution';
-
-  @override
-  String get maintenanceDetailSubtitle =>
-      'Live details · some fields require higher privileges';
 
   @override
   String get maintenanceRefreshDetails => 'Refresh details';
@@ -13556,10 +13519,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceGpuComponents => 'GPU components and diagnostics';
 
   @override
-  String get maintenanceGpuComponentsHint =>
-      'Software versions come from tools or installation records. Driver CUDA compatibility does not identify the installed toolkit. Load, temperature and processes belong to devices. NVLink GB/s denotes link speed, not live traffic.';
-
-  @override
   String get maintenanceGpuFields => 'Metrics and metadata';
 
   @override
@@ -13822,10 +13781,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceContainerTerminalClosed =>
       'The original terminal is closed. Reconnect.';
-
-  @override
-  String get maintenanceContainerTerminalHelp =>
-      'Type exit to leave the shell. Each connection lasts up to 10 minutes.';
 
   @override
   String get maintenanceContainerTerminalExited => 'Container terminal exited.';
@@ -14249,10 +14204,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceNetworkFirewallNat => 'Firewall & NAT';
 
   @override
-  String get maintenanceNetworkProxyNote =>
-      'Proxy settings are shown by source; terminal environment variables do not represent the system-wide proxy.';
-
-  @override
   String get maintenanceNetworkTerminalEnvironment => 'Terminal environment';
 
   @override
@@ -14355,10 +14306,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceNetworkDefaultOutbound => 'Default outbound';
-
-  @override
-  String get maintenanceNetworkListenersNote =>
-      'TCP shows listeners; UDP shows bound ports. Neither implies Internet reachability.';
 
   @override
   String get maintenanceNetworkResolverStatus => 'Resolver status';

@@ -40,10 +40,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceEgressPending => 'Ausgangsabfrage ausstehend';
 
   @override
-  String get maintenanceEgressNote =>
-      'Abfrage von der Zielmaschine; Proxys und Routing können das Ergebnis beeinflussen. Der IP-Standort ist ungefähr; Rechenzentrumsdaten erscheinen nur, wenn der Anbieter sie liefert.';
-
-  @override
   String get maintenanceEgressLocation => 'Standort';
 
   @override
@@ -11537,10 +11533,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceRefreshSection => 'Aktuellen Bereich aktualisieren';
 
   @override
-  String get maintenanceFooter =>
-      'Aktuelles Terminal · Hilfsbefehle werden nicht gespeichert · Raten benötigen zwei Messungen';
-
-  @override
   String get maintenanceConnecting => 'Verbindung zum Terminal';
 
   @override
@@ -11552,10 +11544,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceCollectionFailed =>
       'Erfassung konnte nicht abgeschlossen werden';
-
-  @override
-  String get maintenanceLoadingHelp =>
-      'Ressourcen, Prozesse, Dienste und Netzwerkstatus werden nach der Erfassung angezeigt.';
 
   @override
   String get maintenanceRetryHelp =>
@@ -11608,10 +11596,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTargetPlatform => 'Zielplattform';
-
-  @override
-  String get maintenanceRateHelp =>
-      'Raten basieren auf aufeinanderfolgenden Messungen; fehlende Werte werden nicht geschätzt.';
 
   @override
   String get maintenancePerCore => 'Last pro Kern';
@@ -11688,10 +11672,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceNoAlerts => 'Keine Schwellenwertwarnung';
-
-  @override
-  String get maintenanceAlertHelp =>
-      'CPU- und Speicherwarnungen ab 85 %. Vollständige Datenträgerinformationen stehen in den Details.';
 
   @override
   String get maintenanceCpuUsage => 'CPU-Auslastung';
@@ -11794,10 +11774,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceFailedServices => 'Fehlerhafte Dienste';
 
   @override
-  String get maintenanceFailedServiceHelp =>
-      'Nur ausdrücklich gemeldete Fehler werden gezählt';
-
-  @override
   String get maintenanceSearchService => 'Dienste filtern';
 
   @override
@@ -11824,16 +11800,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceParsedConnections => 'Erkannte Verbindungen';
-
-  @override
-  String get maintenanceConnectionHelp => 'TCP / UDP der aktuellen Messung';
-
-  @override
-  String get maintenanceDnsHelp => 'Aus aktueller Systemkonfiguration gelesen';
-
-  @override
-  String get maintenanceDiagnosticHelp =>
-      'Routen, Protokolle, Aufgaben und Sicherheit';
 
   @override
   String get maintenanceNotProvided => 'Nicht angegeben';
@@ -11870,10 +11836,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceConfirm => 'Ausführung bestätigen';
-
-  @override
-  String get maintenanceDetailSubtitle =>
-      'Live-Details · einige Felder erfordern höhere Rechte';
 
   @override
   String get maintenanceRefreshDetails => 'Details aktualisieren';
@@ -13697,10 +13659,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceGpuComponents => 'GPU-Komponenten und Diagnose';
 
   @override
-  String get maintenanceGpuComponentsHint =>
-      'Versionen stammen aus Tools oder Installationsdaten. Die CUDA-Kompatibilität des Treibers bezeichnet nicht das installierte Toolkit. Last, Temperatur und Prozesse gehören zu Geräten. NVLink GB/s ist die Linkgeschwindigkeit.';
-
-  @override
   String get maintenanceGpuFields => 'Messwerte und Metadaten';
 
   @override
@@ -13966,10 +13924,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceContainerTerminalClosed =>
       'Das ursprüngliche Terminal ist geschlossen. Verbinden Sie sich erneut.';
-
-  @override
-  String get maintenanceContainerTerminalHelp =>
-      'Geben Sie exit ein, um die Shell zu verlassen. Maximal 10 Minuten pro Verbindung.';
 
   @override
   String get maintenanceContainerTerminalExited => 'Containerterminal beendet.';
@@ -14401,10 +14355,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceNetworkFirewallNat => 'Firewall und NAT';
 
   @override
-  String get maintenanceNetworkProxyNote =>
-      'Proxy-Einstellungen werden nach Quelle angezeigt; Terminal-Variablen stehen nicht für den systemweiten Proxy.';
-
-  @override
   String get maintenanceNetworkTerminalEnvironment => 'Terminalumgebung';
 
   @override
@@ -14507,10 +14457,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceNetworkDefaultOutbound => 'Standard ausgehend';
-
-  @override
-  String get maintenanceNetworkListenersNote =>
-      'TCP zeigt Listener, UDP gebundene Ports. Das bedeutet keine Erreichbarkeit aus dem Internet.';
 
   @override
   String get maintenanceNetworkResolverStatus => 'Resolver-Status';

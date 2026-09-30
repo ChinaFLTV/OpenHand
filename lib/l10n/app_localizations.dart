@@ -159,12 +159,6 @@ abstract class AppLocalizations {
   /// **'等待查询出口信息'**
   String get maintenanceEgressPending;
 
-  /// No description provided for @maintenanceEgressNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。'**
-  String get maintenanceEgressNote;
-
   /// No description provided for @maintenanceEgressLocation.
   ///
   /// In zh, this message translates to:
@@ -20368,12 +20362,6 @@ abstract class AppLocalizations {
   /// 服务器运维界面文案
   ///
   /// In zh, this message translates to:
-  /// **'当前终端 · 辅助命令不持久化 · 速率需两次采样'**
-  String get maintenanceFooter;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
   /// **'正在连接当前终端'**
   String get maintenanceConnecting;
 
@@ -20394,12 +20382,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未能完成本次采集'**
   String get maintenanceCollectionFailed;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'数据就绪后将显示资源、进程、服务与网络状态。'**
-  String get maintenanceLoadingHelp;
 
   /// 服务器运维界面文案
   ///
@@ -20502,12 +20484,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'目标平台'**
   String get maintenanceTargetPlatform;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'速率根据连续采样计算；不可用字段不作推断。'**
-  String get maintenanceRateHelp;
 
   /// 服务器运维界面文案
   ///
@@ -20658,12 +20634,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无阈值提醒'**
   String get maintenanceNoAlerts;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。'**
-  String get maintenanceAlertHelp;
 
   /// 服务器运维界面文案
   ///
@@ -20866,12 +20836,6 @@ abstract class AppLocalizations {
   /// 服务器运维界面文案
   ///
   /// In zh, this message translates to:
-  /// **'仅统计明确报告失败的条目'**
-  String get maintenanceFailedServiceHelp;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
   /// **'筛选服务'**
   String get maintenanceSearchService;
 
@@ -20922,24 +20886,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已解析连接'**
   String get maintenanceParsedConnections;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'当前采样中的 TCP / UDP'**
-  String get maintenanceConnectionHelp;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'解析自当前系统配置'**
-  String get maintenanceDnsHelp;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'路由、日志、任务与安全'**
-  String get maintenanceDiagnosticHelp;
 
   /// 服务器运维界面文案
   ///
@@ -21012,12 +20958,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'确认执行'**
   String get maintenanceConfirm;
-
-  /// 服务器运维界面文案
-  ///
-  /// In zh, this message translates to:
-  /// **'实时详情 · 部分字段需要更高权限'**
-  String get maintenanceDetailSubtitle;
 
   /// 服务器运维界面文案
   ///
@@ -24395,12 +24335,6 @@ abstract class AppLocalizations {
   /// **'GPU 组件与设备诊断'**
   String get maintenanceGpuComponents;
 
-  /// No description provided for @maintenanceGpuComponentsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'软件版本来自工具或安装记录；驱动 CUDA 兼容版本不代表已安装工具包。温度、负载和进程指标归属实际设备。NVLink 的 GB/s 为链路速率，不是实时流量。'**
-  String get maintenanceGpuComponentsHint;
-
   /// No description provided for @maintenanceGpuFields.
   ///
   /// In zh, this message translates to:
@@ -24910,12 +24844,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'原终端已关闭，请重新连接。'**
   String get maintenanceContainerTerminalClosed;
-
-  /// No description provided for @maintenanceContainerTerminalHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入 exit 退出容器 Shell；单次连接最长 10 分钟。'**
-  String get maintenanceContainerTerminalHelp;
 
   /// No description provided for @maintenanceContainerTerminalExited.
   ///
@@ -25727,12 +25655,6 @@ abstract class AppLocalizations {
   /// **'防火墙与 NAT'**
   String get maintenanceNetworkFirewallNat;
 
-  /// No description provided for @maintenanceNetworkProxyNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'代理设置按来源显示；终端环境变量不代表系统全局代理。'**
-  String get maintenanceNetworkProxyNote;
-
   /// No description provided for @maintenanceNetworkTerminalEnvironment.
   ///
   /// In zh, this message translates to:
@@ -25936,12 +25858,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'默认出站'**
   String get maintenanceNetworkDefaultOutbound;
-
-  /// No description provided for @maintenanceNetworkListenersNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。'**
-  String get maintenanceNetworkListenersNote;
 
   /// No description provided for @maintenanceNetworkResolverStatus.
   ///

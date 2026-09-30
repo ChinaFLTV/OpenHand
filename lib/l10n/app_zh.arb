@@ -8,7 +8,6 @@
   "maintenanceEgressFailed": "出口查询失败，请检查目标机器联网状态后刷新",
   "maintenanceEgressStale": "刷新失败，当前显示上次成功结果",
   "maintenanceEgressPending": "等待查询出口信息",
-  "maintenanceEgressNote": "由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。",
   "maintenanceEgressLocation": "地理位置",
   "maintenanceEgressNetwork": "网络归属",
   "maintenanceEgressTimezoneInfo": "时区信息",
@@ -8523,10 +8522,6 @@
   "@maintenanceRefreshSection": {
     "description": "服务器运维界面文案"
   },
-  "maintenanceFooter": "当前终端 · 辅助命令不持久化 · 速率需两次采样",
-  "@maintenanceFooter": {
-    "description": "服务器运维界面文案"
-  },
   "maintenanceConnecting": "正在连接当前终端",
   "@maintenanceConnecting": {
     "description": "服务器运维界面文案"
@@ -8541,10 +8536,6 @@
   },
   "maintenanceCollectionFailed": "未能完成本次采集",
   "@maintenanceCollectionFailed": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceLoadingHelp": "数据就绪后将显示资源、进程、服务与网络状态。",
-  "@maintenanceLoadingHelp": {
     "description": "服务器运维界面文案"
   },
   "maintenanceRetryHelp": "请确认终端已连接并处于命令提示符，再重新采集。",
@@ -8613,10 +8604,6 @@
   },
   "maintenanceTargetPlatform": "目标平台",
   "@maintenanceTargetPlatform": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceRateHelp": "速率根据连续采样计算；不可用字段不作推断。",
-  "@maintenanceRateHelp": {
     "description": "服务器运维界面文案"
   },
   "maintenancePerCore": "每核负载",
@@ -8717,10 +8704,6 @@
   },
   "maintenanceNoAlerts": "暂无阈值提醒",
   "@maintenanceNoAlerts": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceAlertHelp": "依据当前 CPU 与内存采样，提醒阈值 85%；磁盘完整信息可在详情查看。",
-  "@maintenanceAlertHelp": {
     "description": "服务器运维界面文案"
   },
   "maintenanceCpuUsage": "CPU 使用率",
@@ -8855,10 +8838,6 @@
   "@maintenanceFailedServices": {
     "description": "服务器运维界面文案"
   },
-  "maintenanceFailedServiceHelp": "仅统计明确报告失败的条目",
-  "@maintenanceFailedServiceHelp": {
-    "description": "服务器运维界面文案"
-  },
   "maintenanceSearchService": "筛选服务",
   "@maintenanceSearchService": {
     "description": "服务器运维界面文案"
@@ -8893,18 +8872,6 @@
   },
   "maintenanceParsedConnections": "已解析连接",
   "@maintenanceParsedConnections": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceConnectionHelp": "当前采样中的 TCP / UDP",
-  "@maintenanceConnectionHelp": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceDnsHelp": "解析自当前系统配置",
-  "@maintenanceDnsHelp": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceDiagnosticHelp": "路由、日志、任务与安全",
-  "@maintenanceDiagnosticHelp": {
     "description": "服务器运维界面文案"
   },
   "maintenanceNotProvided": "未提供",
@@ -8953,10 +8920,6 @@
   },
   "maintenanceConfirm": "确认执行",
   "@maintenanceConfirm": {
-    "description": "服务器运维界面文案"
-  },
-  "maintenanceDetailSubtitle": "实时详情 · 部分字段需要更高权限",
-  "@maintenanceDetailSubtitle": {
     "description": "服务器运维界面文案"
   },
   "maintenanceRefreshDetails": "刷新详情",
@@ -9888,7 +9851,6 @@
   "maintenanceHealthParsedNever": "永不",
   "maintenanceHealthParsedConfigured": "已配置",
   "maintenanceGpuComponents": "GPU 组件与设备诊断",
-  "maintenanceGpuComponentsHint": "软件版本来自工具或安装记录；驱动 CUDA 兼容版本不代表已安装工具包。温度、负载和进程指标归属实际设备。NVLink 的 GB/s 为链路速率，不是实时流量。",
   "maintenanceGpuFields": "指标与元数据",
   "maintenanceGpuProbeUnavailable": "部分数据不可用或响应不完整",
   "maintenanceGpuCudaCompatibility": "驱动支持的 CUDA 版本",
@@ -10106,7 +10068,6 @@
   "maintenanceContainerTerminal": "交互终端",
   "maintenanceContainerConnecting": "正在连接容器终端…",
   "maintenanceContainerTerminalClosed": "原终端已关闭，请重新连接。",
-  "maintenanceContainerTerminalHelp": "输入 exit 退出容器 Shell；单次连接最长 10 分钟。",
   "maintenanceContainerTerminalExited": "容器终端已退出。",
   "maintenanceContainerTerminalEnded": "容器终端连接结束，请查看终端输出。",
   "maintenanceContainerStart": "启动",
@@ -10242,7 +10203,6 @@
   "maintenanceNetworkFirewallStatus": "防火墙状态",
   "maintenanceNetworkProtocolStats": "网络协议与错误统计",
   "maintenanceNetworkFirewallNat": "防火墙与 NAT",
-  "maintenanceNetworkProxyNote": "代理设置按来源显示；终端环境变量不代表系统全局代理。",
   "maintenanceNetworkTerminalEnvironment": "终端环境",
   "maintenanceNetworkDesktopProxy": "桌面代理",
   "maintenanceNetworkSystemSettings": "系统设置",
@@ -10277,7 +10237,6 @@
   "maintenanceNetworkActiveProfile": "当前配置",
   "maintenanceNetworkDefaultInbound": "默认入站",
   "maintenanceNetworkDefaultOutbound": "默认出站",
-  "maintenanceNetworkListenersNote": "TCP 仅显示监听状态；UDP 显示绑定端口，不代表可从互联网访问。",
   "maintenanceNetworkResolverStatus": "解析器状态",
   "maintenanceNetworkBlock": "阻止",
   "maintenanceNetworkAllow": "允许",
