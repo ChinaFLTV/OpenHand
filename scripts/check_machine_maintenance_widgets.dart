@@ -762,11 +762,24 @@ void main() {
       });
     });
     await tester.pumpAndSettle();
+    void checkHealthStatusEdges() {
+      for (final card in tester.widgetList<_MaintenanceCard>(find.byType(_MaintenanceCard))) {
+        if (card.trailing is! _MaintenanceStatus) continue;
+        final cardFinder = find.byWidget(card);
+        final status = find.descendant(of:cardFinder,matching:find.byType(_MaintenanceStatus));
+        final capsule = find.descendant(of:status,matching:find.byType(Container));
+        expect(tester.getRect(capsule).right,closeTo(tester.getRect(cardFinder).right - 11,0.01));
+      }
+    }
+    checkHealthStatusEdges();
     expect(find.text('系统名称'), findsOneWidget);
     expect(find.textContaining('<plist>'), findsNothing);
     expect(find.text('You need administrator access to run this tool... exiting!'), findsNothing);
     expect(tester.takeException(), isNull);
     if (Platform.environment['MAINTENANCE_FONT'] != null) {
+      await tester.scrollUntilVisible(find.text('日期、时间与时区'), 250, scrollable:find.descendant(of:find.byType(ListView),matching:find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+      checkHealthStatusEdges();
       final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('健康预览')));
       await tester.runAsync(() async {
         final image = await boundary.toImage();
@@ -777,6 +790,7 @@ void main() {
     }
     await tester.binding.setSurfaceSize(const Size(420, 900));
     await tester.pumpAndSettle();
+    checkHealthStatusEdges();
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
@@ -1634,6 +1648,62 @@ void main() {
       expect(await tester.runAsync(colors), before);
       await tester.pumpWidget(const SizedBox());
     }
+  });
+
+  testWidgets('卡片尾部状态胶囊的可见边缘靠右，窄屏大字体和六种语言保持稳定', (tester) async {
+    for (final locale in [const Locale('zh'), const Locale.fromSubtags(languageCode:'zh',scriptCode:'Hant'), const Locale('en'), const Locale('fr'), const Locale('de'), const Locale('ja')]) {
+      for (final width in [320.0, 720.0, 1800.0]) {
+        for (final scale in [1.0, 1.8]) {
+          for (final canOpen in [false, true]) {
+            await tester.binding.setSurfaceSize(Size(width, 900));
+            await tester.pumpWidget(MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+              home:MediaQuery(data:MediaQueryData(size:Size(width,900),textScaler:TextScaler.linear(scale)),
+                child:Scaffold(body:Column(children:[
+                  for (final label in ['健康','异常','待检查'])
+                    _MaintenanceCard(title:'日期、时间与时区', icon:Icons.schedule, scrollBody:false, onOpen:canOpen ? () {} : null,
+                      trailing:_MaintenanceStatus(label:label,color:Colors.green), child:const SizedBox(height:20)),
+                ])))));
+            await tester.pumpAndSettle();
+            for (final card in find.byType(_MaintenanceCard).evaluate()) {
+              final cardFinder = find.byWidget(card.widget);
+              final status = find.descendant(of:cardFinder,matching:find.byType(_MaintenanceStatus));
+              final capsule = find.descendant(of:status,matching:find.byType(Container));
+              final cardRect = tester.getRect(cardFinder);
+              final capsuleRect = tester.getRect(capsule);
+              final edge = canOpen
+                ? tester.getRect(find.descendant(of:cardFinder,matching:find.byIcon(Icons.chevron_right_rounded))).left - 3
+                : cardRect.right - 11;
+              expect(capsuleRect.right,closeTo(edge,0.01));
+              expect(capsuleRect.width,greaterThan(20));
+              expect(tester.getRect(status).width,closeTo(capsuleRect.width,0.01));
+            }
+            expect(tester.takeException(),isNull);
+            await tester.pumpWidget(const SizedBox());
+          }
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('共用状态胶囊服从外层左右对齐，不占满表格列宽', (tester) async {
+    for (final alignment in [Alignment.centerLeft,Alignment.centerRight]) {
+      await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:Align(alignment:Alignment.topLeft,child:SizedBox(key:const ValueKey('状态单元格'),width:240,height:48,
+          child:Align(alignment:alignment,child:const _MaintenanceStatus(label:'健康',color:Colors.green)))))));
+      await tester.pumpAndSettle();
+      final cellRect=tester.getRect(find.byKey(const ValueKey('状态单元格')));
+      final status=find.byType(_MaintenanceStatus);
+      final capsuleRect=tester.getRect(find.descendant(of:status,matching:find.byType(Container)));
+      if (alignment==Alignment.centerLeft) {
+        expect(capsuleRect.left,closeTo(cellRect.left,0.01));
+      } else {
+        expect(capsuleRect.right,closeTo(cellRect.right,0.01));
+      }
+      expect(tester.getRect(status).width,lessThan(cellRect.width));
+      expect(tester.takeException(),isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('共用卡片悬停无阴影遮罩，按压仍有反馈', (tester) async {

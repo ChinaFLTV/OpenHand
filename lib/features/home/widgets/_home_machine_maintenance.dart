@@ -4051,6 +4051,8 @@ class _MaintenanceStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
+    widthFactor: 1,
+    heightFactor: 1,
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
