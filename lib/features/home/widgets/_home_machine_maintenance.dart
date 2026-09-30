@@ -1033,16 +1033,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           children: [
             _MaintenanceUsage(
               label: 'CPU',
+              icon: Icons.memory_rounded,
               value: cpu,
               color: _maintenanceUsageColor(cs, cpu),
             ),
             _MaintenanceUsage(
               label: maintenanceLabel(context, '内存'),
+              icon: Icons.storage_rounded,
               value: memoryUsage,
               color: _maintenanceUsageColor(cs, memoryUsage),
             ),
             _MaintenanceUsage(
               label: 'SWAP',
+              icon: Icons.swap_horiz_rounded,
               value: swap != null && swap > 0 && freeSwap != null
                   ? (swap - freeSwap) / swap
                   : null,
@@ -1153,6 +1156,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           _MaintenanceUsage(
                             label: '存储空间',
+                            icon: Icons.storage_rounded,
                             value:
                                 (double.tryParse(v[4].replaceAll('%', '')) ??
                                     0) /
@@ -4162,27 +4166,30 @@ class _MaintenanceUsage extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.icon = Icons.speed_rounded,
   });
   final String label;
   final double? value;
   final Color color;
+  final IconData icon;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
+    padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
       children: [
-        Expanded(
-          flex: 2,
+        _MaintenanceIconBadge(icon: icon, color: color, size: 28, iconSize: 14),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 64,
           child: Text(
             maintenanceLabel(context, label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          flex: 5,
           child: TweenAnimationBuilder<double>(
             tween: Tween(
               begin: (value ?? 0).clamp(0, 1),
@@ -4205,7 +4212,11 @@ class _MaintenanceUsage extends StatelessWidget {
           child: _MaintenanceValue(
             value: value == null ? '—' : '${(value! * 100).round()}%',
             alignment: Alignment.centerRight,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -6506,13 +6517,18 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                   shape: const Border(),
                   collapsedShape: const Border(),
                   tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                  leading: Icon(
-                    Icons.inventory_2_outlined,
+                  leading: _MaintenanceIconBadge(
+                    icon: Icons.inventory_2_outlined,
                     color: Theme.of(context).colorScheme.primary,
+                    size: 32,
+                    iconSize: 16,
                   ),
                   title: Text(
                     l.maintenanceLogRotation,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
                   ),
                   expansionAnimationStyle: AnimationStyle(
                     duration: motion.disablesAnimation
@@ -6545,6 +6561,31 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                     shadowColor: Colors.transparent,
                                     selectedShadowColor: Colors.transparent,
                                     surfaceTintColor: Colors.transparent,
+                                    visualDensity: VisualDensity.standard,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    side: BorderSide(
+                                      color:
+                                          (_metadataKind == kind
+                                                  ? cs.primary
+                                                  : cs.outlineVariant)
+                                              .withValues(alpha: .55),
+                                    ),
+                                    backgroundColor: cs.surface.withValues(
+                                      alpha: .72,
+                                    ),
+                                    selectedColor: cs.primaryContainer,
+                                    labelStyle: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: _metadataKind == kind
+                                              ? cs.onPrimaryContainer
+                                              : cs.onSurface,
+                                        ),
                                     label: Text(
                                       '${titles[kind]} · ${kind == 'rotation' && canGroupRotation ? groups.length : metadata[kind]!.length}',
                                     ),
