@@ -1159,9 +1159,31 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            v.skip(5).join(' '),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          Row(
+                            children: [
+                              _MaintenanceIconBadge(
+                                icon: Icons.storage_rounded,
+                                color: _maintenanceUsageColor(
+                                  cs,
+                                  (double.tryParse(v[4].replaceAll('%', '')) ??
+                                          0) /
+                                      100,
+                                ),
+                                size: 28,
+                                iconSize: 14,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  v.skip(5).join(' '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           _MaintenanceUsage(
                             label: '存储空间',
@@ -4452,10 +4474,11 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                widget.error ? Icons.error_outline : Icons.info_outline,
-                size: 18,
+              _MaintenanceIconBadge(
+                icon: widget.error ? Icons.error_outline : Icons.info_outline,
                 color: color,
+                size: 28,
+                iconSize: 15,
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -5441,16 +5464,35 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
       child: Tooltip(
         message: label,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: color.withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: .25)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: .28)),
           ),
-          child: _MaintenanceValue(
-            value: label,
-            maxLines: 2,
-            style: const TextStyle(fontSize: 11),
+          child: Row(
+            children: [
+              _MaintenanceIconBadge(
+                icon: color == cs.primary
+                    ? Icons.lan_outlined
+                    : Icons.public_rounded,
+                color: color,
+                size: 24,
+                iconSize: 13,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _MaintenanceValue(
+                  value: label,
+                  maxLines: 2,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -5463,14 +5505,22 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
             Expanded(
               child: Text(
                 maintenanceLabel(context, '本地地址'),
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
             Expanded(
               child: Text(
                 maintenanceLabel(context, '远端地址'),
                 textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -5495,14 +5545,21 @@ class _MaintenanceConnectionGraph extends StatelessWidget {
                     child: Center(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: cs.surface,
+                          color: cs.primary.withValues(alpha: .12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           child: _MaintenanceValue(
                             value: '${entry.value}',
-                            style: const TextStyle(fontSize: 10),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: cs.primary,
+                            ),
                           ),
                         ),
                       ),
