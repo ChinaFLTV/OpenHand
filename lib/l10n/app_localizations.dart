@@ -105,6 +105,330 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// No description provided for @maintenanceEgressTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'互联网出口'**
+  String get maintenanceEgressTitle;
+
+  /// No description provided for @maintenanceEgressRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新出口信息'**
+  String get maintenanceEgressRefresh;
+
+  /// No description provided for @maintenanceEgressLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在查询目标机器出口'**
+  String get maintenanceEgressLoading;
+
+  /// No description provided for @maintenanceEgressMissingTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标机器需要 curl 或 wget 才能查询出口'**
+  String get maintenanceEgressMissingTool;
+
+  /// No description provided for @maintenanceEgressFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'出口查询失败，请检查目标机器联网状态后刷新'**
+  String get maintenanceEgressFailed;
+
+  /// No description provided for @maintenanceEgressStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新失败，当前显示上次成功结果'**
+  String get maintenanceEgressStale;
+
+  /// No description provided for @maintenanceEgressPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待查询出口信息'**
+  String get maintenanceEgressPending;
+
+  /// No description provided for @maintenanceEgressNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。'**
+  String get maintenanceEgressNote;
+
+  /// No description provided for @maintenanceEgressLocation.
+  ///
+  /// In zh, this message translates to:
+  /// **'地理位置'**
+  String get maintenanceEgressLocation;
+
+  /// No description provided for @maintenanceEgressNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络归属'**
+  String get maintenanceEgressNetwork;
+
+  /// No description provided for @maintenanceEgressTimezoneInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'时区信息'**
+  String get maintenanceEgressTimezoneInfo;
+
+  /// No description provided for @maintenanceEgressCountryInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'国家信息'**
+  String get maintenanceEgressCountryInfo;
+
+  /// No description provided for @maintenanceEgressExtra.
+  ///
+  /// In zh, this message translates to:
+  /// **'补充信息'**
+  String get maintenanceEgressExtra;
+
+  /// No description provided for @maintenanceEgressContinent.
+  ///
+  /// In zh, this message translates to:
+  /// **'洲'**
+  String get maintenanceEgressContinent;
+
+  /// No description provided for @maintenanceEgressContinentCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'洲代码'**
+  String get maintenanceEgressContinentCode;
+
+  /// No description provided for @maintenanceEgressCountry.
+  ///
+  /// In zh, this message translates to:
+  /// **'国家或地区'**
+  String get maintenanceEgressCountry;
+
+  /// No description provided for @maintenanceEgressCountryCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'国家代码'**
+  String get maintenanceEgressCountryCode;
+
+  /// No description provided for @maintenanceEgressCountryIso3.
+  ///
+  /// In zh, this message translates to:
+  /// **'三字母国家代码'**
+  String get maintenanceEgressCountryIso3;
+
+  /// No description provided for @maintenanceEgressRegion.
+  ///
+  /// In zh, this message translates to:
+  /// **'地域'**
+  String get maintenanceEgressRegion;
+
+  /// No description provided for @maintenanceEgressRegionCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'地域代码'**
+  String get maintenanceEgressRegionCode;
+
+  /// No description provided for @maintenanceEgressCity.
+  ///
+  /// In zh, this message translates to:
+  /// **'城市'**
+  String get maintenanceEgressCity;
+
+  /// No description provided for @maintenanceEgressLatitude.
+  ///
+  /// In zh, this message translates to:
+  /// **'纬度'**
+  String get maintenanceEgressLatitude;
+
+  /// No description provided for @maintenanceEgressLongitude.
+  ///
+  /// In zh, this message translates to:
+  /// **'经度'**
+  String get maintenanceEgressLongitude;
+
+  /// No description provided for @maintenanceEgressPostal.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮政编码'**
+  String get maintenanceEgressPostal;
+
+  /// No description provided for @maintenanceEgressAsn.
+  ///
+  /// In zh, this message translates to:
+  /// **'自治系统编号'**
+  String get maintenanceEgressAsn;
+
+  /// No description provided for @maintenanceEgressOrg.
+  ///
+  /// In zh, this message translates to:
+  /// **'组织'**
+  String get maintenanceEgressOrg;
+
+  /// No description provided for @maintenanceEgressIsp.
+  ///
+  /// In zh, this message translates to:
+  /// **'互联网服务商'**
+  String get maintenanceEgressIsp;
+
+  /// No description provided for @maintenanceEgressDomain.
+  ///
+  /// In zh, this message translates to:
+  /// **'归属域名'**
+  String get maintenanceEgressDomain;
+
+  /// No description provided for @maintenanceEgressPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络前缀'**
+  String get maintenanceEgressPrefix;
+
+  /// No description provided for @maintenanceEgressDatacenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'机房'**
+  String get maintenanceEgressDatacenter;
+
+  /// No description provided for @maintenanceEgressHosting.
+  ///
+  /// In zh, this message translates to:
+  /// **'托管网络'**
+  String get maintenanceEgressHosting;
+
+  /// No description provided for @maintenanceEgressProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'代理网络'**
+  String get maintenanceEgressProxy;
+
+  /// No description provided for @maintenanceEgressVpn.
+  ///
+  /// In zh, this message translates to:
+  /// **'VPN 网络'**
+  String get maintenanceEgressVpn;
+
+  /// No description provided for @maintenanceEgressTor.
+  ///
+  /// In zh, this message translates to:
+  /// **'Tor 网络'**
+  String get maintenanceEgressTor;
+
+  /// No description provided for @maintenanceEgressTimezone.
+  ///
+  /// In zh, this message translates to:
+  /// **'时区'**
+  String get maintenanceEgressTimezone;
+
+  /// No description provided for @maintenanceEgressTimezoneAbbr.
+  ///
+  /// In zh, this message translates to:
+  /// **'时区简称'**
+  String get maintenanceEgressTimezoneAbbr;
+
+  /// No description provided for @maintenanceEgressDst.
+  ///
+  /// In zh, this message translates to:
+  /// **'夏令时'**
+  String get maintenanceEgressDst;
+
+  /// No description provided for @maintenanceEgressOffsetSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'UTC 偏移（秒）'**
+  String get maintenanceEgressOffsetSeconds;
+
+  /// No description provided for @maintenanceEgressOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'UTC 偏移'**
+  String get maintenanceEgressOffset;
+
+  /// No description provided for @maintenanceEgressLocalTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'查询时当地时间'**
+  String get maintenanceEgressLocalTime;
+
+  /// No description provided for @maintenanceEgressEu.
+  ///
+  /// In zh, this message translates to:
+  /// **'欧盟成员'**
+  String get maintenanceEgressEu;
+
+  /// No description provided for @maintenanceEgressCallingCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'国际电话区号'**
+  String get maintenanceEgressCallingCode;
+
+  /// No description provided for @maintenanceEgressCapital.
+  ///
+  /// In zh, this message translates to:
+  /// **'首都'**
+  String get maintenanceEgressCapital;
+
+  /// No description provided for @maintenanceEgressBorders.
+  ///
+  /// In zh, this message translates to:
+  /// **'邻国代码'**
+  String get maintenanceEgressBorders;
+
+  /// No description provided for @maintenanceEgressFlagUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'旗帜图片地址'**
+  String get maintenanceEgressFlagUrl;
+
+  /// No description provided for @maintenanceEgressFlag.
+  ///
+  /// In zh, this message translates to:
+  /// **'旗帜'**
+  String get maintenanceEgressFlag;
+
+  /// No description provided for @maintenanceEgressFlagCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'旗帜字符编码'**
+  String get maintenanceEgressFlagCode;
+
+  /// No description provided for @maintenanceEgressTld.
+  ///
+  /// In zh, this message translates to:
+  /// **'国家顶级域名'**
+  String get maintenanceEgressTld;
+
+  /// No description provided for @maintenanceEgressCurrency.
+  ///
+  /// In zh, this message translates to:
+  /// **'货币代码'**
+  String get maintenanceEgressCurrency;
+
+  /// No description provided for @maintenanceEgressCurrencyName.
+  ///
+  /// In zh, this message translates to:
+  /// **'货币名称'**
+  String get maintenanceEgressCurrencyName;
+
+  /// No description provided for @maintenanceEgressCurrencySymbol.
+  ///
+  /// In zh, this message translates to:
+  /// **'货币符号'**
+  String get maintenanceEgressCurrencySymbol;
+
+  /// No description provided for @maintenanceEgressLanguages.
+  ///
+  /// In zh, this message translates to:
+  /// **'语言'**
+  String get maintenanceEgressLanguages;
+
+  /// No description provided for @maintenanceEgressArea.
+  ///
+  /// In zh, this message translates to:
+  /// **'国土面积（平方千米）'**
+  String get maintenanceEgressArea;
+
+  /// No description provided for @maintenanceEgressPopulation.
+  ///
+  /// In zh, this message translates to:
+  /// **'人口'**
+  String get maintenanceEgressPopulation;
+
   /// Application brand name. Keep as "OpenHand" untranslated.
   ///
   /// In zh, this message translates to:

@@ -9,6 +9,169 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get maintenanceEgressTitle => '互联网出口';
+
+  @override
+  String get maintenanceEgressRefresh => '刷新出口信息';
+
+  @override
+  String get maintenanceEgressLoading => '正在查询目标机器出口';
+
+  @override
+  String get maintenanceEgressMissingTool => '目标机器需要 curl 或 wget 才能查询出口';
+
+  @override
+  String get maintenanceEgressFailed => '出口查询失败，请检查目标机器联网状态后刷新';
+
+  @override
+  String get maintenanceEgressStale => '刷新失败，当前显示上次成功结果';
+
+  @override
+  String get maintenanceEgressPending => '等待查询出口信息';
+
+  @override
+  String get maintenanceEgressNote =>
+      '由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。';
+
+  @override
+  String get maintenanceEgressLocation => '地理位置';
+
+  @override
+  String get maintenanceEgressNetwork => '网络归属';
+
+  @override
+  String get maintenanceEgressTimezoneInfo => '时区信息';
+
+  @override
+  String get maintenanceEgressCountryInfo => '国家信息';
+
+  @override
+  String get maintenanceEgressExtra => '补充信息';
+
+  @override
+  String get maintenanceEgressContinent => '洲';
+
+  @override
+  String get maintenanceEgressContinentCode => '洲代码';
+
+  @override
+  String get maintenanceEgressCountry => '国家或地区';
+
+  @override
+  String get maintenanceEgressCountryCode => '国家代码';
+
+  @override
+  String get maintenanceEgressCountryIso3 => '三字母国家代码';
+
+  @override
+  String get maintenanceEgressRegion => '地域';
+
+  @override
+  String get maintenanceEgressRegionCode => '地域代码';
+
+  @override
+  String get maintenanceEgressCity => '城市';
+
+  @override
+  String get maintenanceEgressLatitude => '纬度';
+
+  @override
+  String get maintenanceEgressLongitude => '经度';
+
+  @override
+  String get maintenanceEgressPostal => '邮政编码';
+
+  @override
+  String get maintenanceEgressAsn => '自治系统编号';
+
+  @override
+  String get maintenanceEgressOrg => '组织';
+
+  @override
+  String get maintenanceEgressIsp => '互联网服务商';
+
+  @override
+  String get maintenanceEgressDomain => '归属域名';
+
+  @override
+  String get maintenanceEgressPrefix => '网络前缀';
+
+  @override
+  String get maintenanceEgressDatacenter => '机房';
+
+  @override
+  String get maintenanceEgressHosting => '托管网络';
+
+  @override
+  String get maintenanceEgressProxy => '代理网络';
+
+  @override
+  String get maintenanceEgressVpn => 'VPN 网络';
+
+  @override
+  String get maintenanceEgressTor => 'Tor 网络';
+
+  @override
+  String get maintenanceEgressTimezone => '时区';
+
+  @override
+  String get maintenanceEgressTimezoneAbbr => '时区简称';
+
+  @override
+  String get maintenanceEgressDst => '夏令时';
+
+  @override
+  String get maintenanceEgressOffsetSeconds => 'UTC 偏移（秒）';
+
+  @override
+  String get maintenanceEgressOffset => 'UTC 偏移';
+
+  @override
+  String get maintenanceEgressLocalTime => '查询时当地时间';
+
+  @override
+  String get maintenanceEgressEu => '欧盟成员';
+
+  @override
+  String get maintenanceEgressCallingCode => '国际电话区号';
+
+  @override
+  String get maintenanceEgressCapital => '首都';
+
+  @override
+  String get maintenanceEgressBorders => '邻国代码';
+
+  @override
+  String get maintenanceEgressFlagUrl => '旗帜图片地址';
+
+  @override
+  String get maintenanceEgressFlag => '旗帜';
+
+  @override
+  String get maintenanceEgressFlagCode => '旗帜字符编码';
+
+  @override
+  String get maintenanceEgressTld => '国家顶级域名';
+
+  @override
+  String get maintenanceEgressCurrency => '货币代码';
+
+  @override
+  String get maintenanceEgressCurrencyName => '货币名称';
+
+  @override
+  String get maintenanceEgressCurrencySymbol => '货币符号';
+
+  @override
+  String get maintenanceEgressLanguages => '语言';
+
+  @override
+  String get maintenanceEgressArea => '国土面积（平方千米）';
+
+  @override
+  String get maintenanceEgressPopulation => '人口';
+
+  @override
   String get appTitle => 'OpenHand';
 
   @override
@@ -13613,6 +13776,169 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get maintenanceEgressTitle => '網際網路出口';
+
+  @override
+  String get maintenanceEgressRefresh => '重新整理出口資訊';
+
+  @override
+  String get maintenanceEgressLoading => '正在查詢目標機器出口';
+
+  @override
+  String get maintenanceEgressMissingTool => '目標機器需要 curl 或 wget 才能查詢出口';
+
+  @override
+  String get maintenanceEgressFailed => '出口查詢失敗，請檢查目標機器連線狀態後重新整理';
+
+  @override
+  String get maintenanceEgressStale => '重新整理失敗，目前顯示上次成功結果';
+
+  @override
+  String get maintenanceEgressPending => '等待查詢出口資訊';
+
+  @override
+  String get maintenanceEgressNote =>
+      '由目標機器查詢，結果可能受代理與出口路由影響。IP 定位為近似結果；機房資訊僅在資料來源提供時顯示。';
+
+  @override
+  String get maintenanceEgressLocation => '地理位置';
+
+  @override
+  String get maintenanceEgressNetwork => '網路歸屬';
+
+  @override
+  String get maintenanceEgressTimezoneInfo => '時區資訊';
+
+  @override
+  String get maintenanceEgressCountryInfo => '國家資訊';
+
+  @override
+  String get maintenanceEgressExtra => '補充資訊';
+
+  @override
+  String get maintenanceEgressContinent => '洲';
+
+  @override
+  String get maintenanceEgressContinentCode => '洲代碼';
+
+  @override
+  String get maintenanceEgressCountry => '國家或地區';
+
+  @override
+  String get maintenanceEgressCountryCode => '國家代碼';
+
+  @override
+  String get maintenanceEgressCountryIso3 => '三字母國家代碼';
+
+  @override
+  String get maintenanceEgressRegion => '地域';
+
+  @override
+  String get maintenanceEgressRegionCode => '地域代碼';
+
+  @override
+  String get maintenanceEgressCity => '城市';
+
+  @override
+  String get maintenanceEgressLatitude => '緯度';
+
+  @override
+  String get maintenanceEgressLongitude => '經度';
+
+  @override
+  String get maintenanceEgressPostal => '郵遞區號';
+
+  @override
+  String get maintenanceEgressAsn => '自治系統編號';
+
+  @override
+  String get maintenanceEgressOrg => '組織';
+
+  @override
+  String get maintenanceEgressIsp => '網際網路服務商';
+
+  @override
+  String get maintenanceEgressDomain => '歸屬網域';
+
+  @override
+  String get maintenanceEgressPrefix => '網路前綴';
+
+  @override
+  String get maintenanceEgressDatacenter => '機房';
+
+  @override
+  String get maintenanceEgressHosting => '代管網路';
+
+  @override
+  String get maintenanceEgressProxy => '代理網路';
+
+  @override
+  String get maintenanceEgressVpn => 'VPN 網路';
+
+  @override
+  String get maintenanceEgressTor => 'Tor 網路';
+
+  @override
+  String get maintenanceEgressTimezone => '時區';
+
+  @override
+  String get maintenanceEgressTimezoneAbbr => '時區簡稱';
+
+  @override
+  String get maintenanceEgressDst => '日光節約時間';
+
+  @override
+  String get maintenanceEgressOffsetSeconds => 'UTC 偏移（秒）';
+
+  @override
+  String get maintenanceEgressOffset => 'UTC 偏移';
+
+  @override
+  String get maintenanceEgressLocalTime => '查詢時當地時間';
+
+  @override
+  String get maintenanceEgressEu => '歐盟成員';
+
+  @override
+  String get maintenanceEgressCallingCode => '國際電話區碼';
+
+  @override
+  String get maintenanceEgressCapital => '首都';
+
+  @override
+  String get maintenanceEgressBorders => '鄰國代碼';
+
+  @override
+  String get maintenanceEgressFlagUrl => '旗幟圖片位址';
+
+  @override
+  String get maintenanceEgressFlag => '旗幟';
+
+  @override
+  String get maintenanceEgressFlagCode => '旗幟字元編碼';
+
+  @override
+  String get maintenanceEgressTld => '國家頂級網域';
+
+  @override
+  String get maintenanceEgressCurrency => '貨幣代碼';
+
+  @override
+  String get maintenanceEgressCurrencyName => '貨幣名稱';
+
+  @override
+  String get maintenanceEgressCurrencySymbol => '貨幣符號';
+
+  @override
+  String get maintenanceEgressLanguages => '語言';
+
+  @override
+  String get maintenanceEgressArea => '國土面積（平方公里）';
+
+  @override
+  String get maintenanceEgressPopulation => '人口';
 
   @override
   String get appTitle => 'OpenHand';

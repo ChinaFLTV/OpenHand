@@ -86,6 +86,9 @@ $_settingsHarness
 const _checks =
     '''
 class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTerminalFileService {
+  int egressCalls = 0;
+  bool egressFail = false;
+  Completer<String>? egressPending;
   int calls = 0;
   int probes = 0;
   String lastCommand = "";
@@ -101,6 +104,15 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
     if (commandShell == MachineTerminalCommandShell.probe) return platform == 'Windows' ? (powershell ? 'OH_PS_Windows_NT' : 'OH_CMD_Windows_NT') : platform;
+    if (maxOutputCharacters == machineEgressOutputLimit) {
+      egressCalls++;
+      expectSync(windowsScript, false);
+      expectSync(timeout, machineEgressTimeout);
+      expectSync(sessionId, isNotEmpty);
+      expectSync(terminalId, isNotEmpty);
+      if (egressPending != null) return egressPending!.future;
+      return egressFail ? '{"success":false}' : '{"ip":"8.8.8.8","country":"United States","city":"Mountain View","connection":{"isp":"Google","asn":15169}}';
+    }
     expectSync(windowsScript, platform == 'Windows');
     cancelled = isCancelled;
     calls++;
@@ -714,6 +726,90 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('出口信息按当前语言分组，窄屏、大字体与明暗主题布局稳定', (tester) async {
+    final report = MachineEgressReport.parse(jsonEncode({
+      'ip': '2001:4860:4860::8888', 'country': 'United States', 'region': 'California',
+      'city': 'Mountain View', 'latitude': 37.386, 'longitude': -122.0838,
+      'connection': {'asn': 15169, 'org': 'Google LLC', 'isp': 'Google', 'domain': 'google.com'},
+      'timezone': {'id': 'America/Los_Angeles', 'is_dst': true},
+      'is_eu': false, 'capital': 'Washington D.C.',
+      'extra': {'network_role': 'resolver'},
+    }), source: 'https://ipwho.is/');
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final width in [360.0, 1280.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1100));
+        final theme = width == 360 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          theme: Platform.environment['MAINTENANCE_FONT'] == null ? theme : theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: '运维预览字体')),
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width == 360 ? 1.5 : 1)), child: child!),
+          home: Scaffold(body: SingleChildScrollView(child: RepaintBoundary(key: const ValueKey('出口预览'), child: _MaintenanceEgressCard(report: report, busy: false, error: null, onRefresh: () {}))))));
+        await tester.pumpAndSettle();
+        final context = tester.element(find.byType(_MaintenanceEgressCard));
+        final l = AppLocalizations.of(context)!;
+        expect(find.text(l.maintenanceEgressTitle), findsOneWidget);
+        expect(find.text(l.maintenanceEgressCity), findsOneWidget);
+        expect(find.text(l.maintenanceEgressIsp), findsOneWidget);
+        expect(find.text('Google'), findsOneWidget);
+        expect(find.text(report.ip), findsOneWidget);
+        expect(find.byType(OpenHandOperationalRankTable), findsNWidgets(2));
+        expect(find.textContaining('{"ip"'), findsNothing);
+        expect(tester.takeException(), isNull);
+        if (locale.toString() == 'zh' && width == 1280 && Platform.environment['MAINTENANCE_FONT'] != null) {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('出口预览')));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/openhand-egress-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('出口查询复用目标终端，缓存、独立刷新、失败保留结果及取消有效', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    for (final platform in ['Linux', 'Darwin', 'Windows']) {
+      final service = _MaintenanceFixture()..platform = platform;
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: const MaterialApp(locale: Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+      state.setState(() => state._tab = 3);
+      await state._refresh(detectShell: false); await tester.pumpAndSettle();
+      expect(service.egressCalls, 1); expect(state._egress!.ip, '8.8.8.8');
+      await state._refresh(detectShell: false); await tester.pumpAndSettle();
+      expect(service.egressCalls, 1);
+      final cached = state._egress!;
+      state._egress = MachineEgressReport(ip: cached.ip, version: cached.version, source: cached.source,
+        collectedAt: DateTime.now().subtract(const Duration(minutes: 6)), groups: cached.groups);
+      await state._refresh(detectShell: false); await tester.pumpAndSettle();
+      expect(service.egressCalls, 2);
+      final old = state._egress;
+      final calls = service.calls;
+      service.egressFail = true;
+      await state._refresh(manual: true, egressOnly: true); await tester.pumpAndSettle();
+      expect(service.calls, calls); expect(service.egressCalls, 4);
+      expect(identical(state._egress, old), isTrue); expect(state._error, isNull);
+      expect(state._egressError, isNotNull);
+      await state._refresh(detectShell: false); await tester.pumpAndSettle();
+      expect(service.egressCalls, 4);
+      service.egressFail = false;
+      final pending = Completer<String>(); service.egressPending = pending;
+      final refresh = state._refresh(manual: true, egressOnly: true);
+      await tester.pump();
+      expect(state._egressBusy, isTrue);
+      final duplicate = state._refresh(manual: true, egressOnly: true);
+      await duplicate; expect(service.egressCalls, 5);
+      await tester.pumpWidget(const SizedBox());
+      pending.complete('{"ip":"1.1.1.1"}'); await refresh; await tester.pump();
+      expect(service.egressCalls, 5); expect(tester.takeException(), isNull);
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('账户健康板块显示结构化账户、时区与不可用状态', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     final service = _MaintenanceFixture();
@@ -2251,8 +2347,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('网络与诊断'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byWidgetPredicate((w) => w is _MaintenanceCard && w.title == 'DNS 服务器'), 240,
+      scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first,
+    );
+    await tester.pumpAndSettle();
     final grids = tester.widgetList<_MaintenanceGrid>(find.byType(_MaintenanceGrid));
-    final details = grids.singleWhere((grid) => grid.maxColumns == 2);
+    final details = grids.singleWhere((grid) => grid.maxColumns == 2 && grid.children.every((child) => child is _MaintenanceCard));
     expect(details.children.length, 2);
     expect(details.children.every((child) => child is _MaintenanceCard), isTrue);
     final rects = [for (final child in details.children) tester.getRect(find.byWidget(child))];

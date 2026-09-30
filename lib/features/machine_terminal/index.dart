@@ -1,4 +1,5 @@
 export 'machine_containers.dart';
+export 'machine_egress.dart';
 export 'machine_maintenance.dart';
 export 'machine_maintenance_duration.dart';
 export 'machine_maintenance_localizations.dart';

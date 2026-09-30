@@ -9,6 +9,173 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get maintenanceEgressTitle => 'Internetzugang';
+
+  @override
+  String get maintenanceEgressRefresh => 'Ausgangsdaten aktualisieren';
+
+  @override
+  String get maintenanceEgressLoading =>
+      'Ausgang der Zielmaschine wird ermittelt';
+
+  @override
+  String get maintenanceEgressMissingTool =>
+      'Die Zielmaschine benötigt curl oder wget';
+
+  @override
+  String get maintenanceEgressFailed =>
+      'Abfrage fehlgeschlagen. Internetverbindung der Zielmaschine prüfen und aktualisieren.';
+
+  @override
+  String get maintenanceEgressStale =>
+      'Aktualisierung fehlgeschlagen; letztes gültiges Ergebnis wird angezeigt';
+
+  @override
+  String get maintenanceEgressPending => 'Ausgangsabfrage ausstehend';
+
+  @override
+  String get maintenanceEgressNote =>
+      'Abfrage von der Zielmaschine; Proxys und Routing können das Ergebnis beeinflussen. Der IP-Standort ist ungefähr; Rechenzentrumsdaten erscheinen nur, wenn der Anbieter sie liefert.';
+
+  @override
+  String get maintenanceEgressLocation => 'Standort';
+
+  @override
+  String get maintenanceEgressNetwork => 'Netzzugehörigkeit';
+
+  @override
+  String get maintenanceEgressTimezoneInfo => 'Zeitzonendaten';
+
+  @override
+  String get maintenanceEgressCountryInfo => 'Länderinformationen';
+
+  @override
+  String get maintenanceEgressExtra => 'Weitere Informationen';
+
+  @override
+  String get maintenanceEgressContinent => 'Kontinent';
+
+  @override
+  String get maintenanceEgressContinentCode => 'Kontinentcode';
+
+  @override
+  String get maintenanceEgressCountry => 'Land oder Region';
+
+  @override
+  String get maintenanceEgressCountryCode => 'Ländercode';
+
+  @override
+  String get maintenanceEgressCountryIso3 => 'Dreibuchstabiger Ländercode';
+
+  @override
+  String get maintenanceEgressRegion => 'Region';
+
+  @override
+  String get maintenanceEgressRegionCode => 'Regionscode';
+
+  @override
+  String get maintenanceEgressCity => 'Stadt';
+
+  @override
+  String get maintenanceEgressLatitude => 'Breitengrad';
+
+  @override
+  String get maintenanceEgressLongitude => 'Längengrad';
+
+  @override
+  String get maintenanceEgressPostal => 'Postleitzahl';
+
+  @override
+  String get maintenanceEgressAsn => 'Autonome Systemnummer';
+
+  @override
+  String get maintenanceEgressOrg => 'Organisation';
+
+  @override
+  String get maintenanceEgressIsp => 'Internetanbieter';
+
+  @override
+  String get maintenanceEgressDomain => 'Netzwerkdomain';
+
+  @override
+  String get maintenanceEgressPrefix => 'Netzwerkpräfix';
+
+  @override
+  String get maintenanceEgressDatacenter => 'Rechenzentrum';
+
+  @override
+  String get maintenanceEgressHosting => 'Hosting-Netzwerk';
+
+  @override
+  String get maintenanceEgressProxy => 'Proxy-Netzwerk';
+
+  @override
+  String get maintenanceEgressVpn => 'VPN-Netzwerk';
+
+  @override
+  String get maintenanceEgressTor => 'Tor-Netzwerk';
+
+  @override
+  String get maintenanceEgressTimezone => 'Zeitzone';
+
+  @override
+  String get maintenanceEgressTimezoneAbbr => 'Zeitzonenkürzel';
+
+  @override
+  String get maintenanceEgressDst => 'Sommerzeit';
+
+  @override
+  String get maintenanceEgressOffsetSeconds => 'UTC-Abweichung (Sekunden)';
+
+  @override
+  String get maintenanceEgressOffset => 'UTC-Abweichung';
+
+  @override
+  String get maintenanceEgressLocalTime => 'Ortszeit bei Abfrage';
+
+  @override
+  String get maintenanceEgressEu => 'EU-Mitglied';
+
+  @override
+  String get maintenanceEgressCallingCode => 'Telefonvorwahl';
+
+  @override
+  String get maintenanceEgressCapital => 'Hauptstadt';
+
+  @override
+  String get maintenanceEgressBorders => 'Codes der Nachbarländer';
+
+  @override
+  String get maintenanceEgressFlagUrl => 'Flaggenbild-URL';
+
+  @override
+  String get maintenanceEgressFlag => 'Flagge';
+
+  @override
+  String get maintenanceEgressFlagCode => 'Flaggen-Zeichencodes';
+
+  @override
+  String get maintenanceEgressTld => 'Länderspezifische Top-Level-Domain';
+
+  @override
+  String get maintenanceEgressCurrency => 'Währungscode';
+
+  @override
+  String get maintenanceEgressCurrencyName => 'Währungsname';
+
+  @override
+  String get maintenanceEgressCurrencySymbol => 'Währungssymbol';
+
+  @override
+  String get maintenanceEgressLanguages => 'Sprachen';
+
+  @override
+  String get maintenanceEgressArea => 'Landesfläche (km²)';
+
+  @override
+  String get maintenanceEgressPopulation => 'Bevölkerung';
+
+  @override
   String get appTitle => 'OpenHand';
 
   @override

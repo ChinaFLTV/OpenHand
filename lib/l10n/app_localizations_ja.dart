@@ -9,6 +9,170 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get maintenanceEgressTitle => 'インターネット出口';
+
+  @override
+  String get maintenanceEgressRefresh => '出口情報を更新';
+
+  @override
+  String get maintenanceEgressLoading => '対象マシンの出口を確認中';
+
+  @override
+  String get maintenanceEgressMissingTool => '対象マシンに curl または wget が必要です';
+
+  @override
+  String get maintenanceEgressFailed =>
+      '取得できません。対象マシンのインターネット接続を確認し、再更新してください。';
+
+  @override
+  String get maintenanceEgressStale => '更新に失敗したため、前回の結果を表示しています';
+
+  @override
+  String get maintenanceEgressPending => '出口情報の取得待ち';
+
+  @override
+  String get maintenanceEgressNote =>
+      '対象マシンから取得します。プロキシや経路により結果は変わります。IP の位置は概算で、データセンター情報は提供元から取得できる場合のみ表示します。';
+
+  @override
+  String get maintenanceEgressLocation => '所在地';
+
+  @override
+  String get maintenanceEgressNetwork => 'ネットワーク帰属';
+
+  @override
+  String get maintenanceEgressTimezoneInfo => 'タイムゾーン情報';
+
+  @override
+  String get maintenanceEgressCountryInfo => '国の情報';
+
+  @override
+  String get maintenanceEgressExtra => '追加情報';
+
+  @override
+  String get maintenanceEgressContinent => '大陸';
+
+  @override
+  String get maintenanceEgressContinentCode => '大陸コード';
+
+  @override
+  String get maintenanceEgressCountry => '国・地域';
+
+  @override
+  String get maintenanceEgressCountryCode => '国コード';
+
+  @override
+  String get maintenanceEgressCountryIso3 => '3 文字国コード';
+
+  @override
+  String get maintenanceEgressRegion => '地域';
+
+  @override
+  String get maintenanceEgressRegionCode => '地域コード';
+
+  @override
+  String get maintenanceEgressCity => '都市';
+
+  @override
+  String get maintenanceEgressLatitude => '緯度';
+
+  @override
+  String get maintenanceEgressLongitude => '経度';
+
+  @override
+  String get maintenanceEgressPostal => '郵便番号';
+
+  @override
+  String get maintenanceEgressAsn => '自律システム番号';
+
+  @override
+  String get maintenanceEgressOrg => '組織';
+
+  @override
+  String get maintenanceEgressIsp => 'インターネットサービスプロバイダー';
+
+  @override
+  String get maintenanceEgressDomain => '帰属ドメイン';
+
+  @override
+  String get maintenanceEgressPrefix => 'ネットワークプレフィックス';
+
+  @override
+  String get maintenanceEgressDatacenter => 'データセンター';
+
+  @override
+  String get maintenanceEgressHosting => 'ホスティングネットワーク';
+
+  @override
+  String get maintenanceEgressProxy => 'プロキシネットワーク';
+
+  @override
+  String get maintenanceEgressVpn => 'VPN ネットワーク';
+
+  @override
+  String get maintenanceEgressTor => 'Tor ネットワーク';
+
+  @override
+  String get maintenanceEgressTimezone => 'タイムゾーン';
+
+  @override
+  String get maintenanceEgressTimezoneAbbr => 'タイムゾーン略称';
+
+  @override
+  String get maintenanceEgressDst => '夏時間';
+
+  @override
+  String get maintenanceEgressOffsetSeconds => 'UTC オフセット（秒）';
+
+  @override
+  String get maintenanceEgressOffset => 'UTC オフセット';
+
+  @override
+  String get maintenanceEgressLocalTime => '取得時の現地時刻';
+
+  @override
+  String get maintenanceEgressEu => 'EU 加盟';
+
+  @override
+  String get maintenanceEgressCallingCode => '国際電話番号';
+
+  @override
+  String get maintenanceEgressCapital => '首都';
+
+  @override
+  String get maintenanceEgressBorders => '隣接国コード';
+
+  @override
+  String get maintenanceEgressFlagUrl => '国旗画像 URL';
+
+  @override
+  String get maintenanceEgressFlag => '国旗';
+
+  @override
+  String get maintenanceEgressFlagCode => '国旗の文字コード';
+
+  @override
+  String get maintenanceEgressTld => '国別トップレベルドメイン';
+
+  @override
+  String get maintenanceEgressCurrency => '通貨コード';
+
+  @override
+  String get maintenanceEgressCurrencyName => '通貨名';
+
+  @override
+  String get maintenanceEgressCurrencySymbol => '通貨記号';
+
+  @override
+  String get maintenanceEgressLanguages => '言語';
+
+  @override
+  String get maintenanceEgressArea => '国土面積（km²）';
+
+  @override
+  String get maintenanceEgressPopulation => '人口';
+
+  @override
   String get appTitle => 'OpenHand';
 
   @override

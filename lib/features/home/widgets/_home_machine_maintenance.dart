@@ -185,6 +185,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   bool _savingWorkers = false;
   Object? _bodyIdentity;
   Widget? _body;
+  MachineEgressReport? _egress;
+  String? _egressIdentity, _egressError;
+  bool _egressBusy = false, _egressAttempted = false;
 
   @override
   void initState() {
@@ -241,7 +244,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     isCancelled: () => !mounted || _closing || (isCancelled?.call() ?? false),
   );
 
-  Future<void> _refresh({bool manual = false, bool detectShell = true}) async {
+  Future<void> _refresh({
+    bool manual = false,
+    bool detectShell = true,
+    bool egressOnly = false,
+  }) async {
     if (_loading || !mounted || _closing) return;
     if (_tab == 7 && _platformName != null) {
       _timer?.cancel();
@@ -261,6 +268,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _error = null;
     });
     try {
+      if (egressOnly &&
+          _platform != null &&
+          _snapshots[3] != null &&
+          tab == 3) {
+        await _loadEgress(_snapshots[3]!.identity, force: true);
+        return;
+      }
       final target = detectShell || _detectedTarget == null
           ? parseMachineTerminalShellProbe(
               await _run(machineTerminalShellProbe, probe: true),
@@ -350,6 +364,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
         }
       });
+      if (tab == 3 && _tab == 3) {
+        await _loadEgress(result.identity, force: manual);
+      }
     } on MachineTerminalUploadCancelled {
       // 关闭弹窗后停止传输，不将主动取消报告为采集故障。
       return;
@@ -380,6 +397,64 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           _schedule();
         }
       }
+    }
+  }
+
+  Future<void> _loadEgress(String identity, {required bool force}) async {
+    if (_egressIdentity != identity) {
+      _egressIdentity = identity;
+      _egress = null;
+      _egressError = null;
+      _egressAttempted = false;
+    }
+    if (!force &&
+        _egressAttempted &&
+        (_egressError != null ||
+            (_egress != null &&
+                DateTime.now().difference(_egress!.collectedAt) <
+                    machineEgressCacheDuration))) {
+      return;
+    }
+    setState(() {
+      _egressBusy = true;
+      _egressError = null;
+    });
+    final service = context.read<MachineTerminalFileService>();
+    bool cancelled() => !mounted || _closing || _tab != 3;
+    try {
+      final result = await queryMachineEgress(
+        windows: _platformName == 'Windows',
+        isCancelled: cancelled,
+        run: (command) => service.runMaintenanceCommand(
+          sessionId: widget.sessionId,
+          terminalId: widget.terminalId,
+          command: command,
+          commandShell: _commandShell,
+          timeout: machineEgressTimeout,
+          maxOutputCharacters: machineEgressOutputLimit,
+          isCancelled: cancelled,
+        ),
+      );
+      if (!cancelled()) {
+        setState(() {
+          _egress = result;
+          _egressAttempted = true;
+        });
+      }
+    } on MachineTerminalUploadCancelled {
+      // 切换分区或关闭弹窗时取消查询，保留上次有效结果。
+    } catch (error, stack) {
+      if (!cancelled()) {
+        silentLog('machine_maintenance', '查询目标机器出口地址', error, stack);
+        setState(() {
+          _egressError = error is MachineEgressException
+              ? error.code
+              : 'request';
+          _egressAttempted = true;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _egressBusy = false);
     }
   }
 
@@ -812,6 +887,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       Localizations.localeOf(context),
       motion,
       data == null ? (_loading, _error) : null,
+      _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
       return _MachineContainerPanel(
@@ -2902,6 +2978,19 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         const SizedBox(height: 12),
         primary,
         const SizedBox(height: _maintenanceGridGap),
+        _MaintenanceEgressCard(
+          report: _egress,
+          busy: _egressBusy,
+          error: _egressError,
+          onRefresh: _loading
+              ? null
+              : () => _refresh(
+                  manual: true,
+                  detectShell: false,
+                  egressOnly: true,
+                ),
+        ),
+        const SizedBox(height: _maintenanceGridGap),
         _MaintenanceGrid(
           maxColumns: 2,
           children: [
@@ -2965,6 +3054,168 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         diagnostics,
         const SizedBox(height: _maintenancePanelBottomInset),
       ],
+    );
+  }
+}
+
+class _MaintenanceEgressCard extends StatelessWidget {
+  const _MaintenanceEgressCard({
+    required this.report,
+    required this.busy,
+    required this.error,
+    required this.onRefresh,
+  });
+  final MachineEgressReport? report;
+  final bool busy;
+  final String? error;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final data = report;
+    return _MaintenanceCard(
+      title: '互联网出口',
+      icon: Icons.public_rounded,
+      accent: OpenHandStatusColors.info,
+      scrollBody: false,
+      trailing: IconButton(
+        tooltip: maintenanceLabel(context, '刷新出口信息'),
+        onPressed: onRefresh,
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        style: IconButton.styleFrom(
+          fixedSize: const Size.square(32),
+          minimumSize: const Size.square(32),
+          padding: EdgeInsets.zero,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (data == null && busy)
+            SizedBox(
+              height: 120,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(maintenanceLabel(context, '正在查询目标机器出口')),
+                  ],
+                ),
+              ),
+            ),
+          if (error != null)
+            _MaintenanceEmptyHint(
+              message: maintenanceLabel(
+                context,
+                error == 'tool'
+                    ? '目标机器需要 curl 或 wget 才能查询出口'
+                    : data == null
+                    ? '出口查询失败，请检查目标机器联网状态后刷新'
+                    : '刷新失败，当前显示上次成功结果',
+              ),
+            ),
+          if (data == null && !busy && error == null)
+            _MaintenanceEmptyHint(
+              message: maintenanceLabel(context, '等待查询出口信息'),
+            ),
+          if (data != null) ...[
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SelectableText(
+                  data.ip,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.primary,
+                  ),
+                ),
+                _MaintenanceStatus(
+                  label: data.version,
+                  color: OpenHandStatusColors.info,
+                ),
+                Text(
+                  '${data.source} · ${l10n.maintenanceUpdated(MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(data.collectedAt)))}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                if (busy)
+                  const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _MaintenanceGrid(
+              maxColumns: 2,
+              minWidth: 340,
+              children: [
+                for (final entry in data.groups.entries)
+                  _MaintenanceSection(
+                    title: entry.key,
+                    initiallyExpanded: const {
+                      '地理位置',
+                      '网络归属',
+                    }.contains(entry.key),
+                    accent: switch (entry.key) {
+                      '地理位置' => OpenHandStatusColors.info,
+                      '网络归属' => OpenHandStatusColors.success,
+                      '国家信息' => OpenHandStatusColors.warning,
+                      _ => cs.tertiary,
+                    },
+                    icon: switch (entry.key) {
+                      '地理位置' => Icons.location_on_outlined,
+                      '网络归属' => Icons.hub_outlined,
+                      '时区信息' => Icons.schedule_rounded,
+                      '国家信息' => Icons.flag_outlined,
+                      _ => Icons.info_outline_rounded,
+                    },
+                    child: _MaintenanceTable(
+                      headers: const ['名称', '数值'],
+                      paginate: false,
+                      maxBodyHeight: 320,
+                      rows: [
+                        for (final row in entry.value)
+                          OpenHandOperationalRankRow(
+                            value: 0,
+                            cells: [
+                              maintenanceLabel(context, row[0]),
+                              row[1] == 'true'
+                                  ? l10n.maintenanceHealthParsedYes
+                                  : row[1] == 'false'
+                                  ? l10n.maintenanceHealthParsedNo
+                                  : row[1],
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            maintenanceLabel(
+              context,
+              '由目标机器查询，结果可能受代理与出口路由影响。IP 定位为近似结果；机房信息仅在数据源提供时显示。',
+            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 }
