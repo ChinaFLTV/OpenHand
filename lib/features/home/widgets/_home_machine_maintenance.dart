@@ -4201,7 +4201,8 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
                 ? cs.primary.withValues(alpha: .12)
                 : Colors.transparent,
           ),
-          visualDensity: VisualDensity.standard,
+          // 内部分段默认高 40px，收至外层的 34px，避免文字与图标向下偏移。
+          visualDensity: const VisualDensity(vertical: -1.5),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         showSelectedIcon: false,
