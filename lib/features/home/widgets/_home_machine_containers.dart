@@ -619,7 +619,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               child: _MaintenanceReadout(text: _error, section: 'containers'),
             ),
           ),
-        if (_collectionIssues.isNotEmpty)
+        if (_collectionIssues.isNotEmpty) ...[
+          const SizedBox(height: _maintenanceGridGap),
           _MaintenanceReadout(
             report: MachineMaintenanceReadout(
               [],
@@ -643,7 +644,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               },
             ),
           ),
-        const SizedBox(height: 12),
+        ],
+        const SizedBox(height: _maintenanceGridGap),
         if (_client != null) ...[
           _MaintenanceGrid(
             minWidth: 180,

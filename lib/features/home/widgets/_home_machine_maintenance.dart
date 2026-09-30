@@ -1947,6 +1947,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           },
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: _maintenanceGridGap,
                       children: [
                         if (report.raw.isNotEmpty)
                           _MaintenanceReadout(
@@ -4954,6 +4955,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
+      spacing: _maintenanceGridGap,
       children: [
         if (issue.isNotEmpty)
           _MaintenanceEmptyHint(message: issue)
@@ -4993,54 +4995,56 @@ class _MaintenanceHealthContent extends StatelessWidget {
                 ),
             ],
           ),
-        for (final entry in report.tables.entries) ...[
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                _MaintenanceIconBadge(
-                  icon: Icons.table_rows_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 28,
-                  iconSize: 14,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    RegExp(r'[^\x00-\x7F]').hasMatch(entry.key)
-                        ? entry.key
-                        : maintenanceHealthLabel(context, entry.key),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+        for (final entry in report.tables.entries)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 8,
+            children: [
+              Row(
+                children: [
+                  _MaintenanceIconBadge(
+                    icon: Icons.table_rows_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 28,
+                    iconSize: 14,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      RegExp(r'[^\x00-\x7F]').hasMatch(entry.key)
+                          ? entry.key
+                          : maintenanceHealthLabel(context, entry.key),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          _MaintenanceTable(
-            maxBodyHeight: 300,
-            paginate: entry.value.rows.length > 20,
-            headers: [
-              for (final header in entry.value.headers)
-                maintenanceHealthLabel(context, header),
+                ],
+              ),
+              _MaintenanceTable(
+                maxBodyHeight: 300,
+                paginate: entry.value.rows.length > 20,
+                headers: [
+                  for (final header in entry.value.headers)
+                    maintenanceHealthLabel(context, header),
+                ],
+                rows: [
+                  for (var i = 0; i < entry.value.rows.length; i++)
+                    OpenHandOperationalRankRow(
+                      rowKey: i,
+                      value: 0,
+                      cells: [
+                        for (final cell in entry.value.rows[i])
+                          maintenanceHealthValue(context, cell),
+                      ],
+                    ),
+                ],
+              ),
             ],
-            rows: [
-              for (var i = 0; i < entry.value.rows.length; i++)
-                OpenHandOperationalRankRow(
-                  rowKey: i,
-                  value: 0,
-                  cells: [
-                    for (final cell in entry.value.rows[i])
-                      maintenanceHealthValue(context, cell),
-                  ],
-                ),
-            ],
           ),
-        ],
         if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
           _MaintenanceSection(
             title: maintenanceHealthLabel(context, 'diagnostic'),
