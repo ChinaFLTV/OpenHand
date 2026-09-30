@@ -857,7 +857,7 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
                     ),
                   )
                 : Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: _maintenanceDetailPadding,
                     child: SingleChildScrollView(
                       child: _MaintenanceReadout(
                         text: _error.isEmpty ? _text : _error,

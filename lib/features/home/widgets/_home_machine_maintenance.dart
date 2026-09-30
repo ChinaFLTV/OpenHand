@@ -9,6 +9,7 @@ const _maintenanceFieldHeight = 104.0;
 const _maintenanceFieldMaxColumns = 4;
 const _maintenanceSectionHeaderHeight = 64.0;
 const _maintenancePanelBottomInset = 8.0;
+const _maintenanceDetailPadding = EdgeInsets.fromLTRB(18, 4, 18, 12);
 
 const _maintenanceTabs = [
   '运行总览',
@@ -1045,7 +1046,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               ),
               Flexible(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                  padding: _maintenanceDetailPadding,
                   child: SingleChildScrollView(
                     child: _MaintenanceReadout(
                       text: text,
@@ -1916,83 +1917,73 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             scrollBody: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: _maintenanceGridGap,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _MaintenanceEmptyHint(
-                    icon: Icons.info_outline_rounded,
-                    message: l10n.maintenanceGpuComponentsHint,
-                  ),
+                _MaintenanceEmptyHint(
+                  icon: Icons.info_outline_rounded,
+                  message: l10n.maintenanceGpuComponentsHint,
                 ),
                 for (final report in reports)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: _maintenanceGridGap),
-                    child: _MaintenanceSection(
-                      key: ValueKey('gpu-component-${report.title}'),
-                      icon: report.issue.isEmpty
-                          ? Icons.developer_board_outlined
-                          : Icons.info_outline_rounded,
-                      accent: report.issue.isEmpty
-                          ? cs.primary
-                          : OpenHandStatusColors.warning,
-                      title: report.title == 'NVLink · counters'
-                          ? l10n.maintenanceGpuDetailLinkCounters
-                          : report.title,
-                      subtitle: report.issue.isEmpty
-                          ? (report.raw.isNotEmpty
-                                ? '结构化只读采样'
-                                : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
-                          : switch (report.issue) {
-                              'permission' || 'missing' || 'format' =>
-                                maintenanceHealthLabel(context, report.issue),
-                              'unsupported' =>
-                                l10n.maintenanceHealthUnsupported,
-                              _ => l10n.maintenanceGpuProbeUnavailable,
-                            },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (report.raw.isNotEmpty)
-                            _MaintenanceReadout(
-                              text: report.raw,
-                              section: 'gpu_report',
-                            ),
-                          if (report.rows.isNotEmpty)
-                            report.rows.length > 24 && report.groups.length > 1
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      for (final group in report.groups.entries)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: _maintenanceGridGap,
-                                          ),
-                                          child: _MaintenanceSection(
-                                            key: ValueKey(
-                                              'gpu-${report.title}-${group.key}',
-                                            ),
-                                            title: fieldLabel(group.key),
-                                            subtitle:
-                                                '${group.value.length} · ${l10n.maintenanceGpuFields}',
-                                            child: _MaintenanceFields(
-                                              rows: [
-                                                for (final row in group.value)
-                                                  [fieldLabel(row[0]), row[1]],
-                                              ],
-                                            ),
-                                          ),
+                  _MaintenanceSection(
+                    key: ValueKey('gpu-component-${report.title}'),
+                    icon: report.issue.isEmpty
+                        ? Icons.developer_board_outlined
+                        : Icons.info_outline_rounded,
+                    accent: report.issue.isEmpty
+                        ? cs.primary
+                        : OpenHandStatusColors.warning,
+                    title: report.title == 'NVLink · counters'
+                        ? l10n.maintenanceGpuDetailLinkCounters
+                        : report.title,
+                    subtitle: report.issue.isEmpty
+                        ? (report.raw.isNotEmpty
+                              ? '结构化只读采样'
+                              : '${report.rows.length} · ${l10n.maintenanceGpuFields}')
+                        : switch (report.issue) {
+                            'permission' || 'missing' || 'format' =>
+                              maintenanceHealthLabel(context, report.issue),
+                            'unsupported' => l10n.maintenanceHealthUnsupported,
+                            _ => l10n.maintenanceGpuProbeUnavailable,
+                          },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (report.raw.isNotEmpty)
+                          _MaintenanceReadout(
+                            text: report.raw,
+                            section: 'gpu_report',
+                          ),
+                        if (report.rows.isNotEmpty)
+                          report.rows.length > 24 && report.groups.length > 1
+                              ? Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  spacing: _maintenanceGridGap,
+                                  children: [
+                                    for (final group in report.groups.entries)
+                                      _MaintenanceSection(
+                                        key: ValueKey(
+                                          'gpu-${report.title}-${group.key}',
                                         ),
-                                    ],
-                                  )
-                                : _MaintenanceFields(
-                                    rows: [
-                                      for (final row in report.rows)
-                                        [fieldLabel(row[0]), row[1]],
-                                    ],
-                                  ),
-                        ],
-                      ),
+                                        title: fieldLabel(group.key),
+                                        subtitle:
+                                            '${group.value.length} · ${l10n.maintenanceGpuFields}',
+                                        child: _MaintenanceFields(
+                                          rows: [
+                                            for (final row in group.value)
+                                              [fieldLabel(row[0]), row[1]],
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : _MaintenanceFields(
+                                  rows: [
+                                    for (final row in report.rows)
+                                      [fieldLabel(row[0]), row[1]],
+                                  ],
+                                ),
+                      ],
                     ),
                   ),
               ],
@@ -3191,6 +3182,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           scrollBody: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            spacing: _maintenanceGridGap,
             children: [
               for (final name in const [
                 'firewall_status',
@@ -3201,16 +3193,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                 'firewall_nat',
                 'firewall_states',
               ].where(data.sections.containsKey))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: _maintenanceGridGap),
-                  child: _MaintenanceSection(
-                    title: _maintenanceSectionLabels[name] ?? name,
-                    icon: Icons.shield_outlined,
-                    subtitle: _maintenanceOutputStatus(data.text(name)),
-                    child: _MaintenanceReadout(
-                      text: data.text(name),
-                      section: name,
-                    ),
+                _MaintenanceSection(
+                  title: _maintenanceSectionLabels[name] ?? name,
+                  icon: Icons.shield_outlined,
+                  subtitle: _maintenanceOutputStatus(data.text(name)),
+                  child: _MaintenanceReadout(
+                    text: data.text(name),
+                    section: name,
                   ),
                 ),
             ],
@@ -5161,12 +5150,7 @@ class _MaintenanceFields extends StatelessWidget {
                               ),
                               Flexible(
                                 child: SingleChildScrollView(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    18,
-                                    0,
-                                    18,
-                                    18,
-                                  ),
+                                  padding: _maintenanceDetailPadding,
                                   child: SelectableText(raw, style: style),
                                 ),
                               ),
@@ -5422,8 +5406,9 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: _maintenanceGridGap,
         children: [
-          if (_data.rows.isNotEmpty) ...[
+          if (_data.rows.isNotEmpty)
             _MaintenanceReadout(
               report: MachineMaintenanceReadout(
                 _data.headers,
@@ -5431,20 +5416,15 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                 fields: _data.fields,
               ),
             ),
-            const SizedBox(height: 12),
-          ],
           for (final entry in _data.groups.entries)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _MaintenanceSection(
-                title: maintenanceDetailLabel(context, entry.key),
-                icon: Icons.hub_outlined,
-                initiallyExpanded:
-                    _data.groups.length <= 4 && entry.value.rows.length <= 12,
-                child: _MaintenanceReadout(
-                  report: entry.value,
-                  section: widget.section,
-                ),
+            _MaintenanceSection(
+              title: maintenanceDetailLabel(context, entry.key),
+              icon: Icons.hub_outlined,
+              initiallyExpanded:
+                  _data.groups.length <= 4 && entry.value.rows.length <= 12,
+              child: _MaintenanceReadout(
+                report: entry.value,
+                section: widget.section,
               ),
             ),
         ],
@@ -6845,6 +6825,24 @@ class _MachineMaintenanceDetailsState
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final sections = _data == null
+        ? const <Widget>[]
+        : _sectionWidgets(
+            _data!,
+            _data!.sections.keys
+                .where(
+                  (key) =>
+                      (!_logsOnly || key == 'logs') &&
+                      !const [
+                        'platform',
+                        'host',
+                        'boot',
+                        'encoding',
+                        'uptime',
+                      ].contains(key),
+                )
+                .toList(),
+          );
     return buildOpenHandDialog(
       insetPadding: const EdgeInsets.all(18),
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
@@ -6961,31 +6959,13 @@ class _MachineMaintenanceDetailsState
                         ),
                       ),
                     )
-                  : ListView(
+                  : ListView.separated(
                       shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-                      children: [
-                        for (final section in _sectionWidgets(
-                          _data!,
-                          _data!.sections.keys
-                              .where(
-                                (key) =>
-                                    (!_logsOnly || key == 'logs') &&
-                                    !const [
-                                      'platform',
-                                      'host',
-                                      'boot',
-                                      'encoding',
-                                      'uptime',
-                                    ].contains(key),
-                              )
-                              .toList(),
-                        ))
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: section,
-                          ),
-                      ],
+                      padding: _maintenanceDetailPadding,
+                      itemCount: sections.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: _maintenanceGridGap),
+                      itemBuilder: (_, index) => sections[index],
                     ),
             ),
           ],
