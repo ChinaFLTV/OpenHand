@@ -3414,7 +3414,8 @@ class _MaintenanceMetricTiles extends StatelessWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
                                             color: cs.onSurfaceVariant,
                                           ),
                                         ),
@@ -4061,10 +4062,11 @@ class _MaintenanceStatus extends StatelessWidget {
     widthFactor: 1,
     heightFactor: 1,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: .28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
