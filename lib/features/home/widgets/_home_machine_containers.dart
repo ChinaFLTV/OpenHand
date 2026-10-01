@@ -1475,6 +1475,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
           scrollBody: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: _maintenanceGridGap,
             children: [
               Wrap(
                 spacing: 12,
@@ -1550,9 +1551,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                 ],
               ),
               if (_busy) ...[
-                const SizedBox(height: 12),
                 const LinearProgressIndicator(),
-                const SizedBox(height: 8),
                 Text(
                   maintenanceLabel(
                     context,
@@ -1604,6 +1603,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
             ].join(' · '),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: _maintenanceGridGap,
               children: [
                 if (_issues[item.id] case final issue?)
                   if (const {'node_metrics', 'pod_metrics'}.contains(item.id) &&
@@ -1669,35 +1669,44 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                   _MaintenanceEmptyHint(
                     message: maintenanceLabel(context, '等待采样'),
                   ),
-                if (_outputs.containsKey(item.id))
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.data_object_rounded, size: 16),
-                      label: Text(maintenanceLabel(context, '完整元数据')),
-                      onPressed: () async {
-                        final output = _outputs[item.id]!;
-                        await showAnimatedDialog<void>(
-                          context: context,
-                          builder: (_) => _ContainerReportDialog(
-                            title: maintenanceLabel(context, item.label),
-                            section: 'container_metadata',
-                            load: () async => output,
+                if (_outputs.containsKey(item.id) ||
+                    _issues.containsKey(item.id))
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: _maintenanceGridGap,
+                    runSpacing: _maintenanceGridGap,
+                    children: [
+                      if (_outputs.containsKey(item.id))
+                        FilledButton.tonalIcon(
+                          style: _containerResourceTonalButtonStyle(context),
+                          icon: const Icon(Icons.data_object_rounded, size: 16),
+                          label: Text(maintenanceLabel(context, '完整元数据')),
+                          onPressed: () async {
+                            final output = _outputs[item.id]!;
+                            await showAnimatedDialog<void>(
+                              context: context,
+                              builder: (_) => _ContainerReportDialog(
+                                title: maintenanceLabel(context, item.label),
+                                section: 'container_metadata',
+                                load: () async => output,
+                              ),
+                            );
+                          },
+                        ),
+                      if (_issues.containsKey(item.id))
+                        FilledButton.tonalIcon(
+                          style: _containerResourceTonalButtonStyle(context),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: Text(
+                            AppLocalizations.of(
+                              context,
+                            )!.maintenanceImageTagRetry,
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                if (_issues.containsKey(item.id))
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: Text(
-                        AppLocalizations.of(context)!.maintenanceImageTagRetry,
-                      ),
-                      onPressed: _busy ? null : () => refresh(only: item.id),
-                    ),
+                          onPressed: _busy
+                              ? null
+                              : () => refresh(only: item.id),
+                        ),
+                    ],
                   ),
               ],
             ),

@@ -442,6 +442,20 @@ double _containerResourceControlHeightOf(BuildContext context) => math.max(
   MediaQuery.textScalerOf(context).scale(_containerResourceFontSize) * 1.4 + 16,
 );
 
+ButtonStyle _containerResourceTonalButtonStyle(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return FilledButton.styleFrom(
+    backgroundColor: cs.secondaryContainer,
+    foregroundColor: cs.onSecondaryContainer,
+    minimumSize: Size(0, _containerResourceControlHeightOf(context)),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+  );
+}
+
 ThemeData _containerResourceDialogTheme(BuildContext context) {
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
@@ -1191,7 +1205,8 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                       if (!_loading && supported && (_hasMore || _failed)) ...[
                         kOpenHandGap12,
                         Center(
-                          child: TextButton(
+                          child: FilledButton.tonal(
+                            style: _containerResourceTonalButtonStyle(context),
                             onPressed: _load,
                             child: Text(
                               _failed
@@ -1926,15 +1941,7 @@ class _ContainerResourceFormDialogState
                   : () => setState(
                       () => rows.add({if (ports) 'address': '127.0.0.1'}),
                     ),
-              style: FilledButton.styleFrom(
-                backgroundColor: cs.secondaryContainer,
-                foregroundColor: cs.onSecondaryContainer,
-                minimumSize: Size(0, _controlHeight),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              style: _containerResourceTonalButtonStyle(context),
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(l.maintenanceResourceAddRow),
             ),

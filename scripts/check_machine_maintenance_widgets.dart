@@ -5713,6 +5713,17 @@ void telemetryChecks() {
             expect(find.text(kube ? l.maintenanceTelemetryApiHealth : l.maintenanceContainerMetadata),findsWidgets);
             expect(find.text(kube ? l.maintenanceTelemetryNodeMetrics : l.maintenanceContainerMetrics),findsWidgets);
             expect(find.text('采样时间'),findsNothing);
+            final section = find.byKey(ValueKey(kube ? 'telemetry-readiness' : 'telemetry-metadata'));
+            final metadata = find.descendant(of: section, matching: find.widgetWithText(FilledButton, l.maintenanceTelemetryFullMetadata));
+            expect(metadata, findsOneWidget);
+            final content = tester.widget<_MaintenanceSection>(section).child as Column;
+            expect(tester.getTopLeft(metadata).dy - tester.getBottomLeft(find.byWidget(content.children[content.children.length - 2])).dy,
+              greaterThanOrEqualTo(_maintenanceGridGap));
+            final button = tester.widget<FilledButton>(metadata);
+            final colors = Theme.of(tester.element(metadata)).colorScheme;
+            expect(button.style!.backgroundColor!.resolve({}), colors.secondaryContainer);
+            expect((button.style!.shape!.resolve({}) as RoundedRectangleBorder).borderRadius, kOpenHandBorderRadius8);
+            expect(button.style!.elevation!.resolve({WidgetState.hovered}), 0);
             expect(tester.takeException(),isNull);
             for (final decorated in tester.widgetList<DecoratedBox>(find.byType(DecoratedBox))) {
               if (decorated.decoration case final BoxDecoration decoration) {
@@ -5749,7 +5760,11 @@ void telemetryChecks() {
     expect(state._reports['node_metrics'],same(previous));expect(state._updated['node_metrics'],stamp);
     expect(state._issues.keys,['node_metrics']);expect(state._reports.containsKey('events'),isTrue);
     expect(find.textContaining('刷新失败，当前显示上次成功结果'),findsWidgets);
-    failed=false;commands.clear();await state.refresh(only:'node_metrics');await tester.pumpAndSettle();
+    final retry = find.descendant(of: find.byKey(const ValueKey('telemetry-node_metrics')),
+      matching: find.widgetWithText(FilledButton, AppLocalizations.of(state.context)!.maintenanceImageTagRetry));
+    expect(retry, findsOneWidget);
+    await tester.ensureVisible(retry); await tester.pumpAndSettle();
+    failed=false;commands.clear();await tester.tap(retry);await tester.pumpAndSettle();
     expect(state._issues,isEmpty);expect(commands.length,1);expect(commands.single,contains("'top' 'nodes'"));
     await tester.pumpWidget(const SizedBox());
   });
@@ -5771,6 +5786,9 @@ void telemetryChecks() {
         expect(key.currentState!._client!.launcher,['k3s','kubectl']);expect(key.currentState!._reports.length,13);
       } else {
         expect(calls,hasLength(1));expect(key.currentState!._error,isNotEmpty);
+        final readout = find.byWidgetPredicate((widget) => widget is _MaintenanceReadout && widget.text == key.currentState!._error);
+        final refresh = find.byWidgetPredicate((widget) => widget is _MachineTerminalIconButton && widget.icon == Icons.refresh_rounded);
+        expect(tester.getTopLeft(readout).dy - tester.getBottomLeft(refresh).dy, greaterThanOrEqualTo(_maintenanceGridGap));
       }
       await tester.pumpWidget(const SizedBox());
     }
