@@ -557,6 +557,11 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    const resourceControlShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+    );
     final query = _search.text.toLowerCase();
     final entries = _entries
         .where(
@@ -958,33 +963,95 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                   (1, '镜像', Icons.layers_outlined),
                   (2, '数据卷', Icons.storage_rounded),
                 ])
-                  ChoiceChip(
-                    avatar: Icon(item.$3, size: 16),
-                    label: Text(
-                      item.$1 == 1
-                          ? AppLocalizations.of(context)!.maintenanceImages
-                          : maintenanceLabel(context, item.$2),
-                      style: Theme.of(context).textTheme.labelLarge,
+                  SizedBox(
+                    height: _maintenanceControlHeight,
+                    child: ChoiceChip(
+                      showCheckmark: false,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      labelPadding: const EdgeInsets.only(left: 6),
+                      avatarBoxConstraints: const BoxConstraints.tightFor(
+                        width: 16,
+                        height: 16,
+                      ),
+                      shape: resourceControlShape,
+                      side: BorderSide(
+                        color:
+                            (_resourceTab == item.$1
+                                    ? cs.primary
+                                    : cs.outlineVariant)
+                                .withValues(alpha: .55),
+                      ),
+                      backgroundColor: cs.surface.withValues(alpha: .72),
+                      selectedColor: cs.primaryContainer,
+                      labelStyle: theme.textTheme.bodySmall?.copyWith(
+                        color: _resourceTab == item.$1
+                            ? cs.onPrimaryContainer
+                            : cs.onSurface,
+                      ),
+                      iconTheme: IconThemeData(
+                        color: _resourceTab == item.$1
+                            ? cs.onPrimaryContainer
+                            : cs.onSurfaceVariant,
+                      ),
+                      elevation: 0,
+                      pressElevation: 0,
+                      shadowColor: Colors.transparent,
+                      selectedShadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      avatar: Icon(item.$3, size: 16),
+                      label: Text(
+                        item.$1 == 1
+                            ? AppLocalizations.of(context)!.maintenanceImages
+                            : maintenanceLabel(context, item.$2),
+                      ),
+                      selected: _resourceTab == item.$1,
+                      onSelected: _overlay || _client == null
+                          ? null
+                          : (_) {
+                              if (_resourceTab == item.$1) return;
+                              _query?.cancel();
+                              setState(() {
+                                _busy = false;
+                                _resourceTab = item.$1;
+                              });
+                              if (_resourceTab == 0) refresh();
+                            },
                     ),
-                    selected: _resourceTab == item.$1,
-                    onSelected: _overlay || _client == null
-                        ? null
-                        : (_) {
-                            if (_resourceTab == item.$1) return;
-                            _query?.cancel();
-                            setState(() {
-                              _busy = false;
-                              _resourceTab = item.$1;
-                            });
-                            if (_resourceTab == 0) refresh();
-                          },
                   ),
                 if (_resourceTab == 0 && (_client?.supportsResources ?? false))
-                  FilledButton.tonalIcon(
-                    onPressed: _overlay ? null : _createContainer,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text(
-                      AppLocalizations.of(context)!.maintenanceContainerCreate,
+                  SizedBox(
+                    height: _maintenanceControlHeight,
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, _maintenanceControlHeight),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                        shape: resourceControlShape,
+                        side: BorderSide(
+                          color: (_overlay ? cs.outlineVariant : cs.primary)
+                              .withValues(alpha: .55),
+                        ),
+                        backgroundColor: cs.primaryContainer,
+                        foregroundColor: cs.onPrimaryContainer,
+                        disabledBackgroundColor: cs.surfaceContainerHighest,
+                        disabledForegroundColor: cs.onSurface.withValues(
+                          alpha: .38,
+                        ),
+                        textStyle: theme.textTheme.bodySmall,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                      ),
+                      onPressed: _overlay ? null : _createContainer,
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: Text(
+                        AppLocalizations.of(
+                          context,
+                        )!.maintenanceContainerCreate,
+                      ),
                     ),
                   ),
               ],
