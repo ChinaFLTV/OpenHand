@@ -5904,15 +5904,20 @@ class _MaintenanceFields extends StatelessWidget {
                                   ),
                                 ),
                                 if (truncated)
-                                  SizedBox(
-                                    width: 28,
-                                    height: 24,
+                                  SizedBox.square(
+                                    dimension: 28,
                                     child: IconButton(
                                       tooltip: maintenanceLabel(
                                         context,
                                         '查看详情',
                                       ),
                                       padding: EdgeInsets.zero,
+                                      style: IconButton.styleFrom(
+                                        shape: const CircleBorder(),
+                                        visualDensity: VisualDensity.standard,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
                                       iconSize: 16,
                                       onPressed: openValue,
                                       icon: const Icon(

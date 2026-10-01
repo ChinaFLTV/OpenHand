@@ -2411,7 +2411,7 @@ void main() {
 
 
 
-  testWidgets('元数据字段统一尺寸，长值可完整查看复制且缩放不溢出', (tester) async {
+  testWidgets('元数据字段统一尺寸，详情按钮保持圆形且长值可完整查看复制', (tester) async {
     final longValue = List.filled(30, '/srv/runtime/containers/worker').join(' · ');
     final fields = <List<String>>[
       ['服务名称', 'worker'], ['状态', '运行中'], ['挂载路径', longValue],
@@ -2428,7 +2428,10 @@ void main() {
           await tester.binding.setSurfaceSize(Size(width, 1000));
           await tester.pumpWidget(MaterialApp(locale: const Locale('zh'),
             localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
-            theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.green, brightness: brightness)),
+            theme: (brightness == Brightness.light
+              ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
+              : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen)).copyWith(
+                visualDensity: const VisualDensity(horizontal: -2, vertical: -4)),
             builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
             home: Scaffold(body: SingleChildScrollView(child: _MaintenanceFields(rows: fields)))));
           await tester.pumpAndSettle();
@@ -2438,10 +2441,25 @@ void main() {
             expect(rect.height, closeTo(rects.first.height, .01));
             expect(rect.right, lessThanOrEqualTo(width + .01));
           }
+          final buttons = find.descendant(of: find.byType(_MaintenanceFields), matching: find.byType(IconButton));
+          expect(buttons, findsAtLeastNWidgets(2));
+          for (var index = 0; index < buttons.evaluate().length; index++) {
+            final button = buttons.at(index);
+            final material = find.descendant(of: button, matching: find.byType(Material));
+            final rect = tester.getRect(material);
+            expect(rect.size, const Size.square(28));
+            expect(tester.getSize(button), const Size.square(28));
+            expect(tester.widget<Material>(material).shape, isA<CircleBorder>());
+            expect(tester.getCenter(find.descendant(of: button, matching: find.byType(Icon))), rect.center);
+          }
           expect(find.text('6 小时 44 分 30.37 秒'), findsOneWidget);
           expect(tester.takeException(), isNull);
           if (((width == 760 && scale == 1) || (width == 360 && scale == 1.6)) && brightness == Brightness.light) {
-            await tester.tap(find.text(longValue)); await tester.pumpAndSettle();
+            final longField = find.byKey(const ValueKey('maintenance-field-挂载路径'));
+            await tester.tap(width == 760
+              ? find.descendant(of: longField, matching: find.byType(IconButton))
+              : find.text(longValue));
+            await tester.pumpAndSettle();
             expect(find.byType(Dialog), findsOneWidget);
             final detail = find.descendant(of: find.byType(Dialog), matching: find.byType(SelectableText));
             expect(tester.widget<SelectableText>(detail).data, longValue);
