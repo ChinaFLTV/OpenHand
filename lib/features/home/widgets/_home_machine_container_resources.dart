@@ -423,6 +423,16 @@ class _MachineContainerResourcesState
 const _containerResourceFontSize = 13.0;
 const _containerResourceControlHeight = 40.0;
 
+Widget _buildContainerResourceActions({
+  required BuildContext context,
+  required List<Widget> actions,
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
+}) => Theme(
+  // 底部操作沿用全局确认弹窗样式，避免继承表单内的紧凑按钮主题。
+  data: Theme.of(context),
+  child: buildOpenHandDialogActionsBar(actions: actions, padding: padding),
+);
+
 double _containerResourceControlHeightOf(BuildContext context) => math.max(
   _containerResourceControlHeight,
   MediaQuery.textScalerOf(context).scale(_containerResourceFontSize) * 1.4 + 16,
@@ -1193,17 +1203,18 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                   ),
                 ),
               ),
-              buildOpenHandDialogActionsBar(
+              _buildContainerResourceActions(
+                context: context,
                 actions: [
-                  OutlinedButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.pop(context),
-                    child: Text(l.commonCancel),
+                    label: l.commonCancel,
                   ),
-                  FilledButton(
+                  OpenHandDialogActionButton.primary(
                     onPressed: valid
                         ? () => Navigator.pop(context, _tag.text.trim())
                         : null,
-                    child: Text(l.commonConfirm),
+                    label: l.commonConfirm,
                   ),
                 ],
               ),
@@ -2047,38 +2058,43 @@ class _ContainerResourceFormDialogState
                         ),
                         const SizedBox(height: 10),
                       ],
-                      buildOpenHandDialogActionsBar(
+                      _buildContainerResourceActions(
+                        context: context,
                         padding: EdgeInsets.zero,
                         actions: [
                           if (_busy)
-                            OutlinedButton(
+                            OpenHandDialogActionButton.secondary(
                               onPressed: _cancelled
                                   ? null
                                   : () => setState(() => _cancelled = true),
-                              child: Text(l.commonCancel),
+                              label: l.commonCancel,
                             )
                           else if (_completed || _uncertain)
-                            FilledButton(
+                            OpenHandDialogActionButton.primary(
                               onPressed: () => Navigator.pop(context, true),
-                              child: Text(l.maintenanceResourceCloseRefresh),
+                              label: l.maintenanceResourceCloseRefresh,
                             )
                           else ...[
-                            OutlinedButton(
+                            OpenHandDialogActionButton.secondary(
                               onPressed: () => Navigator.pop(context, false),
-                              child: Text(l.commonCancel),
+                              label: l.commonCancel,
                             ),
-                            FilledButton(
-                              onPressed: _submit,
-                              style: _remove
-                                  ? FilledButton.styleFrom(
-                                      backgroundColor: cs.error,
-                                      foregroundColor: cs.onError,
-                                    )
-                                  : null,
-                              child: Text(
-                                _containerActionLabel(context, widget.action),
+                            if (_remove)
+                              OpenHandDialogActionButton.destructive(
+                                onPressed: _submit,
+                                label: _containerActionLabel(
+                                  context,
+                                  widget.action,
+                                ),
+                              )
+                            else
+                              OpenHandDialogActionButton.primary(
+                                onPressed: _submit,
+                                label: _containerActionLabel(
+                                  context,
+                                  widget.action,
+                                ),
                               ),
-                            ),
                           ],
                         ],
                       ),
