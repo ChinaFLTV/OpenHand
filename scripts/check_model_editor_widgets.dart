@@ -181,7 +181,7 @@ void main() {
     });
   }
 
-  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
     for (final size in [const Size(1100, 900), const Size(390, 844)]) {
       testWidgets('重点模型 $id 在 $size 下展示并保存完整元数据', (tester) async {
         final protocol = id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai;
@@ -189,6 +189,10 @@ void main() {
         _ModelProfileEditorResult? saved;
         await _openEditor(tester, size: size, id: id, protocol: protocol, onResult: (value) => saved = value);
         expect(tester.takeException(), isNull);
+        final chips = find.descendant(of: _editor, matching: find.byType(Chip));
+        for (final option in original.reasoningEffortOptions) {
+          expect(find.descendant(of: chips, matching: find.text(option.value)), findsOneWidget);
+        }
         await _captureEditor(tester, _editor, '$id-${size.width.toInt()}');
         final state = tester.state<_ModelProfileEditorDialogState>(_editor);
         state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
@@ -213,6 +217,30 @@ void main() {
     expect(saved?.profile.sourceMetadata, hasLength(0));
     expect(saved?.profile.architecture, isNull);
     expect(saved?.profile.created, isNull);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('来源元数据按需缓存，修改型号即时更新且包含完整价格', (tester) async {
+    await _openEditor(tester, id: 'gpt-6.1-sol', protocol: AiProtocolType.openai);
+    final state = tester.state<_ModelProfileEditorDialogState>(_editor);
+    expect(state._metadataText, isNull);
+    state._profileScrollController.jumpTo(state._profileScrollController.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('来源与原始元数据'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandJsonTreeView), findsOneWidget);
+    final original = state._metadataText;
+    final metadata = jsonDecode(original!) as Map;
+    expect(metadata['pricing_usd_per_million'], {'input': 2, 'output': 10, 'cache_read': 0.1, 'cache_write': 2.5});
+    expect(identical(state._buildReadonlyOpenRouterMetadata('gpt-6.1-sol', state._currentSourceProfile), original), isTrue);
+    state._modelIdController.text = 'openai/gpt-6.1-sol-pro';
+    await tester.pumpAndSettle();
+    expect(jsonDecode(state._metadataText!)['source_metadata']['id'], 'openai/gpt-6.1-sol-pro');
+    state._modelIdController.text = 'custom-model';
+    await tester.pumpAndSettle();
+    final unknown = jsonDecode(state._metadataText!) as Map;
+    expect(unknown['id'], 'custom-model');
+    expect(unknown.containsKey('source_metadata'), isFalse);
+    expect(unknown['pricing_usd_per_million']['input'], isNull);
     expect(tester.takeException(), isNull);
   });
 

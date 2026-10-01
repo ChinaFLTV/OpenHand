@@ -166,8 +166,13 @@ class AiModelCatalog {
         _joycode(id) ??
         _wenxin(id) ??
         _meta(id) ??
-        _grok(id) ??
-        _hunyuan(id) ??
+        (id.startsWith('grok-') ? _grok(id) : null) ??
+        (id.startsWith('hunyuan') ||
+                id.startsWith('hy-') ||
+                id.startsWith('hy3') ||
+                id.startsWith('hy4')
+            ? _hunyuan(id)
+            : null) ??
         _mimo(id) ??
         _genericRerank(id) ??
         _openSourceEmbedding(id);
@@ -579,7 +584,6 @@ class AiModelCatalog {
       'mcp',
       'tool_search',
     ],
-    'sampling_requires_reasoning_effort': 'none',
     'long_context_threshold_input_tokens': 272000,
     'long_context_billing_scope': 'full_request',
     'unsupported_endpoints': [
@@ -1287,11 +1291,24 @@ class AiModelCatalog {
         defaultParameters: const {
           'reasoning': {'effort': 'medium'},
         },
-        sourceMetadata: const {
+        sourceMetadata: {
           ..._solSourceMetadata,
+          'verified_at': '2026-10-01',
           'snapshots': ['gpt-6.1-sol'],
           'unsupported_features': ['fine_tuning', 'predicted_outputs'],
-          'reasoning': {'mandatory': true},
+          'reasoning': {
+            'mandatory': true,
+            'default_enabled': true,
+            'default_effort': 'medium',
+            'supported_efforts': ['low', 'medium', 'high', 'xhigh', 'max'],
+          },
+          'unsupported_parameters': [
+            'temperature',
+            'top_p',
+            'top_logprobs',
+            'logprobs',
+            'prompt_cache_retention',
+          ],
           'tool_calling_api': 'responses',
         },
       );
@@ -1330,6 +1347,7 @@ class AiModelCatalog {
         sourceMetadata: const {
           ..._solSourceMetadata,
           'snapshots': ['gpt-6-sol'],
+          'sampling_requires_reasoning_effort': 'none',
           'chat_tools_require_reasoning_effort': 'none',
           'batch_queue_tokens_by_tier': [
             1500000,

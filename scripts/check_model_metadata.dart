@@ -171,6 +171,62 @@ void main() {
     expect(body['reasoning'], {'effort': 'low'});
     expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody({'messages': [], 'tools': [{}]}, config), throwsUnsupportedError);
   });
+  test('GPT-6.1 Sol 网关标准版和 Pro 保留来源、价格档位与强制思考', () {
+    for (final id in ['openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro']) {
+      final profile = AiModelCatalog.lookup(id, AiProtocolType.openai)!;
+      expect(profile.sourceMetadata['id'], id);
+      expect(profile.canonicalSlug, '\$id-20260929');
+      expect((profile.maxContextLength, profile.maxOutputLength), (1050000, 128000));
+      expect((profile.inputUsdPer1M, profile.outputUsdPer1M, profile.cacheReadUsdPer1M, profile.cacheWriteUsdPer1M), (2, 10, 0.1, 2.5));
+      expect(profile.reasoningEffortOptions.map((option) => option.value), ['low', 'medium', 'high', 'xhigh', 'max']);
+      expect(profile.sourceMetadata['pricing'], containsPair('overrides', isNotEmpty));
+      expect(profile.requiresThinking, isTrue);
+      expect(profile.knowledgeCutoff, isNull);
+      final configured = model(id, profiles: {id: const AiModelProfile(thinkingEnabled: false, reasoningEffort: 'none')});
+      expect(configured.resolvedThinkingEnabled, isTrue);
+      final body = <String, Object?>{
+        'messages': [], 'tools': [{'type': 'function'}], 'reasoning_effort': 'none',
+        'reasoning': {'effort': 'minimal', 'mode': 'pro'},
+        'temperature': 0.7, 'top_p': 0.9, 'logprobs': true,
+        'prompt_cache_retention': '24h',
+      };
+      AiThinkingRequestPolicy.normalizeModelRequestBody(body, configured);
+      expect(body['reasoning_effort'], 'low');
+      expect(body['reasoning'], {'effort': 'low', 'mode': 'pro'});
+      for (final field in ['temperature', 'top_p', 'logprobs', 'prompt_cache_retention']) {
+        expect(body.containsKey(field), isFalse, reason: id);
+      }
+      expect(body['tools'], isNotEmpty);
+    }
+    final native = AiModelCatalog.lookup('gpt-6.1-sol', AiProtocolType.openai)!;
+    expect(native.knowledgeCutoff, '2026-04-30');
+    expect(native.sourceMetadata.containsKey('sampling_requires_reasoning_effort'), isFalse);
+    expect(native.sourceMetadata['reasoning'], containsPair('default_effort', 'medium'));
+    expect(AiModelCatalog.lookup('gpt-6.1-sol-pro', AiProtocolType.openai), isNull);
+  });
+  test('跨协议兜底不把未知型号误认成混元或 Grok', () {
+    for (final id in ['custom-pro', 'custom-lite', 'custom-vision', 'custom-think']) {
+      expect(AiModelCatalog.lookup(id, AiProtocolType.openai), isNull, reason: id);
+    }
+    expect(AiModelCatalog.lookup('hunyuan-pro', AiProtocolType.openai)!.displayName, 'Hunyuan Pro');
+    expect(AiModelCatalog.lookup('pro', AiProtocolType.hunyuan)!.displayName, 'Hunyuan Pro');
+    expect(AiModelCatalog.lookup('hy4-preview', AiProtocolType.openai)!.displayName, 'HY4 Preview');
+    expect(AiModelCatalog.lookup('grok-2-vision-custom', AiProtocolType.openai)!.displayName, 'Grok-2 Vision');
+  });
+  test('未知 Gemini 型号不虚构规格，声明原生档位后可直接使用', () {
+    const id = 'gemini-custom-model';
+    expect(AiModelCatalog.lookup('gemini-4-argon', AiProtocolType.gemini), isNull);
+    for (final parameter in ['thinking_level', 'generation_config.thinking_config.thinking_level', 'generationConfig.thinkingConfig.thinkingLevel']) {
+      final config = model(id, profiles: {id: AiModelProfile(
+        thinkingEnabled: true, reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high', reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+        supportedParameters: [parameter],
+      )}).copyWith(protocolType: AiProtocolType.gemini);
+      final generation = <String, Object?>{'temperature': 0.7};
+      AiThinkingRequestPolicy.applyGeminiGenerationConfig(generation, config);
+      expect(generation, {'temperature': 0.7, 'thinkingConfig': {'thinkingLevel': 'HIGH', 'includeThoughts': true}});
+    }
+  });
   test('四个重点模型的结构化元数据和默认参数完整往返', () {
     for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
       final profile = AiModelCatalog.lookup(id, id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai)!;
@@ -180,7 +236,7 @@ void main() {
       expect(restored.architecture!.inputModalities, ['text', 'image']);
       expect(restored.architecture!.outputModalities, ['text']);
       expect(restored.maxThinkingLength, isNull);
-      expect(restored.sourceMetadata['verified_at'], '2026-09-30');
+      expect(restored.sourceMetadata['verified_at'], id == 'gpt-6.1-sol' ? '2026-10-01' : '2026-09-30');
     }
     final opus = AiModelCatalog.lookup('claude-opus-5-5', AiProtocolType.claude)!;
     expect(opus.requiresThinking, isTrue);

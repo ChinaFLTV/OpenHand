@@ -248,6 +248,7 @@ abstract final class AiThinkingRequestPolicy {
     }
     final mandatoryGpt6 =
         AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol') ||
+        AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol-pro') ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra') ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-astra-pro');
     if (mandatoryGpt6 ||
@@ -802,6 +803,15 @@ abstract final class AiThinkingRequestPolicy {
   }
 
   static bool _usesGeminiThinkingLevel(AiModelConfig model) {
+    // 优先识别档案声明，允许新型号直接沿用已公布的原生思考参数。
+    final profile = model.profileFor(model.modelId);
+    if (profile.sourceMetadata['thinking_level_supported'] == true ||
+        profile.supportedParameters.any((parameter) {
+          final field = parameter.split('.').last;
+          return field == 'thinking_level' || field == _thinkingLevelField;
+        })) {
+      return true;
+    }
     final id = lowercaseStringFromValue(model.modelId);
     return id.startsWith('gemini-3') || id.contains('gemini-3');
   }

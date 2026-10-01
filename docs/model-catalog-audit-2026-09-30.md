@@ -1,5 +1,16 @@
 # 模型目录核查记录（2026-09-30）
 
+## 2026-10-01 补充核验
+
+- 依据 [OpenAI GPT-6.1 Sol 官方规格](https://developers.openai.com/api/docs/models/gpt-6.1-sol.md) 补齐直连档案：默认快照、输入/输出模态、92.2 万最大输入、105 万上下文、12.8 万最大输出、2026-04-30 知识截止、推理档位、端点支持、工具、缓存、长上下文计费、区域与速率限制。
+- 依据 [OpenRouter 模型接口](https://openrouter.ai/api/v1/models) 同步 462 条在线记录，新增 `openai/gpt-6.1-sol`、`openai/gpt-6.1-sol-pro`，两个网关目录累计 575 个唯一 ID。原始价格、路由、架构、推理和基准字段继续通过 `source_metadata` 完整往返。快照 SHA-256：`61e554c9f5a03612edfc3d9f2b4f933385bcf4a252aad1600e098ab3ca75ed5e`。
+- GPT-6.1 Sol 的 `none` / `minimal` 推理档位会归一为 `low`；启用推理时移除不兼容采样与 logprobs 参数。官方直连工具调用要求 Responses API，网关保留兼容工具请求；Sol Pro 补齐同类参数清理并保留 `reasoning.mode`。
+- [Gemini 官方模型总览](https://ai.google.dev/gemini-api/docs/models)、思考和变更文档未收录 `gemini-4-argon`，对应官方模型页返回 404，OpenRouter 在线目录也无该 ID；未凭名称虚构规格。Gemini 档位适配改为优先读取模型档案声明的 `thinking_level` 能力，新型号可通过真实目录字段直接生效。
+- 模型编辑器的原始元数据仍按需展开，并缓存同一模型的只读 JSON；面板补充名称、描述、限制和四类价格概览，切换模型会立即刷新，继续使用全局弹窗动画与现有布局。
+- 收紧跨协议的混元与 Grok 兜底匹配，避免未知 `pro`、`lite`、`vision`、`think` 型号获得无关厂商的规格；原生协议仍接受合法短名称。
+- 修复窄屏摘要的推理档位截断，改为独立彩色标签自动换行。已检查中文字体的宽窄屏截图。
+- 验证：462 条在线原始记录逐字段及序列化比对通过；元数据与协议 36 项、编辑器 36 项、缓存 25 项，共 97 项回归通过；修改文件静态分析、目录同步检查、`scripts/build_web.sh` 重建及附带检查通过。未执行真实计费模型请求。
+
 ## 数据范围与口径
 
 - 同步 [OpenRouter 官方模型接口](https://openrouter.ai/api/v1/models) 的 460 条在线记录，保留原始字段和历史型号；两个内置网关目录合计 573 个唯一 ID。

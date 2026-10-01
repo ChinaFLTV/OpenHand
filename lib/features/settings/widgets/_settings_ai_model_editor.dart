@@ -3251,6 +3251,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool _embeddingSupportsTruncation = false;
   late bool _isGlobalDefaultTitleModel;
   bool _metadataLoaded = false;
+  String? _metadataModelId;
+  String? _metadataText;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
   late final Set<String> _reservedModelIds;
@@ -6597,12 +6599,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   children: [
                     kOpenHandGap8,
                     if (_metadataLoaded)
-                      OpenHandJsonTreeView(
-                        text: _buildReadonlyOpenRouterMetadata(
-                          _modelIdController.text.trim(),
-                          _currentSourceProfile,
-                        ),
-                        bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _modelIdController,
+                        builder: (context, value, child) =>
+                            OpenHandJsonTreeView(
+                              text: _buildReadonlyOpenRouterMetadata(
+                                value.text.trim(),
+                                _currentSourceProfile,
+                              ),
+                              bodyMaxHeight: kOpenHandJsonTreePreviewMaxHeight,
+                            ),
                       ),
                   ],
                 ),
@@ -6799,12 +6805,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       '${l10n.mdlEdOutputLength} ${catalog.maxOutputLength}',
                     ),
                   ),
-                if (catalog.reasoningEffortOptions.isNotEmpty)
+                for (final option in catalog.reasoningEffortOptions)
                   Chip(
-                    label: Text(
-                      catalog.reasoningEffortOptions
-                          .map((option) => option.value)
-                          .join(' / '),
+                    label: Text(option.value),
+                    backgroundColor: colorScheme.tertiaryContainer.withValues(
+                      alpha: 0.35,
                     ),
                   ),
               ],
@@ -6861,8 +6866,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     String modelId,
     AiModelProfile profile,
   ) {
+    if (_metadataModelId == modelId && _metadataText != null) {
+      return _metadataText!;
+    }
     final map = <String, Object?>{
       'id': modelId,
+      'name': profile.displayName,
+      'description': profile.description,
       'canonical_slug': profile.canonicalSlug,
       'hugging_face_id': profile.huggingFaceId,
       'created': profile.created,
@@ -6870,6 +6880,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         'context': profile.maxContextLength,
         'output': profile.maxOutputLength,
         'thinking': profile.maxThinkingLength,
+      },
+      'pricing_usd_per_million': {
+        'input': profile.inputUsdPer1M,
+        'output': profile.outputUsdPer1M,
+        'cache_read': profile.cacheReadUsdPer1M,
+        'cache_write': profile.cacheWriteUsdPer1M,
       },
       'architecture': profile.architecture?.toJson(),
       'supported_parameters': profile.supportedParameters,
@@ -6886,7 +6902,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       if (profile.sourceMetadata.isNotEmpty)
         'source_metadata': profile.sourceMetadata,
     };
-    return prettyPrintJson(map);
+    _metadataModelId = modelId;
+    return _metadataText = prettyPrintJson(map);
   }
 
   Widget _buildSectionHeader(String text) {
