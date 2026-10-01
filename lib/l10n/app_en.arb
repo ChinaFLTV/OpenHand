@@ -8272,7 +8272,7 @@
   "maintenanceSendRate": "Sent / s",
   "maintenanceCpuTrend": "CPU live trend",
   "maintenanceAccumulating": "Collecting samples…",
-  "maintenanceTrendHelp": "Enable auto refresh to display the trend",
+  "maintenanceTrendHelp": "Waiting for more samples to show the trend",
   "maintenanceOperations": "Operations",
   "maintenanceViewProcesses": "View processes",
   "maintenanceManageServices": "Manage services",

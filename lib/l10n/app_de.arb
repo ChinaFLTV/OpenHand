@@ -8267,7 +8267,7 @@
   "maintenanceSendRate": "Gesendet / s",
   "maintenanceCpuTrend": "CPU-Live-Verlauf",
   "maintenanceAccumulating": "Messwerte werden gesammelt…",
-  "maintenanceTrendHelp": "Automatische Aktualisierung für den Verlauf aktivieren",
+  "maintenanceTrendHelp": "Weitere Messwerte für den Verlauf werden benötigt",
   "maintenanceOperations": "Verwaltungsaktionen",
   "maintenanceViewProcesses": "Prozesse anzeigen",
   "maintenanceManageServices": "Dienste verwalten",

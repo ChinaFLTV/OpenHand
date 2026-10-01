@@ -11304,7 +11304,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceAccumulating => 'サンプルを収集中…';
 
   @override
-  String get maintenanceTrendHelp => '自動更新を有効にすると推移を表示します';
+  String get maintenanceTrendHelp => '推移の表示には追加のサンプルが必要です';
 
   @override
   String get maintenanceOperations => '運用操作';

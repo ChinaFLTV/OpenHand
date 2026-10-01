@@ -1498,17 +1498,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _MaintenanceCard(
         title: maintenanceLabel(context, 'CPU 实时趋势'),
         icon: Icons.show_chart_rounded,
-        child: SizedBox(
-          height: 190,
-          child: _cpuHistory.length < 2
-              ? _MaintenanceEmptyHint(
-                  icon: Icons.show_chart_rounded,
-                  message: maintenanceLabel(
-                    context,
-                    _automatic ? '正在积累样本…' : '开启自动刷新后显示趋势',
-                  ),
-                )
-              : _MaintenanceTrend(points: List.of(_cpuHistory)),
+        child: _MaintenanceAnimatedColumn(
+          children: [
+            if (_cpuHistory.length < 2)
+              _MaintenanceEmptyHint(
+                key: const ValueKey('cpu-trend-empty'),
+                icon: Icons.show_chart_rounded,
+                message: _automatic
+                    ? AppLocalizations.of(context)!.maintenanceAccumulating
+                    : AppLocalizations.of(context)!.maintenanceTrendHelp,
+              )
+            else
+              SizedBox(
+                key: const ValueKey('cpu-trend-data'),
+                height: 190,
+                child: _MaintenanceTrend(points: List.of(_cpuHistory)),
+              ),
+          ],
         ),
       ),
       _MaintenanceCard(
@@ -1782,7 +1788,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     int previousTab = 0,
   }) {
     final keys = data.counters(section, colon: section == 'network').keys;
-    if (keys.isEmpty) return Text(maintenanceLabel(context, '当前环境未提供可用计数器。'));
+    if (keys.isEmpty) {
+      return _MaintenanceEmptyHint(
+        icon: Icons.speed_rounded,
+        message: maintenanceLabel(context, '当前环境未提供可用计数器。'),
+      );
+    }
     final cs = Theme.of(context).colorScheme;
     final samples = <OpenHandChartSegment>[];
     for (final key in keys) {
@@ -1895,10 +1906,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
     return _MaintenanceAnimatedList(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      empty: _MaintenanceEmptyHint(
-        message: l10n.maintenanceGpuEmpty,
-        centered: true,
-      ),
+      empty: _MaintenanceEmptyHint(message: l10n.maintenanceGpuEmpty),
       children: [
         for (final device in gpu.devices) ...[
           _MaintenanceCard(
@@ -6197,41 +6205,16 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
 
 class _MaintenanceEmptyHint extends StatelessWidget {
   const _MaintenanceEmptyHint({
+    super.key,
     required this.message,
     this.icon = Icons.inbox_outlined,
-    this.centered = false,
   });
   final String message;
   final IconData icon;
-  final bool centered;
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisSize: centered ? MainAxisSize.min : MainAxisSize.max,
-        children: [
-          _MaintenanceIconBadge(
-            icon: icon,
-            color: cs.onSurfaceVariant,
-            size: 32,
-            iconSize: 16,
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            fit: centered ? FlexFit.loose : FlexFit.tight,
-            child: Text(
-              message,
-              textAlign: centered ? TextAlign.center : TextAlign.start,
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      OpenHandOperationalEmptyState(message: message, icon: icon);
 }
 
 class _MaintenanceIconBadge extends StatelessWidget {
@@ -6936,14 +6919,17 @@ class _MaintenanceLogTimeline extends StatelessWidget {
         : rows
               .map((row) => row.first == '—' ? row.last : row.join('  '))
               .join('\n');
-    if (text.isNotEmpty && _maintenanceLogUnreadable(text)) {
+    if (text.isEmpty || _maintenanceLogUnreadable(text)) {
       return _MaintenanceEmptyHint(
-        message: AppLocalizations.of(context)!.maintenanceLogUnavailable,
+        icon: Icons.article_outlined,
+        message: text.isEmpty
+            ? AppLocalizations.of(context)!.maintenanceLogEmpty
+            : AppLocalizations.of(context)!.maintenanceLogUnavailable,
       );
     }
     return OpenHandConsoleText(
       title: maintenanceLabel(context, '最近日志'),
-      text: rows.isEmpty ? maintenanceLabel(context, '暂无可用数据') : text,
+      text: text,
       maxHeight: 260,
     );
   }
@@ -7547,7 +7533,6 @@ class _MachineMaintenanceDetailsState
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: _MaintenanceEmptyHint(
-                          centered: true,
                           icon: _busy
                               ? Icons.downloading_rounded
                               : Icons.cloud_off_rounded,
@@ -7883,33 +7868,18 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                     }} · ${_visible.length}',
                 expandBody: true,
                 child: _visible.isEmpty
-                    ? Center(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  buffer?.error != null
-                                      ? Icons.cloud_off_rounded
-                                      : Icons.terminal_rounded,
-                                  color: buffer?.error != null
-                                      ? OpenHandConsolePalette.warning
-                                      : OpenHandConsolePalette.notice,
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  buffer?.error != null
-                                      ? l.maintenanceLogUnavailable
-                                      : l.maintenanceLogEmpty,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    ? OpenHandOperationalEmptyState(
+                        textColor: OpenHandConsolePalette.text,
+                        surfaceColor: OpenHandConsolePalette.deepSurface,
+                        icon: buffer?.error != null
+                            ? Icons.cloud_off_rounded
+                            : Icons.article_outlined,
+                        color: buffer?.error != null
+                            ? OpenHandConsolePalette.warning
+                            : OpenHandConsolePalette.notice,
+                        message: buffer?.error != null
+                            ? l.maintenanceLogUnavailable
+                            : l.maintenanceLogEmpty,
                       )
                     : NotificationListener<ScrollNotification>(
                         onNotification: (event) {

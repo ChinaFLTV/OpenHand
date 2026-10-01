@@ -11551,7 +11551,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceAccumulating => 'Collecting samples…';
 
   @override
-  String get maintenanceTrendHelp => 'Enable auto refresh to display the trend';
+  String get maintenanceTrendHelp =>
+      'Waiting for more samples to show the trend';
 
   @override
   String get maintenanceOperations => 'Operations';

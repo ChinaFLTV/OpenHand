@@ -11182,7 +11182,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceAccumulating => '正在积累样本…';
 
   @override
-  String get maintenanceTrendHelp => '开启自动刷新后显示趋势';
+  String get maintenanceTrendHelp => '等待更多采样以显示趋势';
 
   @override
   String get maintenanceOperations => '运维操作';
@@ -25924,7 +25924,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceAccumulating => '正在累積樣本…';
 
   @override
-  String get maintenanceTrendHelp => '啟用自動重新整理後顯示趨勢';
+  String get maintenanceTrendHelp => '等待更多採樣以顯示趨勢';
 
   @override
   String get maintenanceOperations => '維運操作';

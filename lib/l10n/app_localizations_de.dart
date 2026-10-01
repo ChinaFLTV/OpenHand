@@ -11653,7 +11653,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTrendHelp =>
-      'Automatische Aktualisierung für den Verlauf aktivieren';
+      'Weitere Messwerte für den Verlauf werden benötigt';
 
   @override
   String get maintenanceOperations => 'Verwaltungsaktionen';

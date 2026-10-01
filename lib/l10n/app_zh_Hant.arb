@@ -8267,7 +8267,7 @@
   "maintenanceSendRate": "傳送 / 秒",
   "maintenanceCpuTrend": "CPU 即時趨勢",
   "maintenanceAccumulating": "正在累積樣本…",
-  "maintenanceTrendHelp": "啟用自動重新整理後顯示趨勢",
+  "maintenanceTrendHelp": "等待更多採樣以顯示趨勢",
   "maintenanceOperations": "維運操作",
   "maintenanceViewProcesses": "檢視程序",
   "maintenanceManageServices": "管理系統服務",

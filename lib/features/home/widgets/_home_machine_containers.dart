@@ -898,7 +898,6 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: _MaintenanceEmptyHint(
-                        centered: true,
                         icon: Icons.downloading_rounded,
                         message: maintenanceLabel(context, '正在读取详情…'),
                       ),

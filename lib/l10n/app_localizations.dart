@@ -20596,7 +20596,7 @@ abstract class AppLocalizations {
   /// 服务器运维界面文案
   ///
   /// In zh, this message translates to:
-  /// **'开启自动刷新后显示趋势'**
+  /// **'等待更多采样以显示趋势'**
   String get maintenanceTrendHelp;
 
   /// 服务器运维界面文案

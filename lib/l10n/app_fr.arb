@@ -8267,7 +8267,7 @@
   "maintenanceSendRate": "Envoyé / s",
   "maintenanceCpuTrend": "Tendance CPU en direct",
   "maintenanceAccumulating": "Collecte des relevés…",
-  "maintenanceTrendHelp": "Activez l’actualisation auto pour afficher la tendance",
+  "maintenanceTrendHelp": "En attente de mesures supplémentaires pour afficher la tendance",
   "maintenanceOperations": "Opérations",
   "maintenanceViewProcesses": "Voir les processus",
   "maintenanceManageServices": "Gérer les services",

@@ -379,7 +379,6 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
               height: 180,
               child: Center(
                 child: _MaintenanceEmptyHint(
-                  centered: true,
                   icon: Icons.downloading_rounded,
                   message: l.maintenanceLoadingDetails,
                 ),
@@ -805,7 +804,6 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                             height: 180,
                             child: Center(
                               child: _MaintenanceEmptyHint(
-                                centered: true,
                                 message: l.maintenanceLoadingDetails,
                               ),
                             ),

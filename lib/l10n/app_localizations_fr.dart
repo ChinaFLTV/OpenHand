@@ -11698,7 +11698,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceTrendHelp =>
-      'Activez l’actualisation auto pour afficher la tendance';
+      'En attente de mesures supplémentaires pour afficher la tendance';
 
   @override
   String get maintenanceOperations => 'Opérations';

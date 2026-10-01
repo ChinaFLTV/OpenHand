@@ -8267,7 +8267,7 @@
   "maintenanceSendRate": "送信 / 秒",
   "maintenanceCpuTrend": "CPU リアルタイム推移",
   "maintenanceAccumulating": "サンプルを収集中…",
-  "maintenanceTrendHelp": "自動更新を有効にすると推移を表示します",
+  "maintenanceTrendHelp": "推移の表示には追加のサンプルが必要です",
   "maintenanceOperations": "運用操作",
   "maintenanceViewProcesses": "プロセスを表示",
   "maintenanceManageServices": "サービスを管理",

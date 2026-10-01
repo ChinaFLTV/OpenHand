@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
@@ -1651,6 +1652,12 @@ class _OpenHandOperationalTrendChartState
         ? widget.height
         : 224.0;
     final hasDrawableData = _hasDrawableData;
+    if (!hasDrawableData) {
+      return SizedBox(
+        height: resolvedHeight,
+        child: _EmptyChartLabel(label: widget.emptyLabel),
+      );
+    }
     return RepaintBoundary(
       child: Semantics(
         container: true,
@@ -5125,19 +5132,103 @@ class _EmptyChartLabel extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: label,
-    excludeSemantics: true,
-    child: Center(
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) => OpenHandOperationalEmptyState(
+    message: switch (label) {
+      '暂无可用数据' || '暂无状态数据' || '暂无延迟数据' || '暂无可用趋势数据' =>
+        AppLocalizations.of(context)?.maintenanceNoAvailableData ??
+            openHandLocalizedText(
+              context,
+              zh: '暂无可用数据',
+              zhHant: '暫無可用資料',
+              en: 'No data available',
+              de: 'Keine Daten verfügbar',
+              fr: 'Aucune donnée disponible',
+              ja: '利用可能なデータはありません',
+            ),
+      _ => label,
+    },
+  );
+}
+
+/// 运维卡片共用空态；在有限高度中可滚动，不缩小字号或截断文案。
+class OpenHandOperationalEmptyState extends StatelessWidget {
+  const OpenHandOperationalEmptyState({
+    super.key,
+    required this.message,
+    this.icon = Icons.inbox_outlined,
+    this.color,
+    this.textColor,
+    this.surfaceColor,
+  });
+
+  final String message;
+  final IconData icon;
+  final Color? color;
+  final Color? textColor, surfaceColor;
+
+  static const iconExtent = 44.0;
+  static const contentGap = 12.0;
+  static const contentPadding = 16.0;
+  static const maxContentWidth = 360.0;
+  static const minContentHeight = 100.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = color ?? cs.primary;
+    final foreground = textColor ?? cs.onSurfaceVariant;
+    return Center(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: SingleChildScrollView(
+        primary: false,
+        padding: const EdgeInsets.all(contentPadding),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: maxContentWidth,
+            minHeight: minContentHeight,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ExcludeSemantics(
+                child: Container(
+                  width: iconExtent,
+                  height: iconExtent,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                      tone.withValues(alpha: .10),
+                      surfaceColor ?? cs.surface,
+                    ),
+                    borderRadius: kOpenHandBorderRadius12,
+                    border: Border.all(color: tone.withValues(alpha: .16)),
+                  ),
+                  child: Icon(icon, size: 22, color: tone),
+                ),
+              ),
+              const SizedBox(height: contentGap),
+              OpenHandOperationalLiveContent(
+                value: (message, foreground),
+                alignment: Alignment.center,
+                builder: () => Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// 保留未变化单元格的子树，数据变化只触发该单元格的过渡。

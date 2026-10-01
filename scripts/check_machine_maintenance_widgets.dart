@@ -3276,10 +3276,10 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: MediaQuery(
         data: MediaQueryData(size: Size(width, 700), textScaler: const TextScaler.linear(2)),
         child: const Scaffold(body: Center(child: Padding(
-          padding: EdgeInsets.all(24), child: _MaintenanceEmptyHint(centered: true,
+          padding: EdgeInsets.all(24), child: _MaintenanceEmptyHint(
             message: '正在读取详情，请稍候 / Chargement des détails en cours')))))));
       await tester.pump();
-      final row = find.descendant(of: find.byType(_MaintenanceEmptyHint), matching: find.byType(Row));
+      final row = find.descendant(of: find.byType(_MaintenanceEmptyHint), matching: find.byType(Column)).first;
       expect(tester.getCenter(row).dx, closeTo(width / 2, .1));
       expect(tester.getCenter(row).dy, closeTo(350, .1));
       expect(tester.getRect(row).left, greaterThanOrEqualTo(24));
@@ -3302,7 +3302,7 @@ void main() {
         await tester.pump();
         final hint = find.byType(_MaintenanceEmptyHint);
         final body = find.ancestor(of: hint, matching: find.byType(Flexible)).first;
-        final row = find.descendant(of: hint, matching: find.byType(Row));
+        final row = find.descendant(of: hint, matching: find.byType(Column)).first;
         expect(tester.getCenter(row).dx, closeTo(tester.getCenter(body).dx, .1));
         expect(tester.getCenter(row).dy, closeTo(tester.getCenter(body).dy, .1));
         final l = await AppLocalizations.delegate.load(locale);
@@ -3363,7 +3363,7 @@ void main() {
         expect(progressRect.left, greaterThanOrEqualTo(headerRect.left));
         final hint = find.byType(_MaintenanceEmptyHint);
         final body = find.ancestor(of: hint, matching: find.byType(Center)).first;
-        final hintRow = find.descendant(of: hint, matching: find.byType(Row));
+        final hintRow = find.descendant(of: hint, matching: find.byType(Column)).first;
         expect(tester.getCenter(hintRow).dx, closeTo(tester.getCenter(body).dx, .1));
         expect(tester.getCenter(hintRow).dy, closeTo(tester.getCenter(body).dy, .1));
         expect(tester.takeException(), isNull);
@@ -4379,6 +4379,97 @@ Widget incrementalApp(_MaintenanceFixture service) => ChangeNotifierProvider<Mac
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))));
 void incrementalChecks() {
+
+  testWidgets('运维空态六语言、主题和有限高度保持居中可读，悬停无阴影', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final brightness in Brightness.values) {
+        for (final size in [const Size(360, 240), const Size(760, 180), const Size(240, 80)]) {
+          await tester.binding.setSurfaceSize(size);
+          await tester.pumpWidget(_SettingsApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates,
+            supportedLocales:AppLocalizations.supportedLocales, theme:ThemeData(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体',colorScheme:ColorScheme.fromSeed(seedColor:const Color(0xff526914),brightness:brightness)),
+            builder:(context, child) => MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.8)), child:child!),
+            home:const Scaffold(body:SizedBox.expand(child:OpenHandOperationalRankTable(headers:['指标'],rows:[])))));
+          await tester.pumpAndSettle();
+          final l = await AppLocalizations.delegate.load(locale);
+          final message = find.text(l.maintenanceNoAvailableData);
+          expect(message, findsOneWidget);
+          final empty = find.byType(OpenHandOperationalEmptyState);
+          final content = find.descendant(of:empty, matching:find.byType(Column)).first;
+          expect(tester.getCenter(content).dx, closeTo(size.width / 2, .1));
+          final icon = find.descendant(of:empty, matching:find.byType(Icon));
+          expect(tester.getCenter(icon).dx, closeTo(tester.getCenter(message).dx, .1));
+          if (size.height >= 180) expect(tester.getCenter(content).dy, closeTo(size.height / 2, .1));
+          else {
+            final scroll = tester.state<ScrollableState>(find.descendant(of:empty, matching:find.byType(Scrollable)).first);
+            expect(scroll.position.maxScrollExtent, greaterThan(0));
+            scroll.position.jumpTo(scroll.position.maxScrollExtent); await tester.pump();
+            expect(tester.getRect(message).bottom, lessThanOrEqualTo(size.height));
+          }
+          final mouse = await tester.createGesture(kind:ui.PointerDeviceKind.mouse);
+          await mouse.addPointer(location:Offset.zero); await mouse.moveTo(tester.getCenter(empty)); await tester.pumpAndSettle();
+          for (final box in tester.widgetList<DecoratedBox>(find.descendant(of:empty,matching:find.byType(DecoratedBox)))) {
+            if (box.decoration case final BoxDecoration decoration) {
+              expect(decoration.gradient,isNull); expect(decoration.boxShadow ?? [],isEmpty);
+            }
+          }
+          await mouse.removePointer(); expect(tester.takeException(),isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('实际趋势空态收拢留白，手动样本到达自然退场并遵循关闭动画设置', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000,800));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    _MaintenanceCard trendCard() {
+      final overview = state._overview(state._snapshots[0]!) as _MaintenanceAnimatedList;
+      return overview.children.whereType<_MaintenanceGrid>().expand((grid) => grid.children).whereType<_MaintenanceCard>()
+        .firstWhere((card) => card.title == 'CPU 实时趋势');
+    }
+    final card = trendCard();
+    state._cpuHistory.addAll(const [(time:0,value:.2),(time:10,value:.4)]);
+    final dataCard = trendCard();
+    final frames = <bool>[false,true];
+    for (final disabled in frames) {
+      await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(disabled
+        ? const DialogAnimationSettings(entranceStyle:DialogAnimationStyle.none,exitStyle:DialogAnimationStyle.none)
+        : const DialogAnimationSettings(durationMs:600,entranceStyle:DialogAnimationStyle.springScale,exitStyle:DialogAnimationStyle.fade)));
+      for (final brightness in Brightness.values) {
+        late StateSetter update;
+        var populated = false;
+        await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,theme:ThemeData(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体',colorScheme:ColorScheme.fromSeed(seedColor:const Color(0xff526914),brightness:brightness)),
+          home:Scaffold(body:Center(child:RepaintBoundary(key:const ValueKey('空态预览'),child:SizedBox(width:380,
+            child:StatefulBuilder(builder:(context,setter) { update=setter;
+              return populated ? dataCard : card;
+            })))))));
+        await tester.pumpAndSettle();
+        final emptyHeight = tester.getSize(find.byType(_MaintenanceCard)).height;
+        expect(emptyHeight,lessThan(260));
+        final message=find.text('等待更多采样以显示趋势');expect(message,findsOneWidget);
+        final empty=find.byType(OpenHandOperationalEmptyState);
+        expect(tester.getCenter(message).dx,closeTo(tester.getCenter(empty).dx,.1));
+        if (!disabled && Platform.environment['MAINTENANCE_FONT'] != null) {
+          await tester.runAsync(() async {
+            final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('空态预览')));
+            final image=await boundary.toImage(pixelRatio:2);final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/maintenance-empty-${brightness.name}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+          });
+        }
+        update(() => populated=true); await tester.pump(); await tester.pump(const Duration(milliseconds:80));
+        expect(message,disabled ? findsNothing : findsOneWidget);
+        await tester.pumpAndSettle();expect(message,findsNothing);expect(find.byType(_MaintenanceTrend),findsOneWidget);
+        expect(tester.getSize(find.byType(_MaintenanceCard)).height,greaterThan(emptyHeight));
+        update(() => populated=false);await tester.pumpAndSettle();expect(message,findsOneWidget);
+        expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
 
   testWidgets('列表增删平滑退场、重排保留数值模式，操作读取最新数据', (tester) async {
     await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(durationMs: 600,
