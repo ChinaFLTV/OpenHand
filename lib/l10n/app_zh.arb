@@ -10885,5 +10885,21 @@
         "type": "int"
       }
     }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Kubernetes 概览",
+  "maintenanceTelemetryRuntimeHelp": "查看引擎状态、资源用量与运行时元数据。",
+  "maintenanceTelemetryKubernetesHelp": "查看集群健康、节点、工作负载与资源指标。",
+  "maintenanceTelemetryCompleted": "已完成 {completed}/{total} 项",
+  "maintenanceTelemetryPartial": "部分数据不可用",
+  "maintenanceTelemetryCancelled": "采集已取消",
+  "@maintenanceTelemetryCompleted": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

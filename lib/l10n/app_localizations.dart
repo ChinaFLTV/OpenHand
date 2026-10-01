@@ -28390,6 +28390,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'资源指标服务不可用，请检查集群的 metrics-server 与访问权限。'**
   String get maintenanceTelemetryMetricsUnavailable;
+
+  /// No description provided for @maintenanceTelemetryKubernetesOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'Kubernetes 概览'**
+  String get maintenanceTelemetryKubernetesOverview;
+
+  /// No description provided for @maintenanceTelemetryRuntimeHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看引擎状态、资源用量与运行时元数据。'**
+  String get maintenanceTelemetryRuntimeHelp;
+
+  /// No description provided for @maintenanceTelemetryKubernetesHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看集群健康、节点、工作负载与资源指标。'**
+  String get maintenanceTelemetryKubernetesHelp;
+
+  /// No description provided for @maintenanceTelemetryCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成 {completed}/{total} 项'**
+  String maintenanceTelemetryCompleted(int completed, int total);
+
+  /// No description provided for @maintenanceTelemetryPartial.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分数据不可用'**
+  String get maintenanceTelemetryPartial;
+
+  /// No description provided for @maintenanceTelemetryCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集已取消'**
+  String get maintenanceTelemetryCancelled;
 }
 
 class _AppLocalizationsDelegate

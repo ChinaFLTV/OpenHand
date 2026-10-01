@@ -286,6 +286,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
         sessionId: '会话', terminalId: '终端', run: run, windows: false,
         shell: MachineTerminalCommandShell.automatic))));
+      await selectContainerList(tester);
       await tester.pumpAndSettle();
       expect(find.text('连接上下文 · default'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('容器 · 1'), 220, scrollable:find.descendant(of:find.byType(_MachineContainerPanel),matching:find.byType(Scrollable)).first); await tester.pumpAndSettle();
@@ -322,6 +323,7 @@ void main() {
       localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
       home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
         windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     expect(state._runtime, MachineContainerRuntime.kubernetes);
@@ -376,6 +378,7 @@ void main() {
       localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
       home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
         windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     final entry = state._entries.single;
@@ -431,7 +434,8 @@ void main() {
     fail = true;
     await state._refresh(detectShell:false); await tester.pumpAndSettle();
     expect(panel._entries.single.name, 'worker');
-    expect(panel._listingFailed, isTrue);
+    expect(panel._refreshFailed, isTrue);
+    expect(panel._telemetryKey.currentState!._issues, isNotEmpty);
     expect(state._automatic, isFalse);
     final stoppedCalls = calls;
     await tester.pump(const Duration(seconds:30));
@@ -465,6 +469,7 @@ void main() {
           builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.6 : 1)), child: child!),
           home: Scaffold(body: RepaintBoundary(key: const ValueKey('容器面板预览'), child: _MachineContainerPanel(
             sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.automatic)))));
+        await selectContainerList(tester);
         await tester.pumpAndSettle();
         expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
         expect(find.text(l.maintenanceContainerContext + ' · desktop-linux'), findsOneWidget);
@@ -530,6 +535,7 @@ void main() {
         home:Scaffold(body:RepaintBoundary(key:const ValueKey('容器异常预览'),child:_MachineContainerPanel(
           sessionId:'会话', terminalId:'终端', windows:false, shell:MachineTerminalCommandShell.automatic,
           run:(_) async => throw StateError('failed to connect to the docker API at unix:///run/docker.sock: no such file or directory'))))));
+      await selectContainerList(tester);
       await tester.pumpAndSettle();
       expect(find.text(l.maintenanceContainerUnavailableTitle), findsOneWidget);
       expect(find.text(l.maintenanceContainerNotConnected), findsOneWidget);
@@ -595,7 +601,7 @@ void main() {
     Widget screen(Locale locale) => MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
       home:Scaffold(body:_MachineContainerPanel(key:const ValueKey('保留容器状态'), sessionId:'会话', terminalId:'终端', run:run, windows:false,shell:MachineTerminalCommandShell.automatic)));
     await tester.binding.setSurfaceSize(const Size(1100,900));
-    await tester.pumpWidget(screen(const Locale('zh'))); await tester.pumpAndSettle();
+    await tester.pumpWidget(screen(const Locale('zh'))); await selectContainerList(tester); await tester.pumpAndSettle();
     await tester.tap(find.text('worker')); await tester.pumpAndSettle();
     final title = tester.widget<_MachineTerminalDialogHeader>(find.descendant(of:find.byType(_ContainerReportDialog),matching:find.byType(_MachineTerminalDialogHeader))).title;
     expect(title,'worker · 详情'); expect(find.text('服务版本'),findsOneWidget);
@@ -643,6 +649,7 @@ void main() {
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
       supportedLocales:AppLocalizations.supportedLocales, home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',
         run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     _MaintenanceTable table() => tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
@@ -719,9 +726,11 @@ void main() {
           theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
           builder:(context, child) => MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,960), textScaler:TextScaler.linear(width == 420 ? 1.5 : 1)),child:child!),
           home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.automatic))));
+        await selectContainerList(tester);
         await tester.pumpAndSettle();
         final panel = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
         OpenHandOperationalRowMenu menu() => tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu).first);
+        final listQueries = queries;
         expect(menu().actions.keys, containsAll([l.maintenanceContainerCopyRun, l.maintenanceContainerImageDetails]));
         copied = null;
         await tester.ensureVisible(find.byType(OpenHandOperationalRowMenu).first); await tester.pumpAndSettle();
@@ -730,7 +739,7 @@ void main() {
         expect(find.text(l.maintenanceContainerImageDetails), findsOneWidget);
         await tester.tap(find.text(l.maintenanceContainerCopyRun)); await tester.pumpAndSettle();
         expect(copied, "'docker' '--context' 'desktop-linux' 'run' '--detach' '--name' 'worker' '--entrypoint' '/entry' 'sha256:pinned' 'serve'");
-        expect(queries, 1); expect(panel._overlay, isFalse);
+        expect(queries, listQueries); expect(panel._overlay, isFalse);
         final before = copied;
         invalid = true;
         menu().actions[l.maintenanceContainerCopyRun]!(); await tester.pumpAndSettle();
@@ -767,7 +776,7 @@ void main() {
           });
         }
         await tester.tap(find.descendant(of:find.byType(_ContainerReportDialog), matching:find.byTooltip(openHandCloseLabel(tester.element(find.byType(_ContainerReportDialog)))))); await tester.pumpAndSettle();
-        expect(queries, 1);
+        expect(queries, listQueries);
         final initialInspects = inspectCalls;
         pending = Completer<String>();
         final first = panel._open(panel._entries.single, '复制 run 命令'); await tester.pump();
@@ -5388,6 +5397,7 @@ void incrementalChecks() {
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     final original = jsonDecode(state._metadata) as Map;
@@ -5432,6 +5442,7 @@ void incrementalChecks() {
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     final previous = state._entries.singleWhere((entry) => entry.isPod);
@@ -5465,6 +5476,7 @@ void incrementalChecks() {
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pump(); await tester.pump(const Duration(milliseconds: 700)); final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     expect(state._entries.single.name, '服务'); expect(state._busy, isTrue);
     metadata.complete('{"ServerVersion":"27.0"}'); await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
@@ -5664,6 +5676,13 @@ void containerTerminalChecks() {
 ''';
 
 const _telemetryChecks = r'''
+Future<void> selectContainerList(WidgetTester tester) async {
+  final panel = find.byType(_MachineContainerPanel);
+  final tab = find.widgetWithText(ChoiceChip, maintenanceLabel(tester.element(panel), '容器'));
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
+}
+
 String telemetryFixture(String command) {
   if (command.contains("'current-context'")) return '测试集群';
   if (command.contains("'context' 'show'")) return 'desktop-linux';
@@ -5671,7 +5690,7 @@ String telemetryFixture(String command) {
   if (command.contains("'--raw=/readyz'")) return 'ok';
   if (command.contains("'info'")) return '{"Name":"运维引擎","ServerVersion":"28.0.1","NCPU":8,"MemTotal":17179869184,"ContainersRunning":3,"Images":8,"Driver":"overlay2","CgroupDriver":"systemd","LoggingDriver":"json-file","LiveRestoreEnabled":true}';
   if (command.contains("'version'")) return '{"serverVersion":{"gitVersion":"v1.33.0"},"clientVersion":{"gitVersion":"v1.33.1"}}';
-  if (command.contains("'stats'")) return '{"Name":"api","CPUPerc":"12.5%","MemUsage":"256MiB / 2GiB","NetIO":"12MB / 4MB","BlockIO":"8MB / 1MB","PIDs":"18"}';
+  if (command.contains("'stats'")) return '{"Name":"api","Container":"container-123","CPUPerc":"12.5%","MemUsage":"256MiB / 2GiB","NetIO":"12MB / 4MB","BlockIO":"8MB / 1MB","PIDs":"18"}';
   if (command.contains("'system' 'df'")) return '{"Type":"Images","TotalCount":"8","Active":"3","Size":"2.4GB","Reclaimable":"1.2GB"}';
   if (command.contains("'network' 'ls'")) return '{"Name":"bridge","Driver":"bridge","Scope":"local"}';
   if (command.contains("'top' 'nodes'")) return 'NAME    CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%\nnode-1  500m         6%     2048Mi          12%';
@@ -5709,10 +5728,12 @@ void telemetryChecks() {
             final state = key.currentState!;
             expect(state._busy,isFalse); expect(state._issues,isEmpty); expect(state._error,isEmpty);
             expect(state._reports.length,kube ? 13 : 5);
-            expect(find.text(kube ? 'Kubernetes' : l.maintenanceTelemetryRuntimeOverview),findsWidgets);
+            expect(find.text(kube ? l.maintenanceTelemetryKubernetesOverview : l.maintenanceTelemetryRuntimeOverview),findsWidgets);
             expect(find.text(kube ? l.maintenanceTelemetryApiHealth : l.maintenanceContainerMetadata),findsWidgets);
             expect(find.text(kube ? l.maintenanceTelemetryNodeMetrics : l.maintenanceContainerMetrics),findsWidgets);
             expect(find.text('采样时间'),findsNothing);
+            expect(maintenanceDetailLabel(state.context, 'Container'), l.maintenanceContainerList);
+            if (l.maintenanceContainerList != 'Container') expect(find.text('Container'), findsNothing);
             final section = find.byKey(ValueKey(kube ? 'telemetry-readiness' : 'telemetry-metadata'));
             final metadata = find.descendant(of: section, matching: find.widgetWithText(FilledButton, l.maintenanceTelemetryFullMetadata));
             expect(metadata, findsOneWidget);
@@ -5743,6 +5764,99 @@ void telemetryChecks() {
       }
     }
   }
+
+  testWidgets('默认概览先识别运行时，可取消并重试且不重复采集指标', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 1000));
+    Completer<String>? discovery = Completer<String>();
+    bool Function()? cancelled;
+    final calls = <String>[];
+    Future<String> run(String command, {required Duration timeout, void Function(String)? onOutput, bool Function()? isCancelled}) async {
+      calls.add(command);
+      if (discovery != null && command.contains("'ps'")) { cancelled = isCancelled; return discovery!.future; }
+      return telemetryFixture(command);
+    }
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+        sessionId:'会话', terminalId:'终端', run:(command)=>run(command, timeout: const Duration(seconds:30)), query:run,
+        windows:false, shell:MachineTerminalCommandShell.posix))));
+    await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
+    final panel = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    expect(panel._resourceTab, 3); expect(panel._client, isNull); expect(panel._busy, isTrue);
+    expect(calls.where((command)=>command.contains("'info'")), isEmpty);
+    final cancel = find.byKey(const ValueKey('telemetry-cancel'));
+    await tester.ensureVisible(cancel); await tester.tap(cancel); await tester.pumpAndSettle();
+    expect(cancelled!(), isTrue); expect(panel._busy, isFalse);
+    expect(find.text('采集已取消'), findsWidgets);
+    discovery!.complete('{"ID":"迟到容器","Names":"迟到容器"}'); discovery=null; await tester.pumpAndSettle();
+    expect(panel._client, isNull); expect(panel._entries, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('telemetry-refresh'))); await tester.pumpAndSettle();
+    expect(panel._client, isNotNull); expect(panel._telemetryKey.currentState!._reports.length, 5);
+    expect(calls.where((command)=>command.contains("'info'")), hasLength(1));
+    expect(calls.where((command)=>command.contains("'stats'")), hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('集群概览六语言明暗窄屏统一控件，诊断可展开且取消后不接收迟到结果', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [380.0, 1180.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1050));
+        var failed = true;
+        Completer<String>? pending;
+        Future<String> run(String command) async {
+          if (command.contains("'current-context'")) {
+            if (failed) throw StateError('permission denied');
+            if (pending != null) return pending!.future;
+          }
+          return telemetryFixture(command);
+        }
+        final theme = width < 500 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        final key = GlobalKey<_ContainerTelemetryPanelState>();
+        await tester.pumpWidget(_SettingsApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width < 500 ? 1.6 : 1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('遥测状态预览'), child:SingleChildScrollView(padding:const EdgeInsets.all(16),
+            child:_ContainerTelemetryPanel(key:key, client:MachineContainerClient(runtime:MachineContainerRuntime.docker, contextName:'Docker 上下文', run:run), kubernetes:true, windows:false,
+              beginQuery:()=>_ContainerQueryScope(fallback:run, timeout:machineContainerTelemetryTimeout)))))));
+        await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceTelemetryKubernetesOverview), findsOneWidget);
+        expect(find.text('Docker 上下文'), findsNothing);
+        expect(find.text(l.maintenanceContainerPermissionTitle), findsOneWidget);
+        expect(find.text('Bad state: permission denied'), findsNothing);
+        final refresh = find.byKey(const ValueKey('telemetry-refresh'));
+        expect(tester.getSize(refresh).height, tester.getSize(find.byType(TextField)).height);
+        Future<void> preview(String phase) async {
+          if (Platform.environment['MAINTENANCE_PREVIEW'] == null || locale != const Locale('zh')) return;
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('遥测状态预览')));
+            final image = await boundary.toImage(pixelRatio:1.5); final data = await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/container-telemetry-' + phase + '-' + width.toInt().toString() + '.png').writeAsBytes(data!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await preview('error');
+        final diagnostics = find.text(l.maintenanceDiagnosticItems);
+        await tester.ensureVisible(diagnostics); await tester.tap(diagnostics); await tester.pumpAndSettle();
+        expect(find.text('Bad state: permission denied'), findsOneWidget);
+        failed=false; pending=Completer<String>();
+        await tester.ensureVisible(refresh); await tester.tap(refresh); await tester.pump(); await tester.pump(const Duration(milliseconds:700));
+        expect(tester.widget<FilledButton>(refresh).onPressed, isNull);
+        final cancel = find.byKey(const ValueKey('telemetry-cancel'));
+        expect(tester.getSize(cancel).height, tester.getSize(refresh).height);
+        await preview('loading');
+        await tester.ensureVisible(cancel); await tester.tap(cancel); await tester.pumpAndSettle();
+        expect(key.currentState!._cancelled, isTrue);
+        pending!.complete('迟到上下文'); pending=null; await tester.pumpAndSettle();
+        expect(key.currentState!._reports, isEmpty); expect(find.text('迟到上下文'), findsNothing);
+        await tester.ensureVisible(refresh); await tester.tap(refresh); await tester.pumpAndSettle();
+        expect(key.currentState!._reports.length, 13); expect(key.currentState!._completed, 13);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('遥测失败保留旧值并逐项重试', (tester) async {
     var failed=false; final commands=<String>[];
     Future<String> run(String command) async {
@@ -5786,8 +5900,8 @@ void telemetryChecks() {
         expect(key.currentState!._client!.launcher,['k3s','kubectl']);expect(key.currentState!._reports.length,13);
       } else {
         expect(calls,hasLength(1));expect(key.currentState!._error,isNotEmpty);
-        final readout = find.byWidgetPredicate((widget) => widget is _MaintenanceReadout && widget.text == key.currentState!._error);
-        final refresh = find.byWidgetPredicate((widget) => widget is _MachineTerminalIconButton && widget.icon == Icons.refresh_rounded);
+        final readout = find.byWidgetPredicate((widget) => widget is _ContainerTelemetryIssue && widget.text == key.currentState!._error);
+        final refresh = find.byKey(const ValueKey('telemetry-refresh'));
         expect(tester.getTopLeft(readout).dy - tester.getBottomLeft(refresh).dy, greaterThanOrEqualTo(_maintenanceGridGap));
       }
       await tester.pumpWidget(const SizedBox());
@@ -5824,8 +5938,12 @@ void telemetryChecks() {
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
       home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
     await tester.pumpAndSettle(); final parent=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
-    expect(parent._telemetryKey.currentState,isNull);
-    delay=true;await tester.tap(find.widgetWithText(ChoiceChip,'运行时概览'));await tester.pump();await tester.pump(const Duration(milliseconds:700));
+    expect(parent._resourceTab,3);
+    final tabs = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)).toList();
+    expect(tabs.first.selected,isTrue);
+    expect(find.descendant(of:find.byWidget(tabs.first),matching:find.text('运行时概览')),findsOneWidget);
+    expect(find.descendant(of:find.byWidget(tabs[1]),matching:find.text('容器')),findsOneWidget);
+    delay=true;parent.refresh();await tester.pump();await tester.pump(const Duration(milliseconds:700));
     final state=parent._telemetryKey.currentState!;expect(state._busy,isTrue);
     expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip,'镜像')).onSelected,isNotNull);
     await tester.tap(find.widgetWithText(ChoiceChip,'镜像'));await tester.pump();
@@ -6313,6 +6431,7 @@ void containerInteractionChecks() {
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
       supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
         sessionId:'会话',terminalId:'终端',run:run,query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();
     final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     final metadata=panel._metadata;
@@ -6355,6 +6474,7 @@ void containerInteractionChecks() {
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
       supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
         sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     final first=panel._open(panel._entries.single,'详情');await tester.pump();await tester.pump(const Duration(seconds:1));
     expect(stopped,isNotNull);
@@ -6388,6 +6508,7 @@ void containerInteractionChecks() {
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
       supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
         sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await selectContainerList(tester);
     await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     oldInfo=Completer<String>();newInfo=Completer<String>();
     final refresh=panel.refresh();await tester.pump();

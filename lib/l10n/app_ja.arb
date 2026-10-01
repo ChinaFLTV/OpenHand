@@ -9733,5 +9733,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Kubernetes 概要",
+  "maintenanceTelemetryRuntimeHelp": "エンジンの状態、リソース使用量、ランタイムのメタデータを確認します。",
+  "maintenanceTelemetryKubernetesHelp": "クラスターの健全性、ノード、ワークロード、リソース指標を確認します。",
+  "maintenanceTelemetryCompleted": "{completed}/{total} 項目完了",
+  "maintenanceTelemetryPartial": "一部のデータを取得できません",
+  "maintenanceTelemetryCancelled": "収集をキャンセルしました"
 }

@@ -15335,4 +15335,26 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceTelemetryMetricsUnavailable =>
       'リソースメトリクスを取得できません。クラスターの metrics-server とアクセス権限を確認してください。';
+
+  @override
+  String get maintenanceTelemetryKubernetesOverview => 'Kubernetes 概要';
+
+  @override
+  String get maintenanceTelemetryRuntimeHelp =>
+      'エンジンの状態、リソース使用量、ランタイムのメタデータを確認します。';
+
+  @override
+  String get maintenanceTelemetryKubernetesHelp =>
+      'クラスターの健全性、ノード、ワークロード、リソース指標を確認します。';
+
+  @override
+  String maintenanceTelemetryCompleted(int completed, int total) {
+    return '$completed/$total 項目完了';
+  }
+
+  @override
+  String get maintenanceTelemetryPartial => '一部のデータを取得できません';
+
+  @override
+  String get maintenanceTelemetryCancelled => '収集をキャンセルしました';
 }

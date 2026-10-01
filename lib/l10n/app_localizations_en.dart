@@ -15691,4 +15691,26 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceTelemetryMetricsUnavailable =>
       'Resource metrics are unavailable. Check the cluster’s metrics-server and access permissions.';
+
+  @override
+  String get maintenanceTelemetryKubernetesOverview => 'Kubernetes overview';
+
+  @override
+  String get maintenanceTelemetryRuntimeHelp =>
+      'Inspect engine status, resource usage and runtime metadata.';
+
+  @override
+  String get maintenanceTelemetryKubernetesHelp =>
+      'Inspect cluster health, nodes, workloads and resource metrics.';
+
+  @override
+  String maintenanceTelemetryCompleted(int completed, int total) {
+    return 'Completed $completed/$total checks';
+  }
+
+  @override
+  String get maintenanceTelemetryPartial => 'Some data is unavailable';
+
+  @override
+  String get maintenanceTelemetryCancelled => 'Collection cancelled';
 }

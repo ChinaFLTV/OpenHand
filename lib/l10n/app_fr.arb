@@ -9733,5 +9733,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Vue Kubernetes",
+  "maintenanceTelemetryRuntimeHelp": "Consultez l’état du moteur, les ressources et les métadonnées.",
+  "maintenanceTelemetryKubernetesHelp": "Consultez l’état du cluster, les nœuds, les charges et les métriques.",
+  "maintenanceTelemetryCompleted": "Contrôles terminés : {completed}/{total}",
+  "maintenanceTelemetryPartial": "Certaines données sont indisponibles",
+  "maintenanceTelemetryCancelled": "Collecte annulée"
 }

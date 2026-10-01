@@ -449,6 +449,12 @@ ButtonStyle _containerResourceTonalButtonStyle(BuildContext context) {
     foregroundColor: cs.onSecondaryContainer,
     minimumSize: Size(0, _containerResourceControlHeightOf(context)),
     padding: const EdgeInsets.symmetric(horizontal: 14),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
+    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontSize: _containerResourceFontSize,
+      fontWeight: FontWeight.w600,
+    ),
     shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
     elevation: 0,
     shadowColor: Colors.transparent,

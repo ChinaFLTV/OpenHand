@@ -9733,5 +9733,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Kubernetes 概覽",
+  "maintenanceTelemetryRuntimeHelp": "檢視引擎狀態、資源用量與執行階段中繼資料。",
+  "maintenanceTelemetryKubernetesHelp": "檢視叢集健康、節點、工作負載與資源指標。",
+  "maintenanceTelemetryCompleted": "已完成 {completed}/{total} 項",
+  "maintenanceTelemetryPartial": "部分資料無法使用",
+  "maintenanceTelemetryCancelled": "已取消採集"
 }

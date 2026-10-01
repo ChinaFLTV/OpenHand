@@ -9733,5 +9733,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Kubernetes-Übersicht",
+  "maintenanceTelemetryRuntimeHelp": "Engine-Status, Ressourcennutzung und Laufzeit-Metadaten prüfen.",
+  "maintenanceTelemetryKubernetesHelp": "Cluster-Zustand, Knoten, Workloads und Ressourcenmetriken prüfen.",
+  "maintenanceTelemetryCompleted": "{completed}/{total} Prüfungen abgeschlossen",
+  "maintenanceTelemetryPartial": "Einige Daten sind nicht verfügbar",
+  "maintenanceTelemetryCancelled": "Erfassung abgebrochen"
 }

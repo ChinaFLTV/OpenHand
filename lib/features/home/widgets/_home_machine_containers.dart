@@ -89,7 +89,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   final _search = TextEditingController();
   final _resourcesKey = GlobalKey<_MachineContainerResourcesState>();
   final _telemetryKey = GlobalKey<_ContainerTelemetryPanelState>();
-  int _resourceTab = 0;
+  int _resourceTab = 3;
   MachineContainerRuntime _runtime = MachineContainerRuntime.docker;
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
@@ -107,12 +107,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   bool get _refreshFailed {
     if (_resourceTab >= 3) {
       final telemetry = _telemetryKey.currentState;
-      return telemetry != null &&
-          (telemetry._error.isNotEmpty ||
-              telemetry._plan.isNotEmpty &&
-                  telemetry._plan.every(
-                    (item) => telemetry._issues.containsKey(item.id),
-                  ));
+      return _resourceTab == 3 && _client == null && _listingFailed ||
+          telemetry != null &&
+              (telemetry._error.isNotEmpty ||
+                  telemetry._plan.isNotEmpty &&
+                      telemetry._plan.every(
+                        (item) => telemetry._issues.containsKey(item.id),
+                      ));
     }
     return _client == null || _listingFailed;
   }
@@ -148,7 +149,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     applyScope =
         applyScope && _resourceTab < 3 && _scope.text.trim() != _appliedScope;
     if ((_busy && !reset && !applyScope) || _overlay || !mounted) return;
-    if (_resourceTab >= 3 && !reset && !applyScope) {
+    if (_resourceTab >= 3 &&
+        !reset &&
+        !applyScope &&
+        (_client != null || _resourceTab == 4)) {
       await _telemetryKey.currentState?.refresh();
       return;
     }
@@ -164,7 +168,6 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       final scopeChanged = !reset && scope != _appliedScope;
       if (scopeChanged) _autoRuntime = false;
       if (reset || scopeChanged) {
-        _resourceTab = 0;
         _entries = [];
         _listDetails = {};
         _cpuPercentages = {};
@@ -222,6 +225,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         _contextName = client.contextName;
         _listingFailed = false;
       });
+      if (_resourceTab != 0) return;
       if (client.runtime == MachineContainerRuntime.cri) {
         try {
           final pods = client.parse(
@@ -981,11 +985,11 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 runSpacing: 8,
                 children: [
                   for (final item in [
+                    (3, '运行时概览', Icons.monitor_heart_outlined),
                     (0, '容器', Icons.inventory_2_outlined),
                     (1, '镜像', Icons.layers_outlined),
                     (2, '数据卷', Icons.storage_rounded),
-                    (3, '运行时概览', Icons.monitor_heart_outlined),
-                    (4, 'Kubernetes', Icons.hub_outlined),
+                    (4, 'Kubernetes 概览', Icons.hub_outlined),
                   ])
                     SizedBox(
                       height: _maintenanceControlHeight,
@@ -1046,7 +1050,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         onSelected:
                             _overlay ||
                                 _client == null &&
-                                    const [1, 2, 3].contains(item.$1)
+                                    const [1, 2].contains(item.$1)
                             ? null
                             : (_) {
                                 if (_resourceTab == item.$1) return;
@@ -1055,7 +1059,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                                   _busy = false;
                                   _resourceTab = item.$1;
                                 });
-                                if (_resourceTab == 0) refresh();
+                                if (_resourceTab == 0 ||
+                                    _resourceTab == 3 && _client == null) {
+                                  refresh();
+                                }
                               },
                       ),
                     ),
@@ -1106,6 +1113,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             kubernetes: _resourceTab == 4,
             windows: widget.windows,
             beginQuery: _beginQuery,
+            connecting: _busy && _client == null,
+            connectionError: _resourceTab == 3 && _client == null ? _error : '',
+            onReconnect: refresh,
+            onCancelConnection: () {
+              _query?.cancel();
+              setState(() => _busy = false);
+            },
           ),
         if ((_resourceTab == 1 || _resourceTab == 2) && _client != null)
           _MachineContainerResources(
@@ -1127,7 +1141,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               }
             },
           ),
-        if (_busy || _copyingCommand)
+        if (_busy && _resourceTab < 3 || _copyingCommand)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: LinearProgressIndicator(),
@@ -1274,10 +1288,18 @@ class _ContainerTelemetryPanel extends StatefulWidget {
     required this.kubernetes,
     required this.windows,
     required this.beginQuery,
+    this.connecting = false,
+    this.connectionError = '',
+    this.onReconnect,
+    this.onCancelConnection,
   });
   final MachineContainerClient? client;
   final bool kubernetes, windows;
   final _ContainerQueryScope Function() beginQuery;
+  final bool connecting;
+  final String connectionError;
+  final VoidCallback? onReconnect;
+  final VoidCallback? onCancelConnection;
 
   @override
   State<_ContainerTelemetryPanel> createState() =>
@@ -1294,7 +1316,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
   _ContainerQueryScope? _query;
   MachineContainerClient? _client;
   String _error = '', _active = '';
-  bool _busy = false;
+  bool _busy = false, _cancelled = false;
+  int _completed = 0, _total = 0;
 
   @override
   void initState() {
@@ -1303,7 +1326,9 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         widget.client?.runtime == MachineContainerRuntime.kubernetes
         ? widget.client!.scope
         : '';
-    refresh();
+    if (!widget.connecting && (widget.kubernetes || widget.client != null)) {
+      refresh();
+    }
   }
 
   @override
@@ -1313,13 +1338,20 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         oldWidget.client?.runtime != widget.client?.runtime ||
         oldWidget.client?.scope != widget.client?.scope ||
         oldWidget.client?.contextName != widget.client?.contextName) {
+      _query?.cancel();
+      _busy = false;
+      _cancelled = false;
+      _error = '';
+      _completed = _total = 0;
       _clearReports();
       _plan = [];
       _client = null;
       if (widget.client?.runtime == MachineContainerRuntime.kubernetes) {
         _namespace.text = widget.client!.scope;
       }
-      refresh(replace: true);
+      if (!widget.connecting && (widget.kubernetes || widget.client != null)) {
+        refresh(replace: true);
+      }
     }
   }
 
@@ -1338,13 +1370,15 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
   }
 
   Future<void> refresh({bool replace = false, String? only}) async {
-    if (!mounted || _busy && !replace) return;
+    if (!mounted || widget.connecting || _busy && !replace) return;
     _query?.cancel();
     final query = _query = widget.beginQuery();
     final watch = Stopwatch()..start();
     bool stopped() => !mounted || query.cancelled;
     setState(() {
       _busy = true;
+      _cancelled = false;
+      _completed = _total = 0;
       _error = '';
       if (widget.kubernetes &&
           _client != null &&
@@ -1414,6 +1448,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
       final selected = only == null
           ? _plan
           : _plan.where((item) => item.id == only).toList();
+      setState(() => _total = selected.length);
       for (final item in selected) {
         if (stopped()) return;
         if (watch.elapsed >= machineContainerTelemetryBudget) {
@@ -1440,6 +1475,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         } catch (error) {
           if (stopped()) return;
           setState(() => _issues[item.id] = '$error');
+        } finally {
+          if (!stopped()) setState(() => _completed++);
         }
       }
     } catch (error) {
@@ -1457,117 +1494,301 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final client = _client;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l = AppLocalizations.of(context)!;
+    final client =
+        _client ??
+        (widget.kubernetes &&
+                widget.client?.runtime != MachineContainerRuntime.kubernetes
+            ? null
+            : widget.client);
+    final busy = widget.connecting || _busy;
+    final error = widget.connectionError.isNotEmpty
+        ? widget.connectionError
+        : _error;
+    final warning = error.isNotEmpty || _issues.isNotEmpty;
+    final status = busy
+        ? l.maintenanceCollecting
+        : _cancelled
+        ? l.maintenanceTelemetryCancelled
+        : warning
+        ? (_reports.isEmpty
+              ? l.maintenanceCollectionFailed
+              : l.maintenanceTelemetryPartial)
+        : _reports.isNotEmpty
+        ? l.maintenanceCollected
+        : l.maintenanceTelemetryPending;
+    final tone = busy
+        ? cs.primary
+        : warning
+        ? OpenHandStatusColors.warning
+        : _reports.isNotEmpty && !_cancelled
+        ? OpenHandStatusColors.success
+        : cs.onSurfaceVariant;
     final controlHeight = _containerResourceControlHeightOf(context);
+    final actionStyle = _containerResourceTonalButtonStyle(context);
     final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kOpenHandBorderRadius8,
       borderSide: BorderSide(color: cs.outlineVariant),
     );
+    void reload() {
+      if (!widget.kubernetes && widget.client == null) {
+        widget.onReconnect?.call();
+      } else {
+        refresh(replace: true);
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _MaintenanceCard(
-          title: widget.kubernetes ? 'Kubernetes' : '运行时概览',
+          key: const ValueKey('container-telemetry-summary'),
+          title: widget.kubernetes
+              ? l.maintenanceTelemetryKubernetesOverview
+              : l.maintenanceTelemetryRuntimeOverview,
           icon: widget.kubernetes
               ? Icons.hub_outlined
               : Icons.monitor_heart_outlined,
+          trailing: _MaintenanceStatus(label: status, color: tone),
+          wrapHeader: true,
           scrollBody: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: _maintenanceGridGap,
             children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (client != null)
-                    Text(
-                      '${client.runtime.label} · ${client.contextName.isEmpty ? '—' : client.contextName}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  if (widget.kubernetes)
-                    SizedBox(
-                      width: 280,
-                      height: controlHeight,
-                      child: TextField(
-                        controller: _namespace,
-                        style: Theme.of(context).textTheme.bodySmall,
-                        decoration: InputDecoration(
-                          hintText: maintenanceLabel(context, '命名空间（留空为全部）'),
-                          isDense: false,
-                          isCollapsed: false,
-                          constraints: BoxConstraints.tightFor(
-                            height: controlHeight,
-                          ),
-                          border: inputBorder,
-                          enabledBorder: inputBorder,
-                          focusedBorder: inputBorder.copyWith(
-                            borderSide: BorderSide(
-                              color: cs.primary,
-                              width: 1.5,
+              Text(
+                widget.kubernetes
+                    ? l.maintenanceTelemetryKubernetesHelp
+                    : l.maintenanceTelemetryRuntimeHelp,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              LayoutBuilder(
+                builder: (context, bounds) {
+                  final scale =
+                      MediaQuery.textScalerOf(
+                        context,
+                      ).scale(_containerResourceFontSize) /
+                      _containerResourceFontSize;
+                  final width = bounds.maxWidth < 480 * scale
+                      ? bounds.maxWidth
+                      : (bounds.maxWidth - _maintenanceGridGap) / 2;
+                  return Wrap(
+                    spacing: _maintenanceGridGap,
+                    runSpacing: _maintenanceGridGap,
+                    children: [
+                      for (final field in [
+                        (
+                          l.maintenanceContainerRuntime,
+                          client?.runtime.label ??
+                              (widget.kubernetes
+                                  ? MachineContainerRuntime.kubernetes.label
+                                  : '—'),
+                          Icons.dns_outlined,
+                        ),
+                        (
+                          l.maintenanceContainerContext,
+                          client?.contextName.isNotEmpty == true
+                              ? client!.contextName
+                              : l.maintenanceContainerNotConnected,
+                          Icons.link_rounded,
+                        ),
+                      ])
+                        SizedBox(
+                          width: width,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerLow,
+                              borderRadius: kOpenHandBorderRadius8,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  Icon(field.$3, size: 18, color: cs.primary),
+                                  kOpenHandHGap12,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          field.$1,
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                        kOpenHandGap4,
+                                        Tooltip(
+                                          message: field.$2,
+                                          child: Text(
+                                            field.$2,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          filled: true,
-                          fillColor: cs.surfaceContainerLow,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                          ),
-                          prefixIconConstraints: const BoxConstraints(
-                            minWidth: 36,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.filter_alt_outlined,
-                            size: 18,
-                          ),
                         ),
-                        onSubmitted: (_) => refresh(replace: true),
+                    ],
+                  );
+                },
+              ),
+              LayoutBuilder(
+                builder: (context, bounds) => Wrap(
+                  spacing: _maintenanceGridGap,
+                  runSpacing: _maintenanceGridGap,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (widget.kubernetes)
+                      SizedBox(
+                        width: math.min(bounds.maxWidth, 320),
+                        height: controlHeight,
+                        child: TextField(
+                          controller: _namespace,
+                          enabled: !widget.connecting,
+                          style: theme.textTheme.bodySmall,
+                          decoration: InputDecoration(
+                            hintText: l.maintenanceContainerScopeAll,
+                            isDense: false,
+                            isCollapsed: false,
+                            constraints: BoxConstraints.tightFor(
+                              height: controlHeight,
+                            ),
+                            border: inputBorder,
+                            enabledBorder: inputBorder,
+                            focusedBorder: inputBorder.copyWith(
+                              borderSide: BorderSide(
+                                color: cs.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: cs.surfaceContainerLow,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 36,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.filter_alt_outlined,
+                              size: 18,
+                            ),
+                          ),
+                          onSubmitted: (_) => reload(),
+                        ),
                       ),
+                    FilledButton.tonalIcon(
+                      key: const ValueKey('telemetry-refresh'),
+                      style: actionStyle,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(l.maintenanceRefreshDetails),
+                      onPressed: busy ? null : reload,
                     ),
-                  SizedBox.square(
-                    dimension: controlHeight,
-                    child: _MachineTerminalIconButton(
-                      tooltip: maintenanceLabel(context, '刷新容器数据'),
-                      icon: Icons.refresh_rounded,
-                      onPressed: _busy ? null : refresh,
-                    ),
-                  ),
-                  if (_busy)
-                    SizedBox.square(
-                      dimension: controlHeight,
-                      child: _MachineTerminalIconButton(
-                        tooltip: AppLocalizations.of(context)!.commonCancel,
-                        icon: Icons.stop_rounded,
+                    if (busy)
+                      FilledButton.tonalIcon(
+                        key: const ValueKey('telemetry-cancel'),
+                        style: actionStyle,
+                        icon: const Icon(Icons.stop_rounded, size: 18),
+                        label: Text(l.commonCancel),
                         onPressed: () {
-                          _query?.cancel();
+                          if (widget.connecting) {
+                            widget.onCancelConnection?.call();
+                          } else {
+                            _query?.cancel();
+                          }
                           setState(() {
                             _busy = false;
                             _active = '';
+                            _cancelled = true;
                           });
                         },
                       ),
-                    ),
-                ],
-              ),
-              if (_busy) ...[
-                const LinearProgressIndicator(),
-                Text(
-                  maintenanceLabel(
-                    context,
-                    _plan
-                            .where((item) => item.id == _active)
-                            .firstOrNull
-                            ?.label ??
-                        '正在连接',
-                  ),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    if (!busy && _total > 0)
+                      Text(
+                        l.maintenanceTelemetryCompleted(_completed, _total),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-              if (_error.isNotEmpty)
-                _MaintenanceReadout(text: _error, section: 'containers'),
+              ),
+              if (busy)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: kOpenHandBorderRadius8,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: _maintenanceGridGap,
+                      children: [
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: _maintenanceGridGap,
+                          runSpacing: 8,
+                          children: [
+                            Text(
+                              widget.connecting
+                                  ? l.maintenanceTelemetryConnecting
+                                  : busy
+                                  ? maintenanceLabel(
+                                      context,
+                                      _plan
+                                              .where(
+                                                (item) => item.id == _active,
+                                              )
+                                              .firstOrNull
+                                              ?.label ??
+                                          '正在连接',
+                                    )
+                                  : status,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: tone,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_total > 0)
+                              Text(
+                                l.maintenanceTelemetryCompleted(
+                                  _completed,
+                                  _total,
+                                ),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                          ],
+                        ),
+                        if (busy)
+                          LinearProgressIndicator(
+                            value: _total > 0 ? _completed / _total : null,
+                            color: cs.primary,
+                            backgroundColor: cs.surfaceContainerHighest,
+                            borderRadius: kOpenHandBorderRadius8,
+                            minHeight: 4,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (error.isNotEmpty) _ContainerTelemetryIssue(text: error),
             ],
           ),
         ),
@@ -1618,21 +1839,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                       icon: Icons.monitor_heart_outlined,
                     )
                   else
-                    _MaintenanceReadout(
-                      text: issue,
-                      section: 'containers',
-                      report: MachineMaintenanceReadout(
-                        [],
-                        [],
-                        issue: issue.contains('TimeoutException')
-                            ? 'timeout'
-                            : machineMaintenanceCollectionIssue(
-                                    issue,
-                                    'containers',
-                                  ) ??
-                                  'unavailable',
-                      ),
-                    ),
+                    _ContainerTelemetryIssue(text: issue),
                 if (_reports[item.id] case final report?)
                   if (item.id == 'readiness')
                     const _MaintenanceStatus(
@@ -1712,6 +1919,97 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _ContainerTelemetryIssue extends StatelessWidget {
+  const _ContainerTelemetryIssue({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l = AppLocalizations.of(context)!;
+    final issue = text.contains('TimeoutException')
+        ? 'timeout'
+        : machineMaintenanceCollectionIssue(text, 'containers');
+    final (title, help) = switch (issue) {
+      'permission' => (
+        l.maintenanceContainerPermissionTitle,
+        l.maintenanceContainerPermissionHelp,
+      ),
+      'timeout' => (
+        l.maintenanceContainerTimeoutTitle,
+        l.maintenanceContainerTimeoutHelp,
+      ),
+      'missing' => (
+        l.maintenanceContainerMissingTitle,
+        l.maintenanceContainerMissingHelp,
+      ),
+      'connection' => (
+        l.maintenanceContainerUnavailableTitle,
+        l.maintenanceContainerRuntimeHelp,
+      ),
+      _ => (l.maintenanceContainerDataTitle, l.maintenanceContainerDataHelp),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: _maintenanceGridGap,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: kOpenHandBorderRadius8,
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: OpenHandStatusColors.warning,
+                ),
+                kOpenHandHGap12,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      kOpenHandGap6,
+                      Text(
+                        help,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _MaintenanceSection(
+          title: l.maintenanceDiagnosticItems,
+          icon: Icons.manage_search_rounded,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: SingleChildScrollView(
+              child: SelectableText(text, style: theme.textTheme.bodySmall),
+            ),
+          ),
+        ),
       ],
     );
   }

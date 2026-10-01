@@ -9738,5 +9738,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceTelemetryKubernetesOverview": "Kubernetes overview",
+  "maintenanceTelemetryRuntimeHelp": "Inspect engine status, resource usage and runtime metadata.",
+  "maintenanceTelemetryKubernetesHelp": "Inspect cluster health, nodes, workloads and resource metrics.",
+  "maintenanceTelemetryCompleted": "Completed {completed}/{total} checks",
+  "maintenanceTelemetryPartial": "Some data is unavailable",
+  "maintenanceTelemetryCancelled": "Collection cancelled"
 }

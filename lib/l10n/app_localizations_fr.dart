@@ -15918,4 +15918,27 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceTelemetryMetricsUnavailable =>
       'Les métriques sont indisponibles. Vérifiez le metrics-server du cluster et les droits d’accès.';
+
+  @override
+  String get maintenanceTelemetryKubernetesOverview => 'Vue Kubernetes';
+
+  @override
+  String get maintenanceTelemetryRuntimeHelp =>
+      'Consultez l’état du moteur, les ressources et les métadonnées.';
+
+  @override
+  String get maintenanceTelemetryKubernetesHelp =>
+      'Consultez l’état du cluster, les nœuds, les charges et les métriques.';
+
+  @override
+  String maintenanceTelemetryCompleted(int completed, int total) {
+    return 'Contrôles terminés : $completed/$total';
+  }
+
+  @override
+  String get maintenanceTelemetryPartial =>
+      'Certaines données sont indisponibles';
+
+  @override
+  String get maintenanceTelemetryCancelled => 'Collecte annulée';
 }

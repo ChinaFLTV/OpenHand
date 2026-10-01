@@ -15184,6 +15184,26 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get maintenanceTelemetryMetricsUnavailable =>
       '资源指标服务不可用，请检查集群的 metrics-server 与访问权限。';
+
+  @override
+  String get maintenanceTelemetryKubernetesOverview => 'Kubernetes 概览';
+
+  @override
+  String get maintenanceTelemetryRuntimeHelp => '查看引擎状态、资源用量与运行时元数据。';
+
+  @override
+  String get maintenanceTelemetryKubernetesHelp => '查看集群健康、节点、工作负载与资源指标。';
+
+  @override
+  String maintenanceTelemetryCompleted(int completed, int total) {
+    return '已完成 $completed/$total 项';
+  }
+
+  @override
+  String get maintenanceTelemetryPartial => '部分数据不可用';
+
+  @override
+  String get maintenanceTelemetryCancelled => '采集已取消';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30349,4 +30369,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get maintenanceTelemetryMetricsUnavailable =>
       '資源指標服務無法使用，請檢查叢集的 metrics-server 與存取權限。';
+
+  @override
+  String get maintenanceTelemetryKubernetesOverview => 'Kubernetes 概覽';
+
+  @override
+  String get maintenanceTelemetryRuntimeHelp => '檢視引擎狀態、資源用量與執行階段中繼資料。';
+
+  @override
+  String get maintenanceTelemetryKubernetesHelp => '檢視叢集健康、節點、工作負載與資源指標。';
+
+  @override
+  String maintenanceTelemetryCompleted(int completed, int total) {
+    return '已完成 $completed/$total 項';
+  }
+
+  @override
+  String get maintenanceTelemetryPartial => '部分資料無法使用';
+
+  @override
+  String get maintenanceTelemetryCancelled => '已取消採集';
 }
