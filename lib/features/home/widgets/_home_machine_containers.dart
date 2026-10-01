@@ -7,6 +7,59 @@ const _containerTerminalActionWidth = 136.0;
 const _containerLogDialogHeightFraction = .9;
 const _containerLogBodyHeightFraction = .7;
 
+// 同一终端按顺序交接命令；用户操作可取消后台采集，旧结果不再写回。
+class _ContainerQueryScope {
+  _ContainerQueryScope({
+    required this.fallback,
+    required this.timeout,
+    this.query,
+    this.probe,
+    Future<void>? previous,
+  }) : _settled = previous ?? Future<void>.value();
+
+  final Future<String> Function(String) fallback;
+  final Future<String> Function(String)? probe;
+  final MachineContainerOperationRunner? query;
+  final Duration timeout;
+  Future<void> _settled;
+  bool cancelled = false;
+  Future<void> get settled => _settled;
+  void cancel() => cancelled = true;
+
+  Future<String> run(
+    String command, {
+    bool probing = false,
+    Duration? timeout,
+    MachineContainerOperationRunner? runner,
+    void Function(String)? onOutput,
+    bool Function()? isCancelled,
+  }) async {
+    final previous = _settled;
+    final done = Completer<void>();
+    _settled = done.future;
+    bool stopped() => cancelled || (isCancelled?.call() ?? false);
+    try {
+      await previous;
+      if (stopped()) throw const MachineContainerConfigException('cancelled');
+      final execute = runner ?? query;
+      final result = await (execute == null
+          ? (probing ? probe ?? fallback : fallback)(command)
+          : execute(
+              command,
+              timeout:
+                  timeout ??
+                  (probing ? machineContainerProbeTimeout : this.timeout),
+              onOutput: onOutput,
+              isCancelled: stopped,
+            ));
+      if (stopped()) throw const MachineContainerConfigException('cancelled');
+      return result;
+    } finally {
+      done.complete();
+    }
+  }
+}
+
 class _MachineContainerPanel extends StatefulWidget {
   const _MachineContainerPanel({
     super.key,
@@ -14,6 +67,7 @@ class _MachineContainerPanel extends StatefulWidget {
     required this.terminalId,
     required this.run,
     this.probe,
+    this.query,
     this.operate,
     this.operationTimeout = const Duration(seconds: 30),
     required this.windows,
@@ -22,7 +76,7 @@ class _MachineContainerPanel extends StatefulWidget {
   final String sessionId, terminalId;
   final Future<String> Function(String) run;
   final Future<String> Function(String)? probe;
-  final MachineContainerOperationRunner? operate;
+  final MachineContainerOperationRunner? query, operate;
   final Duration operationTimeout;
   final bool windows;
   final MachineTerminalCommandShell shell;
@@ -47,6 +101,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   bool _busy = false, _overlay = false, _autoRuntime = true;
   bool _copyingCommand = false;
   bool _listingFailed = false;
+  _ContainerQueryScope? _query;
 
   @override
   void initState() {
@@ -56,17 +111,33 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
 
   @override
   void dispose() {
+    _query?.cancel();
     _scope.dispose();
     _search.dispose();
     super.dispose();
   }
 
+  _ContainerQueryScope _beginQuery() {
+    final previous = _query;
+    previous?.cancel();
+    _busy = false;
+    return _query = _ContainerQueryScope(
+      fallback: widget.run,
+      probe: widget.probe,
+      query: widget.query,
+      timeout: widget.operationTimeout,
+      previous: previous?.settled,
+    );
+  }
+
   Future<void> refresh({bool reset = false, bool applyScope = false}) async {
-    if (_busy || _overlay || !mounted) return;
+    applyScope = applyScope && _scope.text.trim() != _appliedScope;
+    if ((_busy && !reset && !applyScope) || _overlay || !mounted) return;
     if (_resourceTab != 0 && !reset && !applyScope && _client != null) {
       await _resourcesKey.currentState?.refresh();
       return;
     }
+    final query = _beginQuery();
     final scope = reset || applyScope ? _scope.text.trim() : _appliedScope;
     final preserveDraft =
         !reset && !applyScope && _scope.text.trim() != _appliedScope;
@@ -93,15 +164,15 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     final errors = <String, String>{};
     try {
       final selected = await discoverMachineContainers(
-        run: widget.run,
-        probe: widget.probe,
+        run: query.run,
+        probe: (command) => query.run(command, probing: true),
         runtime: _autoRuntime ? null : _runtime,
         preferred: _client?.scope == scope ? _client : null,
         scope: scope,
         windows: widget.windows,
-        isCancelled: () => !mounted,
+        isCancelled: () => !mounted || query.cancelled,
       );
-      if (!mounted) return;
+      if (!mounted || query.cancelled) return;
       final client = selected.client;
       final entries = selected.entries;
       final sameTarget =
@@ -125,7 +196,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         final ids = entries.map((entry) => entry.id).toSet();
         _listDetails.removeWhere((id, _) => !ids.contains(id));
         _cpuPercentages.removeWhere((id, _) => !ids.contains(id));
-        _client = client;
+        _client = client.copyWith(run: widget.run);
         _runtime = client.runtime;
         _appliedScope = client.scope;
         if (!preserveDraft) _scope.text = client.scope;
@@ -138,43 +209,43 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             await client.execute(['pods', '-o', 'json']),
             pods: true,
           );
-          if (!mounted) return;
+          if (!mounted || query.cancelled) return;
           setState(() => _entries = [...entries, ...pods]);
         } catch (error) {
-          if (!mounted) return;
+          if (!mounted || query.cancelled) return;
           errors['Pod 列表'] = '$error';
           setState(() => _collectionIssues = Map.of(errors));
         }
       }
       try {
         var metadata = await client.execute(client.metadataArguments);
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         if (client.runtime == MachineContainerRuntime.kubernetes) {
           _kubernetesMetadata['版本'] = jsonDecode(metadata);
           metadata = jsonEncode(_kubernetesMetadata);
         }
         if (_metadata != metadata) setState(() => _metadata = metadata);
       } catch (error) {
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         errors['运行时元数据与状态'] = '$error';
         setState(() => _collectionIssues = Map.of(errors));
       }
       if (client.runtime == MachineContainerRuntime.kubernetes) {
         try {
           final nodes = await client.execute(['get', 'nodes', '-o', 'json']);
-          if (!mounted) return;
+          if (!mounted || query.cancelled) return;
           _kubernetesMetadata['节点'] = jsonDecode(nodes);
           final metadata = jsonEncode(_kubernetesMetadata);
           if (_metadata != metadata) setState(() => _metadata = metadata);
         } catch (error) {
-          if (!mounted) return;
+          if (!mounted || query.cancelled) return;
           errors['节点信息'] = '$error';
           setState(() => _collectionIssues = Map.of(errors));
         }
       }
       try {
         final metrics = await client.execute(client.metricsArguments);
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         final cpu = client.cpuPercentages(metrics, entries);
         if (_metrics != metrics || !mapEquals(_cpuPercentages, cpu)) {
           setState(() {
@@ -183,7 +254,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           });
         }
       } catch (error) {
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         errors['实时资源采样'] = '$error';
         setState(() {
           _cpuPercentages = {};
@@ -194,9 +265,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       try {
         await for (final batch in client.listDetails(
           entries,
-          isCancelled: () => !mounted,
+          isCancelled: () => !mounted || query.cancelled,
         )) {
-          if (!mounted) return;
+          if (!mounted || query.cancelled) return;
           details.addAll(batch);
           if (batch.entries.any(
             (entry) => _listDetails[entry.key] != entry.value,
@@ -205,7 +276,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           }
         }
       } catch (error) {
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         errors['最近启动时间'] = '$error';
         setState(() {
           _listDetails = details;
@@ -213,7 +284,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         });
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted && !query.cancelled) {
         setState(() {
           _listingFailed = true;
           if (error is MachineContainerDiscoveryException) {
@@ -225,7 +296,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && !query.cancelled) {
         setState(() {
           _busy = false;
         });
@@ -234,7 +305,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   }
 
   Future<void> _createContainer() async {
-    if (_busy || _overlay || _client == null) return;
+    if (_overlay || _client == null) return;
+    final query = _beginQuery();
+    final client = _client!.copyWith(run: query.run);
     setState(() => _overlay = true);
     bool? changed;
     try {
@@ -242,21 +315,30 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         context: context,
         barrierDismissible: false,
         builder: (_) => _ContainerResourceFormDialog(
-          client: _client!,
+          client: client,
           action: _ContainerResourceAction.createContainer,
-          operate: widget.operate,
+          operate: (command, {required timeout, onOutput, isCancelled}) =>
+              query.run(
+                command,
+                runner: widget.operate,
+                timeout: timeout,
+                onOutput: onOutput,
+                isCancelled: isCancelled,
+              ),
           timeout: widget.operationTimeout,
         ),
       );
     } finally {
+      query.cancel();
       if (mounted) setState(() => _overlay = false);
     }
     if (mounted && changed == true) await refresh();
   }
 
   Future<void> _open(MachineContainerEntry entry, String action) async {
-    final client = _client;
-    if (_busy || _overlay || _listingFailed || client == null) return;
+    if (_overlay || _client == null) return;
+    final query = _beginQuery();
+    final client = _client!.copyWith(run: query.run);
     setState(() {
       _overlay = true;
       _copyingCommand = action == '复制 run 命令';
@@ -365,25 +447,22 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           )!.maintenanceContainerRunCopied,
         );
       } else if (action == '查看镜像详情') {
-        var active = true;
-        try {
-          await showAnimatedDialog<void>(
-            context: context,
-            builder: (_) => _ContainerReportDialog(
-              title: '${entry.name} · ${maintenanceLabel(context, action)}',
-              section: 'container_image',
-              load: () => client.imageDetails(
-                entry,
-                isCancelled: () => !mounted || !active,
-              ),
+        await showAnimatedDialog<void>(
+          context: context,
+          builder: (_) => _ContainerReportDialog(
+            title: '${entry.name} · ${maintenanceLabel(context, action)}',
+            section: 'container_image',
+            isCancelled: () => query.cancelled,
+            load: () => client.imageDetails(
+              entry,
+              isCancelled: () => !mounted || query.cancelled,
             ),
-          );
-        } finally {
-          active = false;
-        }
+          ),
+        );
       } else if (action == '终端') {
         await client.verify(entry);
-        if (!mounted) return;
+        await query.settled;
+        if (!mounted || query.cancelled) return;
         final readyMarker =
             '__OH_CONTAINER_READY_${DateTime.now().microsecondsSinceEpoch}__';
         await showAnimatedDialog<void>(
@@ -410,7 +489,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           context.read<MachineTerminalService>(),
           scopedCommand: (command) async {
             await client.verify(entry);
-            return widget.run(client.execCommand(entry, command));
+            return query.run(client.execCommand(entry, command));
           },
         );
         try {
@@ -431,13 +510,12 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           files.dispose();
         }
       } else {
-        await client.verify(entry);
-        if (!mounted) return;
         await showAnimatedDialog<void>(
           context: context,
           builder: (_) => _ContainerReportDialog(
             title: '${entry.name} · ${maintenanceLabel(context, action)}',
             section: action == '日志' ? 'logs' : 'container_details',
+            isCancelled: () => query.cancelled,
             load: () async {
               await client.verify(entry);
               return action == '日志'
@@ -463,12 +541,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         operationError = maintenanceContainerOperationError(context, error);
       }
     } finally {
+      query.cancel();
       if (mounted) {
         setState(() {
           _overlay = false;
           _copyingCommand = false;
         });
-        if (refreshNeeded) await refresh();
+        if (refreshNeeded) unawaited(refresh());
         if (mounted && operationError != null) {
           setState(() => _error = operationError!);
         }
@@ -492,7 +571,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       final kubernetes = _runtime == MachineContainerRuntime.kubernetes;
       final hasNamespace =
           kubernetes || _runtime == MachineContainerRuntime.cri;
-      final enabled = !_busy && !_overlay && !_listingFailed;
+      final enabled = !_overlay && _client != null;
       final theme = Theme.of(context);
       OpenHandOperationalRankRow row(MachineContainerEntry entry) {
         final status = maintenanceContainerState(context, entry.state);
@@ -745,7 +824,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         : _runtime.label,
                     tooltip: '容器运行时',
                     value: _autoRuntime ? 'auto' : _runtime.name,
-                    enabled: !_busy && !_overlay,
+                    enabled: !_overlay,
                     items: {
                       'auto': AppLocalizations.of(
                         context,
@@ -774,7 +853,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         message: scopeHint,
                         child: TextField(
                           controller: _scope,
-                          enabled: !_busy && !_overlay,
+                          enabled: !_overlay,
                           style: theme.textTheme.bodySmall,
                           decoration: decoration(scopeHint),
                           onSubmitted: (_) => refresh(applyScope: true),
@@ -888,13 +967,21 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     selected: _resourceTab == item.$1,
-                    onSelected: _busy || _overlay
+                    onSelected: _overlay || _client == null
                         ? null
-                        : (_) => setState(() => _resourceTab = item.$1),
+                        : (_) {
+                            if (_resourceTab == item.$1) return;
+                            _query?.cancel();
+                            setState(() {
+                              _busy = false;
+                              _resourceTab = item.$1;
+                            });
+                            if (_resourceTab == 0) refresh();
+                          },
                   ),
                 if (_resourceTab == 0 && (_client?.supportsResources ?? false))
                   FilledButton.tonalIcon(
-                    onPressed: _busy || _overlay ? null : _createContainer,
+                    onPressed: _overlay ? null : _createContainer,
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: Text(
                       AppLocalizations.of(context)!.maintenanceContainerCreate,
@@ -908,12 +995,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           _MachineContainerResources(
             key: _resourcesKey,
             client: _client!,
+            beginQuery: _beginQuery,
             kind: _resourceTab == 1
                 ? MachineContainerResourceKind.images
                 : MachineContainerResourceKind.volumes,
             operate: widget.operate,
             timeout: widget.operationTimeout,
-            onBusy: (value) {
+            onOverlayChanged: (value) {
               if (mounted) setState(() => _overlay = value);
             },
             onCreated: () {
@@ -1068,10 +1156,12 @@ class _ContainerReportDialog extends StatefulWidget {
     required this.title,
     required this.load,
     this.section = 'container_details',
+    this.isCancelled,
   });
   final String section;
   final String title;
   final Future<String> Function() load;
+  final bool Function()? isCancelled;
   @override
   State<_ContainerReportDialog> createState() => _ContainerReportDialogState();
 }
@@ -1094,7 +1184,7 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
   }
 
   Future<void> _load() async {
-    if (_busy || !mounted) return;
+    if (_busy || !mounted || (widget.isCancelled?.call() ?? false)) return;
     _timer?.cancel();
     setState(() {
       _busy = true;
@@ -1102,7 +1192,7 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
     });
     try {
       final text = await widget.load();
-      if (mounted) {
+      if (mounted && !(widget.isCancelled?.call() ?? false)) {
         setState(() {
           _loaded = true;
           if (widget.section == 'logs') {
@@ -1114,14 +1204,14 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
         });
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted && !(widget.isCancelled?.call() ?? false)) {
         setState(() {
           _error = maintenanceContainerOperationError(context, error);
           _automatic = false;
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && !(widget.isCancelled?.call() ?? false)) {
         setState(() {
           _busy = false;
         });

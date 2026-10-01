@@ -1093,16 +1093,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
-      Future<String> runContainerCommand(String command, {Duration? timeout}) =>
-          context.read<MachineTerminalFileService>().runMaintenanceCommand(
-            sessionId: widget.sessionId,
-            terminalId: widget.terminalId,
-            command: command,
-            commandShell: _commandShell,
-            timeout: timeout ?? Duration(seconds: _timeoutSeconds),
-            maxOutputCharacters: machineContainerOutputLimit,
-            isCancelled: () => !mounted || _closing || _tab != 7,
-          );
+      Future<String> runContainerCommand(
+        String command, {
+        Duration? timeout,
+        void Function(String)? onOutput,
+        bool Function()? isCancelled,
+      }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        command: command,
+        commandShell: _commandShell,
+        timeout: timeout ?? Duration(seconds: _timeoutSeconds),
+        maxOutputCharacters: machineContainerOutputLimit,
+        onOutput: onOutput,
+        isCancelled: () =>
+            !mounted || _closing || _tab != 7 || (isCancelled?.call() ?? false),
+      );
       return _MachineContainerPanel(
         key: _containersKey,
         sessionId: widget.sessionId,
@@ -1113,21 +1119,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             runContainerCommand(command, timeout: machineContainerProbeTimeout),
         run: runContainerCommand,
         operationTimeout: Duration(seconds: _timeoutSeconds),
-        operate: (command, {required timeout, onOutput, isCancelled}) =>
-            context.read<MachineTerminalFileService>().runMaintenanceCommand(
-              sessionId: widget.sessionId,
-              terminalId: widget.terminalId,
-              command: command,
-              commandShell: _commandShell,
-              timeout: timeout,
-              maxOutputCharacters: machineContainerOutputLimit,
-              onOutput: onOutput,
-              isCancelled: () =>
-                  !mounted ||
-                  _closing ||
-                  _tab != 7 ||
-                  (isCancelled?.call() ?? false),
-            ),
+        query: runContainerCommand,
+        operate: runContainerCommand,
       );
     }
     if (_bodyIdentity != identity) {

@@ -26,17 +26,19 @@ class _MachineContainerResources extends StatefulWidget {
   const _MachineContainerResources({
     super.key,
     required this.client,
+    required this.beginQuery,
     required this.kind,
     required this.timeout,
-    required this.onBusy,
+    required this.onOverlayChanged,
     required this.onCreated,
     this.operate,
   });
   final MachineContainerClient client;
+  final _ContainerQueryScope Function() beginQuery;
   final MachineContainerResourceKind kind;
   final MachineContainerOperationRunner? operate;
   final Duration timeout;
-  final ValueChanged<bool> onBusy;
+  final ValueChanged<bool> onOverlayChanged;
   final VoidCallback onCreated;
   @override
   State<_MachineContainerResources> createState() =>
@@ -47,7 +49,8 @@ class _MachineContainerResourcesState
     extends State<_MachineContainerResources> {
   final _search = TextEditingController();
   List<MachineContainerResource> _resources = [];
-  bool _busy = false, _loaded = false;
+  bool _busy = false, _overlay = false, _loaded = false;
+  _ContainerQueryScope? _query;
   String _error = '';
   bool get _images => widget.kind == MachineContainerResourceKind.images;
   @override
@@ -62,6 +65,8 @@ class _MachineContainerResourcesState
   void didUpdateWidget(covariant _MachineContainerResources oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.kind != widget.kind || oldWidget.client != widget.client) {
+      _query?.cancel();
+      _busy = false;
       _resources = [];
       _loaded = false;
       _error = '';
@@ -74,38 +79,41 @@ class _MachineContainerResourcesState
 
   @override
   void dispose() {
+    _query?.cancel();
     _search.dispose();
     super.dispose();
   }
 
   Future<void> refresh() async {
-    if (_busy || !mounted || !widget.client.supportsResources) return;
+    if (_busy || _overlay || !mounted || !widget.client.supportsResources) {
+      return;
+    }
+    final query = _query = widget.beginQuery();
+    final client = widget.client.copyWith(run: query.run);
     setState(() {
       _busy = true;
       _error = '';
     });
-    widget.onBusy(true);
     try {
-      await for (final resources in widget.client.resources(
+      await for (final resources in client.resources(
         widget.kind,
-        isCancelled: () => !mounted,
+        isCancelled: () => !mounted || query.cancelled,
       )) {
-        if (!mounted) return;
+        if (!mounted || query.cancelled) return;
         setState(() {
           _resources = resources;
           _loaded = true;
         });
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted && !query.cancelled) {
         setState(
           () => _error = maintenanceContainerOperationError(context, error),
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && !query.cancelled) {
         setState(() => _busy = false);
-        widget.onBusy(false);
       }
     }
   }
@@ -115,56 +123,77 @@ class _MachineContainerResourcesState
     MachineContainerResource? resource,
     bool search = false,
   }) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    widget.onBusy(true);
-    bool? changed;
-    var active = true;
+    if (_overlay) return;
+    final query = _query = widget.beginQuery();
+    final client = widget.client.copyWith(run: query.run);
+    Future<String> operate(
+      String command, {
+      required Duration timeout,
+      void Function(String)? onOutput,
+      bool Function()? isCancelled,
+    }) => query.run(
+      command,
+      runner: widget.operate,
+      timeout: timeout,
+      onOutput: onOutput,
+      isCancelled: isCancelled,
+    );
+    setState(() {
+      _busy = false;
+      _overlay = true;
+    });
+    widget.onOverlayChanged(true);
+    var changed = false;
     try {
       if (search) {
-        changed = await showAnimatedDialog<bool>(
+        final result = await showAnimatedDialog<bool>(
           context: context,
           builder: (_) => _ContainerRegistryDialog(
-            client: widget.client,
-            operate: widget.operate,
+            client: client,
+            operate: operate,
             timeout: widget.timeout,
+            onChanged: () => changed = true,
           ),
         );
+        changed = changed || result == true;
       } else if (action != null) {
-        changed = await showAnimatedDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => _ContainerResourceFormDialog(
-            client: widget.client,
-            action: action,
-            resource: resource,
-            operate: widget.operate,
-            timeout: widget.timeout,
-          ),
-        );
+        changed =
+            await showAnimatedDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => _ContainerResourceFormDialog(
+                client: client,
+                action: action,
+                resource: resource,
+                operate: operate,
+                timeout: widget.timeout,
+              ),
+            ) ==
+            true;
       } else if (resource != null) {
         await showAnimatedDialog<void>(
           context: context,
           builder: (_) => _ContainerReportDialog(
             title: resource.reference,
             section: _images ? 'container_image' : 'container_details',
+            isCancelled: () => query.cancelled,
             load: () => _images
-                ? widget.client.inspectImageReference(
+                ? client.inspectImageReference(
                     resource.id,
-                    isCancelled: () => !mounted || !active,
+                    isCancelled: () => !mounted || query.cancelled,
                   )
-                : widget.client.volumeDetails(resource.name),
+                : client.volumeDetails(resource.name),
           ),
         );
       }
     } finally {
-      active = false;
+      query.cancel();
       if (mounted) {
-        setState(() => _busy = false);
-        widget.onBusy(false);
+        setState(() => _overlay = false);
+        widget.onOverlayChanged(false);
       }
     }
-    if (mounted && (changed == true || search)) {
+    if (mounted && changed) {
       if (action == _ContainerResourceAction.createContainer) {
         widget.onCreated();
       } else {
@@ -254,7 +283,7 @@ class _MachineContainerResourcesState
                   if (_images) ...[
                     OutlinedButton.icon(
                       style: actionStyle,
-                      onPressed: _busy || !widget.client.supportsImageSearch
+                      onPressed: _overlay || !widget.client.supportsImageSearch
                           ? null
                           : () => _open(search: true),
                       icon: const Icon(Icons.travel_explore_rounded, size: 18),
@@ -262,7 +291,7 @@ class _MachineContainerResourcesState
                     ),
                     FilledButton.tonalIcon(
                       style: actionStyle,
-                      onPressed: _busy
+                      onPressed: _overlay
                           ? null
                           : () => _open(action: _ContainerResourceAction.pull),
                       icon: const Icon(Icons.download_rounded, size: 18),
@@ -271,7 +300,7 @@ class _MachineContainerResourcesState
                   ] else
                     FilledButton.tonalIcon(
                       style: actionStyle,
-                      onPressed: _busy
+                      onPressed: _overlay
                           ? null
                           : () => _open(
                               action: _ContainerResourceAction.createVolume,
@@ -353,13 +382,13 @@ class _MachineContainerResourcesState
                         ],
                       ),
                   ],
-                  onRowTap: _busy
+                  onRowTap: _overlay
                       ? null
                       : (row) => _open(
                           resource: row.data as MachineContainerResource,
                         ),
                   rowActions: (row) => {
-                    if (!_busy) ...{
+                    if (!_overlay) ...{
                       if (_images)
                         l.maintenanceContainerCreate: () => _open(
                           action: _ContainerResourceAction.createContainer,
@@ -390,10 +419,12 @@ class _MachineContainerResourcesState
 class _ContainerRegistryDialog extends StatefulWidget {
   const _ContainerRegistryDialog({
     required this.client,
+    this.onChanged,
     required this.timeout,
     this.operate,
   });
   final MachineContainerClient client;
+  final VoidCallback? onChanged;
   final Duration timeout;
   final MachineContainerOperationRunner? operate;
   @override
@@ -457,6 +488,7 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
         timeout: widget.timeout,
       ),
     );
+    if (changed == true) widget.onChanged?.call();
     if (mounted) {
       setState(() {
         _busy = false;

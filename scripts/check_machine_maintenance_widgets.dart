@@ -259,6 +259,7 @@ void main() {
   scheduledTaskChecks();
   containerTerminalChecks();
   resourceChecks();
+  containerInteractionChecks();
   incrementalChecks();
   setUpAll(() async {
     for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
@@ -354,7 +355,7 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('容器刷新失败保留已有数据并禁用操作，恢复后重新启用', (tester) async {
+  testWidgets('容器刷新失败保留已有数据与操作入口，读取失败可见且恢复后继续使用', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1100));
     var fail = false;
     final calls = <String>[];
@@ -378,9 +379,16 @@ void main() {
     expect(state._entries.single, same(entry));
     expect(state._client, isNotNull);
     expect(state._listingFailed, isTrue);
+    final menu = tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
+    expect(menu.actions, isNotEmpty); expect(menu.onDetails, isNotNull);
     final attempts = calls.length;
-    await state._open(entry, '停止');
-    expect(calls.length, attempts);
+    final opening = state._open(entry, '详情');
+    await tester.pumpAndSettle();
+    expect(calls.length, greaterThan(attempts));
+    final report = tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog));
+    expect(report._error, contains('connection refused'));
+    await tester.tap(find.byTooltip('关闭')); await tester.pumpAndSettle(); await opening;
+    expect(state._busy, isFalse); expect(state._overlay, isFalse);
     fail = false;
     await state.refresh(); await tester.pumpAndSettle();
     expect(state._listingFailed, isFalse);
@@ -5776,4 +5784,158 @@ void resourceChecks() {
     await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
   });
 }
+
+void containerInteractionChecks() {
+  testWidgets('后台采集不锁定容器菜单，用户读取优先且取消结果不写回', (tester) async {
+    final calls=<String>[];
+    Completer<String>? pending;
+    bool Function()? cancelled;
+    var active=0, peak=0;
+    Future<String> query(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
+      calls.add(command);active++;peak=math.max(peak,active);
+      try {
+        if(command.contains("'context' 'show'"))return 'default';
+        if(command.contains("'ps'"))return '{"ID":"abc123","Names":"worker","State":"running","Image":"nginx"}';
+        if(command.contains("'info'")) {
+          if(pending!=null){cancelled=isCancelled;return await pending!.future;}
+          return '{"ServerVersion":"原有版本"}';
+        }
+        if(command.contains('.State.StartedAt'))return '"abc123"\t"2026-10-01T08:00:00Z"\t{}';
+        if(command.contains("'logs'"))return '应用日志';
+        if(command.contains("'inspect'"))return '{"Name":"worker"}';
+        return '{}';
+      } finally {active--;}
+    }
+    Future<String> run(String command)=>query(command,timeout:const Duration(seconds:30));
+    await tester.binding.setSurfaceSize(const Size(1300,1000));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+        sessionId:'会话',terminalId:'终端',run:run,query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final metadata=panel._metadata;
+    pending=Completer<String>();
+    final refreshing=panel.refresh();await tester.pump();
+    expect(panel._busy,isTrue);expect(cancelled,isNotNull);
+    final menu=tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
+    expect(menu.onDetails,isNotNull);expect(menu.actions,isNotEmpty);
+    final statsBefore=calls.where((command)=>command.contains("'stats'")).length;
+    final opening=panel._open(panel._entries.single,'详情');await tester.pump();
+    expect(cancelled!(),isTrue);expect(panel._busy,isFalse);
+    expect(find.byType(_ContainerReportDialog),findsOneWidget);
+    expect(calls.where((command)=>command.contains("'inspect' 'abc123'")),isEmpty);
+    pending!.complete('{"ServerVersion":"不应显示的旧结果"}');pending=null;
+    await refreshing;await tester.pumpAndSettle();
+    expect(panel._metadata,metadata);expect(panel._collectionIssues,isEmpty);
+    expect(calls.where((command)=>command.contains("'stats'")).length,statsBefore);
+    expect(peak,1);
+    final count=calls.length;
+    await tester.tap(find.byTooltip('关闭'));await tester.pumpAndSettle();await opening;
+    expect(calls.length,count);expect(panel._overlay,isFalse);
+    final logs=panel._open(panel._entries.single,'日志');await tester.pumpAndSettle();
+    expect(tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog))._text,'应用日志');
+    await tester.tap(find.byTooltip('关闭'));await tester.pumpAndSettle();await logs;
+    expect(panel._busy,isFalse);expect(panel._overlay,isFalse);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('关闭仍在加载的详情可立即打开日志，旧请求释放终端后才发送新命令', (tester) async {
+    final pending=Completer<String>();bool Function()? stopped;var logs=0;
+    Future<String> query(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+      if(command.contains("'context' 'show'"))return 'default';
+      if(command.contains("'ps'"))return '{"ID":"abc123","Names":"worker","State":"running"}';
+      if(command.contains('.State.StartedAt'))return '';
+      if(command.contains("'inspect' 'abc123'")){stopped=isCancelled;return pending.future;}
+      if(command.contains("'logs'")){logs++;return '新日志';}
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1100,900));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+        sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final first=panel._open(panel._entries.single,'详情');await tester.pump();await tester.pump(const Duration(seconds:1));
+    expect(stopped,isNotNull);
+    tester.widget<_MachineTerminalDialogHeader>(find.descendant(of:find.byType(_ContainerReportDialog),matching:find.byType(_MachineTerminalDialogHeader))).onClose();await tester.pump();await tester.pump(const Duration(seconds:1));await first;
+    expect(stopped!(),isTrue);expect(panel._overlay,isFalse);
+    final second=panel._open(panel._entries.single,'日志');await tester.pump();await tester.pump(const Duration(seconds:1));
+    expect(find.byType(_ContainerReportDialog),findsOneWidget);expect(logs,0);
+    pending.completeError(StateError('模拟已取消的详情请求'));await tester.pumpAndSettle();
+    final report=tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog));
+    expect(report._text,'新日志');expect(report._error,isEmpty);expect(logs,1);
+    await tester.tap(find.byTooltip('关闭'));await tester.pumpAndSettle();await second;
+    expect(panel._error,isEmpty);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('刷新中切换运行时取消旧请求，旧结果和结束回调不覆盖新目标', (tester) async {
+    Completer<String>? oldInfo, newInfo;
+    bool Function()? oldCancelled;
+    Future<String> query(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
+      final podman=command.startsWith("'podman'");
+      if(command.contains("'context' 'show'"))return 'default';
+      if(command.contains("'ps'"))return jsonEncode({'ID':podman?'new123':'old123','Names':podman?'新容器':'旧容器','State':'running'});
+      if(command.contains("'info'")) {
+        if(podman)return newInfo!.future;
+        if(oldInfo!=null){oldCancelled=isCancelled;return oldInfo!.future;}
+      }
+      if(command.contains('.State.StartedAt'))return '';
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1200,1000));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+        sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    oldInfo=Completer<String>();newInfo=Completer<String>();
+    final refresh=panel.refresh();await tester.pump();
+    final runtime=tester.widget<_MaintenanceToolbarMenu<String>>(find.byType(_MaintenanceToolbarMenu<String>));
+    expect(runtime.enabled,isTrue);runtime.onSelected('podman');await tester.pump();
+    expect(oldCancelled!(),isTrue);expect(panel._entries,isEmpty);
+    oldInfo!.completeError(StateError('旧目标已断开'));await refresh;await tester.pump();
+    expect(panel._runtime,MachineContainerRuntime.podman);expect(panel._entries.single.name,'新容器');
+    expect(panel._busy,isTrue);expect(panel._error,isEmpty);expect(panel._collectionIssues,isEmpty);
+    newInfo!.complete('{"Host":{"Hostname":"新目标"}}');await tester.pumpAndSettle();
+    expect(panel._busy,isFalse);expect(panel._metadata,contains('新目标'));expect(panel._entries.single.id,'new123');
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('镜像容量刷新期间菜单和子导航可用，只读详情与仓库搜索关闭不刷新列表', (tester) async {
+    final calls=<String>[];Completer<String>? usage;bool Function()? cancelled;
+    Future<String> query(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+      calls.add(command);
+      if(command.contains("'context' 'show'"))return 'default';
+      if(command.contains("'ps'"))return '';
+      if(command.contains("'image' 'ls'"))return '{"Repository":"nginx","Tag":"latest","ID":"sha256:123","Size":"20MB"}';
+      if(command.contains("'system' 'df'")) {if(usage!=null){cancelled=isCancelled;return usage!.future;}return '[{"ID":"sha256:123","Containers":"1"}]';}
+      if(command.contains("'image' 'inspect'"))return '[{"Id":"sha256:123","RepoTags":["nginx:latest"]}]';
+      if(command.contains("'image' 'history'"))return '';
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1200,1000));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+        sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip,'镜像'));await tester.pumpAndSettle();
+    final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    final resources=tester.state<_MachineContainerResourcesState>(find.byType(_MachineContainerResources));
+    usage=Completer<String>();final refresh=panel.refresh(applyScope:true);await tester.pump();
+    expect(resources._busy,isTrue);expect(panel._overlay,isFalse);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip,'数据卷')).onSelected,isNotNull);
+    expect(tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu)).onDetails,isNotNull);
+    final details=resources._open(resource:resources._resources.single);await tester.pump();expect(cancelled!(),isTrue);
+    usage!.complete('[{"ID":"sha256:123","Containers":"99"}]');usage=null;await refresh;await tester.pumpAndSettle();
+    expect(resources._resources.single.references,isNull);
+    final before=calls.where((command)=>command.contains("'image' 'ls'")).length;
+    await tester.tap(find.byTooltip('关闭'));await tester.pumpAndSettle();await details;
+    expect(calls.where((command)=>command.contains("'image' 'ls'")).length,before);
+    final search=resources._open(search:true);await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('关闭'));await tester.pumpAndSettle();await search;
+    expect(calls.where((command)=>command.contains("'image' 'ls'")).length,before);
+    expect(resources._overlay,isFalse);expect(panel._overlay,isFalse);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+}
+
 ''';
