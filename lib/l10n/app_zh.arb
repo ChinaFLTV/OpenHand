@@ -10804,7 +10804,7 @@
   "maintenanceContainerNameOptional": "容器名称（可选）",
   "maintenanceContainerStartAfterCreate": "创建后立即启动",
   "maintenanceHostAddress": "主机地址",
-  "maintenanceHostPort": "主机端口（留空自动分配）",
+  "maintenanceHostPort": "主机端口",
   "maintenanceContainerPort": "容器端口",
   "maintenanceBindMount": "主机目录",
   "maintenanceReadOnlyMount": "只读挂载",
@@ -10826,5 +10826,6 @@
   "maintenanceImageRemoveHelp": "删除此本地镜像，不强制删除；仍被容器引用的镜像可能被运行时拒绝删除。",
   "maintenanceVolumeRemoveHelp": "永久删除此数据卷及其中的数据。不会强制删除仍被容器使用的卷。",
   "maintenanceResourceParameters": "参数",
-  "maintenanceRestartUnlessStopped": "除非手动停止，否则重启"
+  "maintenanceRestartUnlessStopped": "除非手动停止，否则重启",
+  "maintenancePortAutomatic": "留空自动分配"
 }

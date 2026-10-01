@@ -9652,7 +9652,7 @@
   "maintenanceContainerNameOptional": "容器名稱（選填）",
   "maintenanceContainerStartAfterCreate": "建立後立即啟動",
   "maintenanceHostAddress": "主機位址",
-  "maintenanceHostPort": "主機連接埠（留空自動分配）",
+  "maintenanceHostPort": "主機連接埠",
   "maintenanceContainerPort": "容器連接埠",
   "maintenanceBindMount": "主機目錄",
   "maintenanceReadOnlyMount": "唯讀掛載",
@@ -9674,5 +9674,6 @@
   "maintenanceImageRemoveHelp": "刪除此本機映像，不強制刪除；仍被容器參照的映像可能被執行環境拒絕刪除。",
   "maintenanceVolumeRemoveHelp": "永久刪除此資料卷及其中的資料。不會強制刪除仍被容器使用的卷。",
   "maintenanceResourceParameters": "參數",
-  "maintenanceRestartUnlessStopped": "除非手動停止，否則重新啟動"
+  "maintenanceRestartUnlessStopped": "除非手動停止，否則重新啟動",
+  "maintenancePortAutomatic": "留空自動分配"
 }

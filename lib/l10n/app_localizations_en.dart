@@ -15454,7 +15454,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceHostAddress => 'Host address';
 
   @override
-  String get maintenanceHostPort => 'Host port (empty = automatic)';
+  String get maintenanceHostPort => 'Host port';
 
   @override
   String get maintenanceContainerPort => 'Container port';
@@ -15527,4 +15527,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceRestartUnlessStopped =>
       'Restart unless manually stopped';
+
+  @override
+  String get maintenancePortAutomatic => 'Leave empty to assign automatically';
 }

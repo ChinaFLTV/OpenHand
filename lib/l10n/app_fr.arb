@@ -9652,7 +9652,7 @@
   "maintenanceContainerNameOptional": "Nom du conteneur (facultatif)",
   "maintenanceContainerStartAfterCreate": "Démarrer après la création",
   "maintenanceHostAddress": "Adresse de l’hôte",
-  "maintenanceHostPort": "Port hôte (vide = automatique)",
+  "maintenanceHostPort": "Port hôte",
   "maintenanceContainerPort": "Port du conteneur",
   "maintenanceBindMount": "Dossier de l’hôte",
   "maintenanceReadOnlyMount": "Lecture seule",
@@ -9674,5 +9674,6 @@
   "maintenanceImageRemoveHelp": "Supprimer cette image locale sans forcer. Le moteur peut refuser si des conteneurs la référencent.",
   "maintenanceVolumeRemoveHelp": "Supprimer définitivement ce volume et ses données. Les volumes utilisés ne sont pas supprimés de force.",
   "maintenanceResourceParameters": "Paramètres",
-  "maintenanceRestartUnlessStopped": "Redémarrer sauf arrêt manuel"
+  "maintenanceRestartUnlessStopped": "Redémarrer sauf arrêt manuel",
+  "maintenancePortAutomatic": "Vide : attribution automatique"
 }

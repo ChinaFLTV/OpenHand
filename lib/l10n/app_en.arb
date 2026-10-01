@@ -9657,7 +9657,7 @@
   "maintenanceContainerNameOptional": "Container name (optional)",
   "maintenanceContainerStartAfterCreate": "Start after creation",
   "maintenanceHostAddress": "Host address",
-  "maintenanceHostPort": "Host port (empty = automatic)",
+  "maintenanceHostPort": "Host port",
   "maintenanceContainerPort": "Container port",
   "maintenanceBindMount": "Host directory",
   "maintenanceReadOnlyMount": "Read-only",
@@ -9679,5 +9679,6 @@
   "maintenanceImageRemoveHelp": "Delete this local image without forcing removal. Images referenced by containers may be rejected by the runtime.",
   "maintenanceVolumeRemoveHelp": "Delete this volume and its data permanently. Volumes still used by containers are not force-deleted.",
   "maintenanceResourceParameters": "Parameters",
-  "maintenanceRestartUnlessStopped": "Restart unless manually stopped"
+  "maintenanceRestartUnlessStopped": "Restart unless manually stopped",
+  "maintenancePortAutomatic": "Leave empty to assign automatically"
 }

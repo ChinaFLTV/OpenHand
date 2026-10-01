@@ -15682,7 +15682,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get maintenanceHostAddress => 'Adresse de l’hôte';
 
   @override
-  String get maintenanceHostPort => 'Port hôte (vide = automatique)';
+  String get maintenanceHostPort => 'Port hôte';
 
   @override
   String get maintenanceContainerPort => 'Port du conteneur';
@@ -15754,4 +15754,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceRestartUnlessStopped => 'Redémarrer sauf arrêt manuel';
+
+  @override
+  String get maintenancePortAutomatic => 'Vide : attribution automatique';
 }

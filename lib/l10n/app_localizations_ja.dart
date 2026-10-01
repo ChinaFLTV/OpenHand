@@ -15100,7 +15100,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceHostAddress => 'ホストアドレス';
 
   @override
-  String get maintenanceHostPort => 'ホストポート（空欄で自動）';
+  String get maintenanceHostPort => 'ホストポート';
 
   @override
   String get maintenanceContainerPort => 'コンテナーポート';
@@ -15172,4 +15172,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceRestartUnlessStopped => '手動停止以外は再起動';
+
+  @override
+  String get maintenancePortAutomatic => '空欄で自動割り当て';
 }

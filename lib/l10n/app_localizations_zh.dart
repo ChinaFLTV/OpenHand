@@ -14955,7 +14955,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceHostAddress => '主机地址';
 
   @override
-  String get maintenanceHostPort => '主机端口（留空自动分配）';
+  String get maintenanceHostPort => '主机端口';
 
   @override
   String get maintenanceContainerPort => '容器端口';
@@ -15023,6 +15023,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceRestartUnlessStopped => '除非手动停止，否则重启';
+
+  @override
+  String get maintenancePortAutomatic => '留空自动分配';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29958,7 +29961,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceHostAddress => '主機位址';
 
   @override
-  String get maintenanceHostPort => '主機連接埠（留空自動分配）';
+  String get maintenanceHostPort => '主機連接埠';
 
   @override
   String get maintenanceContainerPort => '容器連接埠';
@@ -30027,4 +30030,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceRestartUnlessStopped => '除非手動停止，否則重新啟動';
+
+  @override
+  String get maintenancePortAutomatic => '留空自動分配';
 }

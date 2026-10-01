@@ -9652,7 +9652,7 @@
   "maintenanceContainerNameOptional": "Containername (optional)",
   "maintenanceContainerStartAfterCreate": "Nach dem Erstellen starten",
   "maintenanceHostAddress": "Hostadresse",
-  "maintenanceHostPort": "Hostport (leer = automatisch)",
+  "maintenanceHostPort": "Hostport",
   "maintenanceContainerPort": "Containerport",
   "maintenanceBindMount": "Hostverzeichnis",
   "maintenanceReadOnlyMount": "Schreibgeschützt",
@@ -9674,5 +9674,6 @@
   "maintenanceImageRemoveHelp": "Dieses lokale Image ohne Erzwingen löschen. Die Laufzeit kann das Löschen referenzierter Images ablehnen.",
   "maintenanceVolumeRemoveHelp": "Dieses Volume und seine Daten endgültig löschen. Verwendete Volumes werden nicht zwangsweise gelöscht.",
   "maintenanceResourceParameters": "Parameter",
-  "maintenanceRestartUnlessStopped": "Neustart, sofern nicht manuell gestoppt"
+  "maintenanceRestartUnlessStopped": "Neustart, sofern nicht manuell gestoppt",
+  "maintenancePortAutomatic": "Leer lassen für automatische Zuweisung"
 }

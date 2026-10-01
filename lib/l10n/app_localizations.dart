@@ -27944,7 +27944,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceHostPort.
   ///
   /// In zh, this message translates to:
-  /// **'主机端口（留空自动分配）'**
+  /// **'主机端口'**
   String get maintenanceHostPort;
 
   /// No description provided for @maintenanceContainerPort.
@@ -28078,6 +28078,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'除非手动停止，否则重启'**
   String get maintenanceRestartUnlessStopped;
+
+  /// No description provided for @maintenancePortAutomatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空自动分配'**
+  String get maintenancePortAutomatic;
 }
 
 class _AppLocalizationsDelegate

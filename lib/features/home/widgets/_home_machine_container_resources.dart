@@ -773,39 +773,115 @@ class _ContainerResourceFormDialogState
     }
   }
 
-  InputDecoration _decoration(
-    String label, {
-    String? hint,
-    bool multiline = false,
-  }) {
+  static const _formFontSize = 13.0;
+  static const _formControlHeight = 40.0;
+
+  bool get _editable => !_busy && !_completed && !_uncertain;
+  double get _controlHeight => math.max(
+    _formControlHeight,
+    MediaQuery.textScalerOf(context).scale(_formFontSize) * 1.4 + 16,
+  );
+
+  InputDecoration _decoration({String? hint, int lines = 1}) {
     final cs = Theme.of(context).colorScheme;
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: cs.outlineVariant),
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
     );
     return InputDecoration(
-      labelText: label,
       hintText: hint,
-      alignLabelWithHint: multiline,
+      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: cs.onSurfaceVariant,
+        fontSize: _formFontSize,
+      ),
+      filled: true,
+      fillColor: cs.surfaceContainerLowest,
+      hoverColor: Colors.transparent,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      constraints: BoxConstraints.tightFor(
+        height: lines == 1 ? _controlHeight : _controlHeight * lines,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       border: border,
       enabledBorder: border,
-      disabledBorder: border,
+      disabledBorder: border.copyWith(
+        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .4)),
+      ),
       focusedBorder: border.copyWith(
         borderSide: BorderSide(color: cs.primary, width: 1.5),
       ),
     );
   }
 
+  Widget _labeled(String label, Widget child) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Tooltip(
+        message: label,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontSize: 12,
+            height: 1.3,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Semantics(label: label, child: child),
+    ],
+  );
+
   Widget _field(String key, String label, {String? hint, int lines = 1}) =>
-      TextField(
-        controller: _controller(key),
-        enabled: !_busy && !_completed && !_uncertain,
-        minLines: lines,
-        maxLines: lines,
-        decoration: _decoration(label, hint: hint, multiline: lines > 1),
+      _labeled(
+        label,
+        TextField(
+          controller: _controller(key),
+          enabled: _editable,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontSize: _formFontSize,
+            height: 1.4,
+          ),
+          minLines: lines,
+          maxLines: lines,
+          decoration: _decoration(hint: hint, lines: lines),
+        ),
       );
+
+  Widget _select(
+    String label,
+    String value,
+    Map<String, String> items,
+    ValueChanged<String> onChanged,
+  ) => _labeled(
+    label,
+    AnimatedDropdownButtonFormField<String>(
+      isExpanded: true,
+      initialValue: value,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        fontSize: _formFontSize,
+        height: 1.4,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+      iconSize: 18,
+      decoration: _decoration(),
+      items: [
+        for (final item in items.entries)
+          DropdownMenuItem(
+            value: item.key,
+            child: Text(
+              item.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: _editable ? (value) => onChanged(value!) : null,
+    ),
+  );
 
   Widget _rows(
     String title,
@@ -815,6 +891,7 @@ class _ContainerResourceFormDialogState
     bool mounts = false,
   }) {
     final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
     return _MaintenanceSection(
       title: title,
       icon: mounts
@@ -822,103 +899,141 @@ class _ContainerResourceFormDialogState
           : ports
           ? Icons.lan_outlined
           : Icons.tune_rounded,
+      accent: mounts
+          ? cs.tertiary
+          : ports
+          ? cs.primary
+          : cs.secondary,
       initiallyExpanded: rows.isNotEmpty,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final row in rows)
-            Padding(
+            Container(
               key: ObjectKey(row),
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(10),
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: .45),
                 ),
-                child: Column(
-                  children: [
-                    _MaintenanceGrid(
-                      minWidth: 180,
-                      maxColumns: ports ? 3 : 2,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final field in fields.entries)
-                          TextFormField(
-                            initialValue: row[field.key] ?? '',
-                            enabled: !_busy && !_completed && !_uncertain,
-                            onChanged: (value) => row[field.key] = value,
-                            decoration: _decoration(field.value),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (ports || mounts)
-                          _MaintenanceToolbarMenu<String>(
-                            label: ports
-                                ? row['protocol'] ?? 'tcp'
-                                : row['type'] == 'bind'
-                                ? l.maintenanceBindMount
-                                : l.maintenanceVolumes,
-                            tooltip: ports ? '协议' : '类型',
-                            enabled: !_busy && !_completed && !_uncertain,
-                            value:
-                                row[ports ? 'protocol' : 'type'] ??
-                                (ports ? 'tcp' : 'volume'),
-                            items: {
-                              for (final type
-                                  in ports
-                                      ? ['tcp', 'udp', 'sctp']
-                                      : ['volume', 'bind'])
-                                type: ports
-                                    ? type
-                                    : type == 'volume'
-                                    ? l.maintenanceVolumes
-                                    : l.maintenanceBindMount,
-                            },
-                            onSelected: (value) => setState(
-                              () => row[ports ? 'protocol' : 'type'] = value,
+                        _MaintenanceGrid(
+                          minWidth: ports ? 140 : 180,
+                          maxColumns: ports
+                              ? 4
+                              : mounts
+                              ? 3
+                              : 2,
+                          children: [
+                            for (final field in fields.entries)
+                              _labeled(
+                                field.value,
+                                TextFormField(
+                                  initialValue: row[field.key] ?? '',
+                                  enabled: _editable,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontSize: _formFontSize,
+                                        height: 1.4,
+                                      ),
+                                  onChanged: (value) => row[field.key] = value,
+                                  decoration: _decoration(
+                                    hint: ports && field.key == 'host'
+                                        ? l.maintenancePortAutomatic
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            if (ports)
+                              _select(
+                                l.maintenanceProtocol,
+                                row['protocol'] ?? 'tcp',
+                                const {
+                                  'tcp': 'TCP',
+                                  'udp': 'UDP',
+                                  'sctp': 'SCTP',
+                                },
+                                (value) =>
+                                    setState(() => row['protocol'] = value),
+                              ),
+                            if (mounts)
+                              _select(
+                                l.maintenanceType,
+                                row['type'] ?? 'volume',
+                                {
+                                  'volume': l.maintenanceVolumes,
+                                  'bind': l.maintenanceBindMount,
+                                },
+                                (value) => setState(() => row['type'] = value),
+                              ),
+                          ],
+                        ),
+                        if (mounts) ...[
+                          const SizedBox(height: 8),
+                          Material(
+                            type: MaterialType.transparency,
+                            child: SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: Text(
+                                l.maintenanceReadOnlyMount,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontSize: _formFontSize),
+                              ),
+                              value: row['readonly'] == 'true',
+                              onChanged: _editable
+                                  ? (value) => setState(
+                                      () => row['readonly'] = '$value',
+                                    )
+                                  : null,
                             ),
                           ),
-                        if (mounts)
-                          FilterChip(
-                            label: Text(l.maintenanceReadOnlyMount),
-                            selected: row['readonly'] == 'true',
-                            onSelected: _busy || _completed || _uncertain
-                                ? null
-                                : (value) => setState(
-                                    () => row['readonly'] = '$value',
-                                  ),
-                          ),
-                        IconButton(
-                          onPressed: _busy || _completed || _uncertain
-                              ? null
-                              : () => setState(() => rows.remove(row)),
-                          tooltip: l.commonDelete,
-                          icon: const Icon(Icons.remove_circle_outline_rounded),
-                        ),
+                        ],
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.textScalerOf(context).scale(12) * 1.3 + 6,
+                    ),
+                    child: SizedBox.square(
+                      dimension: _controlHeight,
+                      child: IconButton(
+                        onPressed: _editable
+                            ? () => setState(() => rows.remove(row))
+                            : null,
+                        tooltip: l.commonDelete,
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed:
-                  _busy ||
-                      _completed ||
-                      _uncertain ||
-                      rows.length >= machineContainerFormRowLimit
+                  !_editable || rows.length >= machineContainerFormRowLimit
                   ? null
                   : () => setState(
                       () => rows.add({if (ports) 'address': '127.0.0.1'}),
                     ),
-              icon: const Icon(Icons.add_rounded, size: 18),
+              icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(l.maintenanceResourceAddRow),
             ),
           ),
@@ -930,123 +1045,200 @@ class _ContainerResourceFormDialogState
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final create = widget.action == _ContainerResourceAction.createContainer;
-    return PopScope(
-      canPop: !_busy,
-      child: buildOpenHandDialog(
-        maxHeight: MediaQuery.sizeOf(context).height * .9,
-        child: SizedBox(
-          width: 820,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _MachineTerminalDialogHeader(
-                icon: _remove
-                    ? Icons.delete_outline_rounded
-                    : create
-                    ? Icons.add_box_outlined
-                    : widget.action == _ContainerResourceAction.pull
-                    ? Icons.download_rounded
-                    : Icons.storage_rounded,
-                title: _containerActionLabel(context, widget.action),
-                onClose: () {
-                  if (!_busy) Navigator.pop(context, _completed || _uncertain);
-                },
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: _maintenanceDetailPadding,
-                  child: _MaintenanceAnimatedColumn(
-                    spacing: 14,
-                    children: [
-                      Text(
-                        '${maintenanceLabel(context, '连接上下文')} · ${widget.client.contextName.isEmpty ? widget.client.runtime.label : widget.client.contextName}${widget.client.scope.isEmpty ? '' : ' / ${widget.client.scope}'}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      if (_remove)
-                        _MaintenanceNotice(
-                          message:
-                              '${widget.resource!.reference}\n${widget.action == _ContainerResourceAction.removeVolume ? l.maintenanceVolumeRemoveHelp : l.maintenanceImageRemoveHelp}',
-                          error: true,
-                        ),
-                      if (widget.action == _ContainerResourceAction.pull ||
-                          create)
-                        _field(
-                          'image',
-                          l.maintenanceImageReference,
-                          hint: 'nginx:alpine',
-                        ),
-                      if (widget.action == _ContainerResourceAction.pull)
-                        Text(
-                          l.maintenanceImagePullHelp,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      if (create) ...[
-                        _field('name', l.maintenanceContainerNameOptional),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(l.maintenanceContainerStartAfterCreate),
-                          value: _start,
-                          onChanged: _busy || _completed || _uncertain
-                              ? null
-                              : (value) => setState(() => _start = value),
-                        ),
-                        _rows(maintenanceLabel(context, '端口'), _ports, {
-                          'address': l.maintenanceHostAddress,
-                          'host': l.maintenanceHostPort,
-                          'container': l.maintenanceContainerPort,
-                        }, ports: true),
-                        _rows(maintenanceLabel(context, '环境变量'), _environment, {
-                          'key': maintenanceLabel(context, '名称'),
-                          'value': maintenanceLabel(context, '数值'),
-                        }),
-                        _rows(l.maintenanceContainerMounts, _mounts, {
-                          'source': l.maintenanceMountSource,
-                          'target': l.maintenanceMountTarget,
-                        }, mounts: true),
-                        _MaintenanceSection(
-                          title: l.maintenanceResourceAdvanced,
-                          icon: Icons.tune_rounded,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: _MaintenanceAnimatedColumn(
-                              spacing: 14,
+    final actionStyle = ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(Size(0, _controlHeight)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 14),
+      ),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+      textStyle: WidgetStatePropertyAll(
+        theme.textTheme.labelLarge?.copyWith(
+          fontSize: _formFontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      elevation: const WidgetStatePropertyAll(0),
+      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+    );
+    return Theme(
+      data: theme.copyWith(
+        hoverColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+          ).merge(actionStyle),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(style: actionStyle),
+        textButtonTheme: TextButtonThemeData(style: actionStyle),
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: cs.surfaceContainerLowest,
+            foregroundColor: cs.onSurfaceVariant,
+            disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
+          ),
+        ),
+      ),
+      child: PopScope(
+        canPop: !_busy,
+        child: buildOpenHandDialog(
+          height: create
+              ? math.min(
+                  kOpenHandDialogHeightTall,
+                  MediaQuery.sizeOf(context).height * .92,
+                )
+              : null,
+          maxHeight: MediaQuery.sizeOf(context).height * .92,
+          backgroundColor: cs.surfaceContainerLow,
+          surfaceTintColor: Colors.transparent,
+          child: SizedBox(
+            width: kOpenHandDialogWidthWide,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MachineTerminalDialogHeader(
+                  icon: _remove
+                      ? Icons.delete_outline_rounded
+                      : create
+                      ? Icons.add_box_outlined
+                      : widget.action == _ContainerResourceAction.pull
+                      ? Icons.download_rounded
+                      : Icons.storage_rounded,
+                  title: _containerActionLabel(context, widget.action),
+                  subtitle:
+                      '${l.maintenanceContainerContext} · ${widget.client.contextName.isEmpty ? widget.client.runtime.label : widget.client.contextName}${widget.client.scope.isEmpty ? '' : ' / ${widget.client.scope}'}',
+                  onClose: () {
+                    if (!_busy) {
+                      Navigator.pop(context, _completed || _uncertain);
+                    }
+                  },
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: _maintenanceDetailPadding,
+                    child: _MaintenanceAnimatedColumn(
+                      spacing: 12,
+                      children: [
+                        if (_remove)
+                          _MaintenanceNotice(
+                            message:
+                                '${widget.resource!.reference}\n${widget.action == _ContainerResourceAction.removeVolume ? l.maintenanceVolumeRemoveHelp : l.maintenanceImageRemoveHelp}',
+                            error: true,
+                          ),
+                        if (widget.action == _ContainerResourceAction.pull) ...[
+                          _field(
+                            'image',
+                            l.maintenanceImageReference,
+                            hint: 'nginx:alpine',
+                          ),
+                          Text(
+                            l.maintenanceImagePullHelp,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                        if (create) ...[
+                          _MaintenanceSection(
+                            title: l.maintenanceBasicInfo,
+                            icon: Icons.widgets_outlined,
+                            initiallyExpanded: true,
+                            child: Column(
                               children: [
-                                AnimatedDropdownButtonFormField<String>(
-                                  isExpanded: true,
-                                  initialValue: _restart,
-                                  decoration: _decoration(
-                                    l.maintenanceDetailRestartPolicy,
-                                  ),
-                                  items: [
-                                    for (final value in [
-                                      'no',
-                                      'always',
-                                      'unless-stopped',
-                                      'on-failure',
-                                    ])
-                                      DropdownMenuItem(
-                                        value: value,
-                                        child: Text(
-                                          maintenanceDetailValue(
-                                            context,
-                                            value,
-                                            field: 'RestartPolicy',
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: _busy || _completed || _uncertain
-                                      ? null
-                                      : (value) =>
-                                            setState(() => _restart = value!),
-                                ),
                                 _MaintenanceGrid(
                                   minWidth: 240,
                                   maxColumns: 2,
                                   children: [
+                                    _field(
+                                      'image',
+                                      l.maintenanceImageReference,
+                                      hint: 'nginx:alpine',
+                                    ),
+                                    _field(
+                                      'name',
+                                      l.maintenanceContainerNameOptional,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                  title: Text(
+                                    l.maintenanceContainerStartAfterCreate,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontSize: _formFontSize,
+                                    ),
+                                  ),
+                                  value: _start,
+                                  onChanged: _editable
+                                      ? (value) =>
+                                            setState(() => _start = value)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          _rows(maintenanceLabel(context, '端口'), _ports, {
+                            'address': l.maintenanceHostAddress,
+                            'host': l.maintenanceHostPort,
+                            'container': l.maintenanceContainerPort,
+                          }, ports: true),
+                          _rows(
+                            maintenanceLabel(context, '环境变量'),
+                            _environment,
+                            {
+                              'key': maintenanceLabel(context, '名称'),
+                              'value': maintenanceLabel(context, '数值'),
+                            },
+                          ),
+                          _rows(l.maintenanceContainerMounts, _mounts, {
+                            'source': l.maintenanceMountSource,
+                            'target': l.maintenanceMountTarget,
+                          }, mounts: true),
+                          _MaintenanceSection(
+                            title: l.maintenanceResourceAdvanced,
+                            icon: Icons.tune_rounded,
+                            accent: cs.secondary,
+                            child: _MaintenanceAnimatedColumn(
+                              spacing: 12,
+                              children: [
+                                _MaintenanceGrid(
+                                  minWidth: 240,
+                                  maxColumns: 2,
+                                  children: [
+                                    _select(
+                                      l.maintenanceDetailRestartPolicy,
+                                      _restart,
+                                      {
+                                        for (final value in [
+                                          'no',
+                                          'always',
+                                          'unless-stopped',
+                                          'on-failure',
+                                        ])
+                                          value: maintenanceDetailValue(
+                                            context,
+                                            value,
+                                            field: 'RestartPolicy',
+                                          ),
+                                      },
+                                      (value) =>
+                                          setState(() => _restart = value),
+                                    ),
                                     _field(
                                       'network',
                                       maintenanceLabel(context, '网络'),
@@ -1058,10 +1250,6 @@ class _ContainerResourceFormDialogState
                                     _field(
                                       'directory',
                                       l.maintenanceTaskWorkingDirectory,
-                                    ),
-                                    _field(
-                                      'entrypoint',
-                                      l.maintenanceContainerEntrypoint,
                                     ),
                                     _field(
                                       'cpus',
@@ -1076,6 +1264,10 @@ class _ContainerResourceFormDialogState
                                   ],
                                 ),
                                 _field(
+                                  'entrypoint',
+                                  l.maintenanceContainerEntrypoint,
+                                ),
+                                _field(
                                   'arguments',
                                   l.maintenanceContainerCommandArguments,
                                   hint: l.maintenanceArgumentsOnePerLine,
@@ -1084,97 +1276,149 @@ class _ContainerResourceFormDialogState
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                      if (widget.action ==
-                          _ContainerResourceAction.createVolume) ...[
-                        _field('name', maintenanceLabel(context, '名称')),
-                        _field(
-                          'driver',
-                          l.maintenanceVolumeDriver,
-                          hint: 'local',
-                        ),
-                        _rows(maintenanceLabel(context, '标签'), _labels, {
-                          'key': maintenanceLabel(context, '名称'),
-                          'value': maintenanceLabel(context, '数值'),
-                        }),
-                        _rows(l.maintenanceVolumeOptions, _options, {
-                          'key': maintenanceLabel(context, '名称'),
-                          'value': maintenanceLabel(context, '数值'),
-                        }),
-                      ],
-                      _MaintenanceToolbarMenu<int>(
-                        label: maintenanceTimeoutLabel(context, _timeout),
-                        tooltip: l.maintenanceTimeout,
-                        value: _timeout,
-                        enabled: !_busy && !_completed && !_uncertain,
-                        items: {
-                          for (final seconds
-                              in machineMaintenanceTimeoutOptions)
-                            seconds: maintenanceTimeoutLabel(context, seconds),
-                        },
-                        onSelected: (value) => setState(() => _timeout = value),
-                      ),
-                      if (_busy) const LinearProgressIndicator(minHeight: 2),
-                      if (_error.isNotEmpty)
-                        _MaintenanceNotice(message: _error, error: true),
-                      if (_uncertain)
-                        _MaintenanceNotice(
-                          message: l.maintenanceResourceUncertain,
-                        ),
-                      if (_completed)
-                        _MaintenanceNotice(
-                          message: l.maintenanceResourceSuccess,
-                        ),
-                      if (_output.isNotEmpty)
-                        _MaintenanceReadout(
-                          text: _output,
-                          section: 'logs',
-                          logMaxHeight: 240,
-                        ),
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          if (_busy)
-                            OutlinedButton(
-                              onPressed: _cancelled
-                                  ? null
-                                  : () => setState(() => _cancelled = true),
-                              child: Text(l.commonCancel),
-                            )
-                          else if (_completed || _uncertain)
-                            FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: Text(l.maintenanceResourceCloseRefresh),
-                            )
-                          else ...[
-                            OutlinedButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: Text(l.commonCancel),
-                            ),
-                            FilledButton(
-                              onPressed: _submit,
-                              style: _remove
-                                  ? FilledButton.styleFrom(
-                                      backgroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
-                                    )
-                                  : null,
-                              child: Text(
-                                _containerActionLabel(context, widget.action),
+                        ],
+                        if (widget.action ==
+                            _ContainerResourceAction.createVolume) ...[
+                          _MaintenanceGrid(
+                            minWidth: 240,
+                            maxColumns: 2,
+                            children: [
+                              _field('name', maintenanceLabel(context, '名称')),
+                              _field(
+                                'driver',
+                                l.maintenanceVolumeDriver,
+                                hint: 'local',
                               ),
+                            ],
+                          ),
+                          _rows(maintenanceLabel(context, '标签'), _labels, {
+                            'key': maintenanceLabel(context, '名称'),
+                            'value': maintenanceLabel(context, '数值'),
+                          }),
+                          _rows(l.maintenanceVolumeOptions, _options, {
+                            'key': maintenanceLabel(context, '名称'),
+                            'value': maintenanceLabel(context, '数值'),
+                          }),
+                        ],
+                        if (_output.isNotEmpty)
+                          _MaintenanceReadout(
+                            text: _output,
+                            section: 'logs',
+                            logMaxHeight: 240,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLowest,
+                    border: Border(
+                      top: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: .65),
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_busy) ...[
+                        const LinearProgressIndicator(minHeight: 2),
+                        const SizedBox(height: 10),
+                      ],
+                      if (_error.isNotEmpty || _uncertain || _completed) ...[
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 120),
+                          child: SingleChildScrollView(
+                            child: _MaintenanceNotice(
+                              message: [
+                                if (_error.isNotEmpty) _error,
+                                if (_uncertain) l.maintenanceResourceUncertain,
+                                if (_completed) l.maintenanceResourceSuccess,
+                              ].join('\n'),
+                              error: _error.isNotEmpty,
                             ),
-                          ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(
+                            height: _controlHeight,
+                            child: _MaintenanceToolbarMenu<int>(
+                              label: maintenanceTimeoutLabel(context, _timeout),
+                              tooltip: l.maintenanceTimeout,
+                              value: _timeout,
+                              enabled: _editable,
+                              items: {
+                                for (final seconds
+                                    in machineMaintenanceTimeoutOptions)
+                                  seconds: maintenanceTimeoutLabel(
+                                    context,
+                                    seconds,
+                                  ),
+                              },
+                              onSelected: (value) =>
+                                  setState(() => _timeout = value),
+                            ),
+                          ),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              if (_busy)
+                                OutlinedButton(
+                                  onPressed: _cancelled
+                                      ? null
+                                      : () => setState(() => _cancelled = true),
+                                  child: Text(l.commonCancel),
+                                )
+                              else if (_completed || _uncertain)
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: Text(
+                                    l.maintenanceResourceCloseRefresh,
+                                  ),
+                                )
+                              else ...[
+                                OutlinedButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: Text(l.commonCancel),
+                                ),
+                                FilledButton(
+                                  onPressed: _submit,
+                                  style: _remove
+                                      ? FilledButton.styleFrom(
+                                          backgroundColor: cs.error,
+                                          foregroundColor: cs.onError,
+                                        )
+                                      : null,
+                                  child: Text(
+                                    _containerActionLabel(
+                                      context,
+                                      widget.action,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

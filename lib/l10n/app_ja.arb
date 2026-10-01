@@ -9652,7 +9652,7 @@
   "maintenanceContainerNameOptional": "コンテナー名（任意）",
   "maintenanceContainerStartAfterCreate": "作成後すぐに起動",
   "maintenanceHostAddress": "ホストアドレス",
-  "maintenanceHostPort": "ホストポート（空欄で自動）",
+  "maintenanceHostPort": "ホストポート",
   "maintenanceContainerPort": "コンテナーポート",
   "maintenanceBindMount": "ホストディレクトリ",
   "maintenanceReadOnlyMount": "読み取り専用",
@@ -9674,5 +9674,6 @@
   "maintenanceImageRemoveHelp": "ローカルイメージを強制せずに削除します。コンテナーが参照している場合、ランタイムに拒否されることがあります。",
   "maintenanceVolumeRemoveHelp": "ボリュームとデータを完全に削除します。使用中のボリュームは強制削除しません。",
   "maintenanceResourceParameters": "パラメーター",
-  "maintenanceRestartUnlessStopped": "手動停止以外は再起動"
+  "maintenanceRestartUnlessStopped": "手動停止以外は再起動",
+  "maintenancePortAutomatic": "空欄で自動割り当て"
 }
