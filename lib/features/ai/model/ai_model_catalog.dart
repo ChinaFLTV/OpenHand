@@ -4,6 +4,7 @@ import 'ai_model_config.dart';
 import 'ai_one_million_context_policy.dart';
 import 'openrouter_exact_model_catalog.dart';
 import 'openrouter_latest_model_catalog.dart';
+import 'qwen38_model_catalog.dart';
 
 /// 主流 AI 模型规格目录。按协议匹配模型 ID，具体规则必须位于通用规则之前。
 class AiModelCatalog {
@@ -67,6 +68,13 @@ class AiModelCatalog {
     for (final candidate in candidates) {
       final external = _externalProfiles[candidate];
       if (external != null) return external;
+      // 本地权重的原生窗口不等于百炼或网关扩展后的服务窗口。
+      if (protocolType == AiProtocolType.ollama ||
+          protocolType == AiProtocolType.vllm ||
+          protocolType == AiProtocolType.sglang) {
+        final weights = Qwen38ModelCatalog.openWeights(candidate);
+        if (weights != null) return weights;
+      }
       final exact =
           openRouterLatestModelProfiles[candidate] ??
           openRouterExactModelProfiles[candidate];
@@ -156,6 +164,7 @@ class AiModelCatalog {
         _claude(id) ??
         _deepseek(id) ??
         _qwen(id) ??
+        _ling(id) ??
         _glm(id) ??
         _kimi(id) ??
         _stepfun(id) ??
@@ -341,24 +350,6 @@ class AiModelCatalog {
     'tool_config',
     'safety_settings',
     'stream',
-  ];
-
-  static const _qwen38Parameters = <String>[
-    'model',
-    'messages',
-    'max_tokens',
-    'temperature',
-    'top_p',
-    'stream',
-    'stop',
-    'tools',
-    'tool_choice',
-    'response_format',
-    'enable_thinking',
-    'reasoning_effort',
-    'thinking_budget',
-    'preserve_thinking',
-    'tool_stream',
   ];
 
   static const _openAiCompatibleEmbeddingParameters = <String>[
@@ -2782,86 +2773,45 @@ class AiModelCatalog {
     return null;
   }
 
+  // 仅收录已发布型号，不把旧版 API 能力推定为新版本能力。
+  static AiModelProfile? _ling(String id) {
+    if (id != 'ling-3.1-flash') return null;
+    return const AiModelProfile(
+      displayName: 'Ling-3.1-flash',
+      description:
+          '蚂蚁百灵新一代模型，面向智能体、搜索、办公和软件研发。'
+          '发布报道列出体验期 256K 服务窗口；1M 服务与开源为后续计划。',
+      canonicalSlug: 'Ling-3.1-flash',
+      links: AiModelLinksMetadata(
+        details: 'https://www.ithome.com/1/008/907.htm',
+      ),
+      sourceMetadata: {
+        'checked_at': '2026-10-02',
+        'verification_status': 'announcement_only',
+        'release_date': '2026-09-30',
+        'announcement_source': 'https://www.ithome.com/1/008/907.htm',
+        'official_models_source':
+            'https://developer.ant-ling.com/zh-CN/docs/models/ling/',
+        'official_api_source':
+            'https://developer.ant-ling.com/zh-CN/docs/api-reference/openai/',
+        'total_parameters_approximate': 560000000000,
+        'active_parameters_approximate': 25000000000,
+        'announced_context_window': '1M',
+        'trial_service_context_window': '256K',
+        'trial_duration_weeks': 2,
+        'paid_service_context_plan': '1M',
+        'open_weights_status': '计划在免费体验结束并转为付费服务后开源',
+        'verification_note':
+            '官方开发文档尚未收录 3.1；报道未明确 K/M 换算口径、API 标识、输出上限、思考参数及价格，保留原文，不套用 3.0 规格。',
+      },
+    );
+  }
+
   // Qwen（阿里云 / 通义千问）模型
 
   static AiModelProfile? _qwen(String id) {
-    if (id == 'qwen3.8-27b' || id == 'qwen3.8-2.4t-a95b') {
-      final moe = id == 'qwen3.8-2.4t-a95b';
-      return _p(
-        name: moe ? 'Qwen3.8 2.4T A95B' : 'Qwen3.8 27B',
-        desc: '百炼托管的开源视觉语言模型，支持图像、视频、工具调用和结构化输出。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImageVideo,
-        context: 1000000,
-        output: 131072,
-        thinking: moe ? 131072 : 262144,
-        reasoningEffortControlEnabled: false,
-        canonicalSlug: id,
-        sourceUrl:
-            'https://help.aliyun.com/en/model-studio/${moe ? 'qwen3-8-2-4t-a95b' : 'qwen3-8-27b'}',
-        supportedParameters: const [
-          'model',
-          'messages',
-          'max_tokens',
-          'stream',
-          'tools',
-          'response_format',
-          'enable_thinking',
-          'thinking_budget',
-        ],
-        sourceMetadata: {
-          'verified_at': '2026-09-30',
-          'deployment': '阿里云百炼',
-          'reasoning': {'mandatory': moe},
-          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
-          'pricing_source':
-              'https://help.aliyun.com/en/model-studio/${moe ? 'qwen3-8-2-4t-a95b' : 'qwen3-8-27b'}',
-          'pricing_currency': 'CNY',
-          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
-        },
-      );
-    }
-    if (id == 'qwen3.8-omni-flash') {
-      return _p(
-        name: 'Qwen3.8 Omni Flash',
-        desc: '支持文本、图片、音频、视频理解，仅输出文本；支持多声道音频、工具调用与联网搜索。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _allModalities,
-        context: 1000000,
-        output: 131072,
-        thinkingEnabled: true,
-        reasoningEffortControlEnabled: true,
-        reasoningEffortOptions: AiReasoningEffortOption.standardValues(const [
-          'none',
-          'minimal',
-          'low',
-          'medium',
-          'high',
-          'xhigh',
-          'max',
-        ]),
-        supportedParameters: const [
-          'model',
-          'messages',
-          'stream',
-          'max_tokens',
-          'enable_thinking',
-          'reasoning_effort',
-          'tools',
-          'enable_search',
-          'use_multichannel',
-        ],
-        sourceUrl: 'https://help.aliyun.com/zh/model-studio/qwen3-8-omni-flash',
-        sourceMetadata: const {
-          'verified_at': '2026-09-26',
-          'input_modalities': ['text', 'image', 'audio', 'video'],
-          'output_modalities': ['text'],
-          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
-        },
-      );
-    }
+    final current = Qwen38ModelCatalog.lookup(id);
+    if (current != null) return current;
     const imageParameters = <String>[
       'prompt',
       'size',
@@ -3206,96 +3156,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Qwen3.7 / 3.8 ──────────────────────────────────────────────────
-    if (id.startsWith('qwen3.8-max-0902') ||
-        id.startsWith('qwen3-8-max-0902') ||
-        id.startsWith('qwen3.8-max-2026-09-02') ||
-        id.startsWith('qwen3-8-max-2026-09-02')) {
-      return _p(
-        name: 'Qwen3.8-Max 2026-09-02',
-        desc: '通义千问新一代旗舰多模态推理模型的 2026-09-02 快照。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImageVideo,
-        context: 1000000,
-        output: 131072,
-        thinking: 262144,
-        thinkingEnabled: true,
-        reasoningEffortControlEnabled: true,
-        reasoningEffort: 'xhigh',
-        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['low', 'medium', 'xhigh'],
-        ),
-        canonicalSlug: 'qwen3.8-max-2026-09-02',
-        sourceUrl: id.contains('flash')
-            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
-            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
-        sourceMetadata: const {
-          'verified_at': '2026-09-30',
-          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
-          'pricing_currency': 'CNY',
-          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
-        },
-        supportedParameters: _qwen38Parameters,
-      );
-    }
-    if (id.startsWith('qwen3.8-flash') || id.startsWith('qwen3-8-flash')) {
-      return _p(
-        name: 'Qwen3.8-Flash',
-        desc: '通义千问高吞吐多模态推理模型，支持长上下文、工具调用与结构化输出。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImageVideo,
-        context: 1000000,
-        output: 131072,
-        thinking: 262144,
-        thinkingEnabled: true,
-        reasoningEffortControlEnabled: true,
-        reasoningEffort: 'xhigh',
-        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['low', 'medium', 'xhigh'],
-        ),
-        canonicalSlug: 'qwen3.8-flash',
-        sourceUrl: id.contains('flash')
-            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
-            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
-        sourceMetadata: const {
-          'verified_at': '2026-09-30',
-          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
-          'pricing_currency': 'CNY',
-          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
-        },
-        supportedParameters: _qwen38Parameters,
-      );
-    }
-    if (matchesVersion(id, 'qwen3.8-max')) {
-      return _p(
-        name: 'Qwen3.8-Max',
-        desc: '通义千问新一代旗舰多模态推理模型。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImageVideo,
-        context: 1000000,
-        output: 131072,
-        thinking: 262144,
-        reasoningEffortControlEnabled: true,
-        reasoningEffort: 'xhigh',
-        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['low', 'medium', 'xhigh'],
-        ),
-        canonicalSlug: 'qwen3.8-max',
-        sourceUrl: id.contains('flash')
-            ? 'https://help.aliyun.com/en/model-studio/qwen3-8-flash'
-            : 'https://help.aliyun.com/en/model-studio/qwen3-8-max',
-        sourceMetadata: const {
-          'verified_at': '2026-09-30',
-          'max_input_tokens': {'thinking': 983616, 'non_thinking': 991808},
-          'pricing_currency': 'CNY',
-          'pricing_scope': '价格按地域、缓存类型区分，见官方来源',
-        },
-        supportedParameters: _qwen38Parameters,
-      );
-    }
+    // ── Qwen3.7 ────────────────────────────────────────────────────────
     if (id.startsWith('qwen3.7-plus') || id.startsWith('qwen3-7-plus')) {
       return _p(
         name: 'Qwen3.7-Plus',

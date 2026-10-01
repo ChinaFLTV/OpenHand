@@ -136,15 +136,26 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
-    // Qwen3.8 系列的 reasoning_effort 与 thinking_budget 互斥。
-    if (protocol == AiProtocolType.qwen &&
-        (normalizedModelId.contains('qwen3.8-') ||
-            normalizedModelId.contains('qwen3-8-'))) {
-      _setEnableThinking(body, enabled);
+    final requestPolicy =
+        model.profileFor(model.modelId).sourceMetadata['request_policy'] ??
+        AiModelCatalog.lookup(
+          model.modelId,
+          model.protocolType,
+        )?.sourceMetadata['request_policy'];
+    if (requestPolicy == 'qwen38_dashscope' ||
+        requestPolicy == 'qwen38_chat_template') {
       if (enabled && effortControlEnabled && effort != null) {
         body[_reasoningEffortField] = effort;
       }
-      body.remove('thinking_budget');
+      _normalizeQwen38(body, model, requestPolicy as String);
+      return;
+    }
+
+    // 网关的统一推理字段优先于提供商的原生协议预设。
+    if (_looksLikeOpenRouterRoute(model) &&
+        parameters.contains(_reasoningField)) {
+      _setReasoningObject(body, enabled, effortControlEnabled ? effort : null);
+      body[_includeReasoningField] = enabled;
       return;
     }
 
@@ -199,11 +210,79 @@ abstract final class AiThinkingRequestPolicy {
     }
   }
 
+  /// 合并附加参数后再次归一，保留独立预算，只有同时指定强度时才移除预算。
+  static void _normalizeQwen38(
+    Map<String, Object?> body,
+    AiModelConfig model,
+    String policy,
+  ) {
+    final profile = model.profileFor(model.modelId);
+    final template = policy == 'qwen38_chat_template';
+    final target = template
+        ? stringKeyedMapFromValue(body[_chatTemplateKwargsField])
+        : body;
+    var enabled =
+        model.resolvedThinkingEnabled && target[_enableThinkingField] != false;
+    final rawEffort = lowercaseStringFromValue(body[_reasoningEffortField]);
+    if (rawEffort == 'none') enabled = false;
+    final requiresThinking =
+        profile.requiresThinking ||
+        AiModelCatalog.lookup(
+              model.modelId,
+              model.protocolType,
+            )?.requiresThinking ==
+            true;
+    if (requiresThinking) enabled = true;
+    target[_enableThinkingField] = enabled;
+    if (!enabled) {
+      body.remove(_reasoningEffortField);
+      body.remove('thinking_budget');
+    } else if (rawEffort.isNotEmpty) {
+      body[_reasoningEffortField] = switch (rawEffort) {
+        'minimal' => 'low',
+        'high' || 'max' => 'xhigh',
+        'none' when requiresThinking => 'low',
+        _ => rawEffort,
+      };
+      if (!template) body.remove('thinking_budget');
+    }
+    if (template || profile.supportedParameters.contains('preserve_thinking')) {
+      target['preserve_thinking'] = model.requiresReasoningEcho;
+    }
+    if (template) {
+      body[_chatTemplateKwargsField] = target;
+      body.remove(_enableThinkingField);
+      body.remove('preserve_thinking');
+    } else {
+      if (body.containsKey('max_completion_tokens')) body.remove('max_tokens');
+      if (profile.sourceMetadata['search_strategy_required']
+          case final String strategy) {
+        if (body['enable_search'] == true) {
+          body['search_options'] = <String, Object?>{
+            ...stringKeyedMapFromValue(body['search_options']),
+            'search_strategy': strategy,
+          };
+        }
+      }
+    }
+  }
+
   /// 移除新模型官方明确拒绝的旧参数，包含调用方附加的请求字段。
   static void normalizeModelRequestBody(
     Map<String, Object?> body,
     AiModelConfig model,
   ) {
+    final requestPolicy =
+        model.profileFor(model.modelId).sourceMetadata['request_policy'] ??
+        AiModelCatalog.lookup(
+          model.modelId,
+          model.protocolType,
+        )?.sourceMetadata['request_policy'];
+    if (model.apiDialect == AiApiDialect.openAiCompat &&
+        (requestPolicy == 'qwen38_dashscope' ||
+            requestPolicy == 'qwen38_chat_template')) {
+      _normalizeQwen38(body, model, requestPolicy as String);
+    }
     final modelId = lowercaseStringFromValue(model.modelId);
     if (model.usesDecisionProtocol) {
       throw UnsupportedError('该模型仅支持结构化决策，请使用专用决策接口，不能通过聊天接口调用。');
@@ -1978,6 +2057,12 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
+    if (model
+            .profileFor(model.modelId)
+            .sourceMetadata['chat_completions_supported'] ==
+        false) {
+      throw UnsupportedError('该模型需要专用实时接口，不能通过聊天接口调用。');
+    }
     final stableTools = stableToolDefinitionsForAiRequest(tools);
     final systemPartition = _partitionLeadingSystemTurns(
       messages,

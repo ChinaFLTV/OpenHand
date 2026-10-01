@@ -181,7 +181,7 @@ void main() {
     });
   }
 
-  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro', 'claude-opus-5-5', 'claude-sonnet-5-5', 'qwen3.8-max', 'qwen3.8-27b', 'qwen3.8-2.4t-a95b', 'qwen3.8-omni-flash', 'qwen3.8-omni-flash-realtime', 'Qwen/Qwen3.8-Flash-Next-FP8', 'Ling-3.1-flash']) {
     for (final size in [const Size(1100, 900), const Size(390, 844)]) {
       testWidgets('重点模型 $id 在 $size 下展示并保存完整元数据', (tester) async {
         final protocol = id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai;
@@ -189,6 +189,10 @@ void main() {
         _ModelProfileEditorResult? saved;
         await _openEditor(tester, size: size, id: id, protocol: protocol, onResult: (value) => saved = value);
         expect(tester.takeException(), isNull);
+        if (id == 'Ling-3.1-flash') {
+          expect(find.text('已发布 · API 规格待核实'), findsOneWidget);
+          expect(find.textContaining('体验期服务窗口 256K'), findsOneWidget);
+        }
         final chips = find.descendant(of: _editor, matching: find.byType(Chip));
         for (final option in original.reasoningEffortOptions) {
           expect(find.descendant(of: chips, matching: find.text(option.value)), findsOneWidget);

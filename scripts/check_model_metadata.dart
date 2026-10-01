@@ -61,6 +61,130 @@ void main() {
     expect(profiles['missing'], isNull);
     expect(() => profiles.clear(), throwsUnsupportedError);
   });
+  test('Qwen3.8 直连规格、模式默认值和原币价格完整往返', () {
+    for (final id in ['qwen3.8-max', 'qwen3.8-max-0902', 'qwen3.8-max-2026-09-02', 'qwen3.8-flash', 'qwen3.8-27b', 'qwen3.8-2.4t-a95b', 'qwen3.8-omni-flash']) {
+      final profile = AiModelCatalog.lookup(id, AiProtocolType.qwen)!;
+      expect((profile.maxContextLength, profile.maxOutputLength), (1000000, 131072), reason: id);
+      expect(profile.reasoningEffortOptions.map((option) => option.value), ['low', 'medium', 'xhigh']);
+      expect(profile.defaultParameters['reasoning_effort'], 'xhigh');
+      expect(profile.defaultParameters.containsKey('thinking_budget'), isFalse);
+      expect(profile.sourceMetadata['regional_pricing'], isNotEmpty);
+      expect(profile.inputUsdPer1M, isNull);
+      expect(profile.supportedParameters, containsAll(['reasoning_effort', 'thinking_budget', 'temperature', 'top_p', 'seed']));
+      expect(AiModelProfile.fromJson(profile.toJson()).toJson(), profile.toJson());
+      expect(identical(profile, AiModelCatalog.lookup(id, AiProtocolType.qwen)), isTrue);
+    }
+    final moe = AiModelCatalog.lookup('qwen3.8-2.4t-a95b', AiProtocolType.qwen)!;
+    expect(moe.supportedModalities, {AiModelModality.text});
+    expect(moe.supportsAttachments, isFalse);
+    expect(moe.requiresThinking, isTrue);
+    expect(AiModelCatalog.lookup('qwen3-8-flash', AiProtocolType.qwen)!.canonicalSlug, 'qwen3.8-flash');
+    for (final id in ['qwen3.8-flash-unknown', 'qwen3.8-max-0902-extra', 'qwen3.8-max-2026-10-02', 'qwen3.8-27b-other']) {
+      expect(AiModelCatalog.lookup(id, AiProtocolType.qwen), isNull, reason: id);
+    }
+  });
+  test('Qwen3.8 本地权重与免费网关不套用百炼扩展窗口', () {
+    for (final base in ['Qwen3.8-27B', 'Qwen3.8-2.4T-A95B', 'Qwen3.8-Flash-Next']) {
+      for (final suffix in ['', '-FP8']) {
+        final id = 'Qwen/' + base + suffix;
+        final profile = AiModelCatalog.lookup(id, AiProtocolType.vllm)!;
+        expect(profile.maxContextLength, 262144, reason: id);
+        expect(profile.maxOutputLength, isNull);
+        expect(profile.huggingFaceId, id);
+        expect(profile.sourceMetadata['config'], isNotEmpty);
+        final configDirectory = Platform.environment['OPENHAND_QWEN_CONFIG_DIR'];
+        if (configDirectory != null) {
+          final source = File(configDirectory + '/openhand-' + base + suffix + '-config.json');
+          expect(profile.sourceMetadata['config'], jsonDecode(source.readAsStringSync()), reason: id);
+        }
+        expect(profile.sourceMetadata['request_policy'], 'qwen38_chat_template');
+        expect(AiModelProfile.fromJson(profile.toJson()).sourceMetadata, profile.sourceMetadata);
+      }
+    }
+    final free = AiModelCatalog.lookup('qwen/qwen3.8-27b:free', AiProtocolType.openai)!;
+    expect(free.maxContextLength, 262144);
+    expect(free.sourceMetadata['id'], 'qwen/qwen3.8-27b:free');
+    expect(free.sourceMetadata.containsKey('request_policy'), isFalse);
+    expect(AiModelCatalog.lookup('qwen/qwen3.8-max-prime', AiProtocolType.openai)!.requiresThinking, isTrue);
+  });
+  test('Qwen3.8 请求保留预算并规范档位、思考回传与本地模板参数', () async {
+    for (final protocol in [AiProtocolType.qwen, AiProtocolType.openai]) {
+      final native = model('qwen3.8-flash').copyWith(protocolType: protocol);
+      final body = <String, Object?>{'thinking_budget': 1000};
+      AiThinkingRequestPolicy.applyOpenAiCompatible(body, native);
+      expect(body['reasoning_effort'], 'xhigh');
+      expect(body.containsKey('thinking_budget'), isFalse);
+      expect(body['preserve_thinking'], isTrue);
+      final budgetModel = model('qwen3.8-flash', profiles: {'qwen3.8-flash': const AiModelProfile(reasoningEffortControlEnabled: false)}).copyWith(protocolType: protocol);
+      final budgetBody = <String, Object?>{'thinking_budget': 4096};
+      AiThinkingRequestPolicy.applyOpenAiCompatible(budgetBody, budgetModel);
+      expect(budgetBody['thinking_budget'], 4096);
+      expect(budgetBody.containsKey('reasoning_effort'), isFalse);
+      for (final entry in {'minimal': 'low', 'high': 'xhigh', 'max': 'xhigh'}.entries) {
+        final extra = <String, Object?>{'reasoning_effort': entry.key, 'thinking_budget': 1000};
+        AiThinkingRequestPolicy.normalizeModelRequestBody(extra, native);
+        expect(extra['reasoning_effort'], entry.value);
+        expect(extra.containsKey('thinking_budget'), isFalse);
+      }
+      final disabled = model('qwen3.8-flash', profiles: {'qwen3.8-flash': const AiModelProfile(thinkingEnabled: false, requiresReasoningEcho: false)}).copyWith(protocolType: protocol);
+      final offBody = <String, Object?>{'reasoning_effort': 'high', 'thinking_budget': 1000};
+      AiThinkingRequestPolicy.applyOpenAiCompatible(offBody, disabled);
+      expect(offBody['enable_thinking'], isFalse);
+      expect(offBody['preserve_thinking'], isFalse);
+      expect(offBody.containsKey('reasoning_effort'), isFalse);
+      expect(offBody.containsKey('thinking_budget'), isFalse);
+    }
+    final legacy = model('qwen3.8-flash', profiles: {'qwen3.8-flash': const AiModelProfile(sourceMetadata: {'verified_at': '2026-09-30'})});
+    final legacyBody = <String, Object?>{};
+    AiThinkingRequestPolicy.applyOpenAiCompatible(legacyBody, legacy);
+    expect(legacyBody['reasoning_effort'], 'xhigh');
+    expect(legacyBody.containsKey('thinking_budget'), isFalse);
+    final always = model('qwen3.8-2.4t-a95b', profiles: {'qwen3.8-2.4t-a95b': const AiModelProfile(thinkingEnabled: false)});
+    final body = <String, Object?>{'enable_thinking': false, 'reasoning_effort': 'none'};
+    AiThinkingRequestPolicy.normalizeModelRequestBody(body, always);
+    expect(body['enable_thinking'], isTrue);
+    expect(body['reasoning_effort'], 'low');
+    final local = model('Qwen/Qwen3.8-Flash-Next').copyWith(protocolType: AiProtocolType.vllm);
+    final localBody = <String, Object?>{'chat_template_kwargs': {'custom': true}};
+    AiThinkingRequestPolicy.applyOpenAiCompatible(localBody, local);
+    expect(localBody['chat_template_kwargs'], {'custom': true, 'enable_thinking': true, 'preserve_thinking': true});
+    expect(localBody['reasoning_effort'], 'xhigh');
+    expect(localBody.containsKey('enable_thinking'), isFalse);
+    final omniBody = <String, Object?>{'enable_search': true, 'search_options': {'forced_search': true}};
+    AiThinkingRequestPolicy.normalizeModelRequestBody(omniBody, model('qwen3.8-omni-flash'));
+    expect(omniBody['search_options'], {'forced_search': true, 'search_strategy': 'agent'});
+  });
+  test('Qwen 网关即使选择千问协议仍使用网关推理字段', () {
+    final gateway = model('qwen/qwen3.8-max-0902').copyWith(protocolType: AiProtocolType.qwen, baseUrl: 'https://openrouter.ai/api/v1');
+    final body = <String, Object?>{};
+    AiThinkingRequestPolicy.applyOpenAiCompatible(body, gateway);
+    expect(body['reasoning'], isA<Map>());
+    expect(body.containsKey('enable_thinking'), isFalse);
+    expect(body.containsKey('thinking_budget'), isFalse);
+  });
+  test('Omni 实时输入上限与非实时上下文独立，Ling 发布报道不虚构 API 规格', () async {
+    final realtime = AiModelCatalog.lookup('qwen3.8-omni-flash-realtime', AiProtocolType.qwen)!;
+    expect(realtime.maxContextLength, isNull);
+    expect(realtime.sourceMetadata['max_input_tokens'], 196608);
+    expect(realtime.maxOutputLength, 65536);
+    expect(realtime.architecture!.outputModalities, ['text', 'audio']);
+    expect(realtime.supportedVoices, hasLength(56));
+    final realtimeModel = model('qwen3.8-omni-flash-realtime');
+    expect(AiTitleModelResolver.supportsTextTitleGeneration(realtimeModel), isFalse);
+    await expectLater(const OpenAiProtocolAdapter(AiProtocolType.openai).buildBody(realtimeModel, []), throwsUnsupportedError);
+    final ling = AiModelCatalog.lookup('Ant/Ling-3.1-flash', AiProtocolType.openai)!;
+    expect(ling.sourceMetadata['verification_status'], 'announcement_only');
+    expect(ling.sourceMetadata['trial_service_context_window'], '256K');
+    expect(ling.sourceMetadata['announced_context_window'], '1M');
+    expect(ling.maxContextLength, isNull);
+    expect(ling.maxOutputLength, isNull);
+    expect(ling.inputUsdPer1M, isNull);
+    expect(ling.thinkingEnabled, isNull);
+    expect(ling.isMultimodal, isNull);
+    expect(ling.supportedParameters, isEmpty);
+    expect(ling.defaultParameters, isEmpty);
+    expect(AiModelCatalog.lookup('ling-3.1-pro', AiProtocolType.openai), isNull);
+  });
   test('新直连型号与网关规格独立，未知版本不套用已知参数', () {
     final sol = AiModelCatalog.lookup('gpt-6.1-sol', AiProtocolType.openai)!;
     expect((sol.maxContextLength, sol.maxOutputLength, sol.cacheReadUsdPer1M), (1050000, 128000, 0.1));

@@ -64,6 +64,9 @@ class AiTitleModelResolver {
       return false;
     }
     final profile = model.profileFor(modelId);
+    if (profile.sourceMetadata['chat_completions_supported'] == false) {
+      return false;
+    }
     // 输入文本不代表能够生成文本，优先使用明确的输出模态。
     final architecture = profile.architecture;
     final inputs = architecture?.inputModalities.isNotEmpty == true

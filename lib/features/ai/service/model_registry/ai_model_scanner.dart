@@ -175,6 +175,9 @@ class AiModelScanner {
           'qwen3.8-max-0902',
           'qwen3.8-max',
           'qwen3.8-flash',
+          'qwen3.8-27b',
+          'qwen3.8-2.4t-a95b',
+          'qwen3.8-omni-flash',
         ];
       default:
         return const <String>[];

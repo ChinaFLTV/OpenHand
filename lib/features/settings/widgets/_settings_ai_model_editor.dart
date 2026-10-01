@@ -6679,6 +6679,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final modelId = _modelIdController.text.trim();
     final catalog = AiModelCatalog.lookup(modelId, widget.protocolType);
+    final announcementOnly =
+        catalog?.sourceMetadata['verification_status'] == 'announcement_only';
+    final trialWindow = catalog?.sourceMetadata['trial_service_context_window'];
+    final plannedWindow = catalog?.sourceMetadata['paid_service_context_plan'];
     final source = catalog?.links?.details;
     final sourceUri = source == null
         ? null
@@ -6693,7 +6697,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       title:
           catalog?.displayName ??
           (modelId.isEmpty ? openHandModelIdLabel(context) : modelId),
-      accent: decisionOnly ? colorScheme.tertiary : colorScheme.primary,
+      accent: decisionOnly || announcementOnly
+          ? colorScheme.tertiary
+          : colorScheme.primary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -6705,6 +6711,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ) ==
                       true
                 ? l10n.mdlEdDecisionProtocolHint
+                : announcementOnly
+                ? openHandLocalizedText(
+                    context,
+                    zh: '已发布 · API 规格待核实',
+                    zhHant: '已發布 · API 規格待核實',
+                    en: 'Announced · API specifications pending verification',
+                    fr: 'Annoncé · Spécifications API à vérifier',
+                    de: 'Angekündigt · API-Spezifikationen noch ungeprüft',
+                    ja: '発表済み · API 仕様は未確認',
+                  )
                 : catalog == null
                 ? l10n.mdlEdCatalogMissing
                 : l10n.mdlEdCatalogReference,
@@ -6713,7 +6729,28 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               height: 1.5,
             ),
           ),
-          if (catalog != null) ...[
+          if (announcementOnly &&
+              trialWindow is String &&
+              plannedWindow is String) ...[
+            kOpenHandGap8,
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '报道：体验期服务窗口 $trialWindow；$plannedWindow 服务与开源为后续计划。未公开参数保持空白。',
+                zhHant:
+                    '報導：體驗期服務視窗 $trialWindow；$plannedWindow 服務與開源為後續計畫。未公開參數保持空白。',
+                en: 'Reported trial window: $trialWindow. The $plannedWindow service and open weights are planned. Unpublished parameters remain empty.',
+                fr: 'Fenêtre d’essai annoncée : $trialWindow. Service $plannedWindow et poids ouverts prévus. Paramètres non publiés laissés vides.',
+                de: 'Gemeldetes Testfenster: $trialWindow. $plannedWindow-Dienst und offene Gewichte sind geplant. Unveröffentlichte Parameter bleiben leer.',
+                ja: '報道では試用枠は$trialWindow。$plannedWindowサービスと重み公開は予定です。未公開パラメータは空欄です。',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
+          if (catalog != null && !announcementOnly) ...[
             kOpenHandGap8,
             Text(
               openHandLocalizedText(
@@ -6750,10 +6787,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   label: Text(sourceUri.host),
                   onPressed: () => openExternalUriWithSystemApp(sourceUri),
                 ),
-                if (catalog?.sourceMetadata['verified_at']
+                if (catalog?.sourceMetadata['verified_at'] ??
+                        catalog?.sourceMetadata['checked_at']
                     case final String checkedAt)
                   Chip(
-                    avatar: const Icon(Icons.fact_check_outlined, size: 16),
+                    avatar: Icon(
+                      announcementOnly
+                          ? Icons.event_note_rounded
+                          : Icons.fact_check_outlined,
+                      size: 16,
+                    ),
                     label: Text(checkedAt),
                   ),
               ],
