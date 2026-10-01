@@ -1108,49 +1108,44 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                   ),
                 ),
               ),
-              Padding(
+              buildOpenHandDialogActionsBar(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-                child: OverflowBar(
-                  spacing: 10,
-                  overflowSpacing: 8,
-                  alignment: MainAxisAlignment.end,
-                  children: [
-                    if (!_editing &&
-                        task?.writable == true &&
-                        !_busy &&
-                        _error == null) ...[
-                      TextButton(
-                        onPressed: _saving ? null : () => _save(delete: true),
-                        child: Text(l.commonDelete),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => setState(() => _editing = true),
-                        child: Text(l.commonEdit),
-                      ),
-                    ],
+                actions: [
+                  if (!_editing &&
+                      task?.writable == true &&
+                      !_busy &&
+                      _error == null) ...[
                     TextButton(
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                      child: Text(l.commonClose),
+                      onPressed: _saving ? null : () => _save(delete: true),
+                      child: Text(l.commonDelete),
                     ),
-                    if (_editing)
-                      FilledButton(
-                        onPressed:
-                            _busy ||
-                                _saving ||
-                                (_error is MachineTaskException &&
-                                    const {
-                                      'conflict',
-                                      'verify',
-                                      'rollback',
-                                    }.contains(
-                                      (_error as MachineTaskException).code,
-                                    ))
-                            ? null
-                            : _save,
-                        child: Text(l.commonSave),
-                      ),
+                    OutlinedButton(
+                      onPressed: () => setState(() => _editing = true),
+                      child: Text(l.commonEdit),
+                    ),
                   ],
-                ),
+                  TextButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    child: Text(l.commonClose),
+                  ),
+                  if (_editing)
+                    FilledButton(
+                      onPressed:
+                          _busy ||
+                              _saving ||
+                              (_error is MachineTaskException &&
+                                  const {
+                                    'conflict',
+                                    'verify',
+                                    'rollback',
+                                  }.contains(
+                                    (_error as MachineTaskException).code,
+                                  ))
+                          ? null
+                          : _save,
+                      child: Text(l.commonSave),
+                    ),
+                ],
               ),
             ],
           ),

@@ -1344,13 +1344,11 @@ class _ContainerResourceFormDialogState
                         ),
                         const SizedBox(height: 10),
                       ],
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 10,
-                        children: [
-                          SizedBox(
+                      buildOpenHandDialogActionsBar(
+                        padding: EdgeInsets.zero,
+                        leading: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
                             height: _controlHeight,
                             child: _MaintenanceToolbarMenu<int>(
                               label: maintenanceTimeoutLabel(context, _timeout),
@@ -1369,49 +1367,38 @@ class _ContainerResourceFormDialogState
                                   setState(() => _timeout = value),
                             ),
                           ),
-                          Wrap(
-                            alignment: WrapAlignment.end,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              if (_busy)
-                                OutlinedButton(
-                                  onPressed: _cancelled
-                                      ? null
-                                      : () => setState(() => _cancelled = true),
-                                  child: Text(l.commonCancel),
-                                )
-                              else if (_completed || _uncertain)
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: Text(
-                                    l.maintenanceResourceCloseRefresh,
-                                  ),
-                                )
-                              else ...[
-                                OutlinedButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: Text(l.commonCancel),
-                                ),
-                                FilledButton(
-                                  onPressed: _submit,
-                                  style: _remove
-                                      ? FilledButton.styleFrom(
-                                          backgroundColor: cs.error,
-                                          foregroundColor: cs.onError,
-                                        )
-                                      : null,
-                                  child: Text(
-                                    _containerActionLabel(
-                                      context,
-                                      widget.action,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                        ),
+                        actions: [
+                          if (_busy)
+                            OutlinedButton(
+                              onPressed: _cancelled
+                                  ? null
+                                  : () => setState(() => _cancelled = true),
+                              child: Text(l.commonCancel),
+                            )
+                          else if (_completed || _uncertain)
+                            FilledButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: Text(l.maintenanceResourceCloseRefresh),
+                            )
+                          else ...[
+                            OutlinedButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: Text(l.commonCancel),
+                            ),
+                            FilledButton(
+                              onPressed: _submit,
+                              style: _remove
+                                  ? FilledButton.styleFrom(
+                                      backgroundColor: cs.error,
+                                      foregroundColor: cs.onError,
+                                    )
+                                  : null,
+                              child: Text(
+                                _containerActionLabel(context, widget.action),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
