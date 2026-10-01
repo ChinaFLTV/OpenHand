@@ -424,9 +424,6 @@ class _MachineContainerResourcesState
   }
 }
 
-const _containerResourceFontSize = 13.0;
-const _containerResourceControlHeight = 40.0;
-
 Widget _buildContainerResourceActions({
   required BuildContext context,
   required List<Widget> actions,
@@ -437,44 +434,19 @@ Widget _buildContainerResourceActions({
   child: buildOpenHandDialogActionsBar(actions: actions, padding: padding),
 );
 
-double _containerResourceControlHeightOf(BuildContext context) => math.max(
-  _containerResourceControlHeight,
-  MediaQuery.textScalerOf(context).scale(_containerResourceFontSize) * 1.4 + 16,
-);
-
-ButtonStyle _containerResourceTonalButtonStyle(BuildContext context) {
-  final cs = Theme.of(context).colorScheme;
-  return FilledButton.styleFrom(
-    backgroundColor: cs.secondaryContainer,
-    foregroundColor: cs.onSecondaryContainer,
-    minimumSize: Size(0, _containerResourceControlHeightOf(context)),
-    padding: const EdgeInsets.symmetric(horizontal: 14),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    visualDensity: VisualDensity.standard,
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-      fontSize: _containerResourceFontSize,
-      fontWeight: FontWeight.w600,
-    ),
-    shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
-    elevation: 0,
-    shadowColor: Colors.transparent,
-    surfaceTintColor: Colors.transparent,
-  );
-}
-
 ThemeData _containerResourceDialogTheme(BuildContext context) {
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
   final actionStyle = ButtonStyle(
     minimumSize: WidgetStatePropertyAll(
-      Size(88, _containerResourceControlHeightOf(context)),
+      Size(88, _maintenanceFormControlHeightOf(context)),
     ),
     padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14)),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.standard,
     textStyle: WidgetStatePropertyAll(
       theme.textTheme.labelLarge?.copyWith(
-        fontSize: _containerResourceFontSize,
+        fontSize: _maintenanceFormFontSize,
         fontWeight: FontWeight.w600,
       ),
     ),
@@ -507,11 +479,11 @@ ThemeData _containerResourceDialogTheme(BuildContext context) {
       ),
     ),
     listTileTheme: theme.listTileTheme.copyWith(
-      minTileHeight: _containerResourceControlHeightOf(context),
+      minTileHeight: _maintenanceFormControlHeightOf(context),
       minVerticalPadding: 4,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
       titleTextStyle: theme.textTheme.bodyMedium?.copyWith(
-        fontSize: _containerResourceFontSize,
+        fontSize: _maintenanceFormFontSize,
         height: 1.4,
       ),
     ),
@@ -537,7 +509,7 @@ class _ContainerRegistrySearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final searchHeight = _containerResourceControlHeightOf(context);
+    final searchHeight = _maintenanceFormControlHeightOf(context);
     final searchBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
@@ -1181,8 +1153,9 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                               final selected = tag == _tag.text.trim();
                               return ListTile(
                                 dense: true,
-                                minTileHeight:
-                                    _containerResourceControlHeightOf(context),
+                                minTileHeight: _maintenanceFormControlHeightOf(
+                                  context,
+                                ),
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                 ),
@@ -1212,7 +1185,7 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                         kOpenHandGap12,
                         Center(
                           child: FilledButton.tonal(
-                            style: _containerResourceTonalButtonStyle(context),
+                            style: _maintenanceTonalButtonStyle(context),
                             onPressed: _load,
                             child: Text(
                               _failed
@@ -1650,8 +1623,8 @@ class _ContainerResourceFormDialogState
     }
   }
 
-  static const _formFontSize = _containerResourceFontSize;
-  static const _formControlHeight = _containerResourceControlHeight;
+  static const _formFontSize = _maintenanceFormFontSize;
+  static const _formControlHeight = _maintenanceFormControlHeight;
 
   bool get _editable => !_busy && !_completed && !_uncertain;
   double get _controlHeight => math.max(
@@ -1947,7 +1920,7 @@ class _ContainerResourceFormDialogState
                   : () => setState(
                       () => rows.add({if (ports) 'address': '127.0.0.1'}),
                     ),
-              style: _containerResourceTonalButtonStyle(context),
+              style: _maintenanceTonalButtonStyle(context),
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(l.maintenanceResourceAddRow),
             ),

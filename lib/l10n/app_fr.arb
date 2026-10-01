@@ -9740,5 +9740,12 @@
   "maintenanceTelemetryCompleted": "Contrôles terminés : {completed}/{total}",
   "maintenanceTelemetryPartial": "Certaines données sont indisponibles",
   "maintenanceTelemetryCancelled": "Collecte annulée",
-  "maintenanceLoadWindow": "{minutes} min"
+  "maintenanceLoadWindow": "{minutes} min",
+  "maintenanceTaskSchedulerCron": "Tâches Cron",
+  "maintenanceTaskSchedulerSystemd": "Minuteries systemd",
+  "maintenanceTaskSchedulerLaunchd": "Tâches launchd",
+  "maintenanceTaskNoMatches": "Aucune tâche correspondante. Modifiez la recherche ou le filtre.",
+  "maintenanceTaskExecutablePaths": "Chemins de recherche des exécutables",
+  "maintenanceTaskMailTo": "Destinataire des notifications",
+  "maintenanceTaskMailFrom": "Expéditeur des notifications"
 }

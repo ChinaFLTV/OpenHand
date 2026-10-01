@@ -15893,4 +15893,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String maintenanceLoadWindow(String minutes) {
     return '$minutes Min.';
   }
+
+  @override
+  String get maintenanceTaskSchedulerCron => 'Cron-Aufträge';
+
+  @override
+  String get maintenanceTaskSchedulerSystemd => 'systemd-Timer';
+
+  @override
+  String get maintenanceTaskSchedulerLaunchd => 'launchd-Aufträge';
+
+  @override
+  String get maintenanceTaskNoMatches =>
+      'Keine passenden Aufgaben. Suche oder Planerfilter anpassen.';
+
+  @override
+  String get maintenanceTaskExecutablePaths => 'Suchpfade für Programme';
+
+  @override
+  String get maintenanceTaskMailTo => 'Benachrichtigungsempfänger';
+
+  @override
+  String get maintenanceTaskMailFrom => 'Benachrichtigungsabsender';
 }

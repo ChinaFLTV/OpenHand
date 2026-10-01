@@ -4827,13 +4827,18 @@ void scheduledTaskChecks() {
   testWidgets('定时任务六语言与宽窄屏布局、空态和失败保留', (tester) async {
     final previewKey = GlobalKey();
     for (final locale in AppLocalizations.supportedLocales) {
-      for (final width in [1100.0,420.0]) {
+      for (final width in [1100.0,420.0,320.0]) {
         for (final brightness in Brightness.values) {
           var failed = false;
-          await tester.binding.setSurfaceSize(Size(width,900));
+          await tester.binding.setSurfaceSize(Size(width,1100));
+          final scale = width == 320 ? 1.8 : width == 420 ? 1.5 : 1.0;
+          final theme = brightness == Brightness.light
+              ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
+              : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
           await tester.pumpWidget(_SettingsApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates,
-            supportedLocales:AppLocalizations.supportedLocales, theme:ThemeData(brightness:brightness,
-              fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+            supportedLocales:AppLocalizations.supportedLocales,
+            theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+            builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(scale)),child:child!),
             home:Scaffold(body:RepaintBoundary(key:previewKey,child:SingleChildScrollView(child:_MachineScheduledTaskPanel(
               platform:'Linux', refreshToken:0, onBusy:(_){}, run:(command,cancelled) async {
                 if(failed)throw const MachineTaskException('unavailable'); return taskFixture();
@@ -4845,11 +4850,43 @@ void scheduledTaskChecks() {
           expect(find.text('2026-09-30 00:00:00'),findsOneWidget);
           expect(find.text('/opt/backup --daily'),findsWidgets);
           expect(tester.takeException(),isNull);
-          if(width==1100 && brightness==Brightness.light && locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          final summary = tester.widget<_MaintenanceGrid>(find.byKey(const ValueKey('scheduled-task-summary')));
+          final tiles = [for(final child in summary.children) tester.getRect(find.byWidget(child))];
+          if(width == 1100) {
+            for(final tile in tiles) {
+              expect(tile.height, closeTo(tiles.first.height, .1));
+              expect(tile.height, lessThan(100));
+              expect(tile.top, tiles.first.top);
+            }
+          }
+          final field = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == l.maintenanceTaskSearch);
+          final menu = find.byType(_MaintenanceToolbarMenu<String>);
+          expect(tester.getSize(field).height, closeTo(tester.getSize(menu).height,.1));
+          final add = find.widgetWithText(FilledButton,l.maintenanceTaskAdd);
+          final style = tester.widget<FilledButton>(add).style!;
+          expect(style.backgroundColor!.resolve({}), theme.colorScheme.secondaryContainer);
+          expect(style.elevation!.resolve({WidgetState.hovered}),0);
+          expect((style.shape!.resolve({})! as RoundedRectangleBorder).borderRadius,kOpenHandBorderRadius8);
+          expect(_taskSchedulerLabel(context,MachineTaskScheduler.cron),l.maintenanceTaskSchedulerCron);
+          expect(_taskSchedulerLabel(context,MachineTaskScheduler.systemd),l.maintenanceTaskSchedulerSystemd);
+          expect(_taskSchedulerLabel(context,MachineTaskScheduler.launchd),l.maintenanceTaskSchedulerLaunchd);
+          expect(_taskFieldLabel(context,'CRON_TZ'),l.maintenanceEgressTimezone);
+          expect(_taskFieldLabel(context,'MAILTO'),l.maintenanceTaskMailTo);
+          expect(_taskFieldLabel(context,'SHELL'),l.maintenanceShell);
+          expect(_taskIssueLabel(context,'systemd/system'),contains(l.maintenanceTaskSchedulerSystemd));
+          final mouse = await tester.createGesture(kind:ui.PointerDeviceKind.mouse);
+          await mouse.addPointer(location:Offset.zero);await mouse.moveTo(tiles.first.center);await tester.pumpAndSettle();
+          for(final box in tester.widgetList<DecoratedBox>(find.descendant(of:find.byKey(const ValueKey('scheduled-task-summary')),matching:find.byType(DecoratedBox)))) {
+            if(box.decoration case final BoxDecoration decoration) {
+              expect(decoration.gradient,isNull);expect(decoration.boxShadow??[],isEmpty);
+            }
+          }
+          await mouse.removePointer();
+          if(locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
             await tester.runAsync(() async {
               final boundary=previewKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
               final shot=await boundary.toImage(pixelRatio:1.5); final bytes=await shot.toByteData(format:ui.ImageByteFormat.png);
-              await File('/tmp/openhand-scheduled-tasks.png').writeAsBytes(bytes!.buffer.asUint8List()); shot.dispose();
+              await File('/tmp/openhand-scheduled-tasks-' + brightness.name + '-' + width.toInt().toString() + '.png').writeAsBytes(bytes!.buffer.asUint8List()); shot.dispose();
             });
           }
           failed=true;
@@ -4863,6 +4900,42 @@ void scheduledTaskChecks() {
     }
     await tester.binding.setSurfaceSize(null);
   });
+  testWidgets('定时任务筛选可回到全部，刷新保留筛选且无结果不丢失摘要', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    var empty = false; var calls = 0; Completer<String>? pending;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:SingleChildScrollView(child:_MachineScheduledTaskPanel(
+        platform:'Linux',refreshToken:0,onBusy:(_){},run:(command,cancelled)async {
+          calls++; if(pending!=null)return pending!.future;
+          return empty ? '${taskRecord('meta',['tester','UTC','2026-09-30T00:00:00Z'])}__OH_TASK_END__' : taskFixture();
+        })))));
+    await tester.pumpAndSettle();
+    final state=tester.state<_MachineScheduledTaskPanelState>(find.byType(_MachineScheduledTaskPanel));
+    final l=AppLocalizations.of(state.context)!;
+    Future<void> choose(String label) async {
+      await tester.tap(find.byTooltip(l.maintenanceTaskScheduler));await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PopupMenuItem<String>,label));await tester.pumpAndSettle();
+    }
+    await choose(l.maintenanceTaskSchedulerCron);expect(state._filter,MachineTaskScheduler.cron);
+    await choose(l.maintenanceTaskAll);expect(state._filter,isNull);
+    await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.controller == state._search),'cleanup');await tester.pumpAndSettle();
+    final table=tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));expect(table.rows.length,1);
+    expect(find.text(l.maintenanceTaskTotal),findsOneWidget);
+    await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.controller == state._search),'没有对应任务');await tester.pumpAndSettle();
+    expect(find.text(l.maintenanceTaskNoMatches),findsOneWidget);expect(find.byType(_MaintenanceTable),findsNothing);
+    await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.controller == state._search),'');await tester.pumpAndSettle();
+    await choose(l.maintenanceTaskSchedulerCron);
+    empty=true;await state._refresh();await tester.pumpAndSettle();
+    expect(state._filter,MachineTaskScheduler.cron);expect(find.text(l.maintenanceTaskNoMatches),findsOneWidget);
+    await choose(l.maintenanceTaskAll);expect(find.text(l.maintenanceTaskEmpty),findsOneWidget);
+    pending=Completer<String>();final refresh=state._refresh();await tester.pump();
+    final current=calls;await state._refresh();expect(calls,current);
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton,Icons.refresh_rounded)).onPressed,isNull);
+    pending!.complete(taskFixture());await refresh;pending=null;await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceTable),findsOneWidget);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('任务编辑失败保留输入，保存仅修改选定配置', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1050,900));
     var attempts=0;

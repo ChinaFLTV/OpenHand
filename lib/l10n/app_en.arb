@@ -9745,5 +9745,12 @@
   "maintenanceTelemetryCompleted": "Completed {completed}/{total} checks",
   "maintenanceTelemetryPartial": "Some data is unavailable",
   "maintenanceTelemetryCancelled": "Collection cancelled",
-  "maintenanceLoadWindow": "{minutes} min"
+  "maintenanceLoadWindow": "{minutes} min",
+  "maintenanceTaskSchedulerCron": "Cron jobs",
+  "maintenanceTaskSchedulerSystemd": "systemd timers",
+  "maintenanceTaskSchedulerLaunchd": "launchd jobs",
+  "maintenanceTaskNoMatches": "No matching tasks. Adjust the search or scheduler filter.",
+  "maintenanceTaskExecutablePaths": "Executable search paths",
+  "maintenanceTaskMailTo": "Notification recipient",
+  "maintenanceTaskMailFrom": "Notification sender"
 }

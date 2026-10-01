@@ -86,6 +86,9 @@ const _maintenanceTabIcons = <IconData>[
   Icons.health_and_safety_outlined,
   Icons.inventory_2_outlined,
 ];
+const _maintenanceFormFontSize = 13.0;
+const _maintenanceFormControlHeight = 40.0;
+
 const _maintenanceDistributionMaxWidth = 380.0;
 const _maintenanceDonutSize = 120.0;
 const _maintenanceDonutGap = 16.0;
@@ -151,6 +154,31 @@ bool _maintenanceLogUnreadable(String text) => RegExp(
   'Could not open local log store|not refer to a valid log archive',
   caseSensitive: false,
 ).hasMatch(text);
+
+double _maintenanceFormControlHeightOf(BuildContext context) => math.max(
+  _maintenanceFormControlHeight,
+  MediaQuery.textScalerOf(context).scale(_maintenanceFormFontSize) * 1.4 + 16,
+);
+
+ButtonStyle _maintenanceTonalButtonStyle(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return FilledButton.styleFrom(
+    backgroundColor: cs.secondaryContainer,
+    foregroundColor: cs.onSecondaryContainer,
+    minimumSize: Size(0, _maintenanceFormControlHeightOf(context)),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
+    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontSize: _maintenanceFormFontSize,
+      fontWeight: FontWeight.w600,
+    ),
+    shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+  );
+}
 
 class _MachineMaintenanceDialog extends StatefulWidget {
   const _MachineMaintenanceDialog({

@@ -9740,5 +9740,12 @@
   "maintenanceTelemetryCompleted": "{completed}/{total} Prüfungen abgeschlossen",
   "maintenanceTelemetryPartial": "Einige Daten sind nicht verfügbar",
   "maintenanceTelemetryCancelled": "Erfassung abgebrochen",
-  "maintenanceLoadWindow": "{minutes} Min."
+  "maintenanceLoadWindow": "{minutes} Min.",
+  "maintenanceTaskSchedulerCron": "Cron-Aufträge",
+  "maintenanceTaskSchedulerSystemd": "systemd-Timer",
+  "maintenanceTaskSchedulerLaunchd": "launchd-Aufträge",
+  "maintenanceTaskNoMatches": "Keine passenden Aufgaben. Suche oder Planerfilter anpassen.",
+  "maintenanceTaskExecutablePaths": "Suchpfade für Programme",
+  "maintenanceTaskMailTo": "Benachrichtigungsempfänger",
+  "maintenanceTaskMailFrom": "Benachrichtigungsabsender"
 }

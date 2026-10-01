@@ -15209,6 +15209,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String maintenanceLoadWindow(String minutes) {
     return '$minutes 分钟';
   }
+
+  @override
+  String get maintenanceTaskSchedulerCron => 'Cron 定时任务';
+
+  @override
+  String get maintenanceTaskSchedulerSystemd => 'systemd 定时器';
+
+  @override
+  String get maintenanceTaskSchedulerLaunchd => 'launchd 启动任务';
+
+  @override
+  String get maintenanceTaskNoMatches => '没有匹配的任务，请调整关键词或调度器筛选。';
+
+  @override
+  String get maintenanceTaskExecutablePaths => '命令搜索路径';
+
+  @override
+  String get maintenanceTaskMailTo => '通知收件人';
+
+  @override
+  String get maintenanceTaskMailFrom => '通知发件人';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30399,4 +30420,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String maintenanceLoadWindow(String minutes) {
     return '$minutes 分鐘';
   }
+
+  @override
+  String get maintenanceTaskSchedulerCron => 'Cron 排程工作';
+
+  @override
+  String get maintenanceTaskSchedulerSystemd => 'systemd 計時器';
+
+  @override
+  String get maintenanceTaskSchedulerLaunchd => 'launchd 啟動工作';
+
+  @override
+  String get maintenanceTaskNoMatches => '沒有符合的工作，請調整關鍵字或排程器篩選。';
+
+  @override
+  String get maintenanceTaskExecutablePaths => '命令搜尋路徑';
+
+  @override
+  String get maintenanceTaskMailTo => '通知收件者';
+
+  @override
+  String get maintenanceTaskMailFrom => '通知寄件者';
 }

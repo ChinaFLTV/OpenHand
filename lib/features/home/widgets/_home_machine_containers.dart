@@ -1526,8 +1526,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         : _reports.isNotEmpty && !_cancelled
         ? OpenHandStatusColors.success
         : cs.onSurfaceVariant;
-    final controlHeight = _containerResourceControlHeightOf(context);
-    final actionStyle = _containerResourceTonalButtonStyle(context);
+    final controlHeight = _maintenanceFormControlHeightOf(context);
+    final actionStyle = _maintenanceTonalButtonStyle(context);
     final inputBorder = OutlineInputBorder(
       borderRadius: kOpenHandBorderRadius8,
       borderSide: BorderSide(color: cs.outlineVariant),
@@ -1571,8 +1571,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                   final scale =
                       MediaQuery.textScalerOf(
                         context,
-                      ).scale(_containerResourceFontSize) /
-                      _containerResourceFontSize;
+                      ).scale(_maintenanceFormFontSize) /
+                      _maintenanceFormFontSize;
                   final width = bounds.maxWidth < 480 * scale
                       ? bounds.maxWidth
                       : (bounds.maxWidth - _maintenanceGridGap) / 2;
@@ -1885,7 +1885,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                     children: [
                       if (_outputs.containsKey(item.id))
                         FilledButton.tonalIcon(
-                          style: _containerResourceTonalButtonStyle(context),
+                          style: _maintenanceTonalButtonStyle(context),
                           icon: const Icon(Icons.data_object_rounded, size: 16),
                           label: Text(maintenanceLabel(context, '完整元数据')),
                           onPressed: () async {
@@ -1902,7 +1902,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                         ),
                       if (_issues.containsKey(item.id))
                         FilledButton.tonalIcon(
-                          style: _containerResourceTonalButtonStyle(context),
+                          style: _maintenanceTonalButtonStyle(context),
                           icon: const Icon(Icons.refresh_rounded, size: 16),
                           label: Text(
                             AppLocalizations.of(

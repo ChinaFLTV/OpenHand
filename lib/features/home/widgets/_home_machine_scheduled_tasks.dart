@@ -1,11 +1,34 @@
 part of '../openhand_home_page.dart';
 
-String _taskSchedulerLabel(BuildContext context, MachineTaskScheduler value) =>
-    value == MachineTaskScheduler.windows
-    ? AppLocalizations.of(context)!.maintenanceTaskWindows
-    : value == MachineTaskScheduler.cron
-    ? 'Cron'
-    : value.name;
+String _taskSchedulerLabel(BuildContext context, MachineTaskScheduler value) {
+  final l = AppLocalizations.of(context)!;
+  return switch (value) {
+    MachineTaskScheduler.cron => l.maintenanceTaskSchedulerCron,
+    MachineTaskScheduler.systemd => l.maintenanceTaskSchedulerSystemd,
+    MachineTaskScheduler.launchd => l.maintenanceTaskSchedulerLaunchd,
+    MachineTaskScheduler.windows => l.maintenanceTaskWindows,
+  };
+}
+
+String _taskIssueLabel(BuildContext context, String source) {
+  final parts = source.split('/');
+  final scheduler = MachineTaskScheduler.values
+      .where((value) => value.name == parts.first)
+      .firstOrNull;
+  if (scheduler == null) {
+    return source == 'limit'
+        ? AppLocalizations.of(context)!.maintenanceTaskTotal
+        : source;
+  }
+  final label = _taskSchedulerLabel(context, scheduler);
+  return parts.length == 1
+      ? label
+      : '$label · ${maintenanceLabel(context, parts.last == 'user'
+            ? '用户'
+            : parts.last == 'system'
+            ? '系统'
+            : parts.last)}';
+}
 
 String _taskStateLabel(BuildContext context, String value) {
   final l = AppLocalizations.of(context)!;
@@ -61,6 +84,14 @@ String _taskError(BuildContext context, Object error) {
 String _taskFieldLabel(BuildContext context, String key) {
   final l = AppLocalizations.of(context)!;
   return switch (key) {
+    'SHELL' => l.maintenanceShell,
+    'PATH' => l.maintenanceTaskExecutablePaths,
+    'HOME' => l.maintenanceHealthHome,
+    'CRON_TZ' || 'TZ' => l.maintenanceEgressTimezone,
+    'MAILTO' => l.maintenanceTaskMailTo,
+    'MAILFROM' => l.maintenanceTaskMailFrom,
+    'LOGNAME' => maintenanceLabel(context, '用户'),
+    'RANDOM_DELAY' => l.maintenanceTaskRandomDelay,
     'Id' || 'Label' => maintenanceLabel(context, '名称'),
     'Description' || 'description' => maintenanceLabel(context, '描述'),
     'ActiveState' || 'State' => maintenanceLabel(context, '状态'),
@@ -322,6 +353,10 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
     super.build(context);
     final l = AppLocalizations.of(context)!;
     final data = _data;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final controlHeight = _maintenanceFormControlHeightOf(context);
+    final actionStyle = _maintenanceTonalButtonStyle(context);
     final blocked = !widget.enabled || _busy || _overlay || _error != null;
     final query = _search.text.trim().toLowerCase();
     final tasks =
@@ -346,16 +381,20 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _MaintenanceValue(
-            value: '${tasks.length}',
-            style: Theme.of(context).textTheme.titleSmall,
+          SizedBox.square(
+            dimension: controlHeight,
+            child: IconButton(
+              style: actionStyle.copyWith(
+                minimumSize: WidgetStatePropertyAll(Size.square(controlHeight)),
+                padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+              ),
+              tooltip: l.maintenanceRefreshSection,
+              onPressed: !widget.enabled || _busy || _overlay ? null : _refresh,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+            ),
           ),
-          _MachineTerminalIconButton(
-            tooltip: l.maintenanceRefreshSection,
-            onPressed: !widget.enabled || _busy || _overlay ? null : _refresh,
-            icon: Icons.refresh_rounded,
-          ),
-          OutlinedButton.icon(
+          FilledButton.icon(
+            style: actionStyle,
             onPressed:
                 blocked ||
                     data == null ||
@@ -393,79 +432,194 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                   '${data == null ? '' : '${l.maintenanceTaskStale}\n'}${_taskError(context, _error!)}',
             ),
           if (data != null) ...[
-            LayoutBuilder(
-              builder: (context, constraints) => Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: math.min(320, constraints.maxWidth),
-                    child: TextField(
-                      controller: _search,
-                      textAlignVertical: TextAlignVertical.center,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: l.maintenanceTaskSearch,
-                        isDense: true,
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      ),
-                    ),
+            _MaintenanceGrid(
+              key: const ValueKey('scheduled-task-summary'),
+              minWidth: 200,
+              maxColumns: 4,
+              balanceColumns: true,
+              children: [
+                for (final metric in [
+                  (
+                    label: l.maintenanceTaskTotal,
+                    value: '${data.tasks.length}',
+                    icon: Icons.event_note_rounded,
+                    tone: cs.primary,
                   ),
-                  SizedBox(
-                    width: math.min(250, constraints.maxWidth),
-                    child: DropdownButtonFormField<MachineTaskScheduler?>(
-                      initialValue: _filter,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: l.maintenanceTaskScheduler,
-                        isDense: true,
-                      ),
-                      items: [
-                        DropdownMenuItem(child: Text(l.maintenanceTaskAll)),
-                        for (final scheduler in MachineTaskScheduler.values)
-                          if (data.tasks.any(
-                            (task) => task.scheduler == scheduler,
-                          ))
-                            DropdownMenuItem(
-                              value: scheduler,
-                              child: Text(
-                                _taskSchedulerLabel(context, scheduler),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                      ],
-                      onChanged: (value) => setState(() => _filter = value),
-                    ),
+                  (
+                    label: l.maintenanceTaskEnabled,
+                    value: '${data.tasks.where((task) => task.enabled).length}',
+                    icon: Icons.check_circle_outline_rounded,
+                    tone: OpenHandStatusColors.success,
                   ),
-                ],
-              ),
-            ),
-            _MaintenanceFields(
-              rows: [
-                [l.maintenanceTaskTotal, '${data.tasks.length}'],
-                [
-                  l.maintenanceTaskEnabled,
-                  '${data.tasks.where((task) => task.enabled).length}',
-                ],
-                [
-                  maintenanceLabel(context, '时区'),
-                  data.timezone.isEmpty ? '—' : data.timezone,
-                ],
-                [
-                  l.maintenanceTaskSampled,
-                  data.collectedAt.isEmpty
-                      ? '—'
-                      : maintenanceDetailValue(
-                          context,
-                          data.collectedAt,
-                          field: 'collectedAt',
+                  (
+                    label: l.maintenanceEgressTimezone,
+                    value: data.timezone.isEmpty ? '—' : data.timezone,
+                    icon: Icons.public_rounded,
+                    tone: cs.tertiary,
+                  ),
+                  (
+                    label: l.maintenanceTaskSampled,
+                    value: data.collectedAt.isEmpty
+                        ? '—'
+                        : maintenanceDetailValue(
+                            context,
+                            data.collectedAt,
+                            field: 'collectedAt',
+                          ),
+                    icon: Icons.schedule_rounded,
+                    tone: OpenHandStatusColors.info,
+                  ),
+                ])
+                  Container(
+                    key: ValueKey(metric.label),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: kOpenHandBorderRadius12,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _MaintenanceIconBadge(
+                          icon: metric.icon,
+                          color: metric.tone,
+                          size: 32,
+                          iconSize: 17,
                         ),
-                ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                metric.label,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _MaintenanceValue(
+                                value: metric.value,
+                                maxLines: null,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final scale =
+                    MediaQuery.textScalerOf(
+                      context,
+                    ).scale(_maintenanceFormFontSize) /
+                    _maintenanceFormFontSize;
+                final stacked = constraints.maxWidth < 580 * scale;
+                final menuWidth = stacked
+                    ? constraints.maxWidth
+                    : math.min(320 * scale, constraints.maxWidth * .4);
+                final border = OutlineInputBorder(
+                  borderRadius: kOpenHandBorderRadius8,
+                  borderSide: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: .65),
+                  ),
+                );
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: stacked
+                          ? constraints.maxWidth
+                          : constraints.maxWidth - menuWidth - 12,
+                      child: TextField(
+                        controller: _search,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: _maintenanceFormFontSize,
+                          height: 1.4,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: l.maintenanceTaskSearch,
+                          isDense: true,
+                          filled: true,
+                          fillColor: cs.surfaceContainerLow,
+                          hoverColor: Colors.transparent,
+                          constraints: BoxConstraints.tightFor(
+                            height: controlHeight,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          border: border,
+                          enabledBorder: border,
+                          focusedBorder: border.copyWith(
+                            borderSide: BorderSide(
+                              color: cs.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          prefixIconConstraints: BoxConstraints.tightFor(
+                            width: controlHeight,
+                            height: controlHeight,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: menuWidth,
+                      child: _MaintenanceToolbarMenu<String>(
+                        label: _filter == null
+                            ? l.maintenanceTaskAll
+                            : _taskSchedulerLabel(context, _filter!),
+                        tooltip: l.maintenanceTaskScheduler,
+                        icon: Icons.filter_list_rounded,
+                        controlHeight: controlHeight,
+                        value: _filter?.name ?? '',
+                        items: {
+                          '': l.maintenanceTaskAll,
+                          for (final scheduler in MachineTaskScheduler.values)
+                            if (data.available.contains(scheduler) ||
+                                _filter == scheduler ||
+                                data.tasks.any(
+                                  (task) => task.scheduler == scheduler,
+                                ))
+                              scheduler.name: _taskSchedulerLabel(
+                                context,
+                                scheduler,
+                              ),
+                        },
+                        onSelected: (value) => setState(
+                          () => _filter = MachineTaskScheduler.values
+                              .where((scheduler) => scheduler.name == value)
+                              .firstOrNull,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
             if (tasks.isEmpty)
-              _MaintenanceEmptyHint(message: l.maintenanceTaskEmpty)
+              _MaintenanceEmptyHint(
+                message: query.isNotEmpty || _filter != null
+                    ? l.maintenanceTaskNoMatches
+                    : l.maintenanceTaskEmpty,
+              )
             else
               _MaintenanceTable(
                 maxBodyHeight: 360,
@@ -554,7 +708,7 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                   rows: [
                     for (final issue in data.issues.entries)
                       [
-                        issue.key,
+                        _taskIssueLabel(context, issue.key),
                         _taskError(context, MachineTaskException(issue.value)),
                       ],
                   ],
@@ -765,19 +919,67 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
     int lines = 1,
     String? Function(String)? validate,
     bool required = true,
-  }) => TextFormField(
-    controller: controller,
-    minLines: lines,
-    maxLines: lines == 1 ? 1 : lines + 5,
-    enabled: !_saving,
-    decoration: InputDecoration(
-      labelText: label,
-      alignLabelWithHint: lines > 1,
-    ),
-    validator: (value) => required && (value ?? '').trim().isEmpty
-        ? AppLocalizations.of(context)!.maintenanceTaskValidation
-        : validate?.call(value ?? ''),
-  );
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: kOpenHandBorderRadius8,
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .65)),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Semantics(
+          label: label,
+          child: TextFormField(
+            controller: controller,
+            minLines: lines,
+            maxLines: lines == 1 ? 1 : lines + 5,
+            enabled: !_saving,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: _maintenanceFormFontSize,
+              height: 1.4,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: cs.surfaceContainerLow,
+              hoverColor: Colors.transparent,
+              constraints: BoxConstraints(
+                minHeight: _maintenanceFormControlHeightOf(context),
+              ),
+              contentPadding: const EdgeInsets.all(10),
+              border: border,
+              enabledBorder: border,
+              disabledBorder: border,
+              focusedBorder: border.copyWith(
+                borderSide: BorderSide(color: cs.primary, width: 1.5),
+              ),
+              errorBorder: border.copyWith(
+                borderSide: BorderSide(color: cs.error),
+              ),
+              focusedErrorBorder: border.copyWith(
+                borderSide: BorderSide(color: cs.error, width: 1.5),
+              ),
+            ),
+            validator: (value) => required && (value ?? '').trim().isEmpty
+                ? AppLocalizations.of(context)!.maintenanceTaskValidation
+                : validate?.call(value ?? ''),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -837,7 +1039,8 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                           if (!_cron && task == null)
                             _field(_name, maintenanceLabel(context, '名称')),
                           if (!_cron && task == null && !_native)
-                            OutlinedButton.icon(
+                            FilledButton.icon(
+                              style: _maintenanceTonalButtonStyle(context),
                               onPressed: _saving
                                   ? null
                                   : () => setState(() {
@@ -848,7 +1051,8 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               label: Text(l.maintenanceTaskNative),
                             ),
                           if (!_cron && task != null && _structured)
-                            OutlinedButton.icon(
+                            FilledButton.icon(
+                              style: _maintenanceTonalButtonStyle(context),
                               onPressed: _saving
                                   ? null
                                   : () {
@@ -1023,13 +1227,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                   for (final field in task.metadata.entries)
                                     if (field.value.isNotEmpty)
                                       [
-                                        task.scheduler ==
-                                                MachineTaskScheduler.cron
-                                            ? field.key
-                                            : _taskFieldLabel(
-                                                context,
-                                                field.key,
-                                              ),
+                                        _taskFieldLabel(context, field.key),
                                         task.scheduler ==
                                                 MachineTaskScheduler.cron
                                             ? field.value

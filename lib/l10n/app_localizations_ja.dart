@@ -15362,4 +15362,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String maintenanceLoadWindow(String minutes) {
     return '$minutes 分';
   }
+
+  @override
+  String get maintenanceTaskSchedulerCron => 'Cron ジョブ';
+
+  @override
+  String get maintenanceTaskSchedulerSystemd => 'systemd タイマー';
+
+  @override
+  String get maintenanceTaskSchedulerLaunchd => 'launchd ジョブ';
+
+  @override
+  String get maintenanceTaskNoMatches => '一致するタスクがありません。検索条件やスケジューラーを変更してください。';
+
+  @override
+  String get maintenanceTaskExecutablePaths => '実行ファイルの検索パス';
+
+  @override
+  String get maintenanceTaskMailTo => '通知の宛先';
+
+  @override
+  String get maintenanceTaskMailFrom => '通知の送信元';
 }

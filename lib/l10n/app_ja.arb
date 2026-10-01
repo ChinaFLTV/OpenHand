@@ -9740,5 +9740,12 @@
   "maintenanceTelemetryCompleted": "{completed}/{total} 項目完了",
   "maintenanceTelemetryPartial": "一部のデータを取得できません",
   "maintenanceTelemetryCancelled": "収集をキャンセルしました",
-  "maintenanceLoadWindow": "{minutes} 分"
+  "maintenanceLoadWindow": "{minutes} 分",
+  "maintenanceTaskSchedulerCron": "Cron ジョブ",
+  "maintenanceTaskSchedulerSystemd": "systemd タイマー",
+  "maintenanceTaskSchedulerLaunchd": "launchd ジョブ",
+  "maintenanceTaskNoMatches": "一致するタスクがありません。検索条件やスケジューラーを変更してください。",
+  "maintenanceTaskExecutablePaths": "実行ファイルの検索パス",
+  "maintenanceTaskMailTo": "通知の宛先",
+  "maintenanceTaskMailFrom": "通知の送信元"
 }

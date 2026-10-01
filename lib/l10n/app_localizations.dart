@@ -28432,6 +28432,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{minutes} 分钟'**
   String maintenanceLoadWindow(String minutes);
+
+  /// No description provided for @maintenanceTaskSchedulerCron.
+  ///
+  /// In zh, this message translates to:
+  /// **'Cron 定时任务'**
+  String get maintenanceTaskSchedulerCron;
+
+  /// No description provided for @maintenanceTaskSchedulerSystemd.
+  ///
+  /// In zh, this message translates to:
+  /// **'systemd 定时器'**
+  String get maintenanceTaskSchedulerSystemd;
+
+  /// No description provided for @maintenanceTaskSchedulerLaunchd.
+  ///
+  /// In zh, this message translates to:
+  /// **'launchd 启动任务'**
+  String get maintenanceTaskSchedulerLaunchd;
+
+  /// No description provided for @maintenanceTaskNoMatches.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配的任务，请调整关键词或调度器筛选。'**
+  String get maintenanceTaskNoMatches;
+
+  /// No description provided for @maintenanceTaskExecutablePaths.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令搜索路径'**
+  String get maintenanceTaskExecutablePaths;
+
+  /// No description provided for @maintenanceTaskMailTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知收件人'**
+  String get maintenanceTaskMailTo;
+
+  /// No description provided for @maintenanceTaskMailFrom.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知发件人'**
+  String get maintenanceTaskMailFrom;
 }
 
 class _AppLocalizationsDelegate

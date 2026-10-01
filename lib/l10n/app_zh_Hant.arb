@@ -9740,5 +9740,12 @@
   "maintenanceTelemetryCompleted": "已完成 {completed}/{total} 項",
   "maintenanceTelemetryPartial": "部分資料無法使用",
   "maintenanceTelemetryCancelled": "已取消採集",
-  "maintenanceLoadWindow": "{minutes} 分鐘"
+  "maintenanceLoadWindow": "{minutes} 分鐘",
+  "maintenanceTaskSchedulerCron": "Cron 排程工作",
+  "maintenanceTaskSchedulerSystemd": "systemd 計時器",
+  "maintenanceTaskSchedulerLaunchd": "launchd 啟動工作",
+  "maintenanceTaskNoMatches": "沒有符合的工作，請調整關鍵字或排程器篩選。",
+  "maintenanceTaskExecutablePaths": "命令搜尋路徑",
+  "maintenanceTaskMailTo": "通知收件者",
+  "maintenanceTaskMailFrom": "通知寄件者"
 }
