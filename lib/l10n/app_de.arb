@@ -9604,5 +9604,9 @@
   "maintenanceHealthNativeTimedLimit": "Der Systemdienst timed stellt die ausgewählte Quelle und Zeitabweichung nicht bereit.",
   "maintenanceHealthConfiguredOnly": "Nur die Konfiguration ist verfügbar; ausgewählte Quelle, Zeitabweichung und Synchronisierungsstatus sind unbekannt.",
   "maintenanceHealthSntpNotes": "Misst bis zu 3 konfigurierte Quellen, ohne die Uhr zu ändern. SNTP-Ergebnisse zeigen nicht die vom System ausgewählte Quelle.",
-  "maintenanceServiceMetricsUnavailable": "Einige Prozessmesswerte der Dienste konnten nicht erfasst werden. Bitte erneut aktualisieren."
+  "maintenanceServiceMetricsUnavailable": "Einige Prozessmesswerte der Dienste konnten nicht erfasst werden. Bitte erneut aktualisieren.",
+  "maintenanceContainerInterrupt": "Unterbrechen",
+  "maintenanceContainerDisconnecting": "Wird beendet…",
+  "maintenanceContainerExitPending": "Das Programm läuft noch. Unterbrechen Sie es, bevor Sie das Terminal verlassen.",
+  "maintenanceContainerTerminalFailed": "Terminalverbindung fehlgeschlagen"
 }

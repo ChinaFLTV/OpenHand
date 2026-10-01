@@ -15296,4 +15296,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceServiceMetricsUnavailable =>
       'Some service process metrics could not be collected. Refresh to try again.';
+
+  @override
+  String get maintenanceContainerInterrupt => 'Interrupt';
+
+  @override
+  String get maintenanceContainerDisconnecting => 'Exiting…';
+
+  @override
+  String get maintenanceContainerExitPending =>
+      'The program is still running. Interrupt it before exiting the terminal.';
+
+  @override
+  String get maintenanceContainerTerminalFailed => 'Terminal connection failed';
 }

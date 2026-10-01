@@ -22,6 +22,33 @@ import 'package:openhand/features/machine_terminal/machine_scheduled_tasks.dart'
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('嵌套交互 Shell 通过 EOF 正常退出并恢复宿主终端', () async {
+    if (Platform.isWindows) return;
+    final directory = await Directory.systemTemp.createTemp('openhand-interactive-exit-');
+    final service = MachineTerminalService(sessionsDirectoryPath: directory.path);
+    try {
+      await service.ensureWorkspace(sessionId: 'interactive', workingDirectory: directory.path, start: false);
+      await service.startTerminal(sessionId: 'interactive');
+      final session = service.activeTerminal('interactive')!;
+      final ready = Completer<void>();
+      final command = service.executeCommand(sessionId: 'interactive', terminalId: session.id,
+        command: "printf '\\033[?7l__INTERACTIVE_READY__\\r\\033[K\\033[?7h'; env PS1='' /bin/sh -i",
+        commandShell: MachineTerminalCommandShell.posix, startIfNeeded: false, recordHistory: false,
+        timeout: const Duration(seconds: 10), onOutput: (output) {
+          if (output.contains('__INTERACTIVE_READY__') && !ready.isCompleted) ready.complete();
+        });
+      await ready.future.timeout(const Duration(seconds: 5));
+      await service.writeInput(sessionId: 'interactive', terminalId: session.id, data: '\x04', startIfNeeded: false);
+      expect((await command.timeout(const Duration(seconds: 3))).succeeded, isTrue);
+      final restored = await service.executeCommand(sessionId: 'interactive', terminalId: session.id,
+        command: "printf '__HOST_READY__'", commandShell: MachineTerminalCommandShell.posix,
+        timeout: const Duration(seconds: 3), startIfNeeded: false, recordHistory: false);
+      expect(restored.succeeded, isTrue); expect(restored.output, contains('__HOST_READY__'));
+      expect(identical(service.terminalFor('interactive', session.id), session), isTrue);
+    } finally {
+      await service.shutdown(); service.dispose(); await directory.delete(recursive: true);
+    }
+  }, timeout: const Timeout(Duration(seconds: 30)));
   test('普通输入模式的交互 Bash 保持容器上下文和 JSON 输出纯净', () async {
     if (Platform.isWindows) return;
     final directory = await Directory.systemTemp.createTemp('openhand-container-terminal-');

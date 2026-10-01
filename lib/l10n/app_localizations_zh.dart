@@ -14805,6 +14805,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceServiceMetricsUnavailable => '部分服务进程指标未能采集，请刷新重试。';
+
+  @override
+  String get maintenanceContainerInterrupt => '中断';
+
+  @override
+  String get maintenanceContainerDisconnecting => '正在退出…';
+
+  @override
+  String get maintenanceContainerExitPending => '当前程序尚未退出。请先中断程序，再退出终端。';
+
+  @override
+  String get maintenanceContainerTerminalFailed => '终端连接失败';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29590,4 +29602,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceServiceMetricsUnavailable => '部分服務進程指標未能採集，請重新整理後再試。';
+
+  @override
+  String get maintenanceContainerInterrupt => '中斷';
+
+  @override
+  String get maintenanceContainerDisconnecting => '正在結束…';
+
+  @override
+  String get maintenanceContainerExitPending => '目前的程式尚未結束。請先中斷程式，再離開終端機。';
+
+  @override
+  String get maintenanceContainerTerminalFailed => '終端機連線失敗';
 }

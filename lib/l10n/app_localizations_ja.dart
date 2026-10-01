@@ -14944,4 +14944,17 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceServiceMetricsUnavailable =>
       '一部のサービスプロセスの指標を取得できませんでした。更新して再試行してください。';
+
+  @override
+  String get maintenanceContainerInterrupt => '中断';
+
+  @override
+  String get maintenanceContainerDisconnecting => '終了中…';
+
+  @override
+  String get maintenanceContainerExitPending =>
+      'プログラムがまだ実行中です。中断してからターミナルを終了してください。';
+
+  @override
+  String get maintenanceContainerTerminalFailed => 'ターミナルへの接続に失敗しました';
 }

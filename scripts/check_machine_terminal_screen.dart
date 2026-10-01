@@ -32,6 +32,7 @@ Future<void> main() async {
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
 import 'package:openhand/shared/ui/openhand_clipboard.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';

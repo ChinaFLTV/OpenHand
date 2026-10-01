@@ -302,12 +302,14 @@ class _MachineTerminalViewport extends StatefulWidget {
     required this.controller,
     required this.focusNode,
     required this.padding,
+    this.readOnly = false,
   });
 
   final MachineTerminalSession session;
   final TerminalController controller;
   final FocusNode focusNode;
   final EdgeInsets padding;
+  final bool readOnly;
 
   @override
   State<_MachineTerminalViewport> createState() =>
@@ -361,6 +363,7 @@ class _MachineTerminalViewportState extends State<_MachineTerminalViewport> {
         scrollController: _scrollController,
         focusNode: widget.focusNode,
         autofocus: true,
+        readOnly: widget.readOnly,
         padding: widget.padding,
         theme: _machineTerminalTheme(),
         alwaysShowCursor: true,
@@ -386,13 +389,7 @@ class _MachineTerminalViewportState extends State<_MachineTerminalViewport> {
                 children: [
                   const Icon(Icons.content_copy_rounded, size: 18),
                   kOpenHandHGap10,
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '复制选中内容',
-                      en: 'Copy selection',
-                    ),
-                  ),
+                  Text(MaterialLocalizations.of(context).copyButtonLabel),
                 ],
               ),
             ),
@@ -402,9 +399,7 @@ class _MachineTerminalViewportState extends State<_MachineTerminalViewport> {
                 children: [
                   const Icon(Icons.select_all_rounded, size: 18),
                   kOpenHandHGap10,
-                  Text(
-                    openHandLocalizedText(context, zh: '全选', en: 'Select all'),
-                  ),
+                  Text(MaterialLocalizations.of(context).selectAllButtonLabel),
                 ],
               ),
             ),
@@ -436,11 +431,7 @@ class _MachineTerminalViewportState extends State<_MachineTerminalViewport> {
       text: text,
       logTag: 'home_machine_terminal_panel',
       logAction: '复制终端选中内容',
-      successMessage: openHandLocalizedText(
-        context,
-        zh: '终端选中内容已复制。',
-        en: 'Terminal selection copied.',
-      ),
+      successMessage: AppLocalizations.of(context)!.commonCopiedToClipboard,
     );
     widget.focusNode.requestFocus();
   }

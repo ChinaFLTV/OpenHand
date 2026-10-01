@@ -16,6 +16,18 @@ Future<void> main() async {
   final source = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_maintenance.dart',
   ).readAsString();
+  final viewport = panel.substring(
+    panel.indexOf('class _MachineTerminalViewport'),
+    panel.indexOf('class _MachineTerminalShell'),
+  );
+  final terminalConstants = panel.substring(
+    panel.indexOf('const Color'),
+    panel.indexOf('/// 终端画布表面'),
+  );
+  final terminalTheme = panel.substring(
+    panel.indexOf('TerminalTheme _machineTerminalTheme'),
+    panel.indexOf('Color _terminalStatusColor'),
+  );
   final header = panel.substring(
     panel.indexOf('class _MachineTerminalDialogHeader'),
     panel.indexOf(
@@ -87,10 +99,14 @@ class _MachineTerminalFileManagerDialog extends StatelessWidget {
 }
 $header
 $button
+$terminalConstants
+$terminalTheme
+$viewport
 ${_checks.replaceAll('MaterialApp(', '_SettingsApp(')}
 $_settingsHarness
 $_scheduledChecks
 $_incrementalChecks
+$_containerTerminalChecks
 ''',
   );
 }
@@ -236,9 +252,10 @@ __OH_OPS_end__
 
 void main() {
   scheduledTaskChecks();
+  containerTerminalChecks();
   incrementalChecks();
   setUpAll(() async {
-    for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+    for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
       if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
     }
   });
@@ -1231,7 +1248,7 @@ void main() {
 
   testWidgets('健康字段与诊断结构化展示且宽窄屏无溢出', (tester) async {
     await tester.runAsync(() async {
-      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
         if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
       }
     });
@@ -1839,7 +1856,7 @@ void main() {
       final service = _MaintenanceFixture()..platform = 'Darwin';
       await tester.binding.setSurfaceSize(const Size(1440, 1000));
       await tester.runAsync(() async {
-        for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+        for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
           if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
         }
       });
@@ -2629,7 +2646,7 @@ void main() {
 
   testWidgets('大组元数据按需展开，空报告与权限诊断保持紧凑结构', (tester) async {
     await tester.runAsync(() async {
-      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
         if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
       }
     });
@@ -3570,7 +3587,7 @@ void main() {
 
   testWidgets('树形按钮保持方形，双卡填满列宽，同行卡片等高', (tester) async {
     await tester.runAsync(() async {
-      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS']}.entries) {
+      for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
         if (entry.value != null) await (FontLoader(entry.key)..addFont(File(entry.value!).readAsBytes().then((bytes) => ByteData.sublistView(bytes)))).load();
       }
     });
@@ -5046,6 +5063,190 @@ void incrementalChecks() {
     expect(state._metadata, contains('28.0')); expect(state._metrics, previous);
     expect(state._collectionIssues['实时资源采样'], contains('模拟指标不可用'));
     expect(tester.takeException(), isNull); await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+}
+''';
+
+const _containerTerminalChecks = r'''
+class _ContainerTerminalSession extends Fake implements MachineTerminalSession {
+  @override
+  final String id = '容器测试终端';
+  @override
+  final terminal = Terminal(maxLines: 1000)..resize(80, 24);
+}
+class _ContainerTerminalFixture extends Fake with ChangeNotifier implements MachineTerminalService {
+  final session = _ContainerTerminalSession();
+  final pending = Completer<MachineTerminalCommandResult>();
+  MachineTerminalCommandOutputCallback? output;
+  MachineTerminalUploadCancelCheck? cancelled;
+  final writes = <String>[];
+  final sizes = <(int, int)>[];
+  bool missing = false, exitOnEof = true;
+  bool? startsOnExecute, startsOnInput;
+  Duration? timeout;
+  int commands = 0;
+
+  Future<void> initialize() async {
+    session.terminal.write('\x1b[32m/data # \x1b[0m');
+  }
+  @override
+  MachineTerminalSession? terminalFor(String sessionId, String terminalId) => missing ? null : session;
+  @override
+  Future<MachineTerminalCommandResult> executeCommand({required String sessionId, required String command,
+    String? terminalId, Duration timeout = kMachineTerminalDefaultCommandTimeout, bool startIfNeeded = true,
+    bool recordHistory = true, bool displayOutput = true, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.automatic,
+    MachineTerminalCommandOutputCallback? onOutput, MachineTerminalUploadCancelCheck? isCancelled}) {
+    commands++; startsOnExecute = startIfNeeded; this.timeout = timeout;
+    output = onOutput; cancelled = isCancelled;
+    return pending.future;
+  }
+  @override
+  Future<void> writeInput({required String sessionId, required String data, String? terminalId,
+    bool appendNewline = false, bool startIfNeeded = true}) async {
+    startsOnInput = startIfNeeded; writes.add(data);
+    if (data == '\x04' && exitOnEof) finish();
+  }
+  @override
+  Future<void> resizeTerminal({required String sessionId, String? terminalId, required int columns, required int rows}) async {
+    sizes.add((columns, rows));
+  }
+  void finish({bool failed = false}) {
+    if (pending.isCompleted) return;
+    pending.complete(MachineTerminalCommandResult(terminalId: session.id, command: '容器命令', output: '',
+      status: MachineTerminalStatus.running, durationMs: 1, exitCode: failed ? 1 : 0, error: failed ? '模拟连接失败' : null));
+  }
+  Future<void> release() async {
+    finish();
+    dispose();
+  }
+}
+
+Widget containerTerminalScreen(_ContainerTerminalFixture service, {Locale locale = const Locale('zh'),
+  Brightness brightness = Brightness.light, double scale = 1, GlobalKey? preview}) =>
+  ChangeNotifierProvider<MachineTerminalService>.value(value: service,
+    child: _SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: ThemeData(brightness: brightness, colorSchemeSeed: const Color(0xff647332),
+        fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+      builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
+      home: Scaffold(body: Builder(builder: (context) => TextButton(
+        onPressed: () => showAnimatedDialog<void>(context: context, barrierDismissible: false, dismissOnEscape: false,
+          builder: (_) => RepaintBoundary(key: preview, child: _ContainerInteractiveTerminal(
+            title: 'openhand-redis · 缓存服务', sessionId: '会话', terminalId: service.session.id,
+            command: '容器命令', readyMarker: '__TEST_CONTAINER_READY__', shell: MachineTerminalCommandShell.posix))), child: const Text('打开容器终端'))))));
+
+void containerTerminalChecks() {
+  testWidgets('容器终端六语言明暗主题、窄窗大字号统一工具栏且状态切换保留画布', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final brightness in Brightness.values) {
+        for (final size in [const Size(1200, 900), const Size(420, 480)]) {
+          final fixture = _ContainerTerminalFixture();
+          await tester.runAsync(fixture.initialize);
+          final initialSize = (fixture.session.terminal.viewWidth, fixture.session.terminal.viewHeight);
+          final preview = GlobalKey();
+          final scale = size.width < 500 ? 1.6 : 1.0;
+          final l = await AppLocalizations.delegate.load(locale);
+          await tester.binding.setSurfaceSize(size);
+          await tester.pumpWidget(containerTerminalScreen(fixture, locale: locale, brightness: brightness, scale: scale, preview: preview));
+          await tester.tap(find.text('打开容器终端')); await tester.pump(); await tester.pump(const Duration(milliseconds: 800)); await tester.pumpAndSettle();
+          expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isTrue);
+          fixture.output!('宿主回显'); await tester.pump();
+          expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isTrue);
+          final canvas = tester.state(find.byType(_MachineTerminalViewport));
+          fixture.output!('__TEST_CONTAINER_READY__'); await tester.pumpAndSettle();
+          expect(find.text(l.maintenanceMetricConnected), findsOneWidget);
+          expect(find.text(l.maintenanceContainerTerminal), findsOneWidget);
+          expect(find.textContaining('输入 exit'), findsNothing);
+          expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isFalse);
+          expect(identical(canvas, tester.state(find.byType(_MachineTerminalViewport))), isTrue);
+          final buttons = find.descendant(of: find.byType(_ContainerInteractiveTerminal), matching: find.byType(OutlinedButton));
+          expect(buttons, findsNWidgets(2));
+          expect(tester.getSize(buttons.first).height, _maintenanceControlHeight);
+          expect(tester.getSize(buttons.last), tester.getSize(buttons.first));
+          for (final box in tester.widgetList<DecoratedBox>(find.descendant(of: find.byType(_ContainerInteractiveTerminal), matching: find.byType(DecoratedBox)))) {
+            if (box.decoration is BoxDecoration) {
+              final decoration = box.decoration as BoxDecoration;
+              expect(decoration.gradient, isNull); expect(decoration.boxShadow ?? [], isEmpty);
+            }
+          }
+          if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+            await tester.runAsync(() async {
+              final image = await (preview.currentContext!.findRenderObject()! as RenderRepaintBoundary).toImage(pixelRatio: 1.5);
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File('/tmp/container-terminal-${brightness.name}-${size.width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+            });
+          }
+          await tester.tap(find.byTooltip('${l.maintenanceContainerInterrupt} (Ctrl+C)')); await tester.pump();
+          expect(fixture.writes, ['\x03']); expect(fixture.startsOnInput, isFalse);
+          await tester.tap(find.byTooltip('${l.maintenanceContainerExit} (Ctrl+D)')); await tester.pumpAndSettle();
+          expect(fixture.writes, ['\x03', '\x04']);
+          expect(find.descendant(of: find.byType(_MaintenanceStatus), matching: find.text(l.maintenanceExited)), findsOneWidget);
+          expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isTrue);
+          expect(identical(canvas, tester.state(find.byType(_MachineTerminalViewport))), isTrue);
+          expect(fixture.startsOnExecute, isFalse); expect(fixture.timeout, const Duration(minutes: 10));
+          await tester.tap(find.byTooltip(openHandCloseLabel(tester.element(find.byType(_ContainerInteractiveTerminal)))));
+          await tester.pumpAndSettle(); expect(find.byType(_ContainerInteractiveTerminal), findsNothing);
+          expect(fixture.sizes, [initialSize]); expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox()); await tester.runAsync(fixture.release);
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('连接中可取消，原终端缺失不持续加载，强制离开清理采集回调', (tester) async {
+    for (final mode in ['连接中', '缺失', '移除']) {
+      final fixture = _ContainerTerminalFixture(); await tester.runAsync(fixture.initialize);
+      fixture.missing = mode == '缺失';
+      await tester.binding.setSurfaceSize(const Size(800, 620));
+      await tester.pumpWidget(containerTerminalScreen(fixture));
+      await tester.tap(find.text('打开容器终端')); await tester.pump(); await tester.pump(const Duration(milliseconds: 800)); await tester.pumpAndSettle();
+      if (mode == '缺失') {
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('原终端已关闭，请重新连接。'), findsWidgets);
+        expect(fixture.commands, 0);
+      } else if (mode == '移除') {
+        await tester.pumpWidget(const SizedBox());
+        expect(fixture.cancelled!(), isTrue);
+        fixture.output!('迟到的输出'); fixture.finish(failed: true);
+        await tester.pump(); expect(tester.takeException(), isNull);
+        await tester.runAsync(fixture.release); continue;
+      }
+      await tester.tap(find.byTooltip('关闭')); await tester.pump();
+      if (mode == '连接中') {
+        expect(fixture.cancelled!(), isTrue); expect(fixture.writes, isEmpty);
+        fixture.pending.completeError(const MachineTerminalUploadCancelled());
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(_ContainerInteractiveTerminal), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox()); await tester.runAsync(fixture.release);
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('前台程序忽略退出时保留交互，不重复发送 EOF 或提前关闭', (tester) async {
+    final fixture = _ContainerTerminalFixture(); await tester.runAsync(fixture.initialize);
+    fixture.exitOnEof = false;
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    await tester.pumpWidget(containerTerminalScreen(fixture));
+    await tester.tap(find.text('打开容器终端')); await tester.pump(); await tester.pump(const Duration(milliseconds: 800)); await tester.pumpAndSettle();
+    fixture.output!('__TEST_CONTAINER_READY__'); await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('关闭')); await tester.pump();
+    await tester.tap(find.byTooltip('关闭')); await tester.pump();
+    expect(fixture.writes, ['\x04']); expect(fixture.cancelled!(), isFalse);
+    expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isTrue);
+    await tester.pump(const Duration(seconds: 4)); await tester.pumpAndSettle();
+    expect(find.text('当前程序尚未退出。请先中断程序，再退出终端。'), findsOneWidget);
+    expect(tester.widget<TerminalView>(find.byType(TerminalView)).readOnly, isFalse);
+    await tester.tap(find.byTooltip('中断 (Ctrl+C)')); await tester.pump();
+    fixture.exitOnEof = true;
+    await tester.tap(find.byTooltip('关闭')); await tester.pumpAndSettle();
+    expect(fixture.writes, ['\x04', '\x03', '\x04']);
+    expect(find.byType(_ContainerInteractiveTerminal), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.runAsync(fixture.release);
+    await tester.binding.setSurfaceSize(null);
   });
 }
 ''';

@@ -15520,4 +15520,18 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceServiceMetricsUnavailable =>
       'Certaines mesures des processus de service n’ont pas pu être recueillies. Actualisez pour réessayer.';
+
+  @override
+  String get maintenanceContainerInterrupt => 'Interrompre';
+
+  @override
+  String get maintenanceContainerDisconnecting => 'Fermeture…';
+
+  @override
+  String get maintenanceContainerExitPending =>
+      'Le programme est toujours actif. Interrompez-le avant de quitter le terminal.';
+
+  @override
+  String get maintenanceContainerTerminalFailed =>
+      'Échec de la connexion au terminal';
 }

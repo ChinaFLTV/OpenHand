@@ -1,5 +1,9 @@
 part of '../openhand_home_page.dart';
 
+const _containerTerminalSessionTimeout = Duration(minutes: 10);
+const _containerTerminalExitTimeout = Duration(seconds: 3);
+const _containerTerminalActionWidth = 136.0;
+
 const _containerLogDialogHeightFraction = .9;
 const _containerLogBodyHeightFraction = .7;
 
@@ -269,14 +273,22 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       } else if (action == '终端') {
         await client.verify(entry);
         if (!mounted) return;
+        final readyMarker =
+            '__OH_CONTAINER_READY_${DateTime.now().microsecondsSinceEpoch}__';
         await showAnimatedDialog<void>(
           context: context,
           barrierDismissible: false,
+          dismissOnEscape: false,
           builder: (_) => _ContainerInteractiveTerminal(
             title: entry.name,
             sessionId: widget.sessionId,
             terminalId: widget.terminalId,
-            command: client.execCommand(entry, 'exec /bin/sh', tty: true),
+            command: client.execCommand(
+              entry,
+              "printf '\\033[?7l%s\\r\\033[K\\033[?7h' ${posixShellQuote(readyMarker)}; exec /bin/sh",
+              tty: true,
+            ),
+            readyMarker: readyMarker,
             shell: widget.shell,
           ),
         );
@@ -937,95 +949,150 @@ class _ContainerInteractiveTerminal extends StatefulWidget {
     required this.sessionId,
     required this.terminalId,
     required this.command,
+    required this.readyMarker,
     required this.shell,
   });
-  final String title, sessionId, terminalId, command;
+  final String title, sessionId, terminalId, command, readyMarker;
   final MachineTerminalCommandShell shell;
   @override
   State<_ContainerInteractiveTerminal> createState() =>
       _ContainerInteractiveTerminalState();
 }
 
+enum _ContainerTerminalPhase { connecting, connected, closing, exited, failed }
+
 class _ContainerInteractiveTerminalState
     extends State<_ContainerInteractiveTerminal> {
   final _controller = TerminalController();
+  final _focusNode = FocusNode(debugLabel: '容器终端');
   MachineTerminalSession? _session;
   MachineTerminalService? _service;
-  MachineTerminalSnapshot? _before;
-  bool _active = true, _ready = false;
-  String _status = '正在连接容器终端…';
+  ({int columns, int rows})? _before;
+  Future<void>? _connection;
+  _ContainerTerminalPhase _phase = _ContainerTerminalPhase.connecting;
+  bool _active = true, _cancelled = false, _sending = false;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _connect());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_cancelled) _connection = _connect();
+    });
   }
 
   Future<void> _connect() async {
-    if (!mounted) return;
     final service = context.read<MachineTerminalService>();
     _service = service;
     final session = service.terminalFor(widget.sessionId, widget.terminalId);
-    _session = session;
-    _before = session?.snapshot();
     if (session == null) {
       setState(() {
         _active = false;
-        _status = '原终端已关闭，请重新连接。';
+        _phase = _ContainerTerminalPhase.failed;
+        _error = '原终端已关闭，请重新连接。';
       });
       return;
     }
+    _before = (
+      columns: session.terminal.viewWidth,
+      rows: session.terminal.viewHeight,
+    );
+    setState(() => _session = session);
     try {
       final result = await service.executeCommand(
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         command: widget.command,
         commandShell: widget.shell,
-        timeout: const Duration(minutes: 10),
+        timeout: _containerTerminalSessionTimeout,
+        startIfNeeded: false,
         recordHistory: false,
-        onOutput: (_) {
-          if (mounted && !_ready) {
-            setState(() {
-              _ready = true;
-              _status = '输入 exit 退出容器 Shell；单次连接最长 10 分钟。';
-            });
+        isCancelled: () => _cancelled,
+        onOutput: (output) {
+          // 容器内部握手后才开放输入，宿主回显和空提示符不参与就绪判断。
+          if (mounted &&
+              !_cancelled &&
+              output.contains(widget.readyMarker) &&
+              _phase == _ContainerTerminalPhase.connecting) {
+            setState(() => _phase = _ContainerTerminalPhase.connected);
+            _focusNode.requestFocus();
           }
         },
       );
-      if (mounted) {
-        setState(() {
-          _status = result.succeeded
-              ? '容器终端已退出。'
-              : result.error ?? '容器终端连接结束，请查看终端输出。';
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _phase = result.succeeded
+            ? _ContainerTerminalPhase.exited
+            : _ContainerTerminalPhase.failed;
+        _error = result.succeeded
+            ? null
+            : result.timedOut
+            ? 'timeout'
+            : result.error ?? '容器终端连接结束，请查看终端输出。';
+      });
+    } on MachineTerminalUploadCancelled {
+      if (mounted) setState(() => _phase = _ContainerTerminalPhase.exited);
     } catch (error) {
       if (mounted) {
         setState(() {
-          _status = '$error';
+          _phase = _ContainerTerminalPhase.failed;
+          _error = '$error';
         });
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _active = false;
-          _ready = false;
-        });
-      }
+      _active = false;
     }
   }
 
   Future<void> _send(String data) async {
-    if (!_active || !_ready) return;
+    if (!_active || _cancelled || _sending || _session == null) return;
+    setState(() => _sending = true);
     try {
-      await _service?.writeInput(
+      await _service!.writeInput(
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         data: data,
+        startIfNeeded: false,
       );
+      if (mounted) _focusNode.requestFocus();
     } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _exit({bool closeDialog = true}) async {
+    if (_phase == _ContainerTerminalPhase.closing) return;
+    if (_connection == null) {
+      _cancelled = true;
+      _active = false;
+    }
+    if (!_active) {
+      if (closeDialog) Navigator.pop(context);
+      return;
+    }
+    final connecting = _phase == _ContainerTerminalPhase.connecting;
+    setState(() {
+      _phase = _ContainerTerminalPhase.closing;
+      _error = null;
+    });
+    if (connecting) {
+      _cancelled = true;
+    } else {
+      await _send('\x04');
+    }
+    try {
+      await _connection?.timeout(_containerTerminalExitTimeout);
+      if (mounted && closeDialog && !_active) Navigator.pop(context);
+    } on TimeoutException {
+      // 前台程序可能忽略 EOF；保留会话供用户中断，禁止继续发送控制字符到宿主 Shell。
       if (mounted) {
         setState(() {
-          _status = '$error';
+          _phase = connecting
+              ? _ContainerTerminalPhase.closing
+              : _ContainerTerminalPhase.connected;
+          _error = 'exitPending';
         });
       }
     }
@@ -1033,11 +1100,19 @@ class _ContainerInteractiveTerminalState
 
   @override
   void dispose() {
+    _cancelled = true;
+    _focusNode.dispose();
     _controller.dispose();
     final before = _before;
-    if (before != null) {
+    final service = _service;
+    if (before != null &&
+        service != null &&
+        identical(
+          service.terminalFor(widget.sessionId, widget.terminalId),
+          _session,
+        )) {
       unawaited(
-        _service!
+        service
             .resizeTerminal(
               sessionId: widget.sessionId,
               terminalId: widget.terminalId,
@@ -1053,58 +1128,224 @@ class _ContainerInteractiveTerminalState
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_active,
-    child: buildOpenHandDialog(
-      maxHeight: MediaQuery.sizeOf(context).height * .9,
-      child: SizedBox(
-        width: math.min(1100, MediaQuery.sizeOf(context).width * .9),
-        height: MediaQuery.sizeOf(context).height * .78,
-        child: Column(
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ready = _phase == _ContainerTerminalPhase.connected;
+    final (status, tone) = switch (_phase) {
+      _ContainerTerminalPhase.connecting => (
+        l.maintenanceContainerConnecting,
+        cs.tertiary,
+      ),
+      _ContainerTerminalPhase.connected => (
+        l.maintenanceMetricConnected,
+        OpenHandStatusColors.success,
+      ),
+      _ContainerTerminalPhase.closing => (
+        l.maintenanceContainerDisconnecting,
+        OpenHandStatusColors.warning,
+      ),
+      _ContainerTerminalPhase.exited => (
+        l.maintenanceExited,
+        cs.onSurfaceVariant,
+      ),
+      _ContainerTerminalPhase.failed => (
+        l.maintenanceContainerTerminalFailed,
+        cs.error,
+      ),
+    };
+    final error = switch (_error) {
+      null => '',
+      'timeout' => l.maintenanceCommandTimedOut,
+      'exitPending' => l.maintenanceContainerExitPending,
+      _ => maintenanceLabel(context, _error!),
+    };
+    final buttonStyle = OutlinedButton.styleFrom(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      backgroundColor: cs.surfaceContainerLow,
+      foregroundColor: cs.onSurfaceVariant,
+      side: BorderSide(color: cs.outlineVariant.withValues(alpha: .55)),
+      shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+      textStyle: theme.textTheme.labelMedium?.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      elevation: 0,
+    ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
+    final toolbar = LayoutBuilder(
+      builder: (context, bounds) {
+        final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+        final compact = bounds.maxWidth < 560 * scale;
+        return Row(
           children: [
-            _MachineTerminalDialogHeader(
-              icon: Icons.terminal_rounded,
-              title: '${widget.title} · ${maintenanceLabel(context, '交互终端')}',
-              onClose: () {
-                if (!_active) {
-                  Navigator.pop(context);
-                } else {
-                  _send('\x04');
-                }
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: Text(maintenanceLabel(context, _status))),
-                  TextButton(
-                    onPressed: _ready ? () => _send('\x03') : null,
-                    child: const Text('Ctrl+C'),
-                  ),
-                  TextButton(
-                    onPressed: _ready ? () => _send('\x04') : null,
-                    child: Text('Ctrl+D / ${maintenanceLabel(context, '退出')}'),
-                  ),
-                ],
+            Expanded(
+              child: Tooltip(
+                message: status,
+                child: _MaintenanceStatus(label: status, color: tone),
               ),
             ),
-            Expanded(
-              child: _session == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: TerminalView(
-                        _session!.terminal,
-                        controller: _controller,
-                        readOnly: !_active || !_ready,
-                        autofocus: true,
-                      ),
+            const SizedBox(width: 12),
+            for (final action in [
+              (
+                label: l.maintenanceContainerInterrupt,
+                shortcut: 'Ctrl+C',
+                icon: Icons.stop_circle_outlined,
+                onPressed: () => _send('\x03'),
+              ),
+              (
+                label: l.maintenanceContainerExit,
+                shortcut: 'Ctrl+D',
+                icon: Icons.logout_rounded,
+                onPressed: () => _exit(closeDialog: false),
+              ),
+            ]) ...[
+              const SizedBox(width: 8),
+              Tooltip(
+                message: '${action.label} (${action.shortcut})',
+                child: SizedBox(
+                  width: compact
+                      ? _maintenanceControlHeight
+                      : _containerTerminalActionWidth * scale,
+                  height: _maintenanceControlHeight,
+                  child: OutlinedButton(
+                    onPressed: ready && !_sending ? action.onPressed : null,
+                    style: buttonStyle,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(action.icon, size: 17),
+                        if (!compact) ...[
+                          const SizedBox(width: 7),
+                          Flexible(
+                            child: Text(
+                              action.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-            ),
+                  ),
+                ),
+              ),
+            ],
           ],
+        );
+      },
+    );
+    final terminalPane = AnimatedContainer(
+      duration: openHandMotionSettingsOf(
+        context,
+        OpenHandMotionSettingsScope.dialog,
+      ).entranceDuration,
+      curve: kOpenHandSwitchInCurve,
+      decoration: BoxDecoration(
+        color: _session == null && !_active
+            ? cs.surfaceContainerLow
+            : _machineTerminalBackground,
+        borderRadius: kOpenHandBorderRadius14,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .55)),
+      ),
+      padding: const EdgeInsets.all(1),
+      child: ClipRRect(
+        borderRadius: kOpenHandBorderRadius14,
+        child: _session == null
+            ? Center(
+                child: _active
+                    ? const CircularProgressIndicator(
+                        color: OpenHandConsolePalette.notice,
+                      )
+                    : _MaintenanceEmptyHint(
+                        icon: Icons.link_off_rounded,
+                        message: error.isEmpty ? status : error,
+                      ),
+              )
+            : _MachineTerminalViewport(
+                key: ValueKey(_session),
+                session: _session!,
+                controller: _controller,
+                focusNode: _focusNode,
+                readOnly: !ready,
+                padding: const EdgeInsets.all(14),
+              ),
+      ),
+    );
+    final header = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _MachineTerminalDialogHeader(
+          icon: Icons.terminal_rounded,
+          title: l.maintenanceContainerTerminal,
+          subtitle: widget.title,
+          onClose: () => unawaited(_exit()),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+          child: toolbar,
+        ),
+        _MaintenanceAnimatedSize(
+          child: error.isEmpty || _session == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                  child: Tooltip(
+                    message: error,
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: tone),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            error,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+    final viewport = MediaQuery.sizeOf(context);
+    return PopScope(
+      canPop: !_active,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_exit());
+      },
+      child: buildOpenHandDialog(
+        backgroundColor: cs.surface,
+        insetPadding: kOpenHandToolDialogInsetPadding,
+        width: math.min(kOpenHandDialogWidthPanel, viewport.width * .92),
+        height: math.min(kOpenHandDialogHeightFull, viewport.height * .86),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * .48,
+                ),
+                child: SingleChildScrollView(child: header),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                  child: terminalPane,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

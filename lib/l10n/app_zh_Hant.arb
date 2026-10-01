@@ -9604,5 +9604,9 @@
   "maintenanceHealthNativeTimedLimit": "系統 timed 服務不提供目前選用來源和偏移查詢介面",
   "maintenanceHealthConfiguredOnly": "僅有設定，無法確定目前選用來源、偏移或同步狀態",
   "maintenanceHealthSntpNotes": "最多量測 3 個設定來源；唯讀 SNTP 結果不代表系統目前選用來源，也不會修改時鐘",
-  "maintenanceServiceMetricsUnavailable": "部分服務進程指標未能採集，請重新整理後再試。"
+  "maintenanceServiceMetricsUnavailable": "部分服務進程指標未能採集，請重新整理後再試。",
+  "maintenanceContainerInterrupt": "中斷",
+  "maintenanceContainerDisconnecting": "正在結束…",
+  "maintenanceContainerExitPending": "目前的程式尚未結束。請先中斷程式，再離開終端機。",
+  "maintenanceContainerTerminalFailed": "終端機連線失敗"
 }

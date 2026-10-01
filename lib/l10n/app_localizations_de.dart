@@ -15468,4 +15468,18 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceServiceMetricsUnavailable =>
       'Einige Prozessmesswerte der Dienste konnten nicht erfasst werden. Bitte erneut aktualisieren.';
+
+  @override
+  String get maintenanceContainerInterrupt => 'Unterbrechen';
+
+  @override
+  String get maintenanceContainerDisconnecting => 'Wird beendet…';
+
+  @override
+  String get maintenanceContainerExitPending =>
+      'Das Programm läuft noch. Unterbrechen Sie es, bevor Sie das Terminal verlassen.';
+
+  @override
+  String get maintenanceContainerTerminalFailed =>
+      'Terminalverbindung fehlgeschlagen';
 }

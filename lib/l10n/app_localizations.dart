@@ -27658,6 +27658,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'部分服务进程指标未能采集，请刷新重试。'**
   String get maintenanceServiceMetricsUnavailable;
+
+  /// No description provided for @maintenanceContainerInterrupt.
+  ///
+  /// In zh, this message translates to:
+  /// **'中断'**
+  String get maintenanceContainerInterrupt;
+
+  /// No description provided for @maintenanceContainerDisconnecting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在退出…'**
+  String get maintenanceContainerDisconnecting;
+
+  /// No description provided for @maintenanceContainerExitPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前程序尚未退出。请先中断程序，再退出终端。'**
+  String get maintenanceContainerExitPending;
+
+  /// No description provided for @maintenanceContainerTerminalFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端连接失败'**
+  String get maintenanceContainerTerminalFailed;
 }
 
 class _AppLocalizationsDelegate
