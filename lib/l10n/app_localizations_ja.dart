@@ -15075,7 +15075,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '対象ランタイムに設定されたレジストリから最大 50 件を検索します。プライベートイメージは取得時にレジストリ/イメージ:タグを入力してください。';
+      '対象ランタイムのレジストリを検索します（最大 50 件）。公開件数、アイコン、タグはこのアプリから Docker Hub に問い合わせます。非公開イメージはレジストリ/イメージ:タグを手動で入力できます。';
 
   @override
   String get maintenanceImageStars => 'スター数';
@@ -15178,4 +15178,38 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceOperationTimeout => '操作タイムアウト';
+
+  @override
+  String get maintenanceImageDownloads => 'ダウンロード数';
+
+  @override
+  String get maintenanceImagePullOnly => '取得のみ';
+
+  @override
+  String get maintenanceImageSelectTag => 'タグを選択';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      '一部の公開レジストリ情報を取得できません。未取得の件数は — で表示されます。タグの選択とイメージの取得は引き続き利用できます。';
+
+  @override
+  String get maintenanceImageTagHelp =>
+      '一覧からバージョンを選択するか、タグを入力してください。検索でバージョンを絞り込めます。';
+
+  @override
+  String get maintenanceImageTagsUnavailable =>
+      'タグ一覧を取得できません。必要なタグを手動で入力してください。';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      '英数字、アンダースコア、ピリオド、ハイフンを 1～128 文字で入力してください。先頭にピリオドやハイフンは使えません。';
+
+  @override
+  String get maintenanceImageTagRetry => '再読み込み';
+
+  @override
+  String get maintenanceImageTagsMore => 'タグをさらに読み込む';
+
+  @override
+  String get maintenanceImageTagSearch => 'タグを検索';
 }

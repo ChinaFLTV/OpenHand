@@ -9644,7 +9644,7 @@
   "maintenanceImageTag": "Tag",
   "maintenanceImageQuery": "Image-Suchbegriff",
   "maintenanceImageSearch": "Images suchen",
-  "maintenanceImageSearchHelp": "Durchsucht die Registry der Ziel-Laufzeit und zeigt bis zu 50 Ergebnisse. Für private Images beim Herunterladen die vollständige Referenz Registry/Image:Tag eingeben.",
+  "maintenanceImageSearchHelp": "Suchen Sie in den Registrierungen der Ziel-Laufzeit (bis zu 50 Ergebnisse). Die App lädt öffentliche Zähler, Symbole und Tags von Docker Hub. Private Images können als Registrierung/Image:Tag eingegeben werden.",
   "maintenanceImageStars": "Sterne",
   "maintenanceImageOfficial": "Offiziell",
   "maintenanceImageReference": "Image-Referenz",
@@ -9676,5 +9676,15 @@
   "maintenanceResourceParameters": "Parameter",
   "maintenanceRestartUnlessStopped": "Neustart, sofern nicht manuell gestoppt",
   "maintenancePortAutomatic": "Leer lassen für automatische Zuweisung",
-  "maintenanceOperationTimeout": "Zeitlimit für den Vorgang"
+  "maintenanceOperationTimeout": "Zeitlimit für den Vorgang",
+  "maintenanceImageDownloads": "Downloads",
+  "maintenanceImagePullOnly": "Nur herunterladen",
+  "maintenanceImageSelectTag": "Tag auswählen",
+  "maintenanceImageMetadataUnavailable": "Einige öffentliche Registrierungsdaten sind nicht verfügbar. Fehlende Zähler zeigen —; Tag-Auswahl und Download bleiben verfügbar.",
+  "maintenanceImageTagHelp": "Wählen Sie eine Version oder geben Sie einen Tag ein. Die Suche filtert weitere Versionen.",
+  "maintenanceImageTagsUnavailable": "Tags sind nicht verfügbar. Geben Sie den gewünschten Tag manuell ein.",
+  "maintenanceImageTagInvalid": "Verwenden Sie 1–128 Buchstaben, Ziffern, Unterstriche, Punkte oder Bindestriche. Nicht mit Punkt oder Bindestrich beginnen.",
+  "maintenanceImageTagRetry": "Neu laden",
+  "maintenanceImageTagsMore": "Weitere Tags laden",
+  "maintenanceImageTagSearch": "Tags suchen"
 }

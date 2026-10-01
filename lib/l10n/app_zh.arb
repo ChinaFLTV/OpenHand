@@ -10796,7 +10796,7 @@
   "maintenanceImageTag": "标签",
   "maintenanceImageQuery": "镜像关键词",
   "maintenanceImageSearch": "搜索镜像",
-  "maintenanceImageSearchHelp": "搜索目标运行时配置的镜像仓库，最多显示 50 条结果。私有镜像可在下载时输入完整的仓库/镜像:标签。",
+  "maintenanceImageSearchHelp": "搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。",
   "maintenanceImageStars": "星标数",
   "maintenanceImageOfficial": "官方镜像",
   "maintenanceImageReference": "镜像引用",
@@ -10828,5 +10828,15 @@
   "maintenanceResourceParameters": "参数",
   "maintenanceRestartUnlessStopped": "除非手动停止，否则重启",
   "maintenancePortAutomatic": "留空自动分配",
-  "maintenanceOperationTimeout": "操作超时"
+  "maintenanceOperationTimeout": "操作超时",
+  "maintenanceImageDownloads": "下载数",
+  "maintenanceImagePullOnly": "仅拉取",
+  "maintenanceImageSelectTag": "选择标签",
+  "maintenanceImageMetadataUnavailable": "部分公开仓库信息暂不可用；缺失统计显示为 —，仍可选择标签并拉取。",
+  "maintenanceImageTagHelp": "从列表选择版本，或手动输入标签。点击搜索可筛选更多版本。",
+  "maintenanceImageTagsUnavailable": "暂时无法列出标签，请手动输入所需标签。",
+  "maintenanceImageTagInvalid": "标签须为 1–128 个字母、数字、下划线、点或连字符，且不能以点或连字符开头。",
+  "maintenanceImageTagRetry": "重新加载",
+  "maintenanceImageTagsMore": "加载更多标签",
+  "maintenanceImageTagSearch": "搜索标签"
 }

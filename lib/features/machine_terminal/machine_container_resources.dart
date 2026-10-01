@@ -36,6 +36,114 @@ class MachineContainerResource {
       : '$name:$tag';
 }
 
+/// 统一运行时与公开仓库的字段，保留“未知”和真实零值的区别。
+class MachineContainerImageSearchResult {
+  const MachineContainerImageSearchResult({
+    required this.name,
+    this.description = '',
+    this.stars,
+    this.pulls,
+    this.official,
+    this.iconUrl,
+    this.hubRepository,
+  });
+
+  factory MachineContainerImageSearchResult.fromJson(
+    Map<String, dynamic> row, {
+    bool allowUnqualifiedHub = true,
+  }) {
+    final name =
+        '${row['Name'] ?? row['name'] ?? row['repo_name'] ?? row['slug'] ?? ''}'
+            .trim();
+    int? count(Object? value) {
+      final number = int.tryParse('$value');
+      return number != null && number >= 0 ? number : null;
+    }
+
+    final flag = row['IsOfficial'] ?? row['Official'] ?? row['is_official'];
+    final official = switch ('$flag'.trim().toLowerCase()) {
+      'true' || '1' || '[ok]' || '*' => true,
+      'false' || '0' || '' => false,
+      _ => null,
+    };
+    final logo = row['logo_url'] ?? row['Icon'] ?? row['icon_url'];
+    final icon = Uri.tryParse(
+      '${logo is Map ? logo['small'] ?? logo['large'] : logo ?? ''}',
+    );
+    final index = '${row['Index'] ?? row['Registry'] ?? ''}';
+    final qualified =
+        name.contains('/') &&
+        (name.split('/').first.contains('.') ||
+            name.split('/').first.contains(':'));
+    return MachineContainerImageSearchResult(
+      name: name,
+      description:
+          '${row['Description'] ?? row['description'] ?? row['short_description'] ?? ''}',
+      stars: count(
+        row['StarCount'] ?? row['Stars'] ?? row['star_count'] ?? row['stars'],
+      ),
+      pulls: count(row['PullCount'] ?? row['pull_count']),
+      official: official,
+      iconUrl:
+          icon != null &&
+              icon.scheme == 'https' &&
+              icon.host.isNotEmpty &&
+              icon.userInfo.isEmpty
+          ? icon.toString()
+          : null,
+      hubRepository: machineDockerHubRepository(
+        !qualified && index.isNotEmpty ? '$index/$name' : name,
+        allowUnqualified: allowUnqualifiedHub,
+      ),
+    );
+  }
+
+  final String name, description;
+  final int? stars, pulls;
+  final bool? official;
+  final String? iconUrl, hubRepository;
+
+  MachineContainerImageSearchResult withMetadata(
+    MachineContainerImageSearchResult metadata,
+  ) => MachineContainerImageSearchResult(
+    name: name,
+    description: description,
+    stars: metadata.stars ?? stars,
+    pulls: metadata.pulls ?? pulls,
+    official: metadata.official ?? official,
+    iconUrl: metadata.iconUrl ?? iconUrl,
+    hubRepository: hubRepository,
+  );
+}
+
+String? machineDockerHubRepository(
+  String name, {
+  bool allowUnqualified = true,
+}) {
+  var reference = name;
+  const hosts = ['docker.io/', 'index.docker.io/', 'registry-1.docker.io/'];
+  final host = hosts.where(reference.startsWith).firstOrNull;
+  if (host != null) {
+    reference = reference.substring(host.length);
+  } else if (!allowUnqualified) {
+    return null;
+  }
+  final parts = reference.split('/');
+  if (parts.length == 1) parts.insert(0, 'library');
+  if (parts.length != 2 ||
+      parts.any(
+        (part) => !RegExp(r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$').hasMatch(part),
+      ) ||
+      parts.first.contains('.') ||
+      parts.first == 'localhost') {
+    return null;
+  }
+  return parts.join('/');
+}
+
+bool machineContainerValidImageTag(String tag) =>
+    RegExp(r'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$').hasMatch(tag);
+
 List<Map<String, dynamic>> _containerResourceObjects(String text) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) return [];
@@ -176,7 +284,9 @@ extension MachineContainerResources on MachineContainerClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> searchImages(String query) async {
+  Future<List<MachineContainerImageSearchResult>> searchImages(
+    String query,
+  ) async {
     if (!supportsImageSearch) {
       throw const MachineContainerConfigException('resourceUnsupported');
     }
@@ -188,16 +298,25 @@ extension MachineContainerResources on MachineContainerClient {
       throw const MachineContainerConfigException('form', '搜索');
     }
     return _containerResourceObjects(
-      await execute([
-        'search',
-        '--limit',
-        '$machineContainerSearchLimit',
-        '--no-trunc',
-        '--format',
-        '{{json .}}',
-        term,
-      ]),
-    ).take(machineContainerSearchLimit).toList();
+          await execute([
+            'search',
+            '--limit',
+            '$machineContainerSearchLimit',
+            '--no-trunc',
+            '--format',
+            '{{json .}}',
+            term,
+          ]),
+        )
+        .take(machineContainerSearchLimit)
+        .map(
+          (row) => MachineContainerImageSearchResult.fromJson(
+            row,
+            allowUnqualifiedHub: runtime == MachineContainerRuntime.docker,
+          ),
+        )
+        .where((row) => row.name.isNotEmpty)
+        .toList();
   }
 
   List<String> pullArguments(String image) => [

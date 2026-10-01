@@ -15602,7 +15602,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Durchsucht die Registry der Ziel-Laufzeit und zeigt bis zu 50 Ergebnisse. Für private Images beim Herunterladen die vollständige Referenz Registry/Image:Tag eingeben.';
+      'Suchen Sie in den Registrierungen der Ziel-Laufzeit (bis zu 50 Ergebnisse). Die App lädt öffentliche Zähler, Symbole und Tags von Docker Hub. Private Images können als Registrierung/Image:Tag eingegeben werden.';
 
   @override
   String get maintenanceImageStars => 'Sterne';
@@ -15708,4 +15708,38 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceOperationTimeout => 'Zeitlimit für den Vorgang';
+
+  @override
+  String get maintenanceImageDownloads => 'Downloads';
+
+  @override
+  String get maintenanceImagePullOnly => 'Nur herunterladen';
+
+  @override
+  String get maintenanceImageSelectTag => 'Tag auswählen';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      'Einige öffentliche Registrierungsdaten sind nicht verfügbar. Fehlende Zähler zeigen —; Tag-Auswahl und Download bleiben verfügbar.';
+
+  @override
+  String get maintenanceImageTagHelp =>
+      'Wählen Sie eine Version oder geben Sie einen Tag ein. Die Suche filtert weitere Versionen.';
+
+  @override
+  String get maintenanceImageTagsUnavailable =>
+      'Tags sind nicht verfügbar. Geben Sie den gewünschten Tag manuell ein.';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      'Verwenden Sie 1–128 Buchstaben, Ziffern, Unterstriche, Punkte oder Bindestriche. Nicht mit Punkt oder Bindestrich beginnen.';
+
+  @override
+  String get maintenanceImageTagRetry => 'Neu laden';
+
+  @override
+  String get maintenanceImageTagsMore => 'Weitere Tags laden';
+
+  @override
+  String get maintenanceImageTagSearch => 'Tags suchen';
 }

@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:openhand/features/machine_terminal/machine_containers.dart';
+import 'package:openhand/features/machine_terminal/machine_image_registry.dart';
 
 void check(bool value, String message) {
   if (!value) throw StateError(message);
 }
 
 Future<void> main() async {
+  await checkRegistry();
   final calls = <String>[];
   var usageFails = false, cancel = false;
   final client = MachineContainerClient(
@@ -273,4 +275,178 @@ Future<void> main() async {
     stdout.writeln('本机镜像列表、数据卷元数据与容量验证通过，未执行下载或任何变更。');
   }
   stdout.writeln('镜像、数据卷、分批更新、取消、搜索限制、创建参数、转义及兼容性检查通过。');
+}
+
+Future<void> checkRegistry() async {
+  for (final flag in [true, 1, '*', '[OK]', 'true', 'TRUE']) {
+    check(
+      MachineContainerImageSearchResult.fromJson({
+            'Name': 'nginx',
+            'IsOfficial': flag,
+          }).official ==
+          true,
+      '官方镜像标识解析失败：$flag',
+    );
+  }
+  for (final flag in [false, 0, '', 'false']) {
+    check(
+      MachineContainerImageSearchResult.fromJson({
+            'Name': 'user/app',
+            'Official': flag,
+          }).official ==
+          false,
+      '非官方镜像被标为未知或官方',
+    );
+  }
+  final unknown = MachineContainerImageSearchResult.fromJson({
+    'Name': 'user/app',
+    'StarCount': '0',
+  });
+  check(
+    unknown.official == null && unknown.pulls == null && unknown.stars == 0,
+    '未知统计被伪造为零或非官方',
+  );
+  check(
+    MachineContainerImageSearchResult.fromJson({
+          'Name': 'docker.io/library/nginx',
+          'Stars': 3,
+          'Official': '[OK]',
+        }, allowUnqualifiedHub: false).hubRepository ==
+        'library/nginx',
+    'Podman 仓库名称未规范化',
+  );
+  for (final name in [
+    'quay.io/user/app',
+    'registry.local:5000/nginx',
+    'localhost/nginx',
+  ]) {
+    check(
+      MachineContainerImageSearchResult.fromJson({
+            'Name': name,
+          }).hubRepository ==
+          null,
+      '其他仓库被错误映射到 Docker Hub',
+    );
+  }
+  check(
+    MachineContainerImageSearchResult.fromJson({
+          'Name': 'user/app',
+          'Index': 'quay.io',
+        }, allowUnqualifiedHub: false).hubRepository ==
+        null,
+    '忽略了运行时仓库索引',
+  );
+  for (final tag in ['stable', '1.28-alpine', 'v1_2.0', 'UPPER']) {
+    check(machineContainerValidImageTag(tag), '有效标签被拒绝');
+  }
+  for (final tag in ['', '-v1', '.v1', 'v 1', 'v1;run', 'a' * 129]) {
+    check(!machineContainerValidImageTag(tag), '无效标签被接受');
+  }
+  final requests = <Uri>[];
+  final registry = MachineImageRegistry(
+    read: (uri) async {
+      requests.add(uri);
+      if (uri.path.endsWith('/tags')) {
+        return {
+          'results': [
+            {'name': 'stable'},
+            {'name': 'stable'},
+            {'name': '1.28-alpine'},
+            {'name': 'invalid;tag'},
+          ],
+          'next': 'https://untrusted.example/path',
+        };
+      }
+      if (uri.path.contains('/catalog/')) {
+        return {
+          'results': [
+            {
+              'name': '与仓库不同的标题',
+              'slug': 'nginx',
+              'logo_url': {'small': 'https://cdn.example/nginx.png'},
+            },
+          ],
+        };
+      }
+      return {
+        'results': [
+          {
+            'repo_name': 'nginx',
+            'star_count': 21396,
+            'pull_count': 13413760258,
+            'is_official': true,
+          },
+        ],
+      };
+    },
+  );
+  final metadata = await registry.searchMetadata('nginx');
+  final logos = await registry.searchMetadata('nginx', logos: true);
+  final row =
+      MachineContainerImageSearchResult.fromJson({
+            'Name': 'nginx',
+            'Description': '运行时介绍',
+            'StarCount': 1,
+          })
+          .withMetadata(metadata['library/nginx']!)
+          .withMetadata(logos['library/nginx']!);
+  check(
+    row.stars == 21396 &&
+        row.pulls == 13413760258 &&
+        row.official == true &&
+        row.description == '运行时介绍' &&
+        row.iconUrl == 'https://cdn.example/nginx.png',
+    '异步图标覆盖了统计或官方标识',
+  );
+  final page = await registry.tags('library/nginx', filter: 'alpine', page: 2);
+  check(
+    page.tags.join(',') == 'stable,1.28-alpine' && page.hasMore,
+    '标签分页未去重或验证',
+  );
+  check(
+    requests.last.host == 'hub.docker.com' &&
+        requests.last.queryParameters['name'] == 'alpine' &&
+        requests.last.queryParameters['page'] == '2',
+    '标签筛选或分页参数错误',
+  );
+  check(
+    !(await registry.tags(
+      'library/nginx',
+      page: machineImageTagPageLimit,
+    )).hasMore,
+    '标签分页超过上限',
+  );
+  final count = requests.length;
+  for (final repository in ['quay.io/user/app', '../nginx', 'nginx']) {
+    try {
+      await registry.tags(repository);
+      throw StateError('无效仓库未被拒绝');
+    } on FormatException {
+      check(requests.length == count, '无效仓库触发了网络请求');
+    }
+  }
+  check(requests.length == count, '无效仓库触发了网络请求');
+  registry.dispose();
+  try {
+    await registry.searchMetadata('nginx');
+    throw StateError('关闭后仍允许访问仓库');
+  } on StateError catch (error) {
+    check('$error'.contains('已关闭'), '仓库关闭状态错误');
+  }
+  if (Platform.environment['OPENHAND_VERIFY_IMAGE_REGISTRY'] == '1') {
+    final live = MachineImageRegistry();
+    try {
+      final metadata = await live.searchMetadata('nginx');
+      final tags = await live.tags('library/nginx', filter: 'stable');
+      check(
+        metadata['library/nginx']?.official == true &&
+            (metadata['library/nginx']?.pulls ?? 0) > 0 &&
+            tags.tags.isNotEmpty,
+        'Docker Hub 只读接口验证失败',
+      );
+      stdout.writeln('Docker Hub 官方标识、精确下载数与标签只读验证通过。');
+    } finally {
+      live.dispose();
+    }
+  }
 }

@@ -9644,7 +9644,7 @@
   "maintenanceImageTag": "タグ",
   "maintenanceImageQuery": "イメージのキーワード",
   "maintenanceImageSearch": "イメージを検索",
-  "maintenanceImageSearchHelp": "対象ランタイムに設定されたレジストリから最大 50 件を検索します。プライベートイメージは取得時にレジストリ/イメージ:タグを入力してください。",
+  "maintenanceImageSearchHelp": "対象ランタイムのレジストリを検索します（最大 50 件）。公開件数、アイコン、タグはこのアプリから Docker Hub に問い合わせます。非公開イメージはレジストリ/イメージ:タグを手動で入力できます。",
   "maintenanceImageStars": "スター数",
   "maintenanceImageOfficial": "公式",
   "maintenanceImageReference": "イメージ参照",
@@ -9676,5 +9676,15 @@
   "maintenanceResourceParameters": "パラメーター",
   "maintenanceRestartUnlessStopped": "手動停止以外は再起動",
   "maintenancePortAutomatic": "空欄で自動割り当て",
-  "maintenanceOperationTimeout": "操作タイムアウト"
+  "maintenanceOperationTimeout": "操作タイムアウト",
+  "maintenanceImageDownloads": "ダウンロード数",
+  "maintenanceImagePullOnly": "取得のみ",
+  "maintenanceImageSelectTag": "タグを選択",
+  "maintenanceImageMetadataUnavailable": "一部の公開レジストリ情報を取得できません。未取得の件数は — で表示されます。タグの選択とイメージの取得は引き続き利用できます。",
+  "maintenanceImageTagHelp": "一覧からバージョンを選択するか、タグを入力してください。検索でバージョンを絞り込めます。",
+  "maintenanceImageTagsUnavailable": "タグ一覧を取得できません。必要なタグを手動で入力してください。",
+  "maintenanceImageTagInvalid": "英数字、アンダースコア、ピリオド、ハイフンを 1～128 文字で入力してください。先頭にピリオドやハイフンは使えません。",
+  "maintenanceImageTagRetry": "再読み込み",
+  "maintenanceImageTagsMore": "タグをさらに読み込む",
+  "maintenanceImageTagSearch": "タグを検索"
 }

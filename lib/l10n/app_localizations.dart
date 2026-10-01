@@ -27896,7 +27896,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceImageSearchHelp.
   ///
   /// In zh, this message translates to:
-  /// **'搜索目标运行时配置的镜像仓库，最多显示 50 条结果。私有镜像可在下载时输入完整的仓库/镜像:标签。'**
+  /// **'搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。'**
   String get maintenanceImageSearchHelp;
 
   /// No description provided for @maintenanceImageStars.
@@ -28090,6 +28090,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'操作超时'**
   String get maintenanceOperationTimeout;
+
+  /// No description provided for @maintenanceImageDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载数'**
+  String get maintenanceImageDownloads;
+
+  /// No description provided for @maintenanceImagePullOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅拉取'**
+  String get maintenanceImagePullOnly;
+
+  /// No description provided for @maintenanceImageSelectTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择标签'**
+  String get maintenanceImageSelectTag;
+
+  /// No description provided for @maintenanceImageMetadataUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分公开仓库信息暂不可用；缺失统计显示为 —，仍可选择标签并拉取。'**
+  String get maintenanceImageMetadataUnavailable;
+
+  /// No description provided for @maintenanceImageTagHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'从列表选择版本，或手动输入标签。点击搜索可筛选更多版本。'**
+  String get maintenanceImageTagHelp;
+
+  /// No description provided for @maintenanceImageTagsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法列出标签，请手动输入所需标签。'**
+  String get maintenanceImageTagsUnavailable;
+
+  /// No description provided for @maintenanceImageTagInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签须为 1–128 个字母、数字、下划线、点或连字符，且不能以点或连字符开头。'**
+  String get maintenanceImageTagInvalid;
+
+  /// No description provided for @maintenanceImageTagRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载'**
+  String get maintenanceImageTagRetry;
+
+  /// No description provided for @maintenanceImageTagsMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多标签'**
+  String get maintenanceImageTagsMore;
+
+  /// No description provided for @maintenanceImageTagSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索标签'**
+  String get maintenanceImageTagSearch;
 }
 
 class _AppLocalizationsDelegate

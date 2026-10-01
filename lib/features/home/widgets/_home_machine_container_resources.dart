@@ -144,6 +144,7 @@ class _MachineContainerResourcesState
     });
     widget.onOverlayChanged(true);
     var changed = false;
+    var containerCreated = false;
     try {
       if (search) {
         final result = await showAnimatedDialog<bool>(
@@ -152,7 +153,9 @@ class _MachineContainerResourcesState
             client: client,
             operate: operate,
             timeout: widget.timeout,
+            registryFactory: MachineImageRegistry.new,
             onChanged: () => changed = true,
+            onCreated: () => containerCreated = true,
           ),
         );
         changed = changed || result == true;
@@ -194,7 +197,8 @@ class _MachineContainerResourcesState
       }
     }
     if (mounted && changed) {
-      if (action == _ContainerResourceAction.createContainer) {
+      if (action == _ContainerResourceAction.createContainer ||
+          containerCreated) {
         widget.onCreated();
       } else {
         await refresh();
@@ -416,15 +420,112 @@ class _MachineContainerResourcesState
   }
 }
 
+class _ContainerRegistrySearchField extends StatelessWidget {
+  const _ContainerRegistrySearchField({
+    required this.controller,
+    required this.hint,
+    required this.onSearch,
+    required this.searchLabel,
+    this.enabled = true,
+    this.onChanged,
+  });
+  final TextEditingController controller;
+  final String hint;
+  final VoidCallback? onSearch;
+  final String searchLabel;
+  final bool enabled;
+  final ValueChanged<String>? onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final searchHeight = math.max(
+      40.0,
+      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
+    );
+    final searchBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
+    );
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      textInputAction: TextInputAction.search,
+      textAlignVertical: TextAlignVertical.center,
+      style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13, height: 1.4),
+      onSubmitted: (_) => onSearch?.call(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: cs.surfaceContainerLowest,
+        hoverColor: Colors.transparent,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        constraints: BoxConstraints.tightFor(height: searchHeight),
+        border: searchBorder,
+        enabledBorder: searchBorder,
+        disabledBorder: searchBorder.copyWith(
+          borderSide: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: .4),
+          ),
+        ),
+        focusedBorder: searchBorder.copyWith(
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
+        errorBorder: searchBorder.copyWith(
+          borderSide: BorderSide(color: cs.error),
+        ),
+        focusedErrorBorder: searchBorder.copyWith(
+          borderSide: BorderSide(color: cs.error, width: 1.5),
+        ),
+        suffixIconConstraints: BoxConstraints.tightFor(
+          width: searchHeight,
+          height: searchHeight,
+        ),
+        suffixIcon: IconButton(
+          onPressed: enabled ? onSearch : null,
+          tooltip: searchLabel,
+          style:
+              IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                foregroundColor: cs.onSurfaceVariant,
+                disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.standard,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ).copyWith(
+                overlayColor: WidgetStateProperty.resolveWith(
+                  (states) =>
+                      states.contains(WidgetState.pressed) ||
+                          states.contains(WidgetState.focused)
+                      ? cs.primary.withValues(alpha: .1)
+                      : Colors.transparent,
+                ),
+              ),
+          icon: const Icon(Icons.search_rounded, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
 class _ContainerRegistryDialog extends StatefulWidget {
   const _ContainerRegistryDialog({
     required this.client,
     this.onChanged,
+    this.onCreated,
+    required this.registryFactory,
     required this.timeout,
     this.operate,
   });
   final MachineContainerClient client;
-  final VoidCallback? onChanged;
+  final VoidCallback? onChanged, onCreated;
+  final MachineImageRegistry Function() registryFactory;
   final Duration timeout;
   final MachineContainerOperationRunner? operate;
   @override
@@ -434,29 +535,43 @@ class _ContainerRegistryDialog extends StatefulWidget {
 
 class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
   final _query = TextEditingController();
-  List<Map<String, dynamic>> _results = [];
+  List<MachineContainerImageSearchResult> _results = [];
+  late final _registry = widget.registryFactory();
+  final _tags = <String, String>{};
+  int _searchRevision = 0;
+  bool _metadataFailed = false;
   String _error = '';
   bool _busy = false, _searched = false, _searching = false, _changed = false;
   @override
   void dispose() {
+    _registry.dispose();
     _query.dispose();
     super.dispose();
   }
 
   Future<void> _search() async {
     if (_busy) return;
+    final revision = ++_searchRevision;
+    _registry.cancelPending();
+    final query = _query.text.trim();
     setState(() {
+      _metadataFailed = false;
       _busy = true;
       _searching = true;
       _error = '';
     });
     try {
-      final rows = await widget.client.searchImages(_query.text);
+      final rows = await widget.client.searchImages(query);
       if (mounted) {
         setState(() {
           _results = rows;
           _searched = true;
+          _tags.removeWhere((name, _) => !rows.any((row) => row.name == name));
         });
+        if (rows.any((row) => row.hubRepository != null)) {
+          unawaited(_enrich(query, revision));
+          unawaited(_enrich(query, revision, logos: true));
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -474,7 +589,52 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
     }
   }
 
-  Future<void> _pull(String image) async {
+  Future<void> _enrich(String query, int revision, {bool logos = false}) async {
+    try {
+      final metadata = await _registry.searchMetadata(query, logos: logos);
+      if (!mounted || revision != _searchRevision) return;
+      setState(
+        () => _results = [
+          for (final row in _results)
+            if (metadata[row.hubRepository] case final entry?)
+              row.withMetadata(entry)
+            else
+              row,
+        ],
+      );
+    } on Exception {
+      if (mounted && revision == _searchRevision) {
+        setState(() => _metadataFailed = true);
+      }
+    }
+  }
+
+  String _reference(MachineContainerImageSearchResult row) =>
+      '${row.name}:${_tags[row.name] ?? 'latest'}';
+
+  Future<void> _selectTag(MachineContainerImageSearchResult row) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final tag = await showAnimatedDialog<String>(
+      context: context,
+      builder: (_) => _ContainerImageTagDialog(
+        image: row,
+        selected: _tags[row.name] ?? 'latest',
+        registryFactory: widget.registryFactory,
+      ),
+    );
+    if (mounted) {
+      setState(() {
+        if (tag != null) _tags[row.name] = tag;
+        _busy = false;
+      });
+    }
+  }
+
+  Future<void> _openImage(
+    String image, {
+    _ContainerResourceAction action = _ContainerResourceAction.pull,
+  }) async {
     if (_busy) return;
     setState(() => _busy = true);
     final changed = await showAnimatedDialog<bool>(
@@ -482,13 +642,18 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
       barrierDismissible: false,
       builder: (_) => _ContainerResourceFormDialog(
         client: widget.client,
-        action: _ContainerResourceAction.pull,
+        action: action,
         image: image,
         operate: widget.operate,
         timeout: widget.timeout,
       ),
     );
-    if (changed == true) widget.onChanged?.call();
+    if (changed == true) {
+      widget.onChanged?.call();
+      if (action == _ContainerResourceAction.createContainer) {
+        widget.onCreated?.call();
+      }
+    }
     if (mounted) {
       setState(() {
         _busy = false;
@@ -502,18 +667,12 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final searchHeight = math.max(
-      40.0,
-      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
-    );
-    final searchBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
-    );
     return PopScope(
       canPop: !_busy,
       child: buildOpenHandDialog(
         maxHeight: MediaQuery.sizeOf(context).height * .9,
+        backgroundColor: cs.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
         child: SizedBox(
           width: 920,
           child: Column(
@@ -534,85 +693,21 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                         l.maintenanceImageSearchHelp,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      TextField(
+                      _ContainerRegistrySearchField(
                         controller: _query,
                         enabled: !_busy,
-                        textInputAction: TextInputAction.search,
-                        textAlignVertical: TextAlignVertical.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                        onSubmitted: (_) => _search(),
-                        decoration: InputDecoration(
-                          hintText: l.maintenanceImageQuery,
-                          isDense: true,
-                          filled: true,
-                          fillColor: cs.surfaceContainerLowest,
-                          hoverColor: Colors.transparent,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                          ),
-                          constraints: BoxConstraints.tightFor(
-                            height: searchHeight,
-                          ),
-                          border: searchBorder,
-                          enabledBorder: searchBorder,
-                          disabledBorder: searchBorder.copyWith(
-                            borderSide: BorderSide(
-                              color: cs.outlineVariant.withValues(alpha: .4),
-                            ),
-                          ),
-                          focusedBorder: searchBorder.copyWith(
-                            borderSide: BorderSide(
-                              color: cs.primary,
-                              width: 1.5,
-                            ),
-                          ),
-                          errorBorder: searchBorder.copyWith(
-                            borderSide: BorderSide(color: cs.error),
-                          ),
-                          focusedErrorBorder: searchBorder.copyWith(
-                            borderSide: BorderSide(color: cs.error, width: 1.5),
-                          ),
-                          suffixIconConstraints: BoxConstraints.tightFor(
-                            width: searchHeight,
-                            height: searchHeight,
-                          ),
-                          suffixIcon: IconButton(
-                            onPressed: _busy ? null : _search,
-                            tooltip: l.maintenanceImageSearch,
-                            style:
-                                IconButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  disabledBackgroundColor: Colors.transparent,
-                                  foregroundColor: cs.onSurfaceVariant,
-                                  disabledForegroundColor: cs.onSurface
-                                      .withValues(alpha: .38),
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.standard,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ).copyWith(
-                                  overlayColor: WidgetStateProperty.resolveWith(
-                                    (states) =>
-                                        states.contains(WidgetState.pressed) ||
-                                            states.contains(WidgetState.focused)
-                                        ? cs.primary.withValues(alpha: .1)
-                                        : Colors.transparent,
-                                  ),
-                                ),
-                            icon: const Icon(Icons.search_rounded, size: 18),
-                          ),
-                        ),
+                        hint: l.maintenanceImageQuery,
+                        searchLabel: l.maintenanceImageSearch,
+                        onSearch: _search,
                       ),
                       if (_searching)
                         const LinearProgressIndicator(minHeight: 2),
                       if (_error.isNotEmpty)
                         _MaintenanceNotice(message: _error, error: true),
+                      if (_metadataFailed)
+                        _MaintenanceNotice(
+                          message: l.maintenanceImageMetadataUnavailable,
+                        ),
                       if (_searched && _results.isEmpty)
                         _MaintenanceEmptyHint(
                           message: maintenanceLabel(context, '当前范围没有记录'),
@@ -622,34 +717,150 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                           headers: [
                             '名称',
                             '描述',
+                            l.maintenanceImageTag,
                             l.maintenanceImageStars,
+                            l.maintenanceImageDownloads,
                             l.maintenanceImageOfficial,
                           ],
                           maxBodyHeight: 400,
+                          minimumColumnWidths: {
+                            2:
+                                160 *
+                                MediaQuery.textScalerOf(context).scale(13) /
+                                13,
+                          },
                           rows: [
                             for (final row in _results)
                               OpenHandOperationalRankRow(
                                 value: 0,
                                 data: row,
-                                rowKey: row['Name'] ?? row['name'],
+                                rowKey: row.name,
                                 cells: [
-                                  '${row['Name'] ?? row['name'] ?? ''}',
-                                  '${row['Description'] ?? row['description'] ?? ''}',
-                                  '${row['StarCount'] ?? row['Stars'] ?? row['stars'] ?? '—'}',
-                                  row['IsOfficial'] == true ||
-                                          row['IsOfficial'] == '[OK]' ||
-                                          row['Official'] == '[OK]' ||
-                                          row['is_official'] == true
+                                  row.name,
+                                  row.description,
+                                  _tags[row.name] ?? 'latest',
+                                  '${row.stars ?? '—'}',
+                                  '${row.pulls ?? '—'}',
+                                  row.official == null
+                                      ? '—'
+                                      : row.official!
                                       ? l.maintenanceHealthParsedYes
-                                      : '—',
+                                      : l.maintenanceHealthParsedNo,
+                                ],
+                                cellWidgets: [
+                                  if (row.iconUrl != null)
+                                    Row(
+                                      children: [
+                                        Image.network(
+                                          row.iconUrl!,
+                                          width: 22,
+                                          height: 22,
+                                          cacheWidth: 44,
+                                          cacheHeight: 44,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, _, _) => Icon(
+                                            Icons.layers_outlined,
+                                            size: 20,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            row.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    null,
+                                  null,
+                                  TextButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _selectTag(row),
+                                    style: TextButton.styleFrom(
+                                      minimumSize: const Size(
+                                        0,
+                                        _maintenanceControlHeight,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      backgroundColor:
+                                          cs.surfaceContainerLowest,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(
+                                          color: cs.outlineVariant,
+                                        ),
+                                      ),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            _tags[row.name] ?? 'latest',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.expand_more_rounded,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  for (final metric in [
+                                    ('stars', row.stars),
+                                    ('pulls', row.pulls),
+                                  ])
+                                    metric.$2 == null
+                                        ? null
+                                        : _MaintenanceNumber(
+                                            key: ValueKey((
+                                              row.name,
+                                              metric.$1,
+                                            )),
+                                            raw: '${metric.$2}',
+                                            readable: openHandCompactCountLabel(
+                                              context,
+                                              metric.$2!,
+                                            ),
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
                                 ],
                               ),
                           ],
                           rowActions: (row) => {
-                            if (!_busy)
-                              l.maintenanceImagePull: () => _pull(
-                                '${(row.data as Map)['Name'] ?? (row.data as Map)['name'] ?? ''}',
+                            if (!_busy) ...{
+                              l.maintenanceImageSelectTag: () => _selectTag(
+                                row.data as MachineContainerImageSearchResult,
                               ),
+                              l.maintenanceImagePullOnly: () => _openImage(
+                                _reference(
+                                  row.data as MachineContainerImageSearchResult,
+                                ),
+                              ),
+                              l.maintenanceContainerCreate: () => _openImage(
+                                _reference(
+                                  row.data as MachineContainerImageSearchResult,
+                                ),
+                                action:
+                                    _ContainerResourceAction.createContainer,
+                              ),
+                            },
                           },
                         ),
                     ],
@@ -658,6 +869,235 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContainerImageTagDialog extends StatefulWidget {
+  const _ContainerImageTagDialog({
+    required this.image,
+    required this.selected,
+    this.registryFactory,
+  });
+  final MachineContainerImageSearchResult image;
+  final String selected;
+  final MachineImageRegistry Function()? registryFactory;
+  @override
+  State<_ContainerImageTagDialog> createState() =>
+      _ContainerImageTagDialogState();
+}
+
+class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
+  late final _tag = TextEditingController(text: widget.selected);
+  late final _registry =
+      widget.registryFactory?.call() ?? MachineImageRegistry();
+  final _tags = <String>[];
+  bool _loading = false, _hasMore = false, _failed = false;
+  int _page = 0;
+  String _filter = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.image.hubRepository != null) unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _registry.dispose();
+    _tag.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading || widget.image.hubRepository == null) return;
+    if (reset && _tag.text.trim().length > 128) return;
+    setState(() {
+      _loading = true;
+      _failed = false;
+      if (reset) {
+        _page = 0;
+        _filter = _tag.text.trim();
+        _tags.clear();
+        _hasMore = false;
+      }
+    });
+    try {
+      final result = await _registry.tags(
+        widget.image.hubRepository!,
+        filter: _filter,
+        page: _page + 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page++;
+        _tags.addAll(result.tags.where((tag) => !_tags.contains(tag)));
+        _hasMore = result.hasMore;
+      });
+    } on Exception {
+      if (mounted) setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final valid = machineContainerValidImageTag(_tag.text.trim());
+    final supported = widget.image.hubRepository != null;
+    final controlHeight = math.max(
+      40.0,
+      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
+    );
+    final actionStyle = ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(Size(88, controlHeight)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 14),
+      ),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+      textStyle: WidgetStatePropertyAll(
+        theme.textTheme.labelLarge?.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+    return buildOpenHandDialog(
+      maxHeight: MediaQuery.sizeOf(context).height * .9,
+      backgroundColor: cs.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      child: SizedBox(
+        width: 560,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MachineTerminalDialogHeader(
+              icon: Icons.sell_outlined,
+              title: l.maintenanceImageSelectTag,
+              subtitle: widget.image.name,
+              onClose: () => Navigator.pop(context),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: _maintenanceDetailPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l.maintenanceImageTagHelp,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    _ContainerRegistrySearchField(
+                      controller: _tag,
+                      hint: l.maintenanceImageTag,
+                      searchLabel: l.maintenanceImageTagSearch,
+                      onSearch: supported && !_loading
+                          ? () => _load(reset: true)
+                          : null,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (!valid && _tag.text.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _MaintenanceNotice(
+                        message: l.maintenanceImageTagInvalid,
+                        error: true,
+                      ),
+                    ],
+                    if (_failed || !supported) ...[
+                      const SizedBox(height: 8),
+                      _MaintenanceNotice(
+                        message: l.maintenanceImageTagsUnavailable,
+                      ),
+                    ],
+                    if (_loading) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(minHeight: 2),
+                    ],
+                    if (_tags.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _tags.length,
+                          itemBuilder: (context, index) {
+                            final tag = _tags[index];
+                            final selected = tag == _tag.text.trim();
+                            return ListTile(
+                              dense: true,
+                              selected: selected,
+                              selectedTileColor: cs.primary.withValues(
+                                alpha: .08,
+                              ),
+                              title: Text(
+                                tag,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: selected
+                                  ? Icon(
+                                      Icons.check_rounded,
+                                      size: 18,
+                                      color: cs.primary,
+                                    )
+                                  : null,
+                              onTap: () => setState(() => _tag.text = tag),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    if (!_loading && supported && (_hasMore || _failed))
+                      Center(
+                        child: TextButton(
+                          onPressed: _load,
+                          child: Text(
+                            _failed
+                                ? l.maintenanceImageTagRetry
+                                : l.maintenanceImageTagsMore,
+                          ),
+                        ),
+                      ),
+                    if (!_loading && !_failed && supported && _tags.isEmpty)
+                      _MaintenanceEmptyHint(
+                        message: maintenanceLabel(context, '当前范围没有记录'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            buildOpenHandDialogActionsBar(
+              actions: [
+                OutlinedButton(
+                  style: actionStyle,
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l.commonCancel),
+                ),
+                FilledButton(
+                  style: actionStyle,
+                  onPressed: valid
+                      ? () => Navigator.pop(context, _tag.text.trim())
+                      : null,
+                  child: Text(l.commonConfirm),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

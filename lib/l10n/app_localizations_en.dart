@@ -15429,7 +15429,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Search the registry configured on the target runtime. Up to 50 results are shown. Enter a full registry/image:tag reference when pulling a private image.';
+      'Search the target runtime’s registries (up to 50 results). Public counts, icons and tags are fetched from Docker Hub by this app. Enter registry/image:tag manually for private images.';
 
   @override
   String get maintenanceImageStars => 'Stars';
@@ -15533,4 +15533,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceOperationTimeout => 'Operation timeout';
+
+  @override
+  String get maintenanceImageDownloads => 'Downloads';
+
+  @override
+  String get maintenanceImagePullOnly => 'Pull only';
+
+  @override
+  String get maintenanceImageSelectTag => 'Select tag';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      'Some public registry information is unavailable. Missing counts show —; tag selection and pulling remain available.';
+
+  @override
+  String get maintenanceImageTagHelp =>
+      'Choose a version from the list or enter a tag. Search to filter more versions.';
+
+  @override
+  String get maintenanceImageTagsUnavailable =>
+      'Tags are unavailable. Enter the desired tag manually.';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      'Use 1–128 letters, digits, underscores, dots or hyphens. Do not start with a dot or hyphen.';
+
+  @override
+  String get maintenanceImageTagRetry => 'Reload';
+
+  @override
+  String get maintenanceImageTagsMore => 'Load more tags';
+
+  @override
+  String get maintenanceImageTagSearch => 'Search tags';
 }

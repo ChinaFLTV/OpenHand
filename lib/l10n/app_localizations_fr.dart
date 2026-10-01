@@ -15655,7 +15655,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Recherche dans le registre configuré sur le moteur cible, avec 50 résultats au maximum. Pour une image privée, saisir la référence complète registre/image:étiquette au téléchargement.';
+      'Recherchez dans les registres du moteur cible (50 résultats maximum). Cette application récupère les compteurs, icônes et étiquettes publics depuis Docker Hub. Pour une image privée, saisissez registre/image:étiquette.';
 
   @override
   String get maintenanceImageStars => 'Étoiles';
@@ -15760,4 +15760,38 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceOperationTimeout => 'Délai de l’opération';
+
+  @override
+  String get maintenanceImageDownloads => 'Téléchargements';
+
+  @override
+  String get maintenanceImagePullOnly => 'Télécharger uniquement';
+
+  @override
+  String get maintenanceImageSelectTag => 'Choisir une étiquette';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      'Certaines informations publiques sont indisponibles. Les compteurs manquants affichent — ; le choix de version et le téléchargement restent disponibles.';
+
+  @override
+  String get maintenanceImageTagHelp =>
+      'Choisissez une version ou saisissez une étiquette. Lancez une recherche pour filtrer les versions.';
+
+  @override
+  String get maintenanceImageTagsUnavailable =>
+      'Étiquettes indisponibles. Saisissez celle souhaitée manuellement.';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      'Utilisez 1 à 128 lettres, chiffres, tirets bas, points ou tirets. Ne commencez pas par un point ou un tiret.';
+
+  @override
+  String get maintenanceImageTagRetry => 'Recharger';
+
+  @override
+  String get maintenanceImageTagsMore => 'Charger plus d’étiquettes';
+
+  @override
+  String get maintenanceImageTagSearch => 'Rechercher des étiquettes';
 }

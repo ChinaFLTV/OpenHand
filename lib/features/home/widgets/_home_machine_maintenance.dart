@@ -4747,6 +4747,7 @@ class _MaintenanceTable extends StatelessWidget {
     this.limitToViewport = true,
     this.paginate = true,
     this.columnAlignments = const {},
+    this.minimumColumnWidths = const {},
   });
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
@@ -4757,6 +4758,7 @@ class _MaintenanceTable extends StatelessWidget {
   final bool limitToViewport;
   final bool paginate;
   final Map<int, Alignment> columnAlignments;
+  final Map<int, double> minimumColumnWidths;
   @override
   Widget build(BuildContext context) {
     final timestampColumns = {
@@ -4853,6 +4855,7 @@ class _MaintenanceTable extends StatelessWidget {
                     : _maintenanceCpuTimeColumnMinWidth) *
                 MediaQuery.textScalerOf(context).scale(13) /
                 13,
+        ...minimumColumnWidths,
       },
       semanticsLabel: headers
           .map((label) => maintenanceLabel(context, label))

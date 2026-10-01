@@ -14930,7 +14930,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '搜索目标运行时配置的镜像仓库，最多显示 50 条结果。私有镜像可在下载时输入完整的仓库/镜像:标签。';
+      '搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。';
 
   @override
   String get maintenanceImageStars => '星标数';
@@ -15029,6 +15029,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceOperationTimeout => '操作超时';
+
+  @override
+  String get maintenanceImageDownloads => '下载数';
+
+  @override
+  String get maintenanceImagePullOnly => '仅拉取';
+
+  @override
+  String get maintenanceImageSelectTag => '选择标签';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      '部分公开仓库信息暂不可用；缺失统计显示为 —，仍可选择标签并拉取。';
+
+  @override
+  String get maintenanceImageTagHelp => '从列表选择版本，或手动输入标签。点击搜索可筛选更多版本。';
+
+  @override
+  String get maintenanceImageTagsUnavailable => '暂时无法列出标签，请手动输入所需标签。';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      '标签须为 1–128 个字母、数字、下划线、点或连字符，且不能以点或连字符开头。';
+
+  @override
+  String get maintenanceImageTagRetry => '重新加载';
+
+  @override
+  String get maintenanceImageTagsMore => '加载更多标签';
+
+  @override
+  String get maintenanceImageTagSearch => '搜索标签';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29939,7 +29971,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '搜尋目標執行環境設定的映像倉庫，最多顯示 50 筆結果。私有映像可在下載時輸入完整的倉庫/映像:標籤。';
+      '搜尋目標執行環境的倉庫（最多 50 筆）；公開統計、圖示和標籤由本機查詢 Docker Hub。私有映像可手動輸入倉庫/映像:標籤。';
 
   @override
   String get maintenanceImageStars => '星號數';
@@ -30039,4 +30071,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceOperationTimeout => '操作逾時';
+
+  @override
+  String get maintenanceImageDownloads => '下載數';
+
+  @override
+  String get maintenanceImagePullOnly => '僅拉取';
+
+  @override
+  String get maintenanceImageSelectTag => '選擇標籤';
+
+  @override
+  String get maintenanceImageMetadataUnavailable =>
+      '部分公開倉庫資訊暫不可用；缺少的統計顯示為 —，仍可選擇標籤並拉取。';
+
+  @override
+  String get maintenanceImageTagHelp => '從清單選擇版本，或手動輸入標籤。點擊搜尋可篩選更多版本。';
+
+  @override
+  String get maintenanceImageTagsUnavailable => '暫時無法列出標籤，請手動輸入所需標籤。';
+
+  @override
+  String get maintenanceImageTagInvalid =>
+      '標籤須為 1–128 個字母、數字、底線、點或連字號，且不能以點或連字號開頭。';
+
+  @override
+  String get maintenanceImageTagRetry => '重新載入';
+
+  @override
+  String get maintenanceImageTagsMore => '載入更多標籤';
+
+  @override
+  String get maintenanceImageTagSearch => '搜尋標籤';
 }

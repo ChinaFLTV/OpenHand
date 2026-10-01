@@ -89,6 +89,7 @@ import 'package:openhand/shared/ui/openhand_ops_press_scale.dart';
 import 'package:openhand/shared/ui/openhand_console_log_panel.dart';
 import 'package:openhand/shared/ui/openhand_table_pagination.dart';
 import 'package:openhand/shared/util/localized_text.dart';
+import 'package:openhand/shared/util/localized_units.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
 ${containerSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
@@ -5660,6 +5661,121 @@ void containerTerminalChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('镜像搜索六语言支持标签选择、计数切换、仅拉取与创建容器', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [1180.0, 420.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 960));
+        final stats = Completer<Map<String, dynamic>>();
+        final commands = <String>[];
+        var created = 0;
+        MachineImageRegistry registryFactory() => MachineImageRegistry(read: (uri) async {
+          if (uri.path.endsWith('/tags')) return {'results': [{'name': 'latest'}, {'name': 'stable'}, {'name': '1.28-alpine'}], 'next': null};
+          if (uri.path.contains('/catalog/')) return {'results': [{'slug': 'nginx', 'logo_url': {'small': 'https://example.invalid/nginx.png'}}]};
+          return stats.future;
+        });
+        final client = MachineContainerClient(runtime: MachineContainerRuntime.docker, contextName: 'desktop-linux', run: (command) async {
+          commands.add(command);
+          if (command.contains("'search'")) return '{"Name":"nginx","Description":"Web server","StarCount":21396,"IsOfficial":"*"}';
+          return 'container-created';
+        });
+        final theme = width < 500 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像搜索预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
+          home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, timeout: const Duration(seconds: 30), onCreated: () => created++))));
+        await tester.pumpAndSettle();
+        final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
+        registry._query.text = 'nginx'; await registry._search(); await tester.pumpAndSettle();
+        expect(registry._busy, isFalse); expect(registry._results.single.official, isTrue);
+        final selecting = registry._selectTag(registry._results.single); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceImageSelectTag), findsOneWidget);
+        await tester.ensureVisible(find.widgetWithText(ListTile, '1.28-alpine')); await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(ListTile, '1.28-alpine')); await tester.pumpAndSettle();
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/registry-tags-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await tester.tap(find.text(l.commonConfirm)); await tester.pumpAndSettle(); await selecting;
+        expect(registry._tags['nginx'], '1.28-alpine');
+        stats.complete({'results': [{'repo_name': 'nginx', 'star_count': 21396, 'pull_count': 13413760258, 'is_official': true}]}); await tester.pumpAndSettle();
+        expect(registry._results.single.pulls, 13413760258); expect(registry._tags['nginx'], '1.28-alpine');
+        for (final metric in [('stars', 21396), ('pulls', 13413760258)]) {
+          final number = find.byKey(ValueKey(('nginx', metric.$1)));
+          if (locale.scriptCode == 'Hant') expect(tester.widget<_MaintenanceNumber>(number).readable, contains(metric.$1 == 'stars' ? '萬' : '億'));
+          await tester.ensureVisible(number); await tester.pumpAndSettle();
+          await tester.tap(number); await tester.pumpAndSettle();
+          expect(tester.state<_MaintenanceNumberState>(number)._exact, isTrue);
+          expect(find.descendant(of: number, matching: find.text('${metric.$2}')), findsOneWidget);
+          await tester.tap(number); await tester.pumpAndSettle();
+          expect(tester.state<_MaintenanceNumberState>(number)._exact, isFalse);
+        }
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/registry-results-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        var table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
+        expect(table.headers, contains(l.maintenanceImageDownloads));
+        final actions = table.rowActions!(table.rows.single);
+        expect(actions.keys, [l.maintenanceImageSelectTag, l.maintenanceImagePullOnly, l.maintenanceContainerCreate]);
+        actions[l.maintenanceImagePullOnly]!(); await tester.pumpAndSettle();
+        var form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        expect(form._value('image'), 'nginx:1.28-alpine');
+        await form._submit(); await tester.pumpAndSettle();
+        expect(commands.last, contains("'--context' 'desktop-linux' 'pull' 'nginx:1.28-alpine'"));
+        expect(commands.any((command) => command.contains("'run'")), isFalse);
+        await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh)); await tester.tap(find.text(l.maintenanceResourceCloseRefresh)); await tester.pumpAndSettle();
+        table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
+        table.rowActions!(table.rows.single)[l.maintenanceContainerCreate]!(); await tester.pumpAndSettle();
+        form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        expect(form._value('image'), 'nginx:1.28-alpine');
+        await form._submit(); await tester.pumpAndSettle();
+        expect(commands.last, contains("'--context' 'desktop-linux' 'run'")); expect(commands.last, contains("'nginx:1.28-alpine'"));
+        await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh)); await tester.tap(find.text(l.maintenanceResourceCloseRefresh)); await tester.pumpAndSettle();
+        expect(created, 1); expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('镜像元数据迟到不覆盖新搜索，标签失败可手动输入且关闭不写回', (tester) async {
+    final pending = <Completer<Map<String, dynamic>>>[];
+    var fail = false;
+    MachineImageRegistry factory() => MachineImageRegistry(read: (uri) async {
+      if (uri.path.contains('/catalog/')) return {'results': []};
+      if (uri.path.endsWith('/tags') || fail) throw const FormatException('模拟仓库不可用');
+      final request = Completer<Map<String, dynamic>>(); pending.add(request); return request.future;
+    });
+    final client = MachineContainerClient(runtime: MachineContainerRuntime.docker, run: (_) async => '{"Name":"nginx","StarCount":1}');
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: factory, timeout: const Duration(seconds: 30)))));
+    await tester.pumpAndSettle();
+    final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
+    registry._query.text = 'nginx'; await registry._search(); await registry._search();
+    pending[1].complete({'results': [{'repo_name': 'nginx', 'star_count': 7, 'pull_count': 9999}]}); await tester.pumpAndSettle();
+    pending[0].complete({'results': [{'repo_name': 'nginx', 'star_count': 100}]}); await tester.pumpAndSettle();
+    expect(registry._results.single.stars, 7);
+    fail = true; await registry._search(); await tester.pumpAndSettle();
+    expect(registry._metadataFailed, isTrue); expect(registry._results.single.name, 'nginx'); expect(registry._busy, isFalse);
+    final selecting = registry._selectTag(registry._results.single); await tester.pumpAndSettle();
+    final tags = tester.state<_ContainerImageTagDialogState>(find.byType(_ContainerImageTagDialog));
+    expect(tags._failed, isTrue);
+    tags._tag.text = '-invalid'; tags.setState(() {}); await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '确定')).onPressed, isNull);
+    tags._tag.text = 'v2-manual'; tags.setState(() {}); await tester.pumpAndSettle();
+    await tester.tap(find.text('确定')); await tester.pumpAndSettle(); await selecting;
+    expect(registry._tags['nginx'], 'v2-manual');
+    fail = false; await registry._search(); await tester.pumpWidget(const SizedBox());
+    pending.last.complete({'results': [{'repo_name': 'nginx', 'star_count': 8}]}); await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('镜像与数据卷延迟加载、筛选、创建后刷新且六语言宽窄屏可用', (tester) async {
     for (final locale in AppLocalizations.supportedLocales) {
       final l=await AppLocalizations.delegate.load(locale);
@@ -5697,8 +5813,8 @@ void resourceChecks() {
         state._search.clear();state.setState((){});await tester.pumpAndSettle();
         final searching=state._open(search:true);await tester.pumpAndSettle();
         final registry=tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
-        registry._query.text='nginx';await registry._search();await tester.pumpAndSettle();expect(registry._results.single['Name'],'nginx');
-        final pulling=registry._pull('nginx');await tester.pumpAndSettle();
+        registry._query.text='nginx';await registry._search();await tester.pumpAndSettle();expect(registry._results.single.name,'nginx');
+        final pulling=registry._openImage('nginx');await tester.pumpAndSettle();
         final download=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
         await download._submit();await tester.pumpAndSettle();expect(download._completed,isTrue);
         await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh));await tester.tap(find.text(l.maintenanceResourceCloseRefresh));await tester.pumpAndSettle();await pulling;

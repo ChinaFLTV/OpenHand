@@ -7,9 +7,15 @@ import 'localized_text.dart';
 String openHandCompactCountLabel(BuildContext context, int value) {
   final safe = value < 0 ? 0 : value;
   try {
-    return NumberFormat.compact(
-      locale: Localizations.localeOf(context).toString(),
-    ).format(safe);
+    final current = Localizations.localeOf(context);
+    final locale = current.languageCode == 'zh' && current.scriptCode == 'Hant'
+        ? 'zh_TW'
+        : current.toString();
+    final compact = NumberFormat.compact(locale: locale).format(safe);
+    // 部分语言的短格式不缩写千位数，改用带本地化单位的长格式。
+    return safe >= 1000 && compact == '$safe'
+        ? NumberFormat.compactLong(locale: locale).format(safe)
+        : compact;
   } on ArgumentError {
     return '$safe';
   }

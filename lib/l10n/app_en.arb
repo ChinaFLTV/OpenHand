@@ -9649,7 +9649,7 @@
   "maintenanceImageTag": "Tag",
   "maintenanceImageQuery": "Image keyword",
   "maintenanceImageSearch": "Search images",
-  "maintenanceImageSearchHelp": "Search the registry configured on the target runtime. Up to 50 results are shown. Enter a full registry/image:tag reference when pulling a private image.",
+  "maintenanceImageSearchHelp": "Search the target runtime’s registries (up to 50 results). Public counts, icons and tags are fetched from Docker Hub by this app. Enter registry/image:tag manually for private images.",
   "maintenanceImageStars": "Stars",
   "maintenanceImageOfficial": "Official",
   "maintenanceImageReference": "Image reference",
@@ -9681,5 +9681,15 @@
   "maintenanceResourceParameters": "Parameters",
   "maintenanceRestartUnlessStopped": "Restart unless manually stopped",
   "maintenancePortAutomatic": "Leave empty to assign automatically",
-  "maintenanceOperationTimeout": "Operation timeout"
+  "maintenanceOperationTimeout": "Operation timeout",
+  "maintenanceImageDownloads": "Downloads",
+  "maintenanceImagePullOnly": "Pull only",
+  "maintenanceImageSelectTag": "Select tag",
+  "maintenanceImageMetadataUnavailable": "Some public registry information is unavailable. Missing counts show —; tag selection and pulling remain available.",
+  "maintenanceImageTagHelp": "Choose a version from the list or enter a tag. Search to filter more versions.",
+  "maintenanceImageTagsUnavailable": "Tags are unavailable. Enter the desired tag manually.",
+  "maintenanceImageTagInvalid": "Use 1–128 letters, digits, underscores, dots or hyphens. Do not start with a dot or hyphen.",
+  "maintenanceImageTagRetry": "Reload",
+  "maintenanceImageTagsMore": "Load more tags",
+  "maintenanceImageTagSearch": "Search tags"
 }

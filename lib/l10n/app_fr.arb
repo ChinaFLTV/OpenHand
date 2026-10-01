@@ -9644,7 +9644,7 @@
   "maintenanceImageTag": "Étiquette",
   "maintenanceImageQuery": "Mot-clé de l’image",
   "maintenanceImageSearch": "Rechercher des images",
-  "maintenanceImageSearchHelp": "Recherche dans le registre configuré sur le moteur cible, avec 50 résultats au maximum. Pour une image privée, saisir la référence complète registre/image:étiquette au téléchargement.",
+  "maintenanceImageSearchHelp": "Recherchez dans les registres du moteur cible (50 résultats maximum). Cette application récupère les compteurs, icônes et étiquettes publics depuis Docker Hub. Pour une image privée, saisissez registre/image:étiquette.",
   "maintenanceImageStars": "Étoiles",
   "maintenanceImageOfficial": "Officielle",
   "maintenanceImageReference": "Référence de l’image",
@@ -9676,5 +9676,15 @@
   "maintenanceResourceParameters": "Paramètres",
   "maintenanceRestartUnlessStopped": "Redémarrer sauf arrêt manuel",
   "maintenancePortAutomatic": "Vide : attribution automatique",
-  "maintenanceOperationTimeout": "Délai de l’opération"
+  "maintenanceOperationTimeout": "Délai de l’opération",
+  "maintenanceImageDownloads": "Téléchargements",
+  "maintenanceImagePullOnly": "Télécharger uniquement",
+  "maintenanceImageSelectTag": "Choisir une étiquette",
+  "maintenanceImageMetadataUnavailable": "Certaines informations publiques sont indisponibles. Les compteurs manquants affichent — ; le choix de version et le téléchargement restent disponibles.",
+  "maintenanceImageTagHelp": "Choisissez une version ou saisissez une étiquette. Lancez une recherche pour filtrer les versions.",
+  "maintenanceImageTagsUnavailable": "Étiquettes indisponibles. Saisissez celle souhaitée manuellement.",
+  "maintenanceImageTagInvalid": "Utilisez 1 à 128 lettres, chiffres, tirets bas, points ou tirets. Ne commencez pas par un point ou un tiret.",
+  "maintenanceImageTagRetry": "Recharger",
+  "maintenanceImageTagsMore": "Charger plus d’étiquettes",
+  "maintenanceImageTagSearch": "Rechercher des étiquettes"
 }

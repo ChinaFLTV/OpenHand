@@ -9644,7 +9644,7 @@
   "maintenanceImageTag": "標籤",
   "maintenanceImageQuery": "映像關鍵字",
   "maintenanceImageSearch": "搜尋映像",
-  "maintenanceImageSearchHelp": "搜尋目標執行環境設定的映像倉庫，最多顯示 50 筆結果。私有映像可在下載時輸入完整的倉庫/映像:標籤。",
+  "maintenanceImageSearchHelp": "搜尋目標執行環境的倉庫（最多 50 筆）；公開統計、圖示和標籤由本機查詢 Docker Hub。私有映像可手動輸入倉庫/映像:標籤。",
   "maintenanceImageStars": "星號數",
   "maintenanceImageOfficial": "官方映像",
   "maintenanceImageReference": "映像參照",
@@ -9676,5 +9676,15 @@
   "maintenanceResourceParameters": "參數",
   "maintenanceRestartUnlessStopped": "除非手動停止，否則重新啟動",
   "maintenancePortAutomatic": "留空自動分配",
-  "maintenanceOperationTimeout": "操作逾時"
+  "maintenanceOperationTimeout": "操作逾時",
+  "maintenanceImageDownloads": "下載數",
+  "maintenanceImagePullOnly": "僅拉取",
+  "maintenanceImageSelectTag": "選擇標籤",
+  "maintenanceImageMetadataUnavailable": "部分公開倉庫資訊暫不可用；缺少的統計顯示為 —，仍可選擇標籤並拉取。",
+  "maintenanceImageTagHelp": "從清單選擇版本，或手動輸入標籤。點擊搜尋可篩選更多版本。",
+  "maintenanceImageTagsUnavailable": "暫時無法列出標籤，請手動輸入所需標籤。",
+  "maintenanceImageTagInvalid": "標籤須為 1–128 個字母、數字、底線、點或連字號，且不能以點或連字號開頭。",
+  "maintenanceImageTagRetry": "重新載入",
+  "maintenanceImageTagsMore": "載入更多標籤",
+  "maintenanceImageTagSearch": "搜尋標籤"
 }
