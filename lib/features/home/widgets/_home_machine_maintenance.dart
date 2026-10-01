@@ -4,6 +4,7 @@ const _maintenanceControlHeight = 34.0;
 const _maintenanceNoticeMaxWidth = 480.0;
 const _maintenanceSearchWidth = 280.0;
 const _maintenanceCpuTimeColumnMinWidth = 220.0;
+const _maintenanceTimestampColumnMinWidth = 200.0;
 const _maintenanceGridGap = 12.0;
 const _maintenanceFieldMinWidth = 240.0;
 const _maintenanceFieldHeight = 104.0;
@@ -4754,90 +4755,110 @@ class _MaintenanceTable extends StatelessWidget {
   final bool limitToViewport;
   final bool paginate;
   @override
-  Widget build(BuildContext context) => OpenHandOperationalRankTable(
-    headers: headers.map((label) => maintenanceLabel(context, label)).toList(),
-    rows: [
-      for (final row in rows)
-        OpenHandOperationalRankRow(
-          cells: row.cells,
-          value: row.value,
-          rowKey: row.rowKey,
-          subtitle: row.subtitle,
-          cellSubtitles: row.cellSubtitles,
-          data: row.data,
-          cellWidgets: [
-            for (var i = 0; i < row.cells.length; i++)
-              if (row.cellWidgets != null &&
-                  i < row.cellWidgets!.length &&
-                  row.cellWidgets![i] != null)
-                row.cellWidgets![i]
-              else if (i < headers.length &&
-                  (machineMaintenanceReadableDuration(
-                            row.cells[i],
-                            field: headers[i],
-                          ) !=
-                          null ||
-                      const {
-                        '累计读取次数',
-                        '累计写入次数',
-                        '累计读取字节',
-                        '累计写入字节',
-                        '累计读取耗时',
-                        '累计写入耗时',
-                        '已用 inode',
-                        '可用 inode',
-                        '接收字节',
-                        '发送字节',
-                        '读取字节',
-                        '写入字节',
-                        '线程',
-                        '读 IOPS',
-                        '写 IOPS',
-                        '次数',
-                        '页数',
-                      }.contains(headers[i])))
-                _MaintenanceNumber(
-                  raw: row.cells[i],
-                  field: headers[i],
-                  maxLines: 2,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.1,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  unit: headers[i].contains('字节') ? 'B' : '',
-                )
-              else
-                null,
-          ],
-        ),
-    ],
-    sortByValue: false,
-    paginate: paginate,
-    compact: true,
-    animateCellChanges: true,
-    animateRows: true,
-    onRowTap: onRowTap,
-    rowActions: rowActions,
-    maxBodyHeight: limitToViewport
-        ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
-        : maxBodyHeight,
-    emptyLabel: maintenanceLabel(context, '暂无可用数据'),
-    minimumColumnWidths: {
+  Widget build(BuildContext context) {
+    final timestampColumns = {
       for (var i = 0; i < headers.length; i++)
-        if (headers[i] == '累计 CPU 时间')
-          i:
-              _maintenanceCpuTimeColumnMinWidth *
-              MediaQuery.textScalerOf(context).scale(13) /
-              13,
-    },
-    semanticsLabel: headers
-        .map((label) => maintenanceLabel(context, label))
-        .join(' · '),
-    columnAlignments: {
-      for (var i = 0; i < headers.length; i++) i: Alignment.centerLeft,
-    },
-  );
+        if (maintenanceIsTimestampColumn(context, headers[i])) i,
+    };
+    return OpenHandOperationalRankTable(
+      headers: headers
+          .map((label) => maintenanceLabel(context, label))
+          .toList(),
+      rows: [
+        for (final row in rows)
+          OpenHandOperationalRankRow(
+            cells: [
+              for (var i = 0; i < row.cells.length; i++)
+                timestampColumns.contains(i)
+                    ? machineMaintenanceTimestamp(
+                            row.cells[i],
+                            allowEpoch: true,
+                          ) ??
+                          row.cells[i]
+                    : row.cells[i],
+            ],
+            value: row.value,
+            rowKey: row.rowKey,
+            subtitle: row.subtitle,
+            cellSubtitles: row.cellSubtitles,
+            data: row.data,
+            cellWidgets: [
+              for (var i = 0; i < row.cells.length; i++)
+                if (row.cellWidgets != null &&
+                    i < row.cellWidgets!.length &&
+                    row.cellWidgets![i] != null)
+                  row.cellWidgets![i]
+                else if (i < headers.length &&
+                    !timestampColumns.contains(i) &&
+                    (machineMaintenanceReadableDuration(
+                              row.cells[i],
+                              field: headers[i],
+                            ) !=
+                            null ||
+                        const {
+                          '累计读取次数',
+                          '累计写入次数',
+                          '累计读取字节',
+                          '累计写入字节',
+                          '累计读取耗时',
+                          '累计写入耗时',
+                          '已用 inode',
+                          '可用 inode',
+                          '接收字节',
+                          '发送字节',
+                          '读取字节',
+                          '写入字节',
+                          '线程',
+                          '读 IOPS',
+                          '写 IOPS',
+                          '次数',
+                          '页数',
+                        }.contains(headers[i])))
+                  _MaintenanceNumber(
+                    raw: row.cells[i],
+                    field: headers[i],
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    unit: headers[i].contains('字节') ? 'B' : '',
+                  )
+                else
+                  null,
+            ],
+          ),
+      ],
+      sortByValue: false,
+      paginate: paginate,
+      compact: true,
+      animateCellChanges: true,
+      animateRows: true,
+      onRowTap: onRowTap,
+      rowActions: rowActions,
+      maxBodyHeight: limitToViewport
+          ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
+          : maxBodyHeight,
+      emptyLabel: maintenanceLabel(context, '暂无可用数据'),
+      minimumColumnWidths: {
+        for (var i = 0; i < headers.length; i++)
+          if (headers[i] == '累计 CPU 时间' || timestampColumns.contains(i))
+            i:
+                (timestampColumns.contains(i)
+                    ? _maintenanceTimestampColumnMinWidth
+                    : _maintenanceCpuTimeColumnMinWidth) *
+                MediaQuery.textScalerOf(context).scale(13) /
+                13,
+      },
+      semanticsLabel: headers
+          .map((label) => maintenanceLabel(context, label))
+          .join(' · '),
+      columnAlignments: {
+        for (var i = 0; i < headers.length; i++) i: Alignment.centerLeft,
+      },
+    );
+  }
 }
 
 class _MaintenanceFacts extends StatelessWidget {
@@ -5594,7 +5615,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
               for (final row in fields)
                 [
                   maintenanceHealthLabel(context, row[0]),
-                  maintenanceHealthValue(context, row[1]),
+                  maintenanceHealthValue(context, row[1], field: row[0]),
                 ],
             ],
           ),
@@ -5616,6 +5637,7 @@ class _MaintenanceHealthContent extends StatelessWidget {
                           ? maintenanceHealthValue(
                               context,
                               report.data.rows[i][c],
+                              field: report.data.headers[c],
                             )
                           : '—',
                   ],
@@ -5665,8 +5687,12 @@ class _MaintenanceHealthContent extends StatelessWidget {
                       rowKey: i,
                       value: 0,
                       cells: [
-                        for (final cell in entry.value.rows[i])
-                          maintenanceHealthValue(context, cell),
+                        for (var c = 0; c < entry.value.rows[i].length; c++)
+                          maintenanceHealthValue(
+                            context,
+                            entry.value.rows[i][c],
+                            field: entry.value.headers[c],
+                          ),
                       ],
                     ),
                 ],
@@ -6326,17 +6352,18 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
             cells: [
               for (var c = 0; c < _data.rows[i].length; c++)
                 const [
-                      '状态',
-                      'STAT',
-                      'STATUS',
-                      'STATE',
-                      'PRESET',
-                      'TYPE',
-                      'State',
-                      '启动方式',
-                      '预设',
-                      '类型',
-                    ].contains(_data.headers[c])
+                          '状态',
+                          'STAT',
+                          'STATUS',
+                          'STATE',
+                          'PRESET',
+                          'TYPE',
+                          'State',
+                          '启动方式',
+                          '预设',
+                          '类型',
+                        ].contains(_data.headers[c]) ||
+                        machineMaintenanceIsTimestampField(_data.headers[c])
                     ? _maintenanceReadoutValue(
                         context,
                         _data.headers[c],
@@ -8158,7 +8185,11 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                     ))
                                       [
                                         maintenanceHealthLabel(context, row[1]),
-                                        maintenanceHealthValue(context, row[2]),
+                                        maintenanceHealthValue(
+                                          context,
+                                          row[2],
+                                          field: row[1],
+                                        ),
                                       ],
                                   ],
                                   fields: true,
@@ -8206,8 +8237,12 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                                     entry.value[field]!,
                                                   ),
                                                 )
-                                              : maintenanceEnglishTimestamp(
+                                              : machineMaintenanceTimestamp(
                                                       entry.value[field] ?? '',
+                                                      allowEpoch:
+                                                          machineMaintenanceIsTimestampField(
+                                                            field,
+                                                          ),
                                                     ) ??
                                                     entry.value[field] ??
                                                     '—',
@@ -8234,6 +8269,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                                           maintenanceHealthValue(
                                             context,
                                             row[2],
+                                            field: row[1],
                                           ),
                                         ],
                                       ],

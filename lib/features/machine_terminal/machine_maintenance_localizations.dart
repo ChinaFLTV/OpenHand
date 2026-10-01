@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import '../../l10n/app_localizations.dart';
 import 'machine_egress.dart';
 import 'machine_egress_regions.dart';
+import 'machine_maintenance_timestamp.dart';
 
 part 'machine_maintenance_counter_localizations.dart';
 
@@ -1411,34 +1412,26 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   return field;
 }
 
-const _englishMonths = <String, int>{
-  'Jan': 1,
-  'Feb': 2,
-  'Mar': 3,
-  'Apr': 4,
-  'May': 5,
-  'Jun': 6,
-  'Jul': 7,
-  'Aug': 8,
-  'Sep': 9,
-  'Oct': 10,
-  'Nov': 11,
-  'Dec': 12,
-};
-
-String? maintenanceEnglishTimestamp(String value) {
-  final match = RegExp(
-    r'^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?'
-    r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+'
-    r'(\d{1,2})\s+(\d{2}:\d{2}(?::\d{2})?)(?:\s+(\d{4}))?$',
-  ).firstMatch(value.trim());
-  if (match == null) return null;
-  final month = _englishMonths[match[1]!]!;
-  final day = int.parse(match[2]!);
-  final year = int.parse(match[4] ?? '${DateTime.now().year}');
-  return '${year.toString().padLeft(4, '0')}-'
-      '${month.toString().padLeft(2, '0')}-'
-      '${day.toString().padLeft(2, '0')} ${match[3]}';
+bool maintenanceIsTimestampColumn(BuildContext context, String field) {
+  if (machineMaintenanceIsTimestampField(field)) return true;
+  final l = AppLocalizations.of(context)!;
+  return {
+    l.maintenanceDetailCreated,
+    l.maintenanceContainerStartedAt,
+    l.maintenanceContainerFinishedAt,
+    l.maintenanceDetailLoginTime,
+    l.maintenanceDetailTime,
+    l.maintenanceHealthParsedLoginTime,
+    l.maintenanceHealthParsedStartTime,
+    l.maintenanceHealthParsedLastBootTime,
+    l.maintenanceHealthParsedLocalTime,
+    l.maintenanceHealthParsedLocalDateAndTime,
+    l.maintenanceHealthParsedReferenceTimeUTC,
+    l.maintenanceHealthParsedLastRotation,
+    l.maintenanceTaskLast,
+    l.maintenanceTaskNext,
+    l.maintenanceTaskSampled,
+  }.contains(field);
 }
 
 String maintenanceDetailValue(
@@ -1530,8 +1523,13 @@ String maintenanceDetailValue(
   if (status != null) return status;
   final metal = RegExp(r'^[Mm]etal\s*(\d+)$').firstMatch(trimmed);
   if (metal != null) return 'Metal ${metal[1]}';
-  final stamp = maintenanceEnglishTimestamp(trimmed);
-  if (stamp != null) return stamp;
+  if (field.isEmpty || machineMaintenanceIsTimestampField(field)) {
+    final stamp = machineMaintenanceTimestamp(
+      trimmed,
+      allowEpoch: field.isNotEmpty,
+    );
+    if (stamp != null) return stamp;
+  }
   if (RegExp(r'[\u4e00-\u9fff]').hasMatch(trimmed)) {
     return maintenanceDetailLabel(context, trimmed);
   }
@@ -1893,16 +1891,11 @@ String maintenanceHealthLabel(BuildContext context, String field) {
   };
 }
 
-String maintenanceHealthValue(BuildContext context, String value) {
-  final timestamp = RegExp(
-    r'^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\.\d{6}([+-])(\d{3})$',
-  ).firstMatch(value);
-  if (timestamp != null) {
-    final offset = int.parse(timestamp[8]!);
-    return '${timestamp[1]}-${timestamp[2]}-${timestamp[3]} ${timestamp[4]}:${timestamp[5]}:${timestamp[6]} UTC${timestamp[7]}${(offset ~/ 60).toString().padLeft(2, '0')}:${(offset % 60).toString().padLeft(2, '0')}';
-  }
-  final english = maintenanceEnglishTimestamp(value);
-  if (english != null) return english;
+String maintenanceHealthValue(
+  BuildContext context,
+  String value, {
+  String field = '',
+}) {
   final l = AppLocalizations.of(context)!;
   final trimmed = value.trim();
   final logout = RegExp(
@@ -1934,7 +1927,7 @@ String maintenanceHealthValue(BuildContext context, String value) {
     "no" => l.maintenanceHealthParsedNo,
     'true' || 'On' => l.maintenanceHealthParsedYes,
     'false' || 'Off' => l.maintenanceHealthParsedNo,
-    _ => maintenanceDetailValue(context, value),
+    _ => maintenanceDetailValue(context, value, field: field),
   };
 }
 

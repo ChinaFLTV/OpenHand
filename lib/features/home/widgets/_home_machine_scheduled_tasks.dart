@@ -454,7 +454,13 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                 ],
                 [
                   l.maintenanceTaskSampled,
-                  data.collectedAt.isEmpty ? '—' : data.collectedAt,
+                  data.collectedAt.isEmpty
+                      ? '—'
+                      : maintenanceDetailValue(
+                          context,
+                          data.collectedAt,
+                          field: 'collectedAt',
+                        ),
                 ],
               ],
             ),
@@ -490,8 +496,20 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                             : task.owner == 'user'
                             ? data.user
                             : task.owner,
-                        task.lastRun.isEmpty ? '—' : task.lastRun,
-                        task.nextRun.isEmpty ? '—' : task.nextRun,
+                        task.lastRun.isEmpty
+                            ? '—'
+                            : maintenanceDetailValue(
+                                context,
+                                task.lastRun,
+                                field: 'lastRun',
+                              ),
+                        task.nextRun.isEmpty
+                            ? '—'
+                            : maintenanceDetailValue(
+                                context,
+                                task.nextRun,
+                                field: 'nextRun',
+                              ),
                         task.result.isEmpty
                             ? '—'
                             : _taskStateLabel(context, task.result),
@@ -967,11 +985,23 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               ],
                               [
                                 l.maintenanceTaskLast,
-                                task.lastRun.isEmpty ? '—' : task.lastRun,
+                                task.lastRun.isEmpty
+                                    ? '—'
+                                    : maintenanceDetailValue(
+                                        context,
+                                        task.lastRun,
+                                        field: 'lastRun',
+                                      ),
                               ],
                               [
                                 l.maintenanceTaskNext,
-                                task.nextRun.isEmpty ? '—' : task.nextRun,
+                                task.nextRun.isEmpty
+                                    ? '—'
+                                    : maintenanceDetailValue(
+                                        context,
+                                        task.nextRun,
+                                        field: 'nextRun',
+                                      ),
                               ],
                               [
                                 maintenanceLabel(context, '执行结果'),
@@ -1003,6 +1033,14 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                         task.scheduler ==
                                                 MachineTaskScheduler.cron
                                             ? field.value
+                                            : machineMaintenanceIsTimestampField(
+                                                field.key,
+                                              )
+                                            ? maintenanceDetailValue(
+                                                context,
+                                                field.value,
+                                                field: field.key,
+                                              )
                                             : _taskStateLabel(
                                                 context,
                                                 field.value,

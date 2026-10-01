@@ -429,6 +429,8 @@ void main() {
         expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
         expect(find.text(l.maintenanceContainerContext + ' · desktop-linux'), findsOneWidget);
         expect(find.text(l.maintenanceContainerList + ' · 2'), findsOneWidget);
+        expect(find.text('2026-09-30 08:00:00'), findsOneWidget);
+        expect(find.text('2026-09-30 08:00:00 +0000 UTC'), findsNothing);
         expect(find.text(l.maintenanceContainerReady), findsNothing);
         expect(find.text(l.maintenanceRestartCount), findsNothing);
         final input = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == l.maintenanceContainerSearch);
@@ -2353,7 +2355,13 @@ void main() {
       expect(maintenanceDetailValue(context, 'Darwin'), l10n.maintenanceMacos);
       expect(maintenanceDetailValue(context, 'builtin'), l10n.maintenanceBusBuiltin);
       expect(maintenanceDetailValue(context, 'metal4'), 'Metal 4');
-      expect(maintenanceEnglishTimestamp('Tue Sep 29 19:22 2026'), '2026-09-29 19:22');
+      expect(machineMaintenanceTimestamp('Tue Sep 29 19:22 2026'), '2026-09-29 19:22:00');
+      expect(maintenanceDetailValue(context, '2026-08-18T18:01:59.123Z', field: 'State / StartedAt'), '2026-08-18 18:01:59');
+      expect(maintenanceDetailValue(context, '2026-08-18T18:01:59Z', field: 'conditions / lastTransitionTime'), '2026-08-18 18:01:59');
+      expect(maintenanceDetailValue(context, '2026-08-18T18:01:59Z', field: 'CommandLine'), '2026-08-18T18:01:59Z');
+      expect(maintenanceDetailValue(context, '1787047319999999999', field: 'PID'), '1787047319999999999');
+      expect(maintenanceHealthValue(context, '20260818180159.000000+480', field: 'LastBootUpTime'), '2026-08-18 18:01:59');
+      expect(maintenanceHealthValue(context, '2026-08-18T18:01:59Z', field: 'user'), '2026-08-18T18:01:59Z');
       expect(maintenanceHealthValue(context, 'Darwin'), l10n.maintenanceMacos);
       expect(maintenanceHealthValue(context, 'Sep 29 18:41:39 2026'), '2026-09-29 18:41:39');
       expect(maintenanceHealthValue(context, '- 10:26 (00:00)'), l10n.maintenanceExited);
@@ -2942,7 +2950,7 @@ void main() {
       expect(find.byType(_MaintenanceTable), findsNothing);
       expect(find.byType(OpenHandTablePagination), findsNothing);
       expect(find.byType(_MaintenanceGrid), findsNothing);
-      expect(find.text('2026-09-30 08:00:00 +0800'), findsOneWidget);
+      expect(find.text('2026-09-30 08:00:00'), findsOneWidget);
       expect(find.text('{'), findsNothing);
       expect(find.text('Mach 服务 / com.example.worker'), findsOneWidget);
       expect(find.text('启用'), findsOneWidget);
@@ -3739,6 +3747,45 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('日期列统一格式、保留原始业务数据，跨语言刷新及大字号单行显示', (tester) async {
+    const source = '2026-08-18 18:01:59 +0800 CST';
+    const name = '2026-08-18T00:00:00Z';
+    final data = {'CreatedAt': source};
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final scale in [1.0, 1.6]) {
+        await tester.binding.setSurfaceSize(Size(scale == 1 ? 1100 : 420, 700));
+        final l = await AppLocalizations.delegate.load(locale);
+        Widget screen(String created) => MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
+          home: Scaffold(body: _MaintenanceTable(headers: [l.maintenanceDetailCreated, l.maintenanceTaskNext, '名称', '累计 CPU 时间'],
+            rows: [OpenHandOperationalRankRow(value: 0, rowKey: '记录', data: data,
+              cells: [created, 'Thu 2026-10-01 01:02:03 UTC', name, '24270.37 s'])])));
+        await tester.pumpWidget(screen(source));
+        await tester.pumpAndSettle();
+        final state = tester.state(find.byType(OpenHandOperationalRankTable));
+        var table = tester.widget<OpenHandOperationalRankTable>(find.byType(OpenHandOperationalRankTable));
+        expect(table.rows.single.cells, ['2026-08-18 18:01:59', '2026-10-01 01:02:03', name, '24270.37 s']);
+        expect(identical(table.rows.single.data, data), isTrue);
+        expect(data['CreatedAt'], source);
+        expect(table.rows.single.rowKey, '记录');
+        expect(table.minimumColumnWidths[0], closeTo(200 * scale, .01));
+        expect(tester.getSize(find.text('2026-08-18 18:01:59')).height, lessThan(32 * scale));
+        await tester.pumpWidget(screen('2026-08-18T18:02:00.000Z'));
+        await tester.pumpAndSettle();
+        table = tester.widget<OpenHandOperationalRankTable>(find.byType(OpenHandOperationalRankTable));
+        expect(table.rows.single.cells.first, '2026-08-18 18:02:00');
+        expect(identical(tester.state(find.byType(OpenHandOperationalRankTable)), state), isTrue);
+        expect(find.text('2026-08-18 18:01:59'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('时长单元格默认易读，点击保留原始精度且不触发行操作', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1100, 800));
     var tapped = 0;
@@ -4357,6 +4404,7 @@ void scheduledTaskChecks() {
           final context=tester.element(find.byType(_MachineScheduledTaskPanel));
           final l=AppLocalizations.of(context)!;
           expect(find.text(l.maintenanceTaskTitle),findsOneWidget);
+          expect(find.text('2026-09-30 00:00:00'),findsOneWidget);
           expect(find.text('/opt/backup --daily'),findsWidgets);
           expect(tester.takeException(),isNull);
           if(width==1100 && brightness==Brightness.light && locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {

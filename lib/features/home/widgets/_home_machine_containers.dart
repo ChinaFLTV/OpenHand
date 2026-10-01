@@ -424,7 +424,11 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                           maintenanceDetailValue(context, entry.ready),
                           entry.restarts,
                         ],
-                        maintenanceDetailValue(context, entry.created),
+                        maintenanceDetailValue(
+                          context,
+                          entry.created,
+                          field: 'createdAt',
+                        ),
                         if (!pods && !kubernetes) entry.ports,
                       ].map((value) => value.isEmpty ? '—' : value).toList(),
                       cellWidgets: [
