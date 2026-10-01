@@ -5097,7 +5097,7 @@ class _MaintenanceUsage extends StatelessWidget {
   }
 }
 
-/// 以业务身份匹配卡片；间隔并入后续卡片，避免退场后遗留空白槽。
+/// 以业务身份匹配卡片；连续间隔取最大值并入后续卡片，避免条件卡片隐藏后留白叠加。
 List<Widget> _maintenanceMotionChildren(
   List<Widget> children, {
   double spacing = 0,
@@ -5119,7 +5119,7 @@ List<Widget> _maintenanceMotionChildren(
         child is SizedBox &&
         child.child == null &&
         child.height != null) {
-      gap += child.height!;
+      gap = math.max(gap, child.height!);
       continue;
     }
     final key = identity(child);
