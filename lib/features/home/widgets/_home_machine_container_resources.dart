@@ -170,6 +170,10 @@ class _MachineContainerResourcesState
                 resource: resource,
                 operate: operate,
                 timeout: widget.timeout,
+                registryFactory: MachineImageRegistry.new,
+                imageReferences: _images
+                    ? _resources.map((image) => image.reference).toList()
+                    : const [],
               ),
             ) ==
             true;
@@ -718,6 +722,8 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
         image: image,
         operate: widget.operate,
         timeout: widget.timeout,
+        registryFactory: widget.registryFactory,
+        imageReferences: _results.map(_reference).toList(),
       ),
     );
     if (changed == true) {
@@ -1226,6 +1232,218 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
   }
 }
 
+const _containerImageSuggestionLimit = 20;
+const _containerImageSearchDebounce = Duration(milliseconds: 300);
+
+class _ContainerImageReferenceField extends StatefulWidget {
+  const _ContainerImageReferenceField({
+    required this.controller,
+    required this.decoration,
+    required this.style,
+    required this.enabled,
+    required this.registryFactory,
+    required this.references,
+  });
+
+  final TextEditingController controller;
+  final InputDecoration decoration;
+  final TextStyle? style;
+  final bool enabled;
+  final MachineImageRegistry Function()? registryFactory;
+  final Iterable<String> references;
+
+  @override
+  State<_ContainerImageReferenceField> createState() =>
+      _ContainerImageReferenceFieldState();
+}
+
+class _ContainerImageReferenceFieldState
+    extends State<_ContainerImageReferenceField> {
+  late final _registry =
+      widget.registryFactory?.call() ?? MachineImageRegistry();
+  final _focus = FocusNode();
+  List<String> _suggestions = [];
+  List<MachineContainerImageSearchResult> _images = [];
+  String _repository = '', _error = '';
+  TextEditingValue _lastInput = TextEditingValue.empty;
+  Timer? _debounce;
+  int _revision = 0;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastInput = widget.controller.value;
+    _suggestions = widget.references
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .take(_containerImageSuggestionLimit)
+        .toList();
+    widget.controller.addListener(_inputChanged);
+    _focus.addListener(_scheduleSearch);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContainerImageReferenceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled && !widget.enabled) _cancelSearch();
+  }
+
+  void _cancelSearch() {
+    _revision++;
+    _debounce?.cancel();
+    _registry.cancelPending();
+    _loading = false;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_inputChanged);
+    _focus.removeListener(_scheduleSearch);
+    _cancelSearch();
+    _focus.dispose();
+    _registry.dispose();
+    super.dispose();
+  }
+
+  void _inputChanged() {
+    final value = widget.controller.value;
+    if (value.text == _lastInput.text &&
+        value.composing == _lastInput.composing) {
+      return;
+    }
+    _lastInput = value;
+    // 选中候选时不重复查询，仓库名称的标签查询由选择回调触发。
+    if (_suggestions.contains(value.text)) {
+      _cancelSearch();
+      return;
+    }
+    _scheduleSearch();
+  }
+
+  void _scheduleSearch() {
+    if (!widget.enabled || !_focus.hasFocus) {
+      _cancelSearch();
+      return;
+    }
+    _cancelSearch();
+    if (widget.controller.value.composing.isValid) return;
+    final query = widget.controller.text.trim();
+    final revision = _revision;
+    final colon = query.lastIndexOf(':');
+    final tagged = colon > query.lastIndexOf('/');
+    final repository = tagged ? query.substring(0, colon) : query;
+    final tag = tagged ? query.substring(colon + 1) : '';
+    final canonical = machineDockerHubRepository(repository);
+    final local = widget.references
+        .where(
+          (value) =>
+              value.isNotEmpty &&
+              value.toLowerCase().contains(query.toLowerCase()),
+        )
+        .toSet()
+        .take(_containerImageSuggestionLimit)
+        .toList();
+    // 私有仓库和摘要引用只使用已有候选，避免错误查询公开仓库。
+    final searchable =
+        query.length <= 256 &&
+        canonical != null &&
+        tag.length <= 128 &&
+        !query.contains('@');
+    setState(() {
+      _suggestions = local;
+      _error = '';
+      _loading = searchable;
+    });
+    if (!searchable) return;
+    _debounce = startSafeTimer(_containerImageSearchDebounce, () {
+      unawaited(_loadSuggestions(repository, canonical, tag, revision, local));
+    });
+  }
+
+  Future<void> _loadSuggestions(
+    String repository,
+    String canonical,
+    String tag,
+    int revision,
+    List<String> local,
+  ) async {
+    if (!mounted || revision != _revision) return;
+    var searchFailed = false, tagsFailed = false;
+    var tags = <String>[];
+    await Future.wait<void>([
+      if (tag.isEmpty && repository != _repository)
+        () async {
+          try {
+            final metadata = await _registry.searchMetadata(repository);
+            if (!mounted || revision != _revision) return;
+            _repository = repository;
+            _images = metadata.values.toList();
+          } on Exception {
+            if (!mounted || revision != _revision) return;
+            _images = [];
+            searchFailed = true;
+          }
+        }(),
+      () async {
+        try {
+          tags = (await _registry.tags(canonical, filter: tag)).tags;
+        } on Exception {
+          tagsFailed = true;
+        }
+      }(),
+    ]);
+    if (!mounted || revision != _revision) return;
+    final references = <String>{...local};
+    if (tag.isEmpty) {
+      references.addAll(_images.take(8).map((image) => image.name));
+    }
+    references.addAll(tags.map((value) => '$repository:$value'));
+    setState(() {
+      _suggestions = references.take(_containerImageSuggestionLimit).toList();
+      _loading = false;
+      _error = tagsFailed
+          ? AppLocalizations.of(context)!.maintenanceImageTagsUnavailable
+          : searchFailed
+          ? AppLocalizations.of(context)!.maintenanceImageMetadataUnavailable
+          : '';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AnimatedEditableDropdown(
+      controller: widget.controller,
+      focusNode: _focus,
+      decoration: widget.decoration,
+      style: widget.style,
+      enabled: widget.enabled,
+      entries: [
+        for (final reference in _suggestions)
+          DropdownMenuEntry(value: reference, label: reference),
+        if (_loading || _error.isNotEmpty || _suggestions.isEmpty)
+          DropdownMenuEntry(
+            value: '',
+            label: _loading
+                ? l.maintenanceLoadingDetails
+                : _error.isNotEmpty
+                ? _error
+                : l.maintenanceContainerNoRecords,
+            enabled: false,
+          ),
+      ],
+      onSelected: (value) {
+        if (value != null && !value.contains(':')) {
+          _scheduleSearch();
+        } else {
+          setState(_cancelSearch);
+        }
+      },
+    );
+  }
+}
+
 class _ContainerResourceFormDialog extends StatefulWidget {
   const _ContainerResourceFormDialog({
     required this.client,
@@ -1234,6 +1452,8 @@ class _ContainerResourceFormDialog extends StatefulWidget {
     this.operate,
     this.resource,
     this.image = '',
+    this.registryFactory,
+    this.imageReferences = const [],
   });
   final MachineContainerClient client;
   final _ContainerResourceAction action;
@@ -1241,6 +1461,8 @@ class _ContainerResourceFormDialog extends StatefulWidget {
   final MachineContainerOperationRunner? operate;
   final MachineContainerResource? resource;
   final String image;
+  final MachineImageRegistry Function()? registryFactory;
+  final List<String> imageReferences;
   @override
   State<_ContainerResourceFormDialog> createState() =>
       _ContainerResourceFormDialogState();
@@ -1469,21 +1691,58 @@ class _ContainerResourceFormDialogState
     ],
   );
 
-  Widget _field(String key, String label, {String? hint, int lines = 1}) =>
-      _labeled(
-        label,
-        TextField(
-          controller: _controller(key),
-          enabled: _editable,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: _formFontSize,
-            height: 1.4,
+  Widget _field(
+    String key,
+    String label, {
+    String? hint,
+    int lines = 1,
+    List<String> candidates = const [],
+  }) => _labeled(
+    label,
+    candidates.isNotEmpty
+        ? AnimatedEditableDropdown(
+            controller: _controller(key),
+            decoration: _decoration(hint: hint),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: _formFontSize,
+              height: 1.4,
+            ),
+            enabled: _editable,
+            entries: [
+              for (final candidate in candidates)
+                DropdownMenuEntry(value: candidate, label: candidate),
+            ],
+          )
+        : TextField(
+            controller: _controller(key),
+            enabled: _editable,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: _formFontSize,
+              height: 1.4,
+            ),
+            minLines: lines,
+            maxLines: lines,
+            decoration: _decoration(hint: hint, lines: lines),
           ),
-          minLines: lines,
-          maxLines: lines,
-          decoration: _decoration(hint: hint, lines: lines),
-        ),
-      );
+  );
+
+  Widget _imageField(String label, {String? hint}) => _labeled(
+    label,
+    _ContainerImageReferenceField(
+      controller: _controller('image'),
+      decoration: _decoration(hint: hint),
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(fontSize: _formFontSize, height: 1.4),
+      enabled: _editable,
+      registryFactory: widget.registryFactory,
+      references: {
+        ...widget.imageReferences,
+        if (widget.image.isNotEmpty) widget.image,
+        if (widget.resource != null) widget.resource!.reference,
+      },
+    ),
+  );
 
   Widget _select(
     String label,
@@ -1660,13 +1919,22 @@ class _ContainerResourceFormDialogState
             ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+            child: FilledButton.tonalIcon(
               onPressed:
                   !_editable || rows.length >= machineContainerFormRowLimit
                   ? null
                   : () => setState(
                       () => rows.add({if (ports) 'address': '127.0.0.1'}),
                     ),
+              style: FilledButton.styleFrom(
+                backgroundColor: cs.secondaryContainer,
+                foregroundColor: cs.onSecondaryContainer,
+                minimumSize: Size(0, _controlHeight),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(l.maintenanceResourceAddRow),
             ),
@@ -1803,8 +2071,7 @@ class _ContainerResourceFormDialogState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _field(
-                                  'image',
+                                _imageField(
                                   l.maintenanceImageReference,
                                   hint: 'nginx:alpine',
                                 ),
@@ -1831,8 +2098,7 @@ class _ContainerResourceFormDialogState
                                   minWidth: 240,
                                   maxColumns: 2,
                                   children: [
-                                    _field(
-                                      'image',
+                                    _imageField(
                                       l.maintenanceImageReference,
                                       hint: 'nginx:alpine',
                                     ),
@@ -1924,11 +2190,19 @@ class _ContainerResourceFormDialogState
                                       'cpus',
                                       l.maintenanceCpuLimit,
                                       hint: '1.5',
+                                      candidates: const ['0.5', '1', '2', '4'],
                                     ),
                                     _field(
                                       'memory',
                                       l.maintenanceMemoryLimit,
                                       hint: '512m',
+                                      candidates: const [
+                                        '128m',
+                                        '256m',
+                                        '512m',
+                                        '1g',
+                                        '2g',
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -1957,6 +2231,7 @@ class _ContainerResourceFormDialogState
                                 'driver',
                                 l.maintenanceVolumeDriver,
                                 hint: 'local',
+                                candidates: const ['local'],
                               ),
                             ],
                           ),

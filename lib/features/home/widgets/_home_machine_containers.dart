@@ -345,6 +345,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 isCancelled: isCancelled,
               ),
           timeout: widget.operationTimeout,
+          imageReferences: _entries.map((entry) => entry.image).toList(),
         ),
       );
     } finally {

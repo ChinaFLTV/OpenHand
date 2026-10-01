@@ -5822,6 +5822,151 @@ void telemetryChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('可编辑候选遵循菜单进退场、减少动画和禁用状态', (tester) async {
+    final controller = TextEditingController();
+    for (final reduced in [false, true]) {
+      await tester.runAsync(() => _testSettings.updateMenuAnimationSettings(
+        reduced ? OpenHandMotionDefaults.disabled : const DialogAnimationSettings(durationMs: 300,
+          entranceStyle: DialogAnimationStyle.fadeScale, exitStyle: DialogAnimationStyle.fadeScale)));
+      var enabled = true;
+      late StateSetter update;
+      await tester.pumpWidget(_SettingsApp(home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return SizedBox(width: 320, child: AnimatedEditableDropdown(
+          controller: controller, enabled: enabled,
+          decoration: const InputDecoration(),
+          entries: const [DropdownMenuEntry(value: '1', label: '候选一'), DropdownMenuEntry(value: '2', label: '候选二')],
+        ));
+      }))));
+      await tester.tap(find.byType(TextField)); await tester.pumpAndSettle();
+      expect(find.text('候选一'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); await tester.pump();
+      if (!reduced) expect(find.text('候选一'), findsOneWidget);
+      await tester.pumpAndSettle(); expect(find.text('候选一'), findsNothing);
+      await tester.tap(find.byType(TextField)); await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); await tester.pump(const Duration(milliseconds: 40));
+      await tester.tap(find.byType(TextField)); await tester.pumpAndSettle();
+      expect(find.text('候选一'), findsOneWidget);
+      update(() => enabled = false); await tester.pumpAndSettle();
+      expect(find.text('候选一'), findsNothing);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    controller.dispose();
+  });
+
+  testWidgets('镜像候选六语言宽窄屏可选择本地引用并保持手动输入', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [1180.0, 420.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1000));
+        final calls = <String>[];
+        final theme = width < 500 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(
+          locale: locale, theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像候选预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
+          home: Scaffold(body: _ContainerResourceFormDialog(
+            client: MachineContainerClient(runtime: MachineContainerRuntime.docker, run: (command) async { calls.add(command); return 'created'; }),
+            action: _ContainerResourceAction.createContainer, timeout: const Duration(seconds: 30),
+            imageReferences: const ['nginx:alpine', 'redis:7'],
+            registryFactory: () => MachineImageRegistry(read: (_) async => {'results': []}),
+          ))));
+        await tester.pumpAndSettle();
+        final form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        final input = find.byWidgetPredicate((widget) => widget is TextField && widget.controller == form._controller('image'));
+        final dropdown = find.ancestor(of: input, matching: find.byType(AnimatedEditableDropdown));
+        await tester.tap(find.descendant(of: dropdown, matching: find.byType(IconButton)));
+        await tester.pumpAndSettle();
+        final option = find.widgetWithText(InkWell, 'redis:7');
+        expect(option, findsOneWidget);
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像候选预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/container-image-candidates-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await tester.tap(option); await tester.pumpAndSettle();
+        expect(form._value('image'), 'redis:7');
+        expect(calls, isEmpty);
+        await tester.enterText(input, 'registry.local:5000/team/app:v2');
+        await tester.pumpAndSettle();
+        expect(form._value('image'), 'registry.local:5000/team/app:v2');
+        final section = find.byWidgetPredicate((widget) => widget is _MaintenanceSection && widget.title == maintenanceLabel(form.context, '端口'));
+        await tester.ensureVisible(section);
+        await tester.tap(find.descendant(of: section, matching: find.byType(ListTile)).first);
+        await tester.pumpAndSettle();
+        final add = find.descendant(of: section, matching: find.widgetWithText(FilledButton, l.maintenanceResourceAddRow));
+        await tester.ensureVisible(add); await tester.pumpAndSettle();
+        final button = tester.widget<FilledButton>(add);
+        expect(button.style!.backgroundColor!.resolve({}), theme.colorScheme.secondaryContainer);
+        await tester.tap(add); await tester.pumpAndSettle();
+        expect(form._ports.length, 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('镜像候选异步标签立即更新且迟到、失败与关闭不覆盖输入', (tester) async {
+    final requests = <Uri>[];
+    final pending = <String, Completer<Map<String, dynamic>>>{};
+    final controller = TextEditingController();
+    var failed = false;
+    final registry = MachineImageRegistry(read: (uri) async {
+      requests.add(uri);
+      if (failed) throw const FormatException('模拟仓库不可用');
+      if (uri.path.endsWith('/tags')) {
+        return pending.putIfAbsent(uri.path, Completer<Map<String, dynamic>>.new).future;
+      }
+      return {'results': [{'repo_name': uri.queryParameters['query']}]};
+    });
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SizedBox(width: 320, child: _ContainerImageReferenceField(
+        controller: controller, enabled: true, style: null, references: const [],
+        decoration: const InputDecoration(hintText: '镜像引用'),
+        registryFactory: () => registry,
+      )))));
+    final input = find.byType(TextField);
+    await tester.enterText(input, 'nginx:al'); await tester.pump(const Duration(milliseconds: 301));
+    expect(requests.single.queryParameters['name'], 'al');
+    await tester.enterText(input, 'redis:7'); await tester.pump(const Duration(milliseconds: 301));
+    pending['/v2/namespaces/library/repositories/redis/tags']!.complete({'results': [{'name': '7.4'}, {'name': '7.2'}], 'next': null});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(InkWell, 'redis:7.4'), findsOneWidget);
+    pending['/v2/namespaces/library/repositories/nginx/tags']!.complete({'results': [{'name': 'alpine'}], 'next': null});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(InkWell, 'nginx:alpine'), findsNothing);
+    final loaded = requests.length;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown); await tester.pumpAndSettle();
+    expect(controller.text, 'redis:7');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown); await tester.pumpAndSettle();
+    expect(controller.text, 'redis:7');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter); await tester.pumpAndSettle();
+    expect(controller.text, 'redis:7.2');
+    expect(requests.length, loaded);
+    failed = true;
+    await tester.enterText(input, 'nginx:custom'); await tester.pump(const Duration(milliseconds: 301)); await tester.pumpAndSettle();
+    expect(controller.text, 'nginx:custom');
+    expect(find.textContaining('手动'), findsOneWidget);
+    final count = requests.length;
+    await tester.enterText(input, 'registry.local:5000/app:v1'); await tester.pumpAndSettle();
+    expect(requests.length, count);
+    failed = false;
+    await tester.enterText(input, 'ubuntu:24'); await tester.pump(const Duration(milliseconds: 301));
+    await tester.pumpWidget(const SizedBox());
+    pending['/v2/namespaces/library/repositories/ubuntu/tags']!.complete({'results': [{'name': '24.04'}], 'next': null});
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
   testWidgets('全局开关跨平台遵循主题并支持键盘、语义和禁用状态', (tester) async {
     final semantics = tester.ensureSemantics();
     try {

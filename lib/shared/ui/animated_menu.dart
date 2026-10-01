@@ -8,11 +8,306 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
+import 'animated_overlay.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_safe_scrollbar.dart';
+
+/// 可自由输入的候选下拉框，异步候选更新不重建输入状态，进退场沿用全局菜单动效。
+class AnimatedEditableDropdown extends StatefulWidget {
+  const AnimatedEditableDropdown({
+    super.key,
+    required this.controller,
+    required this.entries,
+    required this.decoration,
+    this.style,
+    this.enabled = true,
+    this.focusNode,
+    this.onSelected,
+  });
+
+  final TextEditingController controller;
+  final List<DropdownMenuEntry<String>> entries;
+  final InputDecoration decoration;
+  final TextStyle? style;
+  final bool enabled;
+  final FocusNode? focusNode;
+  final ValueChanged<String?>? onSelected;
+
+  @override
+  State<AnimatedEditableDropdown> createState() =>
+      _AnimatedEditableDropdownState();
+}
+
+class _AnimatedEditableDropdownState extends State<AnimatedEditableDropdown> {
+  final _menu = MenuController();
+  final _visibility = ValueNotifier(false);
+  final _scroll = ScrollController();
+  final _localFocus = FocusNode();
+  VoidCallback? _hideOverlay;
+  int _highlight = -1;
+
+  FocusNode get _focus => widget.focusNode ?? _localFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_handleFocus);
+  }
+
+  void _handleFocus() {
+    if (!_focus.hasFocus) _menu.close();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedEditableDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      (oldWidget.focusNode ?? _localFocus).removeListener(_handleFocus);
+      _focus.addListener(_handleFocus);
+    }
+    if (oldWidget.enabled && !widget.enabled) _menu.close();
+    if (oldWidget.entries != widget.entries) _highlight = -1;
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_handleFocus);
+    _localFocus.dispose();
+    _scroll.dispose();
+    _visibility.dispose();
+    super.dispose();
+  }
+
+  void _open() {
+    if (!widget.enabled) return;
+    _focus.requestFocus();
+    _menu.open();
+  }
+
+  void _select(String? value) {
+    _menu.close();
+    if (!widget.enabled || value == null) return;
+    widget.controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    widget.onSelected?.call(value);
+  }
+
+  void _move(int direction, double itemHeight) {
+    final enabled = [
+      for (var i = 0; i < widget.entries.length; i++)
+        if (widget.entries[i].enabled) i,
+    ];
+    if (enabled.isEmpty) return;
+    final current = enabled.indexOf(_highlight);
+    final next = (current + direction).clamp(0, enabled.length - 1);
+    setState(() => _highlight = enabled[next]);
+    if (_scroll.hasClients) {
+      final start = _highlight * itemHeight;
+      final end = start + itemHeight;
+      final viewport = _scroll.position.viewportDimension;
+      final offset = start < _scroll.offset
+          ? start
+          : end > _scroll.offset + viewport
+          ? end - viewport
+          : _scroll.offset;
+      _scroll.jumpTo(offset.clamp(0, _scroll.position.maxScrollExtent));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final itemHeight = math.max(
+      kMinInteractiveDimension,
+      MediaQuery.textScalerOf(context).scale(widget.style?.fontSize ?? 14) *
+              1.4 +
+          16,
+    );
+    return RawMenuAnchor(
+      controller: _menu,
+      childFocusNode: _focus,
+      onOpenRequested: (_, show) {
+        _hideOverlay = null;
+        setState(() {
+          _highlight = -1;
+          _visibility.value = true;
+        });
+        if (!_menu.isOpen) show();
+      },
+      onCloseRequested: (hide) {
+        if (!_menu.isOpen) {
+          hide();
+          return;
+        }
+        _hideOverlay = hide;
+        setState(() => _visibility.value = false);
+      },
+      overlayBuilder: (context, info) {
+        const gap = 4.0, margin = 8.0, maxHeight = 280.0;
+        final availableBottom =
+            info.overlaySize.height - MediaQuery.viewInsetsOf(context).bottom;
+        final below = math.max(
+          0.0,
+          availableBottom - info.anchorRect.bottom - margin - gap,
+        );
+        final above = math.max(0.0, info.anchorRect.top - margin - gap);
+        final upwards = below < maxHeight && above > below;
+        final width = math.min(
+          info.anchorRect.width,
+          math.max(0.0, info.overlaySize.width - margin * 2),
+        );
+        return Positioned(
+          left: info.anchorRect.left.clamp(
+            margin,
+            math.max(margin, info.overlaySize.width - width - margin),
+          ),
+          top: upwards ? null : info.anchorRect.bottom + gap,
+          bottom: upwards
+              ? info.overlaySize.height - info.anchorRect.top + gap
+              : null,
+          width: width,
+          child: TapRegion(
+            groupId: info.tapRegionGroupId,
+            onTapOutside: (_) => _menu.close(),
+            child: TextFieldTapRegion(
+              child: AnimatedOverlayContent(
+                visibility: _visibility,
+                alignment: upwards
+                    ? Alignment.bottomCenter
+                    : Alignment.topCenter,
+                onExitCompleted: () {
+                  _hideOverlay?.call();
+                  _hideOverlay = null;
+                },
+                child: IgnorePointer(
+                  ignoring: !_visibility.value,
+                  child: Material(
+                    color: cs.surfaceContainerLow,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                      side: BorderSide(color: cs.outlineVariant),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.min(maxHeight, upwards ? above : below),
+                      ),
+                      child: ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        shrinkWrap: true,
+                        itemExtent: itemHeight,
+                        itemCount: widget.entries.length,
+                        itemBuilder: (context, index) {
+                          final entry = widget.entries[index];
+                          return Semantics(
+                            selected: index == _highlight,
+                            child: InkWell(
+                              canRequestFocus: false,
+                              onTap: entry.enabled
+                                  ? () => _select(entry.value)
+                                  : null,
+                              child: Ink(
+                                color: index == _highlight
+                                    ? cs.secondaryContainer
+                                    : null,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(
+                                    entry.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: widget.style?.copyWith(
+                                      color: entry.enabled
+                                          ? cs.onSurface
+                                          : cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      builder: (context, _, _) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true): _open,
+          if (_visibility.value) ...{
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                _move(1, itemHeight),
+            const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                _move(-1, itemHeight),
+            const SingleActivator(LogicalKeyboardKey.escape): _menu.close,
+            const SingleActivator(LogicalKeyboardKey.enter): () {
+              final entry = _highlight >= 0
+                  ? widget.entries[_highlight]
+                  : widget.entries.where((entry) => entry.enabled).firstOrNull;
+              _select(entry?.value);
+            },
+          },
+        },
+        child: TextField(
+          controller: widget.controller,
+          focusNode: _focus,
+          enabled: widget.enabled,
+          style: widget.style,
+          onTap: _open,
+          onTapAlwaysCalled: true,
+          onChanged: (_) => _open(),
+          onTapOutside: (_) => _menu.close(),
+          decoration: widget.decoration.copyWith(
+            suffixIcon: IconButton(
+              tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+              style:
+                  IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    disabledBackgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: cs.onSurfaceVariant,
+                    side: BorderSide.none,
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.resolveWith(
+                      (states) =>
+                          states.contains(WidgetState.pressed) ||
+                              states.contains(WidgetState.focused)
+                          ? cs.primary.withValues(alpha: .1)
+                          : Colors.transparent,
+                    ),
+                  ),
+              icon: Icon(
+                _visibility.value
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              onPressed: !widget.enabled
+                  ? null
+                  : _visibility.value
+                  ? _menu.close
+                  : _open,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 DialogAnimationSettings _resolveAnimatedMenuSettings(
   BuildContext context,
