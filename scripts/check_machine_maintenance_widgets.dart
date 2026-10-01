@@ -4380,6 +4380,72 @@ Widget incrementalApp(_MaintenanceFixture service) => ChangeNotifierProvider<Mac
     home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))));
 void incrementalChecks() {
 
+  testWidgets('采集超时保留已有数据并显示本地化错误，手动重试可恢复且不打印预期堆栈', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    final service = _MaintenanceFixture();
+    await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle();
+    final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+    final baseline = state._snapshots[0];
+    final logs = <String>[];
+    final previousPrint = debugPrint;
+    try {
+      debugPrint = (String? message, {int? wrapWidth}) { if (message != null) logs.add(message); };
+      service.failure = TimeoutException('模拟终端超时');
+      await state._refresh(manual: true); await tester.pumpAndSettle();
+      expect(state._snapshots[0], same(baseline));
+      expect(state._error, AppLocalizations.of(state.context)!.maintenanceCommandTimedOut);
+      expect(state._loading, isFalse); expect(state._progressTimer, isNull);
+      expect(logs.where((line) => line.contains('machine_maintenance')), isEmpty);
+      service.failure = null;
+      await state._refresh(manual: true); await tester.pumpAndSettle();
+      expect(state._error, isNull); expect(state._snapshots[0]!.isComplete, isTrue);
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugPrint = previousPrint;
+      await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+    }
+  });
+
+  testWidgets('卡片有限高度与快速增量变更不溢出且内容仍可访问', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    for (final scale in [1.0, 2.0]) {
+      for (final height in [109.0, 80.0]) {
+        await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Center(child: SizedBox(width: 568, height: height,
+            child: _MaintenanceCard(title: '运行状态', scrollBody: false,
+              child: Text('完整内容可访问', style: TextStyle(fontSize: 24, height: 1.6)))))))));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+        scroll.position.jumpTo(scroll.position.maxScrollExtent); await tester.pump();
+        expect(find.text('完整内容可访问').hitTestable(), findsOneWidget);
+      }
+    }
+    late StateSetter update;
+    var populated = false;
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(child: StatefulBuilder(
+      builder: (context, setter) {
+        update = setter;
+        return _MaintenanceGrid(children: [
+          _MaintenanceCard(title: '变化数据', child: populated
+            ? const Text('内容变化\n多行数据\n完整显示')
+            : const OpenHandOperationalEmptyState(message: '暂无可用数据')),
+          const _MaintenanceCard(title: '运行状态', child: Text('正常')),
+        ]);
+      })))));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 6; i++) {
+      update(() => populated = !populated); await tester.pump();
+      for (var frame = 0; frame < 12; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('运维空态六语言、主题和有限高度保持居中可读，悬停无阴影', (tester) async {
     for (final locale in AppLocalizations.supportedLocales) {
       for (final brightness in Brightness.values) {

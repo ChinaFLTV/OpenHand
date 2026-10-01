@@ -153,6 +153,53 @@ $machineNetworkMacCounters
   );
   final complete = markers.locate('__开始__\r\n真实输出\r\n__结束__:0\r\n');
   check(complete.endIndex > complete.outputStart, '完整命令帧未被识别');
+  final probeMarkers = MachineTerminalCommandMarkers(
+    '__开始__',
+    '__结束__',
+    probe: true,
+  );
+  for (final fixture in [
+    ('[root@test ~]# ', 'Linux', MachineTerminalCommandShell.posix, 'Linux'),
+    ('tester@host % ', 'Darwin', MachineTerminalCommandShell.posix, 'Darwin'),
+    (
+      r'PS C:\Users\tester> ',
+      'OH_PS_Windows_NT',
+      MachineTerminalCommandShell.powershell,
+      'Windows',
+    ),
+    (
+      r'C:\Users\tester>',
+      'OH_CMD_Windows_NT',
+      MachineTerminalCommandShell.cmd,
+      'Windows',
+    ),
+  ]) {
+    final output =
+        '${fixture.$1}__开始__\r\n${fixture.$1}${fixture.$2}\r\n${fixture.$1}__结束__:0\r\n';
+    final located = probeMarkers.locate(output);
+    check(
+      located.outputStart >= 0 &&
+          output.substring(located.endIndex).startsWith('__结束__:0'),
+      '探测标记未兼容提示符前缀',
+    );
+    final target = parseMachineTerminalShellProbe(
+      output.substring(located.outputStart, located.endIndex),
+    );
+    check(
+      target.shell == fixture.$3 && target.platform == fixture.$4,
+      '关闭回显时无法识别系统',
+    );
+    final echo = probeMarkers.locate(
+      '${fixture.$1}echo __开始__\n${fixture.$1}echo __结束__:0\n',
+    );
+    check(echo.outputStart < 0 && echo.endIndex < 0, '探测命令回显被误认为输出');
+    final pending = probeMarkers.locate('__开始__\n${fixture.$1}echo __结束__:0\n');
+    check(pending.endIndex < 0, '结束命令回显导致探测提前结束');
+  }
+  check(
+    probeMarkers.locate('__开始__\n前置提示#\n__结束__:0\n').endIndex >= 0,
+    '独占行探测标记不可丢失',
+  );
   for (final shell in [
     MachineTerminalCommandShell.cmd,
     MachineTerminalCommandShell.powershell,

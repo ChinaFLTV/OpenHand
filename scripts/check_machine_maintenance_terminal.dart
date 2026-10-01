@@ -35,6 +35,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       terminal.writeInput("PS1='[root@test ~]# '; PS2='> '; bind 'set enable-bracketed-paste off' 2>/dev/null\n");
       await Future<void>.delayed(const Duration(milliseconds: 300));
+      terminal.writeInput('stty -echo\n');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final target = parseMachineTerminalShellProbe(await files.runMaintenanceCommand(
+        sessionId: 'container-check', terminalId: terminal.id, command: machineTerminalShellProbe,
+        commandShell: MachineTerminalCommandShell.probe, timeout: const Duration(seconds: 2)));
+      expect(target.platform, Platform.isMacOS ? 'Darwin' : 'Linux');
+      terminal.writeInput('stty echo\n');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
       Future<String> run(String command) => files.runMaintenanceCommand(
         sessionId: 'container-check', terminalId: terminal.id, command: command,
         maxOutputCharacters: machineContainerOutputLimit,

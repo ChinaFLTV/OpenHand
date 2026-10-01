@@ -90,12 +90,21 @@ echo OH_CMD_%OS%
 uname -s
 ''';
 
+// 探测阶段尚不知道 Shell 类型；关闭回显时输出可能紧跟交互提示符。
+const _machineTerminalProbePrompt = r'(?:[^\r\n]*[>#$%❯➜][ \t]*)?';
+final _machineTerminalProbePromptPattern = RegExp(
+  '^$_machineTerminalProbePrompt',
+);
+
 ({MachineTerminalCommandShell shell, String platform})
 parseMachineTerminalShellProbe(String output) {
   final lines = output
       .replaceAll('\r', '')
       .split('\n')
-      .map((line) => line.trim())
+      .map(
+        (line) =>
+            line.trim().replaceFirst(_machineTerminalProbePromptPattern, ''),
+      )
       .toSet();
   if (lines.contains('OH_PS_Windows_NT')) {
     return (shell: MachineTerminalCommandShell.powershell, platform: 'Windows');
@@ -186,20 +195,29 @@ bool machineTerminalHasOutputMarker(String output, String marker) => RegExp(
   multiLine: true,
 ).hasMatch(output);
 
-/// 只识别独占行的标记，忽略终端输入回显中的同名文本。
+/// 普通命令只识别独占行；探测允许提示符前缀，但仍拒绝 echo 等命令回显。
 class MachineTerminalCommandMarkers {
-  MachineTerminalCommandMarkers(String begin, String end)
-    : _begin = RegExp('^${RegExp.escape(begin)}\\r?\$', multiLine: true),
-      _end = RegExp('^${RegExp.escape(end)}:', multiLine: true);
+  MachineTerminalCommandMarkers(String begin, String end, {bool probe = false})
+    : _begin = RegExp(
+        '^${probe ? _machineTerminalProbePrompt : ''}${RegExp.escape(begin)}\\r?\$',
+        multiLine: true,
+      ),
+      _end = RegExp(
+        '^${probe ? _machineTerminalProbePrompt : ''}${RegExp.escape(end)}:',
+        multiLine: true,
+      ),
+      _endLength = end.length + 1;
+  final int _endLength;
   final RegExp _begin, _end;
   ({int outputStart, int endIndex}) locate(
     String text, {
     bool beginningDiscarded = false,
   }) {
     final start = _begin.firstMatch(text)?.end ?? (beginningDiscarded ? 0 : -1);
-    final end = start < 0
-        ? -1
-        : (_end.allMatches(text, start).firstOrNull?.start ?? -1);
-    return (outputStart: start, endIndex: end);
+    final end = start < 0 ? null : _end.allMatches(text, start).firstOrNull;
+    return (
+      outputStart: start,
+      endIndex: end == null ? -1 : end.end - _endLength,
+    );
   }
 }

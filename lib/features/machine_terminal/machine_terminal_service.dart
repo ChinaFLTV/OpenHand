@@ -2510,6 +2510,7 @@ class MachineTerminalSession {
         startGeneration: startGeneration,
         timeout: timeout,
         onOutput: onOutput,
+        probe: commandShell == MachineTerminalCommandShell.probe,
       );
       return _recordedCommandResult(
         startedAt: startedAt,
@@ -2791,6 +2792,7 @@ class MachineTerminalSession {
         startOffset: startOffset,
         startGeneration: startGeneration,
         timeout: _commandRecoveryTimeout,
+        probe: commandShell == MachineTerminalCommandShell.probe,
       );
     } catch (_) {
       // 未恢复结束标记时保留原 PTY，禁止自动重启导致 relay/SSH 会话丢失。
@@ -2804,12 +2806,13 @@ class MachineTerminalSession {
     required int startGeneration,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
+    bool probe = false,
   }) async {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
     // 增量剥离：每轮只对新增的原始输出跑一次 _plainText，而不是对最多 24 万
     // 字符的整段缓冲重跑四遍全文替换。刷屏型命令（npm install / find /）此前
     // 每秒要在 UI isolate 上做数百万字符的字符串工作，直接表现为掉帧。
-    final markers = MachineTerminalCommandMarkers(begin, end);
+    final markers = MachineTerminalCommandMarkers(begin, end, probe: probe);
     final plainBuffer = StringBuffer();
     var scannedOffset = startOffset;
     String? lastOutput;

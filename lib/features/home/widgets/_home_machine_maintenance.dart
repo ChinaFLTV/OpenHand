@@ -480,9 +480,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       // 关闭弹窗后停止传输，不将主动取消报告为采集故障。
       return;
     } catch (error, stack) {
-      silentLog('machine_maintenance', '采集运维数据', error, stack);
       _detectedTarget = null;
       if (mounted && !_closing && tab == _tab) {
+        // 超时已有本地化错误状态，未知故障仍保留堆栈供排查。
+        if (error is! TimeoutException) {
+          silentLog('machine_maintenance', '采集运维数据', error, stack);
+        }
         setState(() {
           _error = error is TimeoutException
               ? AppLocalizations.of(context)!.maintenanceCommandTimedOut
@@ -6365,92 +6368,99 @@ class _MaintenanceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(_maintenanceCardRadius),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: .65)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-            child: Row(
-              children: [
-                Expanded(
-                  child: wrapHeader
-                      ? OverflowBar(
-                          alignment: MainAxisAlignment.spaceBetween,
-                          overflowAlignment: OverflowBarAlignment.end,
-                          spacing: 12,
-                          overflowSpacing: 10,
-                          children: [heading, if (trailing != null) trailing!],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(child: heading),
-                            if (trailing != null) ...[
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  heightFactor: 1,
-                                  child: trailing,
-                                ),
-                              ),
+      // 等高网格或尺寸过渡压缩卡片时，保留自然布局并允许访问全部内容。
+      child: SingleChildScrollView(
+        primary: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: wrapHeader
+                        ? OverflowBar(
+                            alignment: MainAxisAlignment.spaceBetween,
+                            overflowAlignment: OverflowBarAlignment.end,
+                            spacing: 12,
+                            overflowSpacing: 10,
+                            children: [
+                              heading,
+                              if (trailing != null) trailing!,
                             ],
-                          ],
-                        ),
-                ),
-                if (onOpen != null)
-                  Tooltip(
-                    message: maintenanceLabel(context, '查看详情'),
-                    child: InkWell(
-                      onTap: onOpen,
-                      hoverColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      overlayColor: _maintenanceNoOverlay,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                          )
+                        : Row(
+                            children: [
+                              Expanded(child: heading),
+                              if (trailing != null) ...[
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    heightFactor: 1,
+                                    child: trailing,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                   ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: cs.outlineVariant.withValues(alpha: .45)),
-          Padding(
-            padding: contentPadding,
-            // 列表自行约束数据区，外层不能再次截断分页栏。
-            child: _MaintenanceAnimatedSize(
-              child:
-                  !scrollBody ||
-                      child is _MaintenanceTable ||
-                      child is _MaintenanceBrowser ||
-                      child is _MaintenanceReadout ||
-                      child is _MaintenanceLogTimeline
-                  ? child
-                  : ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: math.min(
-                          maxHeight,
-                          MediaQuery.sizeOf(context).height * .56,
-                        ),
-                      ),
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: SingleChildScrollView(
-                          primary: false,
-                          child: child,
+                  if (onOpen != null)
+                    Tooltip(
+                      message: maintenanceLabel(context, '查看详情'),
+                      child: InkWell(
+                        onTap: onOpen,
+                        hoverColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        overlayColor: _maintenanceNoOverlay,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Divider(height: 1, color: cs.outlineVariant.withValues(alpha: .45)),
+            Padding(
+              padding: contentPadding,
+              // 列表自行约束数据区，外层不能再次截断分页栏。
+              child: _MaintenanceAnimatedSize(
+                child:
+                    !scrollBody ||
+                        child is _MaintenanceTable ||
+                        child is _MaintenanceBrowser ||
+                        child is _MaintenanceReadout ||
+                        child is _MaintenanceLogTimeline
+                    ? child
+                    : ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: math.min(
+                            maxHeight,
+                            MediaQuery.sizeOf(context).height * .56,
+                          ),
+                        ),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: SingleChildScrollView(
+                            primary: false,
+                            child: child,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     final width = preferredWidth(context);
