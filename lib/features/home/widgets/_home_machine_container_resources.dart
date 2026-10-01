@@ -1172,7 +1172,8 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                           ),
                         ),
                       ],
-                      if (!_loading && supported && (_hasMore || _failed))
+                      if (!_loading && supported && (_hasMore || _failed)) ...[
+                        kOpenHandGap12,
                         Center(
                           child: TextButton(
                             onPressed: _load,
@@ -1183,6 +1184,7 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                             ),
                           ),
                         ),
+                      ],
                       if (!_loading && !_failed && supported && _tags.isEmpty)
                         _MaintenanceEmptyHint(
                           message: maintenanceLabel(context, '当前范围没有记录'),
