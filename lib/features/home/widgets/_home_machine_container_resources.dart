@@ -1106,7 +1106,11 @@ class _ContainerResourceFormDialogState
           backgroundColor: cs.surfaceContainerLow,
           surfaceTintColor: Colors.transparent,
           child: SizedBox(
-            width: kOpenHandDialogWidthWide,
+            width: create
+                ? kOpenHandDialogWidthWide
+                : widget.action == _ContainerResourceAction.createVolume
+                ? kOpenHandDialogWidthStandard
+                : kOpenHandDialogWidthCompact,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1134,12 +1138,72 @@ class _ContainerResourceFormDialogState
                     child: _MaintenanceAnimatedColumn(
                       spacing: 12,
                       children: [
-                        if (_remove)
-                          _MaintenanceNotice(
-                            message:
-                                '${widget.resource!.reference}\n${widget.action == _ContainerResourceAction.removeVolume ? l.maintenanceVolumeRemoveHelp : l.maintenanceImageRemoveHelp}',
-                            error: true,
+                        if (_remove) ...[
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerLowest,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(alpha: .65),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _MaintenanceIconBadge(
+                                  icon:
+                                      widget.action ==
+                                          _ContainerResourceAction.removeVolume
+                                      ? Icons.storage_rounded
+                                      : Icons.layers_outlined,
+                                  color: cs.secondary,
+                                  size: _formControlHeight,
+                                  iconSize: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.action ==
+                                                _ContainerResourceAction
+                                                    .removeVolume
+                                            ? l.maintenanceVolumes
+                                            : l.maintenanceImages,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      SelectableText(
+                                        widget.resource!.reference,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontSize: _formFontSize,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.5,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          if (!_completed)
+                            _MaintenanceNotice(
+                              message:
+                                  widget.action ==
+                                      _ContainerResourceAction.removeVolume
+                                  ? l.maintenanceVolumeRemoveHelp
+                                  : l.maintenanceImageRemoveHelp,
+                              error: true,
+                            ),
+                        ],
                         if (widget.action == _ContainerResourceAction.pull) ...[
                           _field(
                             'image',
@@ -1352,7 +1416,8 @@ class _ContainerResourceFormDialogState
                             height: _controlHeight,
                             child: _MaintenanceToolbarMenu<int>(
                               label: maintenanceTimeoutLabel(context, _timeout),
-                              tooltip: l.maintenanceTimeout,
+                              tooltip: l.maintenanceOperationTimeout,
+                              icon: Icons.timer_outlined,
                               value: _timeout,
                               enabled: _editable,
                               items: {

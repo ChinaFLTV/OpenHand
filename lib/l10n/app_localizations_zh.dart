@@ -15026,6 +15026,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenancePortAutomatic => '留空自动分配';
+
+  @override
+  String get maintenanceOperationTimeout => '操作超时';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30033,4 +30036,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenancePortAutomatic => '留空自動分配';
+
+  @override
+  String get maintenanceOperationTimeout => '操作逾時';
 }

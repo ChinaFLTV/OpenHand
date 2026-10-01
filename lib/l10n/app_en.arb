@@ -9680,5 +9680,6 @@
   "maintenanceVolumeRemoveHelp": "Delete this volume and its data permanently. Volumes still used by containers are not force-deleted.",
   "maintenanceResourceParameters": "Parameters",
   "maintenanceRestartUnlessStopped": "Restart unless manually stopped",
-  "maintenancePortAutomatic": "Leave empty to assign automatically"
+  "maintenancePortAutomatic": "Leave empty to assign automatically",
+  "maintenanceOperationTimeout": "Operation timeout"
 }

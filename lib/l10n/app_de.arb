@@ -9675,5 +9675,6 @@
   "maintenanceVolumeRemoveHelp": "Dieses Volume und seine Daten endgültig löschen. Verwendete Volumes werden nicht zwangsweise gelöscht.",
   "maintenanceResourceParameters": "Parameter",
   "maintenanceRestartUnlessStopped": "Neustart, sofern nicht manuell gestoppt",
-  "maintenancePortAutomatic": "Leer lassen für automatische Zuweisung"
+  "maintenancePortAutomatic": "Leer lassen für automatische Zuweisung",
+  "maintenanceOperationTimeout": "Zeitlimit für den Vorgang"
 }

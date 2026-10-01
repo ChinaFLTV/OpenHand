@@ -9675,5 +9675,6 @@
   "maintenanceVolumeRemoveHelp": "ボリュームとデータを完全に削除します。使用中のボリュームは強制削除しません。",
   "maintenanceResourceParameters": "パラメーター",
   "maintenanceRestartUnlessStopped": "手動停止以外は再起動",
-  "maintenancePortAutomatic": "空欄で自動割り当て"
+  "maintenancePortAutomatic": "空欄で自動割り当て",
+  "maintenanceOperationTimeout": "操作タイムアウト"
 }

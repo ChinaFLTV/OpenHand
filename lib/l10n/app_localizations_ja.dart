@@ -15175,4 +15175,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenancePortAutomatic => '空欄で自動割り当て';
+
+  @override
+  String get maintenanceOperationTimeout => '操作タイムアウト';
 }

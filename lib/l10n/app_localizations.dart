@@ -28084,6 +28084,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'留空自动分配'**
   String get maintenancePortAutomatic;
+
+  /// No description provided for @maintenanceOperationTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作超时'**
+  String get maintenanceOperationTimeout;
 }
 
 class _AppLocalizationsDelegate

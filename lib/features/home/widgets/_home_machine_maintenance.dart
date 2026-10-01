@@ -5447,7 +5447,8 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   final bool enabled;
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         const chrome = 1.0 + 10.0 + 16.0 + 6.0 + 10.0 + 1.0;
@@ -5455,59 +5456,108 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
         final textMax = constraints.maxWidth.isFinite
             ? math.max(0.0, constraints.maxWidth - chrome - leading)
             : double.infinity;
-        return AnimatedPopupMenuButton<T>(
-          tooltip: maintenanceLabel(context, tooltip),
-          enabled: enabled,
-          initialValue: value,
-          position: PopupMenuPosition.under,
-          padding: EdgeInsets.zero,
-          onSelected: onSelected,
-          itemBuilder: (_) => [
-            for (final item in items.entries)
-              PopupMenuItem(
-                value: item.key,
-                child: Text(maintenanceLabel(context, item.value)),
-              ),
-          ],
-          child: AnimatedOpacity(
-            opacity: enabled ? 1 : .42,
-            duration: openHandMotionDuration(context, kOpenHandMotion140),
-            child: Container(
-              height: _maintenanceControlHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: .72),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: .55),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 16, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                  ],
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: textMax),
-                    child: Text(
-                      maintenanceLabel(context, label),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: enabled ? cs.onSurface : cs.onSurfaceVariant,
-                      ),
+        return PopupMenuTheme(
+          data: PopupMenuTheme.of(context).copyWith(
+            color: cs.surfaceContainerLowest,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            menuPadding: const EdgeInsets.all(4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: .65)),
+            ),
+          ),
+          child: AnimatedPopupMenuButton<T>(
+            tooltip: maintenanceLabel(context, tooltip),
+            enabled: enabled,
+            initialValue: value,
+            position: PopupMenuPosition.under,
+            padding: EdgeInsets.zero,
+            offset: const Offset(0, 4),
+            onSelected: onSelected,
+            itemBuilder: (_) => [
+              for (final item in items.entries)
+                PopupMenuItem(
+                  value: item.key,
+                  height: math.max(
+                    _maintenanceControlHeight,
+                    MediaQuery.textScalerOf(context).scale(12) * 1.4 + 12,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  child: Semantics(
+                    selected: item.key == value,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            maintenanceLabel(context, item.value),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: item.key == value
+                                  ? cs.primary
+                                  : cs.onSurface,
+                              fontWeight: item.key == value
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: item.key == value
+                              ? cs.primary
+                              : Colors.transparent,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.expand_more_rounded,
-                    size: 16,
-                    color: cs.onSurfaceVariant,
+                ),
+            ],
+            child: AnimatedOpacity(
+              opacity: enabled ? 1 : .42,
+              duration: openHandMotionDuration(context, kOpenHandMotion140),
+              child: Container(
+                height: _maintenanceControlHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: cs.surface.withValues(alpha: .72),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: .55),
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 16, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 6),
+                    ],
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: textMax),
+                      child: Text(
+                        maintenanceLabel(context, label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.expand_more_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

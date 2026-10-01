@@ -15757,4 +15757,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenancePortAutomatic => 'Vide : attribution automatique';
+
+  @override
+  String get maintenanceOperationTimeout => 'Délai de l’opération';
 }

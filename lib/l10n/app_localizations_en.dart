@@ -15530,4 +15530,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenancePortAutomatic => 'Leave empty to assign automatically';
+
+  @override
+  String get maintenanceOperationTimeout => 'Operation timeout';
 }

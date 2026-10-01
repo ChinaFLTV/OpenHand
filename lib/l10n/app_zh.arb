@@ -10827,5 +10827,6 @@
   "maintenanceVolumeRemoveHelp": "永久删除此数据卷及其中的数据。不会强制删除仍被容器使用的卷。",
   "maintenanceResourceParameters": "参数",
   "maintenanceRestartUnlessStopped": "除非手动停止，否则重启",
-  "maintenancePortAutomatic": "留空自动分配"
+  "maintenancePortAutomatic": "留空自动分配",
+  "maintenanceOperationTimeout": "操作超时"
 }

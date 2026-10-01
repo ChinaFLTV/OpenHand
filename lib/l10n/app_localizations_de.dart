@@ -15705,4 +15705,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenancePortAutomatic =>
       'Leer lassen für automatische Zuweisung';
+
+  @override
+  String get maintenanceOperationTimeout => 'Zeitlimit für den Vorgang';
 }

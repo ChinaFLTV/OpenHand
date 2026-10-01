@@ -9675,5 +9675,6 @@
   "maintenanceVolumeRemoveHelp": "Supprimer définitivement ce volume et ses données. Les volumes utilisés ne sont pas supprimés de force.",
   "maintenanceResourceParameters": "Paramètres",
   "maintenanceRestartUnlessStopped": "Redémarrer sauf arrêt manuel",
-  "maintenancePortAutomatic": "Vide : attribution automatique"
+  "maintenancePortAutomatic": "Vide : attribution automatique",
+  "maintenanceOperationTimeout": "Délai de l’opération"
 }
