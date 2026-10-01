@@ -111,11 +111,13 @@ class _MaintenanceFixture extends Fake with ChangeNotifier implements MachineTer
   bool fail = false;
   String? gpuOutput;
   Object? failure;
+  Duration? lastTimeout;
   Completer<String>? pending;
   MachineTerminalUploadCancelCheck? cancelled;
   MachineTerminalCommandOutputCallback? outputCallback;
   @override
   Future<String> runMaintenanceCommand({required String sessionId, required String terminalId, required String command, bool windowsScript = false, Duration timeout = const Duration(seconds: 30), int? maxOutputCharacters, MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.posix, MachineTerminalUploadCancelCheck? isCancelled, MachineTerminalCommandOutputCallback? onOutput}) async {
+    lastTimeout = timeout;
     if (containerRun != null && RegExp(r"^'(docker|kubectl|podman|nerdctl|crictl|k3s)' ").hasMatch(command)) return containerRun!(command);
     if (command.contains('OH_SHELL_') || command == 'ver') return 'OH_SHELL_bash 5.2';
     if (command == machineTerminalShellProbe) probes++;
@@ -4379,6 +4381,50 @@ Widget incrementalApp(_MaintenanceFixture service) => ChangeNotifierProvider<Mac
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))));
 void incrementalChecks() {
+
+  testWidgets('超时菜单位于 Shell 与刷新间隔之间，六种语言与全部档位传递到采集链路', (tester) async {
+    final service = _MaintenanceFixture();
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final width in [440.0, 1500.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1000));
+        await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+          child: _SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) => LayoutBuilder(builder: (context, constraints) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(size: constraints.biggest, textScaler: TextScaler.linear(width < 500 ? 1.4 : 1)), child: child!)),
+            theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
+            home: const RepaintBoundary(key: ValueKey('超时菜单预览'), child: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+        await tester.pumpAndSettle();
+        final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+        final l = AppLocalizations.of(state.context)!;
+        final selector = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.tooltip == l.maintenanceTimeout);
+        final shell = find.byType(_MaintenanceToolbarMenu<MachineTerminalCommandShell>);
+        final interval = find.byWidgetPredicate((w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.timer_outlined);
+        expect(state._timeoutSeconds, 30);
+        expect(tester.getTopLeft(shell).dx, lessThan(tester.getTopLeft(selector).dx));
+        expect(tester.getTopLeft(selector).dx, lessThan(tester.getTopLeft(interval).dx));
+        expect(tester.getSize(selector).height, tester.getSize(interval).height);
+        for (final seconds in machineMaintenanceTimeoutOptions) {
+          final menu = tester.widget<_MaintenanceToolbarMenu<int>>(selector);
+          expect(menu.items.keys.toList(), machineMaintenanceTimeoutOptions);
+          menu.onSelected(seconds); await tester.pump();
+          await state._refresh(manual: true); await tester.pumpAndSettle();
+          expect(service.lastTimeout, Duration(seconds: seconds));
+          if (seconds == 30 && locale.toString() == 'zh' && width == 1500 && Platform.environment['MAINTENANCE_FONT'] != null) {
+            await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('超时菜单预览')));
+              final image = await boundary.toImage(); final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              await File('/tmp/maintenance-timeout-menu.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+            });
+          }
+          expect(service.lastCommand, contains('"\$oh_tick" -lt ${(seconds - 2) * 10}'));
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
 
   testWidgets('采集超时保留已有数据并显示本地化错误，手动重试可恢复且不打印预期堆栈', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));

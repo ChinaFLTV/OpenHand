@@ -216,6 +216,28 @@ $machineNetworkMacCounters
       '脚本超时或清理路径缺失',
     );
   }
+  for (final seconds in machineMaintenanceTimeoutOptions) {
+    for (final platform in ['Linux', 'Darwin', 'Windows']) {
+      final command = MachineMaintenancePlatformAdapter.forPlatform(
+        platform,
+      ).collect(0, workers: 4, timeout: Duration(seconds: seconds));
+      check(
+        command.contains(
+          platform == 'Windows'
+              ? 'ohTimeout=${(seconds - 2) * 1000}'
+              : '"\$oh_tick" -lt ${(seconds - 2) * 10}',
+        ),
+        '采集脚本未采用所选超时',
+      );
+    }
+    final windows = MachineTerminalWindowsScript(
+      'WScript.Echo("完成");',
+      'timeout-check',
+      MachineTerminalCommandShell.powershell,
+      timeout: Duration(seconds: seconds),
+    );
+    check(windows.execute.contains('//T:$seconds '), 'Windows 传输仍使用固定执行超时');
+  }
   final macOverview = MachineMaintenancePlatformAdapter.forPlatform(
     'Darwin',
   ).collect(0);

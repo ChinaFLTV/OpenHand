@@ -9576,5 +9576,30 @@
   "maintenanceTaskAfterActive": "After activation",
   "maintenanceTaskAfterStartup": "After scheduler startup",
   "maintenanceTaskAfterUnitActive": "After service activation",
-  "maintenanceTaskAfterUnitInactive": "After service stops"
+  "maintenanceTaskAfterUnitInactive": "After service stops",
+  "maintenanceTimeout": "Collection timeout",
+  "maintenanceTimeoutSeconds": "Timeout {value} s",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "Timeout {value} min",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "Timeout {value} h",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

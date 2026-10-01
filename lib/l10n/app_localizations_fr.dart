@@ -15472,4 +15472,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceTaskAfterUnitInactive => 'Après arrêt du service';
+
+  @override
+  String get maintenanceTimeout => 'Délai maximal de collecte';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return 'Délai $value s';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return 'Délai $value min';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return 'Délai $value h';
+  }
 }

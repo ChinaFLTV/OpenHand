@@ -33,7 +33,7 @@ const String kMachineTerminalMetadataKey = 'machine_terminal';
 const int kMachineTerminalMetadataSchemaVersion = 2;
 const Duration kMachineTerminalDefaultCommandTimeout = Duration(seconds: 120);
 const int kMachineTerminalMinCommandTimeoutMs = 1000;
-const int kMachineTerminalMaxCommandTimeoutMs = 600000;
+const int kMachineTerminalMaxCommandTimeoutMs = 3600000;
 
 int clampMachineTerminalCommandTimeoutMs(int value) {
   if (value < kMachineTerminalMinCommandTimeoutMs) {
@@ -947,6 +947,7 @@ class MachineTerminalService extends ChangeNotifier {
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final trimmed = command.trimRight();
@@ -986,6 +987,7 @@ class MachineTerminalService extends ChangeNotifier {
       displayOutput: displayOutput,
       commandShell: commandShell,
       onOutput: onOutput,
+      isCancelled: isCancelled,
     );
     _scheduleMetadataPersist(terminal.sessionId);
     if (recordHistory) _scheduleHistoryPersist(terminal.sessionId);
@@ -2426,6 +2428,7 @@ class MachineTerminalSession {
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
     MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
       return Future<MachineTerminalCommandResult>.value(
@@ -2452,6 +2455,7 @@ class MachineTerminalSession {
             displayOutput: displayOutput,
             commandShell: commandShell,
             onOutput: onOutput,
+            isCancelled: isCancelled,
           ),
         ).whenComplete(() {
           if (identical(_commandExecution, tracked)) {
@@ -2471,7 +2475,11 @@ class MachineTerminalSession {
     required bool displayOutput,
     required MachineTerminalCommandShell commandShell,
     MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
+    if (isCancelled?.call() ?? false) {
+      throw const MachineTerminalUploadCancelled();
+    }
     final stopwatch = Stopwatch()..start();
     final startedAt = DateTime.now();
     if (_pty == null || _status != MachineTerminalStatus.running) {
@@ -2510,6 +2518,7 @@ class MachineTerminalSession {
         startGeneration: startGeneration,
         timeout: timeout,
         onOutput: onOutput,
+        isCancelled: isCancelled,
         probe: commandShell == MachineTerminalCommandShell.probe,
       );
       return _recordedCommandResult(
@@ -2519,6 +2528,15 @@ class MachineTerminalSession {
         exitCode: parsed.exitCode,
         durationMs: stopwatch.elapsedMilliseconds,
       );
+    } on MachineTerminalUploadCancelled {
+      await _interruptTimedOutCommandPreservingSession(
+        commandShell: commandShell,
+        begin: begin,
+        end: end,
+        startOffset: startOffset,
+        startGeneration: startGeneration,
+      );
+      rethrow;
     } on TimeoutException {
       final output = _clipToolOutput(
         _plainText(_outputSince(startOffset)).trimRight(),
@@ -2806,6 +2824,7 @@ class MachineTerminalSession {
     required int startGeneration,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalUploadCancelCheck? isCancelled,
     bool probe = false,
   }) async {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
@@ -2818,6 +2837,9 @@ class MachineTerminalSession {
     String? lastOutput;
     try {
       while (true) {
+        if (isCancelled?.call() ?? false) {
+          throw const MachineTerminalUploadCancelled();
+        }
         if (_output.discardedSince(scannedOffset)) {
           // 缓冲已滚过尚未扫描的区间，增量状态不再可信，退回整段剥离。
           plainBuffer.clear();
@@ -2844,6 +2866,7 @@ class MachineTerminalSession {
               outputStart,
               endIndex >= outputStart ? endIndex : segment.length,
             ),
+            preserveTrailing: true,
           );
           if (currentOutput != lastOutput) {
             lastOutput = currentOutput;
@@ -3318,12 +3341,13 @@ int _ansiSafeSplitLength(String raw) {
   return limit < 0 ? 0 : limit;
 }
 
-String _removeMarkerNoise(String value) {
+String _removeMarkerNoise(String value, {bool preserveTrailing = false}) {
   final lines = value.split('\n');
   while (lines.isNotEmpty && lines.first.trim().isEmpty) {
     lines.removeAt(0);
   }
-  while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+  // 增量解析依赖换行确认数据段已闭合，不能剥掉最后一个完整行的边界。
+  while (!preserveTrailing && lines.isNotEmpty && lines.last.trim().isEmpty) {
     lines.removeLast();
   }
   return lines.join('\n');

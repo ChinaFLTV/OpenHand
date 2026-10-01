@@ -14762,6 +14762,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTaskAfterUnitInactive => '服务停止后';
+
+  @override
+  String get maintenanceTimeout => '采集超时';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return '超时 $value 秒';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return '超时 $value 分钟';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return '超时 $value 小时';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29504,4 +29522,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTaskAfterUnitInactive => '服務停止後';
+
+  @override
+  String get maintenanceTimeout => '採集逾時';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return '逾時 $value 秒';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return '逾時 $value 分鐘';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return '逾時 $value 小時';
+  }
 }

@@ -14898,4 +14898,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTaskAfterUnitInactive => 'サービスの停止後';
+
+  @override
+  String get maintenanceTimeout => '収集タイムアウト';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return 'タイムアウト $value 秒';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return 'タイムアウト $value 分';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return 'タイムアウト $value 時間';
+  }
 }

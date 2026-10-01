@@ -9571,5 +9571,30 @@
   "maintenanceTaskAfterActive": "Après activation",
   "maintenanceTaskAfterStartup": "Après lancement de l’ordonnanceur",
   "maintenanceTaskAfterUnitActive": "Après activation du service",
-  "maintenanceTaskAfterUnitInactive": "Après arrêt du service"
+  "maintenanceTaskAfterUnitInactive": "Après arrêt du service",
+  "maintenanceTimeout": "Délai maximal de collecte",
+  "maintenanceTimeoutSeconds": "Délai {value} s",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "Délai {value} min",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "Délai {value} h",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

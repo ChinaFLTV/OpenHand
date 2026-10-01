@@ -50,7 +50,7 @@ class _CommandTerminal extends Fake implements MachineTerminalService {
     Duration timeout = const Duration(seconds: 30), bool startIfNeeded = true,
     bool recordHistory = true, bool displayOutput = true,
     MachineTerminalCommandShell commandShell = MachineTerminalCommandShell.automatic,
-    MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalCommandOutputCallback? onOutput, MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     expect(recordHistory, isFalse);
     expect(displayOutput, isFalse);

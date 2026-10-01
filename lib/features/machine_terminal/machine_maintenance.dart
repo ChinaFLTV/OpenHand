@@ -10,6 +10,8 @@ export 'machine_maintenance_logs.dart';
 
 const machineMaintenanceProcessLimit = 512;
 const machineMaintenanceInterval = Duration(seconds: 10);
+const machineMaintenanceTimeout = Duration(seconds: 30);
+const machineMaintenanceTimeoutOptions = [30, 60, 300, 900, 1800, 3600];
 const machineMaintenanceOutputLimit = 4 * 1024 * 1024;
 const _sectionPrefix = '__OH_OPS_';
 final _maintenanceSectionMarker = RegExp(r'^__OH_OPS_([a-z_]+)__$');

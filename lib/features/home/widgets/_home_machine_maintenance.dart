@@ -185,6 +185,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   String? _shellLabel;
   int _tab = 0, _sort = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
+  int _timeoutSeconds = machineMaintenanceTimeout.inSeconds;
   int get _workers => context.read<SettingsController>().maintenanceWorkers;
   bool _savingWorkers = false;
   int _scheduledTaskOperations = 0;
@@ -238,6 +239,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
   }
 
+  String _timeoutLabel(BuildContext context, int seconds) {
+    final l = AppLocalizations.of(context)!;
+    return seconds >= 3600
+        ? l.maintenanceTimeoutHours('${seconds ~/ 3600}')
+        : seconds >= 300
+        ? l.maintenanceTimeoutMinutes('${seconds ~/ 60}')
+        : l.maintenanceTimeoutSeconds('$seconds');
+  }
+
   Future<String> _run(
     String command, {
     bool probe = false,
@@ -248,6 +258,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     sessionId: widget.sessionId,
     terminalId: widget.terminalId,
     command: command,
+    timeout: Duration(seconds: _timeoutSeconds),
     windowsScript:
         !probe && shell == null && (_platform?.windowsScript ?? false),
     commandShell:
@@ -405,7 +416,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       }
       final target = detectShell || _detectedTarget == null
           ? parseMachineTerminalShellProbe(
-              await _run(machineTerminalShellProbe, probe: true),
+              await _run(
+                machineTerminalShellProbe,
+                probe: true,
+                isCancelled: () => tab != _tab,
+              ),
             )
           : _detectedTarget!;
       if (!mounted || _closing) return;
@@ -428,6 +443,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           await _run(
             machineTerminalShellDetailsCommand(target.shell),
             shell: target.shell,
+            isCancelled: () => tab != _tab,
           ),
           target.shell,
         );
@@ -443,7 +459,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           : _requestedShell;
       final result = MachineMaintenanceSnapshot.parse(
         await _run(
-          _platform!.collect(tab, workers: _workers),
+          _platform!.collect(
+            tab,
+            workers: _workers,
+            timeout: Duration(seconds: _timeoutSeconds),
+          ),
+          isCancelled: () => tab != _tab,
           onOutput: (output) {
             if (!mounted || _closing || streamError != null) return;
             try {
@@ -767,6 +788,23 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           const SizedBox(width: 8),
                           _MaintenanceToolbarMenu<int>(
+                            label: _timeoutLabel(context, _timeoutSeconds),
+                            tooltip: AppLocalizations.of(
+                              context,
+                            )!.maintenanceTimeout,
+                            icon: Icons.hourglass_bottom_rounded,
+                            enabled: !_loading && !_scheduledTasksBusy,
+                            value: _timeoutSeconds,
+                            items: {
+                              for (final seconds
+                                  in machineMaintenanceTimeoutOptions)
+                                seconds: _timeoutLabel(context, seconds),
+                            },
+                            onSelected: (value) =>
+                                setState(() => _timeoutSeconds = value),
+                          ),
+                          const SizedBox(width: 8),
+                          _MaintenanceToolbarMenu<int>(
                             label: AppLocalizations.of(
                               context,
                             )!.maintenanceSeconds('$_intervalSeconds'),
@@ -1037,18 +1075,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
-      Future<String> runContainerCommand(
-        String command, {
-        Duration timeout = const Duration(seconds: 20),
-      }) => context.read<MachineTerminalFileService>().runMaintenanceCommand(
-        sessionId: widget.sessionId,
-        terminalId: widget.terminalId,
-        command: command,
-        commandShell: _commandShell,
-        timeout: timeout,
-        maxOutputCharacters: machineContainerOutputLimit,
-        isCancelled: () => !mounted || _closing,
-      );
+      Future<String> runContainerCommand(String command, {Duration? timeout}) =>
+          context.read<MachineTerminalFileService>().runMaintenanceCommand(
+            sessionId: widget.sessionId,
+            terminalId: widget.terminalId,
+            command: command,
+            commandShell: _commandShell,
+            timeout: timeout ?? Duration(seconds: _timeoutSeconds),
+            maxOutputCharacters: machineContainerOutputLimit,
+            isCancelled: () => !mounted || _closing || _tab != 7,
+          );
       return _MachineContainerPanel(
         key: _containersKey,
         sessionId: widget.sessionId,
@@ -2912,7 +2948,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     command: targetPlatform.bind(data, command),
                     windowsScript: targetPlatform.windowsScript,
                     commandShell: targetShell,
-                    timeout: machineScheduledTaskTimeout,
+                    timeout: Duration(seconds: _timeoutSeconds),
                     maxOutputCharacters: machineScheduledTaskOutputLimit,
                     isCancelled: () => !mounted || _closing || cancelled(),
                   );

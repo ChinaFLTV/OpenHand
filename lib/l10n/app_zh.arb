@@ -10650,5 +10650,30 @@
   "maintenanceTaskAfterActive": "激活后",
   "maintenanceTaskAfterStartup": "调度器启动后",
   "maintenanceTaskAfterUnitActive": "服务激活后",
-  "maintenanceTaskAfterUnitInactive": "服务停止后"
+  "maintenanceTaskAfterUnitInactive": "服务停止后",
+  "maintenanceTimeout": "采集超时",
+  "maintenanceTimeoutSeconds": "超时 {value} 秒",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "超时 {value} 分钟",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "超时 {value} 小时",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

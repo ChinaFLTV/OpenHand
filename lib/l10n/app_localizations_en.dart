@@ -15249,4 +15249,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceTaskAfterUnitInactive => 'After service stops';
+
+  @override
+  String get maintenanceTimeout => 'Collection timeout';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return 'Timeout $value s';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return 'Timeout $value min';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return 'Timeout $value h';
+  }
 }

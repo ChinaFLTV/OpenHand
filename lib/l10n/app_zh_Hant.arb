@@ -9571,5 +9571,30 @@
   "maintenanceTaskAfterActive": "啟用後",
   "maintenanceTaskAfterStartup": "排程器啟動後",
   "maintenanceTaskAfterUnitActive": "服務啟用後",
-  "maintenanceTaskAfterUnitInactive": "服務停止後"
+  "maintenanceTaskAfterUnitInactive": "服務停止後",
+  "maintenanceTimeout": "採集逾時",
+  "maintenanceTimeoutSeconds": "逾時 {value} 秒",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "逾時 {value} 分鐘",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "逾時 {value} 小時",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

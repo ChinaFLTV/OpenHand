@@ -392,6 +392,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       script,
       '${DateTime.now().microsecondsSinceEpoch}-${math.Random.secure().nextInt(0x7fffffff)}',
       shell,
+      timeout: timeout,
     );
     final deadline = MonotonicDeadline(
       _machineTerminalScriptTransferTimeout,
@@ -407,6 +408,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         terminalId: terminalId,
         command: command,
         commandShell: shell,
+        isCancelled: cleanup ? null : isCancelled,
         timeout: cleanup
             ? _machineTerminalFileCommandTimeout
             : deadline.limit(_machineTerminalFileCommandTimeout),
@@ -421,12 +423,14 @@ class MachineTerminalFileService extends ChangeNotifier {
       _throwIfMachineTerminalTransferCancelled(isCancelled);
       String? captured;
       var overflow = false;
+      deadline.remaining();
       final output = await _runInlineCommand(
         sessionId: sessionId,
         terminalId: terminalId,
         command: transport.execute,
         commandShell: shell,
-        timeout: deadline.limit(timeout),
+        timeout: timeout,
+        isCancelled: isCancelled,
         onOutput: maxOutputCharacters == null && onOutput == null
             ? null
             : (value) {
@@ -1200,6 +1204,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       command: command,
       timeout: timeout,
       onOutput: onOutput,
+      isCancelled: isCancelled,
     );
   }
 
@@ -1227,6 +1232,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         commandShell: commandShell,
         command: command,
         timeout: deadline.limit(_machineTerminalFileCommandTimeout),
+        isCancelled: isCancelled,
       );
     }
 
@@ -1266,6 +1272,7 @@ class MachineTerminalFileService extends ChangeNotifier {
             'base64 -d < "\$__oh_script" | sh',
         timeout: timeout,
         onOutput: onOutput,
+        isCancelled: isCancelled,
       );
       pathArgument = null;
       return output;
@@ -1293,6 +1300,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String command,
     required Duration timeout,
     MachineTerminalCommandOutputCallback? onOutput,
+    MachineTerminalUploadCancelCheck? isCancelled,
     MachineTerminalCommandShell commandShell =
         MachineTerminalCommandShell.automatic,
   }) async {
@@ -1305,6 +1313,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       recordHistory: false,
       displayOutput: false,
       onOutput: onOutput,
+      isCancelled: isCancelled,
     );
     if (result.succeeded) return result.output;
     if (result.timedOut) throw TimeoutException('终端命令执行超时。', timeout);

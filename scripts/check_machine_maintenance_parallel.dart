@@ -153,6 +153,34 @@ section end
     }
     stdout.writeln('父终端正常终止、强杀及忽略 TERM 的孙进程回收通过。');
 
+    final extended = await Process.run('sh', [
+      '-c',
+      supervisedPosixCommands(
+        ['sleep 21; printf 完成'],
+        workers: 1,
+        timeout: const Duration(seconds: 25),
+      ),
+    ], environment: environment).timeout(const Duration(seconds: 28));
+    check(
+      extended.exitCode == 0 && extended.stdout == '完成',
+      '自定义超时仍被旧的二十秒限制截断',
+    );
+    final short = Stopwatch()..start();
+    final expired = await Process.run('sh', [
+      '-c',
+      supervisedPosixCommands(
+        ['sleep 5'],
+        workers: 1,
+        timeout: const Duration(milliseconds: 200),
+      ),
+    ], environment: environment).timeout(const Duration(seconds: 5));
+    check(
+      expired.exitCode != 0 && short.elapsed.inSeconds < 5,
+      '自定义短超时未清理运行中的任务',
+    );
+    check(directory.listSync().whereType<Directory>().isEmpty, '自定义超时遗留采集目录');
+    stdout.writeln('自定义长短超时与清理通过。');
+
     final timeout = Stopwatch()..start();
     final timedOut = await Process.run('sh', [
       '-c',

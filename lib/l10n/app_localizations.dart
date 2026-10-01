@@ -27586,6 +27586,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'服务停止后'**
   String get maintenanceTaskAfterUnitInactive;
+
+  /// No description provided for @maintenanceTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集超时'**
+  String get maintenanceTimeout;
+
+  /// No description provided for @maintenanceTimeoutSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'超时 {value} 秒'**
+  String maintenanceTimeoutSeconds(String value);
+
+  /// No description provided for @maintenanceTimeoutMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'超时 {value} 分钟'**
+  String maintenanceTimeoutMinutes(String value);
+
+  /// No description provided for @maintenanceTimeoutHours.
+  ///
+  /// In zh, this message translates to:
+  /// **'超时 {value} 小时'**
+  String maintenanceTimeoutHours(String value);
 }
 
 class _AppLocalizationsDelegate

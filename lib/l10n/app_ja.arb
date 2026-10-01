@@ -9571,5 +9571,30 @@
   "maintenanceTaskAfterActive": "有効化後",
   "maintenanceTaskAfterStartup": "スケジューラーの起動後",
   "maintenanceTaskAfterUnitActive": "サービスの有効化後",
-  "maintenanceTaskAfterUnitInactive": "サービスの停止後"
+  "maintenanceTaskAfterUnitInactive": "サービスの停止後",
+  "maintenanceTimeout": "収集タイムアウト",
+  "maintenanceTimeoutSeconds": "タイムアウト {value} 秒",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "タイムアウト {value} 分",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "タイムアウト {value} 時間",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

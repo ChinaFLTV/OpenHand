@@ -9571,5 +9571,30 @@
   "maintenanceTaskAfterActive": "Nach Aktivierung",
   "maintenanceTaskAfterStartup": "Nach Start des Zeitplaners",
   "maintenanceTaskAfterUnitActive": "Nach Dienstaktivierung",
-  "maintenanceTaskAfterUnitInactive": "Nach Dienstende"
+  "maintenanceTaskAfterUnitInactive": "Nach Dienstende",
+  "maintenanceTimeout": "Erfassungszeitlimit",
+  "maintenanceTimeoutSeconds": "Zeitlimit {value} s",
+  "@maintenanceTimeoutSeconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutMinutes": "Zeitlimit {value} min",
+  "@maintenanceTimeoutMinutes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTimeoutHours": "Zeitlimit {value} h",
+  "@maintenanceTimeoutHours": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  }
 }

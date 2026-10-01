@@ -137,7 +137,7 @@ docker() {
       var completed = false;
       final collecting = files.runMaintenanceCommand(
         sessionId: 'check', terminalId: terminal.id,
-        command: "printf '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n测试终端\\n__OH_OPS_boot__\\n测试启动\\n__OH_OPS_uptime__\\n10\\n__OH_OPS_memory__\\nMemTotal: 1024 kB\\n__OH_OPS_flush__\\n'; sleep 1; printf '__OH_OPS_cpu__\\ncpu 1 0 0 99 0 0 0 0\\n__OH_OPS_end__\\n'",
+        command: "printf '__OH_OPS_platform__\\nLinux\\n__OH_OPS_host__\\n测试终端\\n__OH_OPS_boot__\\n测试启动\\n__OH_OPS_uptime__\\n10\\n__OH_OPS_memory__\\nMemTotal: 1024 kB\\n__OH_OPS_flush__\\n'; while [ ! -f '${directory.path}/continue' ]; do sleep .05; done; printf '__OH_OPS_cpu__\\ncpu 1 0 0 99 0 0 0 0\\n__OH_OPS_end__\\n'",
         maxOutputCharacters: machineMaintenanceOutputLimit,
         onOutput: (output) {
           final value = stream.add(output);
@@ -148,6 +148,7 @@ docker() {
       expect(completed, isFalse, reason: '必须在命令完成前收到完整内存数据段');
       expect(partial.memory['MemTotal'], 1024 * 1024);
       expect(partial.hasSection('cpu'), isFalse);
+      await File('${directory.path}/continue').writeAsString('继续');
       expect(MachineMaintenanceSnapshot.parse(await collecting).hasSection('cpu'), isTrue);
       final large = await files.runMaintenanceCommand(sessionId: 'check', terminalId: terminal.id,
         command: "awk 'BEGIN { for(i=0;i<180000;i++) printf \"x\" }'",
@@ -177,6 +178,20 @@ docker() {
         await Future<void>.delayed(const Duration(milliseconds: 300));
         expect(await run("printf '返回原终端'"), contains('返回原终端'));
       }
+      var cancelLongCommand = false;
+      final longStarted = Completer<void>();
+      final longCommand = files.runMaintenanceCommand(
+        sessionId: 'check', terminalId: terminal.id, command: "printf '长采集开始\\n'; sleep 3600",
+        timeout: const Duration(hours: 1), isCancelled: () => cancelLongCommand,
+        onOutput: (text) { if (text.contains('长采集开始') && !longStarted.isCompleted) longStarted.complete(); },
+      );
+      final cancelledLong = expectLater(longCommand, throwsA(isA<MachineTerminalUploadCancelled>()));
+      await longStarted.future.timeout(const Duration(seconds: 5));
+      cancelLongCommand = true;
+      await cancelledLong.timeout(const Duration(seconds: 5));
+      expect(await run("printf '长采集取消后可用'"), contains('长采集取消后可用'));
+      expect(clampMachineTerminalCommandTimeoutMs(3600000), 3600000);
+      expect(clampMachineTerminalCommandTimeoutMs(7200000), 3600000);
       final timedOut = await service.executeCommand(sessionId: 'check', terminalId: terminal.id,
         command: 'sleep 5', timeout: const Duration(milliseconds: 150),
         commandShell: MachineTerminalCommandShell.posix, displayOutput: false, recordHistory: false);

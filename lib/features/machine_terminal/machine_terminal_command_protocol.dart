@@ -152,7 +152,15 @@ String? parseMachineTerminalShellDetails(
 
 /// Windows 脚本分块只包含 Base64 与数字，不暴露 CMD 元字符。
 class MachineTerminalWindowsScript {
-  MachineTerminalWindowsScript(String script, String token, this.shell) {
+  MachineTerminalWindowsScript(
+    String script,
+    String token,
+    this.shell, {
+    this.timeout = const Duration(seconds: 25),
+  }) {
+    if (timeout <= Duration.zero || timeout > const Duration(hours: 1)) {
+      throw ArgumentError('脚本超时必须大于零且不超过一小时。');
+    }
     if (!RegExp(r'^[a-zA-Z0-9-]+$').hasMatch(token) ||
         !const [
           MachineTerminalCommandShell.cmd,
@@ -176,6 +184,7 @@ class MachineTerminalWindowsScript {
   static const decoder =
       "var a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',b=0,n=0,t='';for(var i=0;i<s.length;i++){var v=a.indexOf(s.charAt(i));if(v<0)continue;b=(b<<6)|v;n+=6;if(n>=8){n-=8;t+=String.fromCharCode((b>>n)&255);}}eval(decodeURIComponent(escape(t)));";
   final MachineTerminalCommandShell shell;
+  final Duration timeout;
   late final String path;
   late final List<String> commands;
   bool get powershell => shell == MachineTerminalCommandShell.powershell;
@@ -183,7 +192,7 @@ class MachineTerminalWindowsScript {
       ? "[IO.File]::${append ? 'AppendAllText' : 'WriteAllText'}($path, '${escapePowerShellSingleQuotedString(text)}' + [Environment]::NewLine, [Text.Encoding]::ASCII)"
       : 'cmd.exe /d /v:off /c echo $text ${append ? '^>^>' : '^>'} $path';
   String get execute =>
-      '${powershell ? '& ' : ''}cscript.exe //nologo //B //T:25 //E:JScript $path';
+      '${powershell ? '& ' : ''}cscript.exe //nologo //B //T:${(timeout.inMilliseconds / 1000).ceil()} //E:JScript $path';
   String get cleanup => powershell
       ? 'Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue'
       : 'cmd.exe /d /v:off /c if exist $path del /q $path';

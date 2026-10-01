@@ -5,6 +5,9 @@ import 'machine_maintenance.dart';
 import 'machine_maintenance_network.dart';
 import 'machine_maintenance_parallel.dart';
 
+// 为采集进程树回收和终端结束标记预留时间。
+const _maintenanceCleanupReserve = Duration(seconds: 2);
+
 /// 平台策略只生成目标命令，传输和终端协议由执行层统一处理。
 abstract class MachineMaintenancePlatformAdapter {
   const MachineMaintenancePlatformAdapter();
@@ -19,7 +22,12 @@ abstract class MachineMaintenancePlatformAdapter {
   bool canInspectProcess(MachineMaintenanceProcess process) => process.pid >= 1;
 
   /// 指定并发数时启用受监管采集；省略时保留原始协议脚本。
-  String collect(int section, {int offset = 0, int? workers});
+  String collect(
+    int section, {
+    int offset = 0,
+    int? workers,
+    Duration timeout = machineMaintenanceTimeout,
+  });
   String process(MachineMaintenanceProcess process, {String? action});
   Map<String, String> processActions(MachineMaintenanceProcess process) =>
       process.pid <= 1
@@ -33,20 +41,25 @@ abstract class MachineMaintenancePlatformAdapter {
 class _LinuxMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   const _LinuxMaintenanceAdapter();
   @override
-  String collect(int section, {int offset = 0, int? workers}) =>
-      parallelMaintenanceCommand(
-        switch (section) {
-          0 => machineMaintenanceOverviewCommand,
-          1 => machineMaintenanceProcessesCommand(offset: offset),
-          2 => machineMaintenanceServicesCommand,
-          4 => machineMaintenanceGpuCommand,
-          5 => machineMaintenanceLogsCommand,
-          6 => machineMaintenanceHealthCommand,
-          _ => machineMaintenanceDiagnosticsCommand,
-        },
-        workers,
-        section,
-      );
+  String collect(
+    int section, {
+    int offset = 0,
+    int? workers,
+    Duration timeout = machineMaintenanceTimeout,
+  }) => parallelMaintenanceCommand(
+    switch (section) {
+      0 => machineMaintenanceOverviewCommand,
+      1 => machineMaintenanceProcessesCommand(offset: offset),
+      2 => machineMaintenanceServicesCommand,
+      4 => machineMaintenanceGpuCommand,
+      5 => machineMaintenanceLogsCommand,
+      6 => machineMaintenanceHealthCommand,
+      _ => machineMaintenanceDiagnosticsCommand,
+    },
+    workers,
+    section,
+    timeout: timeout - _maintenanceCleanupReserve,
+  );
   @override
   String process(MachineMaintenanceProcess process, {String? action}) =>
       machineMaintenanceProcessCommand(process, signal: action);
@@ -75,7 +88,12 @@ class _MacMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   bool canInspectProcess(MachineMaintenanceProcess process) =>
       process.pid >= 1 && process.startToken != null;
   @override
-  String collect(int section, {int offset = 0, int? workers}) {
+  String collect(
+    int section, {
+    int offset = 0,
+    int? workers,
+    Duration timeout = machineMaintenanceTimeout,
+  }) {
     if (offset < 0) throw ArgumentError('进程偏移无效。');
     final command =
         _macPrelude +
@@ -158,7 +176,12 @@ if command -v docker >/dev/null 2>&1; then docker ps -a 2>&1 | head -c 10000; el
 section end
 ''',
         };
-    return parallelMaintenanceCommand(command, workers, section);
+    return parallelMaintenanceCommand(
+      command,
+      workers,
+      section,
+      timeout: timeout - _maintenanceCleanupReserve,
+    );
   }
 
   @override
@@ -309,7 +332,12 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
   @override
   bool get windowsScript => true;
   @override
-  String collect(int section, {int offset = 0, int? workers}) {
+  String collect(
+    int section, {
+    int offset = 0,
+    int? workers,
+    Duration timeout = machineMaintenanceTimeout,
+  }) {
     if (offset < 0) throw ArgumentError('进程偏移无效。');
     final body = switch (section) {
       0 => _windowsOverview,
@@ -349,6 +377,7 @@ class _WindowsMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
             body.substring(starts[i], starts[i + 1]),
         ],
         workers,
+        timeout: timeout - _maintenanceCleanupReserve,
         maxOutputCharacters: switch (section) {
           4 => 4000000,
           3 => 1000000,

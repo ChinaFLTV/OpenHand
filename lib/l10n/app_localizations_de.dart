@@ -15421,4 +15421,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTaskAfterUnitInactive => 'Nach Dienstende';
+
+  @override
+  String get maintenanceTimeout => 'Erfassungszeitlimit';
+
+  @override
+  String maintenanceTimeoutSeconds(String value) {
+    return 'Zeitlimit $value s';
+  }
+
+  @override
+  String maintenanceTimeoutMinutes(String value) {
+    return 'Zeitlimit $value min';
+  }
+
+  @override
+  String maintenanceTimeoutHours(String value) {
+    return 'Zeitlimit $value h';
+  }
 }

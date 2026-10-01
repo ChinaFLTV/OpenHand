@@ -7,7 +7,12 @@ const machineMaintenanceMaxWorkers = 8;
 const machineMaintenanceDefaultWorkers = 4;
 
 /// 只拆分总览、诊断与 GPU 的独立采集项；进程与服务保留原有事务边界。
-String parallelMaintenanceCommand(String command, int? workers, int tab) {
+String parallelMaintenanceCommand(
+  String command,
+  int? workers,
+  int tab, {
+  Duration timeout = const Duration(seconds: 20),
+}) {
   if (workers == null) return command;
   if (workers < 1 || workers > machineMaintenanceMaxWorkers) {
     throw ArgumentError('采集并发数必须在 1–8 之间。');
@@ -42,6 +47,7 @@ String parallelMaintenanceCommand(String command, int? workers, int tab) {
   return supervisedPosixCommands(
     jobs,
     workers: workers,
+    timeout: timeout,
     prefix: prefix,
     common: split ? functions : '',
     progressive: true,
@@ -57,7 +63,11 @@ String supervisedPosixCommands(
   String suffix = '',
   String common = '',
   bool progressive = false,
+  Duration timeout = const Duration(seconds: 20),
 }) {
+  if (timeout <= Duration.zero || timeout > const Duration(hours: 1)) {
+    throw ArgumentError('采集超时必须大于零且不超过一小时。');
+  }
   if (workers < 1 || workers > machineMaintenanceMaxWorkers || jobs.isEmpty) {
     throw ArgumentError('采集任务或并发数无效。');
   }
@@ -65,7 +75,7 @@ String supervisedPosixCommands(
   final script =
       '''
 $prefix
-${_coordinatorPrelude.replaceAll('__WORKERS__', '${workers.clamp(1, jobs.length)}')}
+${_coordinatorPrelude.replaceAll('__WORKERS__', '${workers.clamp(1, jobs.length)}').replaceAll('__TIMEOUT_TICKS__', '${(timeout.inMilliseconds / 100).ceil()}')}
 printf %s ${posixShellQuote(common)} > "\$oh_dir/common.sh"
 ${[for (var i = 0; i < jobs.length; i++) 'printf %s ${posixShellQuote("${jobs[i]}\n:")} > "\$oh_dir/$i.sh"'].join('\n')}
 ${progressive ? _progressivePosixJobs(jobs.length) : '''
@@ -153,7 +163,7 @@ trap 'exit 130' HUP INT TERM
 # 守护进程与终端分组隔离，父进程被强杀后仍能回收所有采集进程组。
 oh_launch sh -c '
   oh_dir=$1; oh_owner=$2; oh_ancestors=$3; oh_tick=0
-  while [ "$oh_tick" -lt 200 ] && [ ! -f "$oh_dir/done" ]; do
+  while [ "$oh_tick" -lt __TIMEOUT_TICKS__ ] && [ ! -f "$oh_dir/done" ]; do
     for oh_ancestor in $oh_ancestors; do
       kill -0 "$oh_ancestor" 2>/dev/null || break 2
     done
@@ -186,7 +196,11 @@ String parallelWindowsMaintenanceCommand(
   int workers, {
   bool rawOutput = false,
   int maxOutputCharacters = 100000,
+  Duration timeout = const Duration(seconds: 20),
 }) {
+  if (timeout <= Duration.zero || timeout > const Duration(hours: 1)) {
+    throw ArgumentError('采集超时必须大于零且不超过一小时。');
+  }
   if (workers < 1 || workers > machineMaintenanceMaxWorkers) {
     throw ArgumentError('采集并发数必须在 1–8 之间。');
   }
@@ -200,7 +214,7 @@ String parallelWindowsMaintenanceCommand(
       '$outputPrelude\n'
       'function ohEcho(text){if(typeof ohFrame!="undefined")ohFrame+=text+"\\n";if(typeof ohOut!="undefined")ohOut.WriteLine(text);else WScript.Echo(text);}';
   return '''
-var ohRawOutput=$rawOutput,ohMaxOutput=$maxOutputCharacters;
+var ohRawOutput=$rawOutput,ohMaxOutput=$maxOutputCharacters,ohTimeout=${timeout.inMilliseconds};
 var ohPrelude=${jsonEncode(common)};
 eval(ohPrelude);
 var ohJobs=${jsonEncode(jobs)},ohLimit=$workers,ohGuardSource=${jsonEncode(_windowsGuard)},ohWorkerSource=${jsonEncode(_windowsWorkerPrelude)};
@@ -236,7 +250,7 @@ for(var depth=0;ohAncestor && depth<32;depth++){
 }
 var ohAncestorText=[];
 for(var i=0;i<ohAncestors.length;i++)ohAncestorText.push('['+ohAncestors[i][0]+','+ohQuote(ohAncestors[i][1])+']');
-var ohGuardText='var dir='+ohQuote(ohDir)+',ancestors=['+ohAncestorText.join(',')+'];\n'+ohGuardSource;
+var ohGuardText='var timeout='+(ohTimeout+1000)+',dir='+ohQuote(ohDir)+',ancestors=['+ohAncestorText.join(',')+'];\n'+ohGuardSource;
 ohFs.CreateFolder(ohDir);
 var ohGuard=null,ohActive=[],ohNext=0,ohDone=0,ohStart=new Date().getTime();
 var ohSequences=[],ohComplete=[];
@@ -261,13 +275,13 @@ function ohDrain(index){
 }
 try {
   ohWrite(ohDir+"\\guard.js",ohGuardText);
-  ohGuard=ohShell.Exec('cscript.exe //nologo //T:35 "'+ohDir+'\\guard.js"');
+  ohGuard=ohShell.Exec('cscript.exe //nologo //T:'+Math.ceil((ohTimeout+6000)/1000)+' "'+ohDir+'\\guard.js"');
   while(ohDone<ohJobs.length){
-    if(ohGuard.Status!=0 || new Date().getTime()-ohStart>20000 || ohFs.FileExists(ohDir+"\\expired"))throw Error("并行采集超时或父进程已退出。");
+    if(ohGuard.Status!=0 || new Date().getTime()-ohStart>ohTimeout || ohFs.FileExists(ohDir+"\\expired"))throw Error("并行采集超时或父进程已退出。");
     while(ohNext<ohJobs.length && ohActive.length<ohLimit){
       var stream=ohRawOutput?"":"ohFrame='';var ohOriginalEmit=emit;emit=function(key,value){ohOriginalEmit(key,value);ohPublishSection();};outputLimit="+ohMaxOutput+";\n";
       var path=ohDir+"\\"+ohNext,script=path+".js";ohWrite(script,ohWorkerSource+ohPrelude+"\n"+stream+ohJobs[ohNext]+"\nemit(\"end\",\"\");\n}finally{ohOut.Close();}");
-      var child=ohShell.Exec('cscript.exe //nologo //T:20 "'+script+'" "'+path+'.out" "'+ohDir+'"');
+      var child=ohShell.Exec('cscript.exe //nologo //T:'+Math.ceil(ohTimeout/1000)+' "'+script+'" "'+path+'.out" "'+ohDir+'"');
       var identity=ohIdentity(child.ProcessID);if(identity)ohWrite(ohDir+"\\"+identity[0]+".pid",identity.join("|"));
       ohActive.push({process:child,index:ohNext++});
     }
@@ -301,7 +315,7 @@ var fs=new ActiveXObject("Scripting.FileSystemObject"),shell=new ActiveXObject("
 function alive(p){try{return String(wmi.Get("Win32_Process.Handle='"+p[0]+"'").CreationDate)==p[1];}catch(e){return false;}}
 function parentsAlive(){for(var i=0;i<ancestors.length;i++)if(!alive(ancestors[i]))return false;return true;}
 var start=new Date().getTime();
-while(new Date().getTime()-start<22000 && parentsAlive() && !fs.FileExists(dir+"\\done"))WScript.Sleep(100);
+while(new Date().getTime()-start<timeout && parentsAlive() && !fs.FileExists(dir+"\\done"))WScript.Sleep(100);
 if(!fs.FileExists(dir+"\\done")){var f=fs.CreateTextFile(dir+"\\expired",true);f.Close();}
 var files=new Enumerator(fs.GetFolder(dir).Files),killers=[];
 for(;!files.atEnd();files.moveNext()){
