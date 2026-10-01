@@ -249,7 +249,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           context: context,
           title: '${maintenanceLabel(context, action)} · ${entry.name}',
           confirmLabel:
-              '${AppLocalizations.of(context)!.commonConfirm} ${maintenanceLabel(context, action)}',
+              '${AppLocalizations.of(context)!.commonConfirm}'
+              '${openHandIsChineseLocale(context) ? '' : ' '}'
+              '${maintenanceLabel(context, action)}',
           destructive: action != '启动' && action != '恢复',
           message:
               '${maintenanceDetailLabel(context, '目标')}：${client.runtime.label} / ${entry.namespace.isEmpty ? client.scope : entry.namespace} / ${entry.name}\n'
