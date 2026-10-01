@@ -3,6 +3,7 @@ part of '../openhand_home_page.dart';
 const _maintenanceControlHeight = 34.0;
 const _maintenanceNoticeMaxWidth = 480.0;
 const _maintenanceSearchWidth = 280.0;
+const _maintenanceCpuTimeColumnMinWidth = 220.0;
 const _maintenanceGridGap = 12.0;
 const _maintenanceFieldMinWidth = 240.0;
 const _maintenanceFieldHeight = 104.0;
@@ -4808,6 +4809,14 @@ class _MaintenanceTable extends StatelessWidget {
         ? math.min(maxBodyHeight, MediaQuery.sizeOf(context).height * .45)
         : maxBodyHeight,
     emptyLabel: maintenanceLabel(context, '暂无可用数据'),
+    minimumColumnWidths: {
+      for (var i = 0; i < headers.length; i++)
+        if (headers[i] == '累计 CPU 时间')
+          i:
+              _maintenanceCpuTimeColumnMinWidth *
+              MediaQuery.textScalerOf(context).scale(13) /
+              13,
+    },
     semanticsLabel: headers
         .map((label) => maintenanceLabel(context, label))
         .join(' · '),
