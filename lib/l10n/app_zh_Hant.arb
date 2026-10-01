@@ -9629,5 +9629,6 @@
   "maintenanceImageBuildCommand": "建置指令",
   "maintenanceImageLayerSize": "層大小",
   "maintenanceImageMetadata": "映像檔中繼資料",
-  "maintenanceImageRootFilesystem": "映像檔案系統"
+  "maintenanceImageRootFilesystem": "映像檔案系統",
+  "maintenanceContainerLastStarted": "最近啟動時間"
 }

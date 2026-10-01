@@ -32,6 +32,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   MachineContainerRuntime _runtime = MachineContainerRuntime.docker;
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
+  Map<String, MachineContainerListDetails> _listDetails = {};
+  Map<String, double> _cpuPercentages = {};
   String _metadata = '', _metrics = '', _error = '', _contextName = '';
   String _appliedScope = '';
   final _kubernetesMetadata = <String, Object?>{};
@@ -63,6 +65,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       if (scopeChanged) _autoRuntime = false;
       if (reset || scopeChanged) {
         _entries = [];
+        _listDetails = {};
+        _cpuPercentages = {};
         _client = null;
         _metadata = '';
         _kubernetesMetadata.clear();
@@ -96,6 +100,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           listEquals(_client?.launcher, client.launcher);
       setState(() {
         if (!sameTarget) {
+          _listDetails = {};
+          _cpuPercentages = {};
           _metadata = '';
           _kubernetesMetadata.clear();
           _metrics = '';
@@ -105,6 +111,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           if (sameTarget && client.runtime == MachineContainerRuntime.cri)
             ..._entries.where((entry) => entry.isPod),
         ];
+        final ids = entries.map((entry) => entry.id).toSet();
+        _listDetails.removeWhere((id, _) => !ids.contains(id));
+        _cpuPercentages.removeWhere((id, _) => !ids.contains(id));
         _client = client;
         _runtime = client.runtime;
         _appliedScope = client.scope;
@@ -155,11 +164,42 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       try {
         final metrics = await client.execute(client.metricsArguments);
         if (!mounted) return;
-        if (_metrics != metrics) setState(() => _metrics = metrics);
+        final cpu = client.cpuPercentages(metrics, entries);
+        if (_metrics != metrics || !mapEquals(_cpuPercentages, cpu)) {
+          setState(() {
+            _metrics = metrics;
+            _cpuPercentages = cpu;
+          });
+        }
       } catch (error) {
         if (!mounted) return;
         errors['实时资源采样'] = '$error';
-        setState(() => _collectionIssues = Map.of(errors));
+        setState(() {
+          _cpuPercentages = {};
+          _collectionIssues = Map.of(errors);
+        });
+      }
+      final details = <String, MachineContainerListDetails>{};
+      try {
+        await for (final batch in client.listDetails(
+          entries,
+          isCancelled: () => !mounted,
+        )) {
+          if (!mounted) return;
+          details.addAll(batch);
+          if (batch.entries.any(
+            (entry) => _listDetails[entry.key] != entry.value,
+          )) {
+            setState(() => _listDetails.addAll(batch));
+          }
+        }
+      } catch (error) {
+        if (!mounted) return;
+        errors['最近启动时间'] = '$error';
+        setState(() {
+          _listDetails = details;
+          _collectionIssues = Map.of(errors);
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -416,9 +456,140 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         .toList();
     Widget table(bool pods) {
       final values = entries.where((e) => e.isPod == pods).toList();
+      final desktop = !pods && (_client?.supportsRunCommand ?? false);
       final kubernetes = _runtime == MachineContainerRuntime.kubernetes;
       final hasNamespace =
           kubernetes || _runtime == MachineContainerRuntime.cri;
+      final enabled = !_busy && !_overlay && !_listingFailed;
+      final theme = Theme.of(context);
+      OpenHandOperationalRankRow row(MachineContainerEntry entry) {
+        final status = maintenanceContainerState(context, entry.state);
+        final color = entry.running
+            ? OpenHandStatusColors.success
+            : entry.state.toLowerCase().contains('paused')
+            ? OpenHandStatusColors.warning
+            : entry.state.toLowerCase().contains('fail') ||
+                  entry.state.toLowerCase().contains('backoff')
+            ? OpenHandStatusColors.error
+            : theme.colorScheme.onSurfaceVariant;
+        final detail = _listDetails[entry.id];
+        final idle = const {
+          'exited',
+          'created',
+          'dead',
+          'stopped',
+          'configured',
+          'paused',
+        }.contains(entry.state.toLowerCase());
+        final cpu = idle ? 0.0 : _cpuPercentages[entry.id];
+        final ports = entry.running && entry.ports.isNotEmpty
+            ? entry.ports
+            : detail?.ports.isNotEmpty == true
+            ? detail!.ports
+            : entry.ports;
+        final displayPorts = ports
+            .split(',')
+            .map(
+              (port) => port
+                  .trim()
+                  .replaceFirst(RegExp(r'^(?:0\.0\.0\.0|\[::\]):'), '')
+                  .replaceAll('->', ':')
+                  .replaceFirst(RegExp(r'/tcp$'), ''),
+            )
+            .toSet()
+            .join(', ');
+        final id = entry.id.length > 12 ? entry.id.substring(0, 12) : entry.id;
+        return OpenHandOperationalRankRow(
+          rowKey: '${entry.id}/${entry.name}',
+          value: 0,
+          data: entry,
+          cells: [
+            entry.name,
+            if (desktop) ...[
+              id,
+              entry.image,
+              displayPorts,
+              cpu == null ? '—' : '${cpu.toStringAsFixed(cpu == 0 ? 0 : 2)}%',
+              machineMaintenanceTimestamp(
+                    detail?.startedAt ?? '',
+                    allowEpoch: true,
+                  ) ??
+                  '—',
+            ] else ...[
+              status,
+              if (hasNamespace) '${entry.namespace} ${entry.pod}'.trim(),
+              if (!pods || kubernetes) pods ? entry.node : entry.image,
+              if (kubernetes) ...[
+                maintenanceDetailValue(context, entry.ready),
+                entry.restarts,
+              ],
+              maintenanceDetailValue(
+                context,
+                entry.created,
+                field: 'createdAt',
+              ),
+              if (!pods && !kubernetes) entry.ports,
+            ],
+          ].map((value) => value.isEmpty ? '—' : value).toList(),
+          cellSubtitles: desktop ? [status, entry.id, '', ports] : null,
+          cellWidgets: desktop
+              ? [
+                  Semantics(
+                    label: '${entry.name} · $status',
+                    child: Row(
+                      children: [
+                        Icon(Icons.circle, size: 8, color: color),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            entry.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    id,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  InkWell(
+                    onTap: entry.image.isNotEmpty
+                        ? () => _open(entry, '查看镜像详情')
+                        : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Text(
+                      entry.image.isEmpty ? '—' : entry.image,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    displayPorts.isEmpty ? '—' : displayPorts,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ]
+              : [
+                  null,
+                  Tooltip(
+                    message: entry.state,
+                    child: _MaintenanceStatus(label: status, color: color),
+                  ),
+                ],
+        );
+      }
+
       return _MaintenanceCard(
         key: ValueKey(('container-list', pods)),
         title:
@@ -435,20 +606,25 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               )
             : _MaintenanceTable(
                 headers:
-                    [
-                          '名称',
-                          '状态',
-                          if (hasNamespace) pods ? '命名空间' : '命名空间 / Pod',
-                          if (!pods || kubernetes) pods ? '节点' : '镜像',
-                          if (kubernetes) ...['就绪', '重启次数'],
-                          '创建时间',
-                          if (!pods && !kubernetes) '端口',
-                        ]
+                    (desktop
+                            ? ['名称', '容器标识', '镜像', '端口', 'CPU (%)', '最近启动时间']
+                            : [
+                                '名称',
+                                '状态',
+                                if (hasNamespace) pods ? '命名空间' : '命名空间 / Pod',
+                                if (!pods || kubernetes) pods ? '节点' : '镜像',
+                                if (kubernetes) ...['就绪', '重启次数'],
+                                '创建时间',
+                                if (!pods && !kubernetes) '端口',
+                              ])
                         .map((label) => maintenanceDetailLabel(context, label))
                         .toList(),
                 maxBodyHeight: 360,
+                columnAlignments: desktop
+                    ? const {4: Alignment.centerRight}
+                    : const {},
                 rowActions: (row) => {
-                  if (!_busy && !_overlay && !_listingFailed)
+                  if (enabled)
                     for (final action
                         in _client?.actions(
                               row.data as MachineContainerEntry,
@@ -458,59 +634,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         maintenanceLabel(context, action): () =>
                             _open(row.data as MachineContainerEntry, action),
                 },
-                onRowTap: _busy || _overlay || _listingFailed
-                    ? null
-                    : (row) => _open(row.data as MachineContainerEntry, '详情'),
-                rows: [
-                  for (final entry in values)
-                    OpenHandOperationalRankRow(
-                      rowKey: '${entry.id}/${entry.name}',
-                      value: 0,
-                      data: entry,
-                      cells: [
-                        entry.name,
-                        maintenanceContainerState(context, entry.state),
-                        if (hasNamespace)
-                          '${entry.namespace} ${entry.pod}'.trim(),
-                        if (!pods || kubernetes)
-                          pods ? entry.node : entry.image,
-                        if (kubernetes) ...[
-                          maintenanceDetailValue(context, entry.ready),
-                          entry.restarts,
-                        ],
-                        maintenanceDetailValue(
-                          context,
-                          entry.created,
-                          field: 'createdAt',
-                        ),
-                        if (!pods && !kubernetes) entry.ports,
-                      ].map((value) => value.isEmpty ? '—' : value).toList(),
-                      cellWidgets: [
-                        null,
-                        Tooltip(
-                          message: entry.state,
-                          child: _MaintenanceStatus(
-                            label: maintenanceContainerState(
-                              context,
-                              entry.state,
-                            ),
-                            color: entry.running
-                                ? OpenHandStatusColors.success
-                                : entry.state.toLowerCase().contains('paused')
-                                ? OpenHandStatusColors.warning
-                                : entry.state.toLowerCase().contains('fail') ||
-                                      entry.state.toLowerCase().contains(
-                                        'backoff',
-                                      )
-                                ? OpenHandStatusColors.error
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+                onRowTap: enabled
+                    ? (row) => _open(row.data as MachineContainerEntry, '详情')
+                    : null,
+                rows: values.map(row).toList(),
               ),
       );
     }

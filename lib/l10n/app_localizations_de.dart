@@ -15557,4 +15557,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImageRootFilesystem => 'Image-Dateisystem';
+
+  @override
+  String get maintenanceContainerLastStarted => 'Zuletzt gestartet';
 }

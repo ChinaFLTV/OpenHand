@@ -15610,4 +15610,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImageRootFilesystem => 'Système de fichiers de l’image';
+
+  @override
+  String get maintenanceContainerLastStarted => 'Dernier démarrage';
 }

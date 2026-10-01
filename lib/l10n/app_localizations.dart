@@ -27808,6 +27808,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'镜像文件系统'**
   String get maintenanceImageRootFilesystem;
+
+  /// No description provided for @maintenanceContainerLastStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近启动时间'**
+  String get maintenanceContainerLastStarted;
 }
 
 class _AppLocalizationsDelegate

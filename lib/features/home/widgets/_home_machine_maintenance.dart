@@ -4740,6 +4740,7 @@ class _MaintenanceTable extends StatelessWidget {
     this.maxBodyHeight = 220,
     this.limitToViewport = true,
     this.paginate = true,
+    this.columnAlignments = const {},
   });
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
@@ -4749,6 +4750,7 @@ class _MaintenanceTable extends StatelessWidget {
   final double maxBodyHeight;
   final bool limitToViewport;
   final bool paginate;
+  final Map<int, Alignment> columnAlignments;
   @override
   Widget build(BuildContext context) {
     final timestampColumns = {
@@ -4851,6 +4853,7 @@ class _MaintenanceTable extends StatelessWidget {
           .join(' · '),
       columnAlignments: {
         for (var i = 0; i < headers.length; i++) i: Alignment.centerLeft,
+        ...columnAlignments,
       },
     );
   }

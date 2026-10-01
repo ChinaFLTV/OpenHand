@@ -3731,7 +3731,16 @@ class _OpenHandOperationalRankTableState
     final hasActions = widget.onRowTap != null || widget.rowActions != null;
     final headers = [
       ...widget.headers,
-      if (hasActions) openHandLocalizedText(context, zh: '操作', en: 'Actions'),
+      if (hasActions)
+        openHandLocalizedText(
+          context,
+          zh: '操作',
+          zhHant: '操作',
+          en: 'Actions',
+          de: 'Aktionen',
+          fr: 'Actions',
+          ja: '操作',
+        ),
     ];
     if (widget.headers.isEmpty || widget.rows.isEmpty) {
       return _EmptyChartLabel(label: widget.emptyLabel);
@@ -3826,6 +3835,11 @@ class _OpenHandOperationalRankTableState
         );
       }
       for (final row in widthRows) {
+        if (row.cellWidgets != null &&
+            i < row.cellWidgets!.length &&
+            row.cellWidgets![i] != null) {
+          continue;
+        }
         content = math.max(
           content,
           _rankTextWidth(

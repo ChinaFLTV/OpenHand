@@ -14885,6 +14885,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImageRootFilesystem => '镜像文件系统';
+
+  @override
+  String get maintenanceContainerLastStarted => '最近启动时间';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29750,4 +29753,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImageRootFilesystem => '映像檔案系統';
+
+  @override
+  String get maintenanceContainerLastStarted => '最近啟動時間';
 }

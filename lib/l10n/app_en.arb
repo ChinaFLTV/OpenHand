@@ -9634,5 +9634,6 @@
   "maintenanceImageBuildCommand": "Build instruction",
   "maintenanceImageLayerSize": "Layer size",
   "maintenanceImageMetadata": "Image metadata",
-  "maintenanceImageRootFilesystem": "Image filesystem"
+  "maintenanceImageRootFilesystem": "Image filesystem",
+  "maintenanceContainerLastStarted": "Last started"
 }

@@ -9629,5 +9629,6 @@
   "maintenanceImageBuildCommand": "Instruction de construction",
   "maintenanceImageLayerSize": "Taille de la couche",
   "maintenanceImageMetadata": "Métadonnées de l’image",
-  "maintenanceImageRootFilesystem": "Système de fichiers de l’image"
+  "maintenanceImageRootFilesystem": "Système de fichiers de l’image",
+  "maintenanceContainerLastStarted": "Dernier démarrage"
 }

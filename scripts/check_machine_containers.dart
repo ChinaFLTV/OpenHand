@@ -535,6 +535,122 @@ Future<void> main() async {
   );
   check(podman.actions(containers.last).contains('复制 run 命令'), '已停止容器缺少复制入口');
 
+  final samples = docker.cpuPercentages(
+    '[{"ID":"abc123","CPUPerc":"234.56%"},{"id":"def456","cpu_percent":0}]',
+    containers,
+  );
+  check(
+    samples['abc123'] == 234.56 && samples['def456'] == 0,
+    'CPU 标识关联或多核使用率错误',
+  );
+  check(
+    docker.cpuPercentages('{"Name":"服务","CPU":"4.2%"}', containers)['abc123'] ==
+        4.2,
+    'CPU 名称关联错误',
+  );
+  for (final value in ['--', 'NaN', 'Infinity', '-1', '']) {
+    check(
+      docker
+          .cpuPercentages(
+            jsonEncode({'ID': 'abc123', 'CPUPerc': value}),
+            containers,
+          )
+          .isEmpty,
+      '缺失或无效 CPU 被当作有效值',
+    );
+  }
+  final fullId = 'a' * 64;
+  check(
+    docker.cpuPercentages('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
+          MachineContainerEntry(id: fullId, name: 'full', state: 'running'),
+        ])[fullId] ==
+        1,
+    'CPU 短标识没有关联完整标识',
+  );
+  check(
+    docker.cpuPercentages('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
+      MachineContainerEntry(id: fullId, name: 'first', state: 'running'),
+      MachineContainerEntry(
+        id: 'aaaaaaaaaaaa${'b' * 52}',
+        name: 'second',
+        state: 'running',
+      ),
+    ]).isEmpty,
+    '冲突短标识错误关联了容器',
+  );
+  final batchEntries = List.generate(
+    130,
+    (i) => MachineContainerEntry(
+      id: 'batch-$i',
+      name: 'worker-$i',
+      state: 'exited',
+    ),
+  );
+  var batches = 0;
+  final batched = docker.copyWith(
+    run: (command) async {
+      batches++;
+      check(
+        command.contains("'--context' '测试环境' 'inspect' '--format'"),
+        '批量查询丢失连接作用域',
+      );
+      final ids = RegExp(
+        "'batch-([0-9]+)'",
+      ).allMatches(command).map((m) => 'batch-${m[1]!}').toList();
+      check(ids.length <= 64, '单次批量查询未限制参数数量');
+      return ids
+          .map(
+            (id) => [
+              jsonEncode(id),
+              jsonEncode(
+                id == 'batch-0'
+                    ? '0001-01-01T00:00:00Z'
+                    : '2026-10-01T01:02:03Z',
+              ),
+              jsonEncode({
+                '5432/tcp': [
+                  {'HostIp': '127.0.0.1', 'HostPort': '15432'},
+                ],
+                '53/udp': [
+                  {'HostIp': '::1', 'HostPort': '53'},
+                ],
+              }),
+            ].join('\t'),
+          )
+          .join('\n');
+    },
+  );
+  final batchDetails = <String, MachineContainerListDetails>{};
+  await for (final batch in batched.listDetails(batchEntries)) {
+    batchDetails.addAll(batch);
+  }
+  check(batches == 3 && batchDetails.length == 130, '批量采集缺失或重复');
+  check(
+    batchDetails['batch-0']!.startedAt.isEmpty &&
+        batchDetails['batch-1']!.startedAt == '2026-10-01T01:02:03Z',
+    '从未启动或最近启动时间错误',
+  );
+  check(
+    batchDetails['batch-0']!.ports ==
+        '127.0.0.1:15432->5432/tcp, [::1]:53->53/udp',
+    '已停止容器的端口绑定丢失',
+  );
+  batches = 0;
+  await for (final _ in batched.listDetails(
+    batchEntries,
+    isCancelled: () => batches > 0,
+  )) {}
+  check(batches == 1, '取消后仍继续批量查询');
+  try {
+    await docker
+        .copyWith(run: (_) async => '{}')
+        .listDetails(containers)
+        .toList();
+    throw StateError('畸形补充字段未报错');
+  } on FormatException catch (error) {
+    check(error.message.contains('格式无效'), '畸形字段诊断错误');
+  }
+
   final liveId = Platform.environment['OPENHAND_CONTAINER_VERIFY_ID'];
   if (liveId != null) {
     final live = MachineContainerClient(
@@ -555,6 +671,21 @@ Future<void> main() async {
     );
     final command = await live.runCommand(entry);
     final report = jsonDecode(await live.imageDetails(entry));
+    final listed = live.parse(await live.execute(live.listArguments));
+    final details = <String, MachineContainerListDetails>{};
+    await for (final batch in live.listDetails(listed)) {
+      details.addAll(batch);
+    }
+    final cpu = live.cpuPercentages(
+      await live.execute(live.metricsArguments),
+      listed,
+    );
+    check(
+      details.length == listed.length &&
+          cpu.keys.every((id) => listed.any((e) => e.id == id)),
+      '本机列表补充数据验证失败',
+    );
+    stdout.writeln('本机容器 ID、CPU、最近启动时间和已停止容器端口读取验证通过。');
     check(
       command.contains("'run' '--detach'") && report['image']['Id'] != null,
       '本机容器只读验证失败',

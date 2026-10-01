@@ -236,6 +236,7 @@ String maintenanceLabel(BuildContext context, String label) {
     '健康检查' => l10n.maintenanceContainerHealth,
     '镜像标识' => l10n.maintenanceContainerImageId,
     '容器标识' => l10n.maintenanceContainerContainerId,
+    '最近启动时间' => l10n.maintenanceContainerLastStarted,
     '所属控制器' => l10n.maintenanceContainerOwner,
     '诊断说明' => l10n.maintenanceContainerMessage,
     '未找到当前连接上下文。' => l10n.maintenanceContainerNoContext,
@@ -1447,6 +1448,7 @@ bool maintenanceIsTimestampColumn(BuildContext context, String field) {
   return {
     l.maintenanceDetailCreated,
     l.maintenanceContainerStartedAt,
+    l.maintenanceContainerLastStarted,
     l.maintenanceContainerFinishedAt,
     l.maintenanceDetailLoginTime,
     l.maintenanceDetailTime,

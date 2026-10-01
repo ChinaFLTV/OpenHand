@@ -356,6 +356,7 @@ void main() {
       if (fail) throw StateError('connection refused');
       if (command.contains("'context' 'show'")) return 'default';
       if (command.contains("'ps'")) return '{"ID":"abc123","Names":"worker","State":"running"}';
+      if (command.contains('.State.StartedAt')) return ['"abc123"', '"2026-09-30T08:00:00Z"', '{}'].join(String.fromCharCode(9));
       return '{}';
     }
     await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),
@@ -393,6 +394,7 @@ void main() {
       if (fail) throw StateError('connection refused');
       if (command.contains("'context' 'show'")) return 'default';
       if (command.contains("'ps'")) return '{"ID":"abc123","Names":"worker","State":"running"}';
+      if (command.contains('.State.StartedAt')) return ['"abc123"', '"2026-09-30T08:00:00Z"', '{}'].join(String.fromCharCode(9));
       return '{}';
     };
     await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value:service,
@@ -429,6 +431,7 @@ void main() {
         jsonEncode({'ID':'abc124','Names':'paused-worker','State':'paused','Image':'redis:stable'}),
       ].join(String.fromCharCode(10));
       if (command.contains("'stats'")) return jsonEncode({'Name':'worker','CPUPerc':'4.2%','MemUsage':'128 MiB / 1 GiB','NetIO':'10 MB / 2 MB'});
+      if (command.contains('.State.StartedAt')) return ['abc123','abc124'].map((id) => [jsonEncode(id), '"2026-09-30T08:00:00Z"', '{}'].join(String.fromCharCode(9))).join(String.fromCharCode(10));
       return jsonEncode({'Name':'test-host','ServerVersion':'27.5.1','OperatingSystem':'Linux','Labels':['app=worker'],'ContainersRunning':1});
     }
     for (final locale in locales) {
@@ -446,7 +449,7 @@ void main() {
         expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
         expect(find.text(l.maintenanceContainerContext + ' · desktop-linux'), findsOneWidget);
         expect(find.text(l.maintenanceContainerList + ' · 2'), findsOneWidget);
-        expect(find.text('2026-09-30 08:00:00'), findsOneWidget);
+        expect(find.text('2026-09-30 08:00:00'), findsNWidgets(2));
         expect(find.text('2026-09-30 08:00:00 +0000 UTC'), findsNothing);
         expect(find.text(l.maintenanceContainerReady), findsNothing);
         expect(find.text(l.maintenanceRestartCount), findsNothing);
@@ -593,6 +596,63 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('容器列对齐桌面布局，CPU 与最近启动时间独立更新且失败不显示旧采样', (tester) async {
+    final id = 'a' * 64, stoppedId = 'b' * 64;
+    Completer<String>? details, metrics;
+    var failMetrics = false, failDetails = false, empty = false;
+    Future<String> run(String command) async {
+      if (command.contains("'context' 'show'")) return 'default';
+      if (command.contains("'ps'")) return empty ? '' : [
+        {'ID':id,'Names':'openhand-redis','State':'running','Image':'redis:7-alpine','CreatedAt':'2020-01-01T00:00:00Z','Ports':'0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp'},
+        {'ID':stoppedId,'Names':'openhand-postgresql','State':'exited','Image':'postgres:16-alpine'},
+      ].map(jsonEncode).join(String.fromCharCode(10));
+      if (command.contains("'stats'")) {
+        if (failMetrics) throw StateError('模拟 CPU 采样失败');
+        return metrics?.future ?? '{"ID":"aaaaaaaaaaaa","CPUPerc":"234.56%"}';
+      }
+      if (command.contains('.State.StartedAt')) {
+        if (failDetails) throw StateError('模拟补充字段失败');
+        return details?.future ?? [
+          [jsonEncode(id),'"2026-10-01T08:09:10+08:00"','{}'],
+          [jsonEncode(stoppedId),'"0001-01-01T00:00:00Z"',jsonEncode({'5432/tcp':[{'HostIp':'','HostPort':'15432'}]})],
+        ].map((fields) => fields.join(String.fromCharCode(9))).join(String.fromCharCode(10));
+      }
+      return '{}';
+    }
+    await tester.binding.setSurfaceSize(const Size(1400,1000));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales, home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',
+        run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle();
+    final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    _MaintenanceTable table() => tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
+    expect(table().headers, ['名称','容器标识','镜像','端口','CPU (%)','最近启动时间']);
+    expect(table().rows.first.cells, ['openhand-redis','aaaaaaaaaaaa','redis:7-alpine','6379:6379','234.56%','2026-10-01 08:09:10']);
+    expect(table().rows.last.cells.sublist(3), ['15432:5432','0%','—']);
+    expect(table().rows.first.cellSubtitles![1], id);
+    expect(find.text('2020-01-01 00:00:00'), findsNothing);
+    expect(tester.takeException(), isNull);
+    details = Completer<String>(); metrics = Completer<String>();
+    final refreshing = state.refresh(); await tester.pump();
+    metrics!.complete('{"ID":"aaaaaaaaaaaa","CPUPerc":"0.44%"}');
+    await tester.pump(); await tester.pump(const Duration(milliseconds:700));
+    expect(table().rows.first.cells[4], '0.44%'); expect(state._busy, isTrue);
+    details!.complete([id,stoppedId].map((id) => [jsonEncode(id),'"2026-10-01T10:11:12Z"','{}'].join(String.fromCharCode(9))).join(String.fromCharCode(10)));
+    await refreshing; await tester.pumpAndSettle();
+    expect(table().rows.first.cells.last, '2026-10-01 10:11:12');
+    failMetrics = true; failDetails = true;
+    await state.refresh(); await tester.pumpAndSettle();
+    expect(table().rows.first.cells[4], '—'); expect(table().rows.last.cells[4], '0%');
+    expect(table().rows.first.cells.last, '—'); expect(state._collectionIssues.length, 2);
+    failMetrics = false; failDetails = false; metrics = null; details = null;
+    await state.refresh(); await tester.pumpAndSettle();
+    expect(table().rows.first.cells[4], '234.56%'); expect(state._collectionIssues, isEmpty);
+    empty = true; await state.refresh(); await tester.pumpAndSettle();
+    expect(state._listDetails, isEmpty); expect(state._cpuPercentages, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器菜单复制实际运行配置、镜像详情只读展示且六语言窄屏无溢出', (tester) async {
     String? copied;
     var clipboardFails = false;
@@ -622,6 +682,7 @@ void main() {
           if (command.contains("'image' 'inspect'")) return jsonEncode([{'Id':'sha256:pinned','RepoTags':['app:original'], 'Size':'12345678',
             'Created':'2026-10-01T01:02:03Z','Os':'linux','Architecture':'arm64','Config':{'Env':['MODE=test']},'RootFS':{'Type':'layers','Layers':['sha256:layer']}}]);
           if (command.contains("'image' 'history'")) return jsonEncode({'ID':'layer', 'CreatedBy':'RUN echo "构建记录"', 'Size':'12000000', 'CreatedAt':'2026-10-01T01:02:03Z'});
+          if (command.contains('.State.StartedAt')) return ['"abc123"','"2026-09-30T08:00:00Z"','{}'].join(String.fromCharCode(9));
           if (command.contains("'inspect'")) {
             inspectCalls++;
             if (pending != null) return pending!.future;
@@ -658,7 +719,8 @@ void main() {
         menu().actions[l.maintenanceContainerCopyRun]!(); await tester.pumpAndSettle();
         expect(panel._overlay, isFalse); expect(copied, before);
         clipboardFails = false;
-        menu().actions[l.maintenanceContainerImageDetails]!(); await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('app:latest').first);
+        await tester.tap(find.text('app:latest').first); await tester.pumpAndSettle();
         expect(find.byType(_ContainerImageReadout), findsOneWidget);
         expect(find.text(l.maintenanceImageMetadata), findsOneWidget);
         expect(find.text('app:original'), findsOneWidget);

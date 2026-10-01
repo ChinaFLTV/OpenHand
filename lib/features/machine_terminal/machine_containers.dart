@@ -9,6 +9,9 @@ const machineContainerOutputLimit = 2 * 1024 * 1024;
 const machineContainerProbeTimeout = Duration(seconds: 6);
 const machineContainerDiscoveryTimeout = Duration(seconds: 40);
 const _machineContainerNamespaceLimit = 8;
+const _machineContainerInspectBatchSize = 64;
+
+typedef MachineContainerListDetails = ({String startedAt, String ports});
 
 enum MachineContainerRuntime {
   docker('Docker', 'docker'),
@@ -312,6 +315,122 @@ class MachineContainerClient {
     MachineContainerRuntime.cri => ['stats', '-o', 'json'],
     _ => ['stats', '--no-stream', '--format', '{{json .}}'],
   };
+
+  /// 只批量读取列表需要的字段，避免逐容器查询和传输环境变量等完整配置。
+  Stream<Map<String, MachineContainerListDetails>> listDetails(
+    List<MachineContainerEntry> entries, {
+    bool Function()? isCancelled,
+  }) async* {
+    if (!supportsRunCommand) return;
+    final containers = entries.where((entry) => !entry.isPod).toList();
+    for (
+      var offset = 0;
+      offset < containers.length;
+      offset += _machineContainerInspectBatchSize
+    ) {
+      if (isCancelled?.call() ?? false) return;
+      final batch = containers
+          .skip(offset)
+          .take(_machineContainerInspectBatchSize)
+          .toList();
+      for (final entry in batch) {
+        _validate(entry);
+      }
+      final output = await execute([
+        'inspect',
+        '--format',
+        '{{json .Id}}\t{{json .State.StartedAt}}\t{{json .HostConfig.PortBindings}}',
+        ...batch.map((entry) => entry.id),
+      ]);
+      if (isCancelled?.call() ?? false) return;
+      final details = <String, MachineContainerListDetails>{};
+      for (final line
+          in output.split('\n').where((line) => line.trim().isNotEmpty)) {
+        final fields = line.split('\t');
+        if (fields.length != 3) throw const FormatException('容器列表补充字段格式无效。');
+        final id = jsonDecode(fields[0]);
+        final started = jsonDecode(fields[1]);
+        final bindings = jsonDecode(fields[2]);
+        if (id is! String ||
+            started is! String ||
+            bindings != null && bindings is! Map) {
+          throw const FormatException('容器列表补充字段类型无效。');
+        }
+        final ports = <String>[];
+        for (final binding in (bindings as Map? ?? const {}).entries) {
+          for (final port in binding.value as List? ?? const []) {
+            final hostPort = '${port['HostPort'] ?? ''}';
+            if (hostPort.isEmpty) continue;
+            var ip = '${port['HostIp'] ?? ''}';
+            if (ip.contains(':') && !ip.startsWith('[')) ip = '[$ip]';
+            ports.add('${ip.isEmpty ? '' : '$ip:'}$hostPort->${binding.key}');
+          }
+        }
+        details[id] = (
+          startedAt: started.startsWith('0001-01-01') ? '' : started,
+          ports: ports.join(', '),
+        );
+      }
+      if (batch.any((entry) => !details.containsKey(entry.id))) {
+        throw const FormatException('容器列表补充字段缺少对应容器。');
+      }
+      yield details;
+    }
+  }
+
+  /// 将同一轮资源采样按完整标识、短标识或唯一名称关联，缺失值不伪装为零。
+  Map<String, double> cpuPercentages(
+    String output,
+    List<MachineContainerEntry> entries,
+  ) {
+    if (!supportsRunCommand || output.trim().isEmpty) return {};
+    final decoded = output.trim().startsWith('[')
+        ? jsonDecode(output) as List
+        : output
+              .split('\n')
+              .where((line) => line.trim().isNotEmpty)
+              .map(jsonDecode);
+    final identities = <String, String?>{};
+    for (final entry in entries) {
+      for (final key in {
+        entry.id,
+        entry.id.length > 12 ? entry.id.substring(0, 12) : entry.id,
+        entry.name,
+      }) {
+        if (key.isEmpty) continue;
+        identities[key] =
+            identities.containsKey(key) && identities[key] != entry.id
+            ? null
+            : entry.id;
+      }
+    }
+    final result = <String, double>{};
+    for (final row in decoded) {
+      if (row is! Map) throw const FormatException('容器资源采样格式无效。');
+      final rawId =
+          row['ID'] ??
+          row['Id'] ??
+          row['id'] ??
+          row['ContainerID'] ??
+          row['Container'];
+      final id = rawId != null
+          ? identities['$rawId']
+          : identities['${row['Name'] ?? row['name'] ?? ''}'];
+      final raw =
+          row['CPUPerc'] ??
+          row['CPU'] ??
+          row['CPUPercent'] ??
+          row['cpu_percent'] ??
+          row['cpu'];
+      final percent = double.tryParse(
+        '${raw ?? ''}'.replaceAll('%', '').trim(),
+      );
+      if (id != null && percent != null && percent.isFinite && percent >= 0) {
+        result[id] = percent;
+      }
+    }
+    return result;
+  }
 
   List<MachineContainerEntry> parse(String output, {bool pods = false}) {
     final trimmed = output.trim();

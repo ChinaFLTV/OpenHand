@@ -10781,5 +10781,6 @@
   "maintenanceImageRootFilesystem": "镜像文件系统",
   "@maintenanceImageRootFilesystem": {
     "description": "容器操作与镜像详情界面文案"
-  }
+  },
+  "maintenanceContainerLastStarted": "最近启动时间"
 }

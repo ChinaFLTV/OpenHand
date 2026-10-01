@@ -15030,4 +15030,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImageRootFilesystem => 'イメージファイルシステム';
+
+  @override
+  String get maintenanceContainerLastStarted => '最終起動時刻';
 }
