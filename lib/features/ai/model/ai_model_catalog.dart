@@ -10,7 +10,7 @@ import 'qwen38_model_catalog.dart';
 class AiModelCatalog {
   AiModelCatalog._();
 
-  /// 仅接受已核实版本及日期快照，不把后续版本套用为旧版规格。
+  /// 识别精确版本；未公开日期快照的型号不接受日期后缀。
   static bool matchesVersion(String modelId, String version) {
     final id =
         AiOneMillionContextPolicy.stripModelIdSuffix(
@@ -24,9 +24,20 @@ class AiModelCatalog {
             .replaceFirst(RegExp('^anthropic-'), '');
     final base = version.replaceAll('.', '-');
     if (id == base) return true;
+    // 这些原生型号没有日期快照；网关快照由精确目录或同步资料识别。
+    if (_undatedModelVersions.contains(base)) return false;
     if (!id.startsWith('$base-')) return false;
     return _snapshotSuffix.hasMatch(id.substring(base.length + 1));
   }
+
+  static const _undatedModelVersions = {
+    'gpt-6-sol',
+    'gpt-6-1-sol',
+    'claude-opus-5-5',
+    'claude-5-5-opus',
+    'claude-sonnet-5-5',
+    'claude-5-5-sonnet',
+  };
 
   static final RegExp _snapshotSuffix = RegExp(
     r'^(?:\d{8}|\d{4}-\d{2}-\d{2})$',
@@ -550,6 +561,9 @@ class AiModelCatalog {
 
   static const _solSourceMetadata = <String, Object?>{
     ..._gpt6SourceMetadata,
+    'verification_status': 'official_documentation',
+    'pricing_unit': 'per_million_tokens',
+    'dated_snapshot_suffix': false,
     'input_modalities': ['text', 'image'],
     'output_modalities': ['text'],
     'unsupported_modalities': ['audio', 'video'],
@@ -595,6 +609,16 @@ class AiModelCatalog {
       '/v1/completions',
     ],
     'prompt_cache_options': {'ttl': '30m'},
+    'prompt_caching': {
+      'source': 'https://developers.openai.com/api/docs/guides/prompt-caching',
+      'minimum_visible_input_tokens': 1024,
+      'default_mode': 'implicit',
+      'supported_modes': ['implicit', 'explicit'],
+      'supported_ttl': ['30m'],
+      'max_writes_per_request': 4,
+      'prewarm_api': 'responses',
+      'cache_key_purpose': 'separate_accounting',
+    },
     'service_price_multipliers': {'fast': 2, 'batch': 0.5, 'flex': 0.5},
     'regional_processing_price_multiplier': 1.1,
     'data_residency': ['US', 'EU'],
@@ -611,12 +635,18 @@ class AiModelCatalog {
   };
 
   static const _claude55SourceMetadata = <String, Object?>{
-    'verified_at': '2026-09-30',
+    'verified_at': '2026-10-02',
+    'verification_status': 'official_documentation',
+    'availability_status': 'active',
     'training_cutoff': '2026-06',
     'pricing_currency': 'USD',
+    'pricing_unit': 'per_million_tokens',
     'input_modalities': ['text', 'image'],
     'output_modalities': ['text'],
     'endpoint': '/v1/messages',
+    'models_endpoint': '/v1/models',
+    'context_window_beta_required': false,
+    'max_output_includes_thinking': true,
     'dated_snapshot_suffix': false,
     'forced_tool_choice': false,
     'tool_choice_types': ['auto', 'none'],
@@ -630,6 +660,18 @@ class AiModelCatalog {
     'thinking_display_types': ['omitted', 'summarized', 'updates'],
     'thinking_updates_beta': 'thinking-display-updates-2026-08-18',
     'thinking_binding_beta': 'thinking-binding-controls-2026-08-01',
+    'thinking_binding': {
+      'source':
+          'https://platform.claude.com/docs/en/build-with-claude/preserved-thinking',
+      'prefix_fields': ['system', 'tools', 'messages'],
+      'enforced_for_accounts_created_since': '2026-08-31T00:00:00Z',
+      'enforced_platforms': ['claude_api', 'amazon_bedrock', 'google_cloud'],
+      'prefix_mismatch_behaviors': ['error', 'drop_block'],
+      'invalid_model_blocks': 'dropped_without_billing',
+    },
+    'per_message_effort_beta': 'mid-conversation-output-config-2026-07-01',
+    'effort_source':
+        'https://platform.claude.com/docs/en/build-with-claude/effort',
     'thinking_replay': '保留原始签名、内容与顺序；不能从摘要重建思考块',
     'computer_use_toolset': {
       'claude_api': 'computer_toolset_20260801',
@@ -645,6 +687,10 @@ class AiModelCatalog {
       'prompt_caching',
       'batch',
       'compaction',
+      'structured_outputs',
+      'strict_tool_use',
+      'mid_conversation_system_messages',
+      'per_message_effort',
     ],
     'inline_tools_beta': 'inline-tools-2026-09-15',
     'compaction_beta': 'compact-2026-09-04',
@@ -1284,7 +1330,7 @@ class AiModelCatalog {
         },
         sourceMetadata: {
           ..._solSourceMetadata,
-          'verified_at': '2026-10-01',
+          'verified_at': '2026-10-02',
           'snapshots': ['gpt-6.1-sol'],
           'unsupported_features': ['fine_tuning', 'predicted_outputs'],
           'reasoning': {
@@ -1335,9 +1381,24 @@ class AiModelCatalog {
         defaultParameters: const {
           'reasoning': {'effort': 'medium'},
         },
-        sourceMetadata: const {
+        sourceMetadata: {
           ..._solSourceMetadata,
+          'verified_at': '2026-10-02',
           'snapshots': ['gpt-6-sol'],
+          'reasoning': {
+            'mandatory': false,
+            'default_enabled': true,
+            'default_effort': 'medium',
+            'supported_efforts': [
+              'none',
+              'low',
+              'medium',
+              'high',
+              'xhigh',
+              'max',
+            ],
+          },
+          'unsupported_parameters': ['prompt_cache_retention'],
           'sampling_requires_reasoning_effort': 'none',
           'chat_tools_require_reasoning_effort': 'none',
           'batch_queue_tokens_by_tier': [
@@ -1766,6 +1827,13 @@ class AiModelCatalog {
         },
         sourceMetadata: const {
           ..._claude55SourceMetadata,
+          'snapshots': ['claude-sonnet-5-5'],
+          'reasoning': {
+            'mandatory': false,
+            'default_enabled': true,
+            'default_effort': 'high',
+            'supported_efforts': ['low', 'medium', 'high', 'xhigh', 'max'],
+          },
           'bedrock_model_id': 'anthropic.claude-sonnet-5-5',
           'cloud_model_ids': {
             'google_cloud': 'claude-sonnet-5-5',
@@ -1779,6 +1847,23 @@ class AiModelCatalog {
           'thinking_types': ['adaptive', 'between_tools'],
           'between_tools_max_effort': 'high',
           'between_tools_fields': ['type'],
+          'between_tools_beta_required': false,
+          'between_tools_per_message_effort_change': false,
+          'thinking_block_binding_types': ['adaptive'],
+          'thinking_account_binding': 'same_or_linked_account',
+          'thinking_readable_by': {
+            'claude_api': ['claude-opus-5-5'],
+          },
+          'advisor_models': [
+            'claude-mythos-5-1',
+            'claude-fable-5-1',
+            'claude-mythos-5',
+            'claude-fable-5',
+            'claude-opus-5-5',
+            'claude-opus-5',
+            'claude-sonnet-5-5',
+          ],
+          'advisor_result_type': 'advisor_redacted_result',
           'cache_write_1h_usd_per_million': 4,
         },
       );
@@ -1814,6 +1899,7 @@ class AiModelCatalog {
         },
         sourceMetadata: const {
           ..._claude55SourceMetadata,
+          'snapshots': ['claude-opus-5-5'],
           'released_at': '2026-09-22',
           'retirement_not_before': '2027-09-22',
           'bedrock_model_id': 'anthropic.claude-opus-5-5',
@@ -1822,7 +1908,12 @@ class AiModelCatalog {
             'microsoft_foundry': 'claude-opus-5-5',
             'claude_platform_aws': 'claude-opus-5-5',
           },
-          'reasoning': {'mandatory': true},
+          'reasoning': {
+            'mandatory': true,
+            'default_enabled': true,
+            'default_effort': 'medium',
+            'supported_efforts': ['low', 'medium', 'high', 'xhigh', 'max'],
+          },
           'thinking_types': ['adaptive'],
           'cache_write_1h_usd_per_million': 8,
           'assistant_prefill': false,
@@ -2164,6 +2255,82 @@ class AiModelCatalog {
   // Google Gemini 模型
 
   static AiModelProfile? _gemini(String id) {
+    if (id == 'gemini-4-argon') {
+      return const AiModelProfile(
+        displayName: 'Gemini 4 Argon',
+        description: 'Google 面向复杂软件工程、企业知识工作和网络安全防御的新模型；目前向受信任测试者逐步开放。',
+        links: AiModelLinksMetadata(
+          details:
+              'https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/',
+        ),
+        sourceMetadata: {
+          'checked_at': '2026-10-02',
+          'verification_status': 'announcement_only',
+          'announcement_date': '2026-09-30',
+          'announcement_source':
+              'https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/',
+          'model_source': 'https://deepmind.google/models/gemini/',
+          'official_models_source':
+              'https://ai.google.dev/gemini-api/docs/models',
+          'official_changelog_source':
+              'https://ai.google.dev/gemini-api/docs/changelog',
+          'availability_status': 'trusted_testers_phased_rollout',
+          'early_access_program': 'Fairwind',
+          'planned_initial_public_access': [
+            'paid_api_customers',
+            'google_ai_ultra',
+          ],
+          'api_model_id_verified': false,
+          'announced_max_output_tokens': '1M',
+          'announced_pricing': {
+            'currency': 'USD',
+            'unit': 'per_million_tokens',
+            'introductory': {
+              'input': 2,
+              'output': 10,
+              'cache_read_discount_percent': 95,
+            },
+            'after_introductory_period': {'input': 4, 'output': 20},
+            'introductory_end_date': null,
+          },
+          'announced_capabilities': [
+            'coding',
+            'long_horizon_reasoning',
+            'enterprise_knowledge_work',
+            'visual_understanding',
+            'long_video_understanding',
+            'cybersecurity_defense',
+          ],
+          'reported_benchmarks': {
+            'source': 'https://deepmind.google/models/gemini/',
+            'scope': '官方报告；分数依赖评测设置，不等同于 API 可用能力或限额',
+            'scores_percent': {
+              'Vals Index': 68.9,
+              'AutomationBench': 51.3,
+              'Vals Finance Agent v2': 65.4,
+              "Harvey's Legal Agent Benchmark": 19.6,
+              'DeepSWE v1.1': 77.9,
+              'FrontierSWE v2': 55.0,
+              'Vibe Code Bench': 91.9,
+              'Terminal-bench 4.0': 57.4,
+              'PostTrainBench': 45.3,
+              'Terminal-Bench Science 0.1': 57.6,
+              'LABBench 2': 88.8,
+              'RiemannBench': 76.0,
+              'GraphWalks BFS F1 up to 128k': 99.7,
+              'GraphWalks BFS F1 256k to 1M': 84.2,
+              "Agent's Last Exam pass rate": 39.5,
+              'OSWorld-2.0 offline subset partial score': 69.2,
+              'Chartography': 71.6,
+              'LVBench': 91.7,
+              'CWE-bench v1': 68.0,
+            },
+          },
+          'verification_note':
+              '公开 API 目录尚未收录；输出上限和分阶段价格为公告口径，输入窗口、API 标识、思考档位、缓存写价及知识截止日期未核实，不套用旧型号规格。',
+        },
+      );
+    }
     if (id == 'gemini-3.5-transcribe' || id == 'gemini-3.5-transcribe-live') {
       final live = id.endsWith('-live');
       return _p(

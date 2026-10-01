@@ -6729,6 +6729,38 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               height: 1.5,
             ),
           ),
+          if (catalog?.sourceMetadata case {
+            'announced_max_output_tokens': final String output,
+            'announced_pricing': {
+              'currency': 'USD',
+              'introductory': {
+                'input': final num introInput,
+                'output': final num introOutput,
+              },
+              'after_introductory_period': {
+                'input': final num regularInput,
+                'output': final num regularOutput,
+              },
+            },
+          }) ...[
+            kOpenHandGap8,
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '公告：最大输出 $output；首发输入/输出 $introInput / $introOutput，后续 $regularInput / $regularOutput（美元/百万词元）。',
+                zhHant:
+                    '公告：最大輸出 $output；首發輸入/輸出 $introInput / $introOutput，後續 $regularInput / $regularOutput（美元/百萬詞元）。',
+                en: 'Announced max output: $output. Introductory input/output: $introInput / $introOutput; later: $regularInput / $regularOutput (USD/1M tokens).',
+                fr: 'Sortie max. annoncée : $output. Entrée/sortie initiales : $introInput / $introOutput ; ensuite : $regularInput / $regularOutput (USD/1M tokens).',
+                de: 'Angekündigte max. Ausgabe: $output. Einführungspreis Eingabe/Ausgabe: $introInput / $introOutput; danach: $regularInput / $regularOutput (USD/1 Mio. Token).',
+                ja: '発表上の最大出力：$output。導入時の入力/出力：$introInput / $introOutput、その後：$regularInput / $regularOutput（USD/100万トークン）。',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
           if (announcementOnly &&
               trialWindow is String &&
               plannedWindow is String) ...[
@@ -6836,6 +6868,14 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (catalog.sourceMetadata['max_input_tokens']
+                    case final int maxInputTokens)
+                  Chip(
+                    avatar: const Icon(Icons.input_rounded, size: 16),
+                    label: Text(
+                      '${openHandLocalizedText(context, zh: '最大输入', zhHant: '最大輸入', en: 'Max input', fr: 'Entrée max.', de: 'Max. Eingabe', ja: '最大入力')} $maxInputTokens',
+                    ),
+                  ),
                 if (catalog.maxContextLength != null)
                   Chip(
                     label: Text(
@@ -6849,10 +6889,30 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ),
                 for (final option in catalog.reasoningEffortOptions)
-                  Chip(
-                    label: Text(option.value),
-                    backgroundColor: colorScheme.tertiaryContainer.withValues(
-                      alpha: 0.35,
+                  Tooltip(
+                    message: option.value == catalog.reasoningEffort
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '目录默认推理档位',
+                            zhHant: '目錄預設推理檔位',
+                            en: 'Catalog default reasoning effort',
+                            fr: 'Effort de raisonnement par défaut du catalogue',
+                            de: 'Standard-Denkaufwand im Katalog',
+                            ja: 'カタログの既定推論レベル',
+                          )
+                        : option.value,
+                    child: Chip(
+                      avatar: option.value == catalog.reasoningEffort
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                              color: colorScheme.tertiary,
+                            )
+                          : null,
+                      label: Text(option.value),
+                      backgroundColor: colorScheme.tertiaryContainer.withValues(
+                        alpha: 0.35,
+                      ),
                     ),
                   ),
               ],

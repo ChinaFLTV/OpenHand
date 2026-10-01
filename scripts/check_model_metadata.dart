@@ -339,7 +339,16 @@ void main() {
   });
   test('未知 Gemini 型号不虚构规格，声明原生档位后可直接使用', () {
     const id = 'gemini-custom-model';
-    expect(AiModelCatalog.lookup('gemini-4-argon', AiProtocolType.gemini), isNull);
+    final argon = AiModelCatalog.lookup('gemini-4-argon', AiProtocolType.gemini)!;
+    expect(argon.sourceMetadata['verification_status'], 'announcement_only');
+    expect(argon.sourceMetadata['announced_max_output_tokens'], '1M');
+    expect(argon.sourceMetadata['announced_pricing'], containsPair('after_introductory_period', {'input': 4, 'output': 20}));
+    expect(argon.maxContextLength, isNull);
+    expect(argon.maxOutputLength, isNull);
+    expect(argon.inputUsdPer1M, isNull);
+    expect(argon.reasoningEffortOptions, isEmpty);
+    expect(argon.thinkingEnabled, isNull);
+    expect(AiModelCatalog.lookup('gemini-4-argon-preview', AiProtocolType.gemini), isNull);
     for (final parameter in ['thinking_level', 'generation_config.thinking_config.thinking_level', 'generationConfig.thinkingConfig.thinkingLevel']) {
       final config = model(id, profiles: {id: AiModelProfile(
         thinkingEnabled: true, reasoningEffortControlEnabled: true,
@@ -360,7 +369,7 @@ void main() {
       expect(restored.architecture!.inputModalities, ['text', 'image']);
       expect(restored.architecture!.outputModalities, ['text']);
       expect(restored.maxThinkingLength, isNull);
-      expect(restored.sourceMetadata['verified_at'], id == 'gpt-6.1-sol' ? '2026-10-01' : '2026-09-30');
+      expect(restored.sourceMetadata['verified_at'], '2026-10-02');
     }
     final opus = AiModelCatalog.lookup('claude-opus-5-5', AiProtocolType.claude)!;
     expect(opus.requiresThinking, isTrue);
@@ -390,6 +399,47 @@ void main() {
     AiThinkingRequestPolicy.normalizeModelRequestBody(body, model('gpt-6-sol'));
     expect(body['temperature'], 0.8);
     expect(body['logprobs'], isTrue);
+  });
+  test('重点型号未公开日期快照不继承规格，精确同步资料仍可配置', () {
+    for (final base in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+      for (final suffix in ['20260922', '2026-10-02', '20990101']) {
+        final id = '\$base-\$suffix';
+        expect(AiModelCatalog.matchesVersion(id, base), isFalse);
+        expect(AiModelCatalog.lookup(id, AiProtocolType.openai), isNull, reason: id);
+      }
+    }
+    const id = 'gpt-6-sol-20261002';
+    AiModelCatalog.registerExternalProfiles({id: const AiModelProfile(displayName: '提供商核实快照')});
+    try {
+      expect(AiModelCatalog.lookup(id, AiProtocolType.openai)?.displayName, '提供商核实快照');
+    } finally {
+      AiModelCatalog.registerExternalProfiles({}, replace: true);
+    }
+  });
+  test('附加参数中的未知推理档位明确报错且合法扩展字段不丢失', () {
+    for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+      for (final field in ['reasoning_effort', 'reasoning', if (id.startsWith('claude')) 'output_config']) {
+        final bad = <String, Object?>{field: field == 'reasoning_effort' ? 'ultra' : {'effort': 'ultra'}};
+        expect(() => AiThinkingRequestPolicy.normalizeModelRequestBody(bad, model(id)), throwsArgumentError);
+        final valid = <String, Object?>{field: field == 'reasoning_effort' ? 'high' : {'effort': 'high', 'custom': true}};
+        final before = jsonEncode(valid);
+        AiThinkingRequestPolicy.normalizeModelRequestBody(valid, model(id));
+        expect(jsonEncode(valid), before);
+      }
+    }
+  });
+  test('缓存计费和 Claude 平台约束保留独立来源与限制', () {
+    final sol = AiModelCatalog.lookup('gpt-6-sol', AiProtocolType.openai)!;
+    expect(sol.sourceMetadata['prompt_caching'], containsPair('minimum_visible_input_tokens', 1024));
+    expect(sol.sourceMetadata['prompt_caching'], containsPair('max_writes_per_request', 4));
+    expect(sol.sourceMetadata['long_context_billing_scope'], 'full_request');
+    final sonnet = AiModelCatalog.lookup('claude-sonnet-5-5', AiProtocolType.claude)!;
+    expect(sonnet.sourceMetadata['between_tools_per_message_effort_change'], isFalse);
+    expect(sonnet.sourceMetadata['thinking_account_binding'], 'same_or_linked_account');
+    expect(sonnet.sourceMetadata['advisor_models'], contains('claude-opus-5-5'));
+    expect(sonnet.sourceMetadata['advisor_models'], isNot(contains('claude-opus-4-8')));
+    expect(sonnet.sourceMetadata['computer_use_toolset'], containsPair('amazon_bedrock', 'computer_20251124'));
+    expect(sonnet.sourceMetadata['context_window_beta_required'], isFalse);
   });
   test('Claude 5.5 默认显示思考摘要且不发送旧采样参数', () {
     for (final id in ['claude-opus-5-5', 'claude-sonnet-5-5', 'anthropic.claude-opus-5-5']) {

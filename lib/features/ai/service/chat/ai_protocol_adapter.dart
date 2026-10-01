@@ -333,6 +333,26 @@ abstract final class AiThinkingRequestPolicy {
     if (mandatoryGpt6 ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
         AiModelCatalog.matchesVersion(modelId, 'gpt-6-luna')) {
+      if (AiModelCatalog.matchesVersion(modelId, 'gpt-6-sol') ||
+          AiModelCatalog.matchesVersion(modelId, 'gpt-6.1-sol')) {
+        for (final effort in [
+          body[_reasoningEffortField],
+          stringKeyedMapFromValue(body[_reasoningField])['effort'],
+        ]) {
+          if (effort != null &&
+              !const {
+                'none',
+                'minimal',
+                'low',
+                'medium',
+                'high',
+                'xhigh',
+                'max',
+              }.contains(effort)) {
+            throw ArgumentError('该 Sol 型号不支持推理档位：$effort。');
+          }
+        }
+      }
       final invalidEfforts = mandatoryGpt6
           ? const {'none', 'minimal'}
           : const {'minimal'};
@@ -391,6 +411,18 @@ abstract final class AiThinkingRequestPolicy {
     final opus55 =
         AiModelCatalog.matchesVersion(modelId, 'claude-opus-5-5') ||
         AiModelCatalog.matchesVersion(modelId, 'claude-5-5-opus');
+    if (sonnet55 || opus55) {
+      for (final effort in [
+        body[_reasoningEffortField],
+        stringKeyedMapFromValue(body[_reasoningField])['effort'],
+        stringKeyedMapFromValue(body[_outputConfigField])['effort'],
+      ]) {
+        if (effort != null &&
+            !const {'low', 'medium', 'high', 'xhigh', 'max'}.contains(effort)) {
+          throw ArgumentError('该 Claude 5.5 型号不支持推理档位：$effort。');
+        }
+      }
+    }
     if (sonnet55 ||
         opus55 ||
         AiModelCatalog.matchesVersion(modelId, 'claude-fable-5-1') ||

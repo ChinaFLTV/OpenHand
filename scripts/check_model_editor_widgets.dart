@@ -181,7 +181,7 @@ void main() {
     });
   }
 
-  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro', 'claude-opus-5-5', 'claude-sonnet-5-5', 'qwen3.8-max', 'qwen3.8-27b', 'qwen3.8-2.4t-a95b', 'qwen3.8-omni-flash', 'qwen3.8-omni-flash-realtime', 'Qwen/Qwen3.8-Flash-Next-FP8', 'Ling-3.1-flash']) {
+  for (final id in ['gpt-6-sol', 'gpt-6.1-sol', 'openai/gpt-6.1-sol', 'openai/gpt-6.1-sol-pro', 'claude-opus-5-5', 'claude-sonnet-5-5', 'gemini-4-argon', 'qwen3.8-max', 'qwen3.8-27b', 'qwen3.8-2.4t-a95b', 'qwen3.8-omni-flash', 'qwen3.8-omni-flash-realtime', 'Qwen/Qwen3.8-Flash-Next-FP8', 'Ling-3.1-flash']) {
     for (final size in [const Size(1100, 900), const Size(390, 844)]) {
       testWidgets('重点模型 $id 在 $size 下展示并保存完整元数据', (tester) async {
         final protocol = id.startsWith('claude') ? AiProtocolType.claude : AiProtocolType.openai;
@@ -193,7 +193,21 @@ void main() {
           expect(find.text('已发布 · API 规格待核实'), findsOneWidget);
           expect(find.textContaining('体验期服务窗口 256K'), findsOneWidget);
         }
+        if (id == 'gemini-4-argon') {
+          expect(find.text('已发布 · API 规格待核实'), findsOneWidget);
+          final state = tester.state<_ModelProfileEditorDialogState>(_editor);
+          expect(state._maxContextLengthController.text, '');
+          expect(state._maxOutputLengthController.text, '');
+          expect(state._defaultParametersController.text, '');
+          expect(find.textContaining('最大输出 1M；首发'), findsOneWidget);
+        }
         final chips = find.descendant(of: _editor, matching: find.byType(Chip));
+        if (original.sourceMetadata['max_input_tokens'] case final int limit) {
+          expect(find.descendant(of: chips, matching: find.text('最大输入 $limit')), findsOneWidget);
+        }
+        if (original.reasoningEffortOptions.any((option) => option.value == original.reasoningEffort)) {
+          expect(find.byTooltip('目录默认推理档位'), findsOneWidget);
+        }
         for (final option in original.reasoningEffortOptions) {
           expect(find.descendant(of: chips, matching: find.text(option.value)), findsOneWidget);
         }
