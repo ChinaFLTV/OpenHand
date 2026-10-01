@@ -290,5 +290,276 @@ Future<void> main() async {
         'web',
     'Podman 名称数组未规范化',
   );
+  final config = <String, dynamic>{
+    'Id': 'abc123456789',
+    'Name': '/worker',
+    'Image': 'sha256:pinned-image',
+    'Config': {
+      'Image': 'app:latest',
+      'Hostname': 'abc123456789',
+      'User': '1000:1000',
+      'WorkingDir': '/work dir',
+      'Env': ["VALUE=空格'\";\$(printf 不应执行)\n第二行"],
+      'Labels': {'应用': '测试'},
+      'Entrypoint': ['/entry point', '--mode'],
+      'Cmd': ['serve', '--name=a b'],
+      'Tty': true,
+      'ExposedPorts': {'80/tcp': {}},
+      'Healthcheck': {
+        'Test': ['CMD-SHELL', 'test -f /ready'],
+        'Interval': 1000000000,
+        'Retries': 3,
+      },
+    },
+    'HostConfig': {
+      'PortBindings': {
+        '80/tcp': [
+          {'HostIp': '::1', 'HostPort': '8080'},
+        ],
+      },
+      'Binds': ['/host dir:/data:ro'],
+      'Tmpfs': {'/tmp': 'size=64m'},
+      'Mounts': [
+        {
+          'Type': 'volume',
+          'Source': 'cache',
+          'Target': '/cache',
+          'VolumeOptions': {'NoCopy': true},
+        },
+      ],
+      'NetworkMode': 'app-network',
+      'RestartPolicy': {'Name': 'on-failure', 'MaximumRetryCount': 5},
+      'Memory': 536870912,
+      'NanoCpus': 1500000000,
+      'ReadonlyRootfs': true,
+      'SecurityOpt': ['no-new-privileges'],
+      'Dns': ['1.1.1.1'],
+      'Sysctls': {'net.ipv4.ip_forward': '1'},
+      'ConsoleSize': [0, 0],
+      'LogConfig': {
+        'Type': 'json-file',
+        'Config': {'max-size': '10m'},
+      },
+    },
+    'Mounts': [
+      {
+        'Type': 'bind',
+        'Source': '/host dir',
+        'Destination': '/data',
+        'RW': false,
+      },
+      {'Type': 'volume', 'Name': 'cache', 'Destination': '/cache'},
+      {'Type': 'tmpfs', 'Destination': '/tmp'},
+      {'Type': 'volume', 'Name': 'anonymous', 'Destination': '/state'},
+      {
+        'Type': 'bind',
+        'Source': '/path,a',
+        'Destination': '/comma',
+        'RW': true,
+      },
+    ],
+    'NetworkSettings': {
+      'Networks': {
+        'app-network': {
+          'Aliases': ['worker', 'abc123456789', 'web'],
+          'IPAddress': '172.20.0.99',
+          'IPAMConfig': {'IPv4Address': '172.20.0.10'},
+        },
+      },
+    },
+  };
+  final args = machineContainerRunArguments(config);
+  String option(String name) => args[args.indexOf(name) + 1];
+  check(option('--publish') == '[::1]:8080:80/tcp', 'IPv6 端口映射错误');
+  check(option('--entrypoint') == '/entry point', '入口命令丢失');
+  check(
+    args.sublist(args.indexOf('sha256:pinned-image')).join('|') ==
+        'sha256:pinned-image|--mode|serve|--name=a b',
+    '入口参数与启动参数顺序错误',
+  );
+  check(
+    !args.contains('app:latest') && !args.contains('--hostname'),
+    '命令使用了可变标签或自动生成的主机名',
+  );
+  check(
+    args.where((a) => a == '--volume').length == 1 &&
+        args.where((a) => a == '--mount').length == 3,
+    '挂载重复或丢失',
+  );
+  check(
+    args.contains('type=bind,"source=/path,a",target=/comma'),
+    '挂载 CSV 转义错误',
+  );
+  check(
+    option('--restart') == 'on-failure:5' && option('--cpus') == '1.5',
+    '重启策略或资源限制丢失',
+  );
+  check(
+    option('--ip') == '172.20.0.10' && !args.contains('172.20.0.99'),
+    '动态地址被误当作固定配置',
+  );
+  check(option('--network-alias') == 'web', '自定义网络别名丢失');
+  if (!Platform.isWindows) {
+    final copied = docker.command(args, readable: true);
+    final output = await Process.run('/bin/sh', [
+      '-c',
+      r'docker() { printf "%s\000" "$@"; }; ' + copied,
+    ]);
+    final actual = '${output.stdout}'.split('\u0000')..removeLast();
+    check(
+      jsonEncode(actual) == jsonEncode(['--context', '测试环境', ...args]),
+      '复制命令未完整保留参数或存在 Shell 注入',
+    );
+  }
+  final windows = MachineContainerClient(
+    runtime: MachineContainerRuntime.docker,
+    run: (_) async => '',
+    windows: true,
+  );
+  check(
+    windows.command(['run', "a'b"], readable: true) ==
+        "& 'docker' 'run' 'a''b'",
+    'Windows 剪贴板命令不是可读 PowerShell',
+  );
+  check(
+    windows.command(['inspect', 'abc']).contains('-EncodedCommand'),
+    'Windows 远程执行封装被破坏',
+  );
+  for (final change in [
+    {
+      'DeviceRequests': [
+        {'Driver': 'nvidia'},
+      ],
+    },
+    {
+      'VolumesFrom': ['other'],
+    },
+    {
+      'Links': ['other:alias'],
+    },
+  ]) {
+    try {
+      machineContainerRunArguments({
+        ...config,
+        'HostConfig': {...config['HostConfig'] as Map, ...change},
+      });
+      throw StateError('不完整的运行配置不应被复制。');
+    } on MachineContainerConfigException catch (e) {
+      check(e.code == 'incomplete', '配置拒绝原因错误');
+    }
+  }
+  final emptyEntrypoint = machineContainerRunArguments({
+    ...config,
+    'Config': {'Image': 'app', 'Entrypoint': null, 'Cmd': []},
+  });
+  check(
+    emptyEntrypoint[emptyEntrypoint.indexOf('--entrypoint') + 1].isEmpty,
+    '空入口没有清除镜像默认入口',
+  );
+  final readCalls = <String>[];
+  var historyFails = false;
+  final reader = docker.copyWith(
+    run: (command) async {
+      readCalls.add(command);
+      if (command.contains("'run' '--help'")) {
+        return '${args.where((a) => a.startsWith('--')).join(' ')} ';
+      }
+      if (command.contains("'image' 'inspect'")) {
+        return '[{"Id":"sha256:pinned-image","Size":1024,"RepoTags":["app:old"]}]';
+      }
+      if (command.contains("'image' 'history'")) {
+        if (historyFails) throw StateError('模拟构建历史不可读');
+        return '{"CreatedBy":"RUN true","Size":"1kB","CreatedAt":"2026-10-01T08:00:00Z"}';
+      }
+      return jsonEncode([config]);
+    },
+  );
+  check(
+    await reader.runCommand(containers.first) ==
+        docker.command(args, readable: true),
+    '复制命令未读取实际配置',
+  );
+  readCalls.clear();
+  final imageReport =
+      jsonDecode(await reader.imageDetails(containers.first)) as Map;
+  check(
+    imageReport['image']['Id'] == 'sha256:pinned-image' &&
+        imageReport['history'].length == 1,
+    '镜像详情未合并历史',
+  );
+  check(
+    readCalls.length == 3 &&
+        readCalls.skip(1).every((c) => c.endsWith("'sha256:pinned-image'")),
+    '镜像查询未固定创建时的镜像',
+  );
+  check(
+    readCalls.every((c) => !c.contains("'run'") && !c.contains("'pull'")),
+    '读取详情意外执行了容器命令',
+  );
+  historyFails = true;
+  final partial = jsonDecode(await reader.imageDetails(containers.first));
+  check(
+    partial['image']['Id'] == 'sha256:pinned-image' &&
+        partial['historyError'] != null,
+    '历史失败丢失了镜像详情',
+  );
+  var cancelledImage = false;
+  var imageCalls = 0;
+  final cancelling = docker.copyWith(
+    run: (_) async {
+      imageCalls++;
+      cancelledImage = true;
+      return jsonEncode([config]);
+    },
+  );
+  try {
+    await cancelling.imageDetails(
+      containers.first,
+      isCancelled: () => cancelledImage,
+    );
+  } on MachineContainerConfigException catch (e) {
+    check(e.code == 'cancelled', '镜像取消原因错误');
+  }
+  check(imageCalls == 1, '关闭镜像弹窗后仍继续查询');
+  final kubeImage = kube.copyWith(run: (_) async => jsonEncode(pod));
+  final reference = jsonDecode(await kubeImage.imageDetails(entries[1]));
+  check(
+    reference['referenceOnly'] == true &&
+        reference['image']['Image'] == 'app:v1',
+    'Kubernetes 镜像引用报告错误',
+  );
+  check(
+    !kube.actions(entries[1]).contains('复制 run 命令') &&
+        !cri.actions(criRows.single).contains('复制 run 命令'),
+    '不兼容运行时暴露了 run 命令',
+  );
+  check(podman.actions(containers.last).contains('复制 run 命令'), '已停止容器缺少复制入口');
+
+  final liveId = Platform.environment['OPENHAND_CONTAINER_VERIFY_ID'];
+  if (liveId != null) {
+    final live = MachineContainerClient(
+      runtime: MachineContainerRuntime.docker,
+      run: (command) async {
+        final result = await Process.run('/bin/sh', [
+          '-c',
+          command,
+        ]).timeout(const Duration(seconds: 15));
+        if (result.exitCode != 0) throw StateError('本机 Docker 只读查询失败。');
+        return '${result.stdout}';
+      },
+    );
+    final entry = MachineContainerEntry(
+      id: liveId,
+      name: '本机验证',
+      state: 'running',
+    );
+    final command = await live.runCommand(entry);
+    final report = jsonDecode(await live.imageDetails(entry));
+    check(
+      command.contains("'run' '--detach'") && report['image']['Id'] != null,
+      '本机容器只读验证失败',
+    );
+    stdout.writeln('本机 Docker 配置还原、镜像 ID 查询与构建历史验证通过，未执行生成的命令。');
+  }
   stdout.writeln('容器解析、自动发现、旧版客户端、命名空间、取消、状态菜单、作用域与输出限制检查通过。');
 }

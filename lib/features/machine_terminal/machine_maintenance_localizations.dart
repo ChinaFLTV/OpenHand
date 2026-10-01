@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+
 import '../../l10n/app_localizations.dart';
+import 'machine_containers.dart';
 import 'machine_egress.dart';
 import 'machine_egress_regions.dart';
 import 'machine_maintenance_timestamp.dart';
@@ -197,6 +201,17 @@ String maintenanceLabel(BuildContext context, String label) {
     '主机配置' => l10n.maintenanceContainerHostConfig,
     '网络配置' => l10n.maintenanceContainerNetworkConfig,
     '标签' => l10n.maintenanceContainerLabels,
+    '复制 run 命令' => l10n.maintenanceContainerCopyRun,
+    '查看镜像详情' => l10n.maintenanceContainerImageDetails,
+    '镜像元数据' => l10n.maintenanceImageMetadata,
+    '构建历史与镜像层' => l10n.maintenanceImageLayers,
+    '镜像标签' => l10n.maintenanceImageTags,
+    '镜像摘要' => l10n.maintenanceImageDigests,
+    '镜像大小' => l10n.maintenanceImageSize,
+    '大小' => l10n.listCardMetricSize,
+    '构建指令' => l10n.maintenanceImageBuildCommand,
+    '层大小' => l10n.maintenanceImageLayerSize,
+    '镜像文件系统' => l10n.maintenanceImageRootFilesystem,
     '注解' => l10n.maintenanceContainerAnnotations,
     '运行规格' => l10n.maintenanceContainerSpec,
     '元数据' => l10n.maintenanceContainerMetadataFields,
@@ -1066,6 +1081,20 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'ContainerID': '容器标识',
     'containerID': '容器标识',
     'ImageID': '镜像标识',
+    'RepoTags': '镜像标签',
+    'repoTags': '镜像标签',
+    'RepoDigests': '镜像摘要',
+    'repoDigests': '镜像摘要',
+    'Size': '大小',
+    'size': '大小',
+    'VirtualSize': '大小',
+    'CreatedBy': '构建指令',
+    'createdBy': '构建指令',
+    'Comment': '描述',
+    'comment': '描述',
+    'RootFS': '镜像文件系统',
+    'Layers': '构建历史与镜像层',
+    'Os': '操作系统',
     'imageID': '镜像标识',
     'Image': '镜像',
     'image': '镜像',
@@ -2008,4 +2037,20 @@ String maintenanceEgressValue(
     _ => 0,
   };
   return names[index];
+}
+
+String maintenanceContainerOperationError(BuildContext context, Object error) {
+  final l = AppLocalizations.of(context)!;
+  if (error is TimeoutException) {
+    return '${l.maintenanceContainerTimeoutTitle} · ${l.maintenanceContainerTimeoutHelp}';
+  }
+  if (error is FormatException) return l.maintenanceContainerConfigInvalid;
+  if (error is! MachineContainerConfigException) return '$error';
+  return switch (error.code) {
+    'incomplete' => l.maintenanceContainerRunIncomplete(error.details),
+    'unsupported' => l.maintenanceContainerRunUnsupported,
+    'image' => l.maintenanceContainerImageMissing,
+    'stale' => l.maintenanceContainerIdentityChanged,
+    _ => l.maintenanceContainerConfigInvalid,
+  };
 }

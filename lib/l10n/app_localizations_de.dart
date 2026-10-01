@@ -15490,4 +15490,71 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceContainerTerminalFailed =>
       'Terminalverbindung fehlgeschlagen';
+
+  @override
+  String get maintenanceContainerCopyRun => 'Run-Befehl kopieren';
+
+  @override
+  String get maintenanceContainerImageDetails => 'Image-Details anzeigen';
+
+  @override
+  String get maintenanceContainerRunCopied =>
+      'Run-Befehl aus der aktuellen Konfiguration kopiert';
+
+  @override
+  String get maintenanceContainerConfigInvalid =>
+      'Die Containerkonfiguration ist unvollständig oder ungültig. Aktualisieren und erneut versuchen.';
+
+  @override
+  String get maintenanceContainerRunUnsupported =>
+      'Diese Laufzeit unterstützt keine Rekonstruktion eines eigenständigen Run-Befehls.';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return 'Diese Einstellungen lassen sich nicht exakt wiederherstellen; kein Befehl wurde kopiert: $fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing =>
+      'Der Container enthält keine gültige Image-Referenz. Aktualisieren und erneut versuchen.';
+
+  @override
+  String get maintenanceContainerIdentityChanged =>
+      'Der Container wurde ersetzt oder entfernt. Aktualisieren und erneut versuchen.';
+
+  @override
+  String get maintenanceImageLayers => 'Build-Verlauf und Layer';
+
+  @override
+  String get maintenanceImageHistoryUnavailable =>
+      'Image-Metadaten geladen, Build-Verlauf jedoch nicht verfügbar.';
+
+  @override
+  String get maintenanceImageHistoryLimited =>
+      'Die letzten 512 Build-Einträge werden angezeigt.';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'Die Kubernetes-API liefert nur Image-Referenzen und Containerstatus. Layer und Build-Verlauf sind über die Laufzeit auf dem zugehörigen Knoten verfügbar.';
+
+  @override
+  String get maintenanceImageTags => 'Image-Tags';
+
+  @override
+  String get maintenanceImageDigests => 'Image-Digests';
+
+  @override
+  String get maintenanceImageSize => 'Image-Größe';
+
+  @override
+  String get maintenanceImageBuildCommand => 'Build-Anweisung';
+
+  @override
+  String get maintenanceImageLayerSize => 'Layer-Größe';
+
+  @override
+  String get maintenanceImageMetadata => 'Image-Metadaten';
+
+  @override
+  String get maintenanceImageRootFilesystem => 'Image-Dateisystem';
 }

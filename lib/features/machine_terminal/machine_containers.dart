@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
 
+part 'machine_container_inspection.dart';
+
 const machineContainerOutputLimit = 2 * 1024 * 1024;
 const machineContainerProbeTimeout = Duration(seconds: 6);
 const machineContainerDiscoveryTimeout = Duration(seconds: 40);
@@ -209,7 +211,7 @@ class MachineContainerClient {
     inheritDockerHost: inheritDockerHost ?? this.inheritDockerHost,
   );
 
-  String command(List<String> arguments) {
+  String command(List<String> arguments, {bool readable = false}) {
     final args = [
       if (launcher.isEmpty) runtime.executable else ...launcher,
       if (runtime == MachineContainerRuntime.docker &&
@@ -236,9 +238,11 @@ class MachineContainerClient {
       throw ArgumentError('命令参数包含无效字符。');
     }
     if (windows) {
-      return powerShellEncodedCommand(
-        "& ${args.map((a) => "'${escapePowerShellSingleQuotedString(a)}'").join(' ')}; exit \$LASTEXITCODE",
-      );
+      final script =
+          "& ${args.map((a) => "'${escapePowerShellSingleQuotedString(a)}'").join(' ')}";
+      return readable
+          ? script
+          : powerShellEncodedCommand('$script; exit \$LASTEXITCODE');
     }
     return args.map(posixShellQuote).join(' ');
   }
@@ -450,6 +454,8 @@ class MachineContainerClient {
     }
     return [
       '详情',
+      '查看镜像详情',
+      if (supportsRunCommand) '复制 run 命令',
       '日志',
       if (entry.running) ...['终端', '文件管理'],
       if (runtime != MachineContainerRuntime.kubernetes) ...[

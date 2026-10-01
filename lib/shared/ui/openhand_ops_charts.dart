@@ -3454,8 +3454,15 @@ class OpenHandOperationalRowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = <String, VoidCallback>{
       if (onDetails != null)
-        openHandLocalizedText(context, zh: '详情', zhHant: '詳情', en: 'Details'):
-            onDetails!,
+        openHandLocalizedText(
+          context,
+          zh: '详情',
+          zhHant: '詳情',
+          en: 'Details',
+          de: 'Details',
+          fr: 'Détails',
+          ja: '詳細',
+        ): onDetails!,
       ...actions,
     };
     return AnimatedPopupMenuButton<String>(
@@ -3464,6 +3471,9 @@ class OpenHandOperationalRowMenu extends StatelessWidget {
         zh: '更多操作',
         zhHant: '更多操作',
         en: 'More actions',
+        de: 'Weitere Aktionen',
+        fr: 'Autres actions',
+        ja: 'その他の操作',
       ),
       enabled: entries.isNotEmpty,
       icon: const Icon(Icons.more_horiz_rounded, size: 18),

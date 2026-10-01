@@ -10700,5 +10700,86 @@
   "maintenanceContainerInterrupt": "中断",
   "maintenanceContainerDisconnecting": "正在退出…",
   "maintenanceContainerExitPending": "当前程序尚未退出。请先中断程序，再退出终端。",
-  "maintenanceContainerTerminalFailed": "终端连接失败"
+  "maintenanceContainerTerminalFailed": "终端连接失败",
+  "maintenanceContainerCopyRun": "复制 run 命令",
+  "@maintenanceContainerCopyRun": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerImageDetails": "查看镜像详情",
+  "@maintenanceContainerImageDetails": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerRunCopied": "已复制基于当前配置生成的 run 命令",
+  "@maintenanceContainerRunCopied": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerConfigInvalid": "容器配置不完整或格式无效，请刷新后重试。",
+  "@maintenanceContainerConfigInvalid": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerRunUnsupported": "该运行时不支持还原独立容器的 run 命令。",
+  "@maintenanceContainerRunUnsupported": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerRunIncomplete": "以下配置无法等价还原，未复制命令：{fields}",
+  "@maintenanceContainerRunIncomplete": {
+    "description": "容器操作与镜像详情界面文案",
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceContainerImageMissing": "容器未提供有效的镜像引用，请刷新后重试。",
+  "@maintenanceContainerImageMissing": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceContainerIdentityChanged": "容器已被替换或移除，请刷新后重试。",
+  "@maintenanceContainerIdentityChanged": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageLayers": "构建历史与镜像层",
+  "@maintenanceImageLayers": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageHistoryUnavailable": "镜像元数据已读取，但构建历史暂不可用。",
+  "@maintenanceImageHistoryUnavailable": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageHistoryLimited": "仅显示最近的 512 条构建记录。",
+  "@maintenanceImageHistoryLimited": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageReferenceOnly": "Kubernetes API 仅提供镜像引用与容器状态；镜像层和构建历史需在对应节点的运行时中查看。",
+  "@maintenanceImageReferenceOnly": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageTags": "镜像标签",
+  "@maintenanceImageTags": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageDigests": "镜像摘要",
+  "@maintenanceImageDigests": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageSize": "镜像大小",
+  "@maintenanceImageSize": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageBuildCommand": "构建指令",
+  "@maintenanceImageBuildCommand": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageLayerSize": "层大小",
+  "@maintenanceImageLayerSize": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageMetadata": "镜像元数据",
+  "@maintenanceImageMetadata": {
+    "description": "容器操作与镜像详情界面文案"
+  },
+  "maintenanceImageRootFilesystem": "镜像文件系统",
+  "@maintenanceImageRootFilesystem": {
+    "description": "容器操作与镜像详情界面文案"
+  }
 }

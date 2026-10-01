@@ -15542,4 +15542,72 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceContainerTerminalFailed =>
       'Échec de la connexion au terminal';
+
+  @override
+  String get maintenanceContainerCopyRun => 'Copier la commande run';
+
+  @override
+  String get maintenanceContainerImageDetails =>
+      'Afficher les détails de l’image';
+
+  @override
+  String get maintenanceContainerRunCopied =>
+      'Commande run copiée depuis la configuration actuelle';
+
+  @override
+  String get maintenanceContainerConfigInvalid =>
+      'La configuration du conteneur est incomplète ou invalide. Actualisez puis réessayez.';
+
+  @override
+  String get maintenanceContainerRunUnsupported =>
+      'Ce moteur ne permet pas de reconstituer une commande run autonome.';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return 'Ces paramètres ne peuvent pas être reproduits fidèlement ; aucune commande copiée : $fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing =>
+      'Le conteneur ne fournit aucune référence d’image valide. Actualisez puis réessayez.';
+
+  @override
+  String get maintenanceContainerIdentityChanged =>
+      'Le conteneur a été remplacé ou supprimé. Actualisez puis réessayez.';
+
+  @override
+  String get maintenanceImageLayers => 'Historique de construction et couches';
+
+  @override
+  String get maintenanceImageHistoryUnavailable =>
+      'Métadonnées chargées, mais l’historique de construction est indisponible.';
+
+  @override
+  String get maintenanceImageHistoryLimited =>
+      'Affichage des 512 dernières étapes de construction.';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'L’API Kubernetes fournit uniquement les références d’image et l’état du conteneur. Consultez les couches et l’historique via le moteur du nœud concerné.';
+
+  @override
+  String get maintenanceImageTags => 'Étiquettes de l’image';
+
+  @override
+  String get maintenanceImageDigests => 'Empreintes de l’image';
+
+  @override
+  String get maintenanceImageSize => 'Taille de l’image';
+
+  @override
+  String get maintenanceImageBuildCommand => 'Instruction de construction';
+
+  @override
+  String get maintenanceImageLayerSize => 'Taille de la couche';
+
+  @override
+  String get maintenanceImageMetadata => 'Métadonnées de l’image';
+
+  @override
+  String get maintenanceImageRootFilesystem => 'Système de fichiers de l’image';
 }

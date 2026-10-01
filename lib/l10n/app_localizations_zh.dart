@@ -14825,6 +14825,66 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceContainerTerminalFailed => '终端连接失败';
+
+  @override
+  String get maintenanceContainerCopyRun => '复制 run 命令';
+
+  @override
+  String get maintenanceContainerImageDetails => '查看镜像详情';
+
+  @override
+  String get maintenanceContainerRunCopied => '已复制基于当前配置生成的 run 命令';
+
+  @override
+  String get maintenanceContainerConfigInvalid => '容器配置不完整或格式无效，请刷新后重试。';
+
+  @override
+  String get maintenanceContainerRunUnsupported => '该运行时不支持还原独立容器的 run 命令。';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return '以下配置无法等价还原，未复制命令：$fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing => '容器未提供有效的镜像引用，请刷新后重试。';
+
+  @override
+  String get maintenanceContainerIdentityChanged => '容器已被替换或移除，请刷新后重试。';
+
+  @override
+  String get maintenanceImageLayers => '构建历史与镜像层';
+
+  @override
+  String get maintenanceImageHistoryUnavailable => '镜像元数据已读取，但构建历史暂不可用。';
+
+  @override
+  String get maintenanceImageHistoryLimited => '仅显示最近的 512 条构建记录。';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'Kubernetes API 仅提供镜像引用与容器状态；镜像层和构建历史需在对应节点的运行时中查看。';
+
+  @override
+  String get maintenanceImageTags => '镜像标签';
+
+  @override
+  String get maintenanceImageDigests => '镜像摘要';
+
+  @override
+  String get maintenanceImageSize => '镜像大小';
+
+  @override
+  String get maintenanceImageBuildCommand => '构建指令';
+
+  @override
+  String get maintenanceImageLayerSize => '层大小';
+
+  @override
+  String get maintenanceImageMetadata => '镜像元数据';
+
+  @override
+  String get maintenanceImageRootFilesystem => '镜像文件系统';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29630,4 +29690,64 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerTerminalFailed => '終端機連線失敗';
+
+  @override
+  String get maintenanceContainerCopyRun => '複製 run 命令';
+
+  @override
+  String get maintenanceContainerImageDetails => '檢視映像檔詳情';
+
+  @override
+  String get maintenanceContainerRunCopied => '已複製依目前設定產生的 run 命令';
+
+  @override
+  String get maintenanceContainerConfigInvalid => '容器設定不完整或格式無效，請重新整理後再試。';
+
+  @override
+  String get maintenanceContainerRunUnsupported => '此執行階段不支援還原獨立容器的 run 命令。';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return '以下設定無法等價還原，未複製命令：$fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing => '容器未提供有效的映像檔參照，請重新整理後再試。';
+
+  @override
+  String get maintenanceContainerIdentityChanged => '容器已被取代或移除，請重新整理後再試。';
+
+  @override
+  String get maintenanceImageLayers => '建置歷程與映像層';
+
+  @override
+  String get maintenanceImageHistoryUnavailable => '已讀取映像檔中繼資料，但建置歷程暫時無法取得。';
+
+  @override
+  String get maintenanceImageHistoryLimited => '僅顯示最近的 512 筆建置記錄。';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'Kubernetes API 僅提供映像檔參照與容器狀態；映像層及建置歷程需在對應節點的執行階段中檢視。';
+
+  @override
+  String get maintenanceImageTags => '映像檔標籤';
+
+  @override
+  String get maintenanceImageDigests => '映像檔摘要';
+
+  @override
+  String get maintenanceImageSize => '映像檔大小';
+
+  @override
+  String get maintenanceImageBuildCommand => '建置指令';
+
+  @override
+  String get maintenanceImageLayerSize => '層大小';
+
+  @override
+  String get maintenanceImageMetadata => '映像檔中繼資料';
+
+  @override
+  String get maintenanceImageRootFilesystem => '映像檔案系統';
 }

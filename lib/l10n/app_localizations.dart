@@ -27694,6 +27694,120 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'终端连接失败'**
   String get maintenanceContainerTerminalFailed;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'复制 run 命令'**
+  String get maintenanceContainerCopyRun;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'查看镜像详情'**
+  String get maintenanceContainerImageDetails;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制基于当前配置生成的 run 命令'**
+  String get maintenanceContainerRunCopied;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'容器配置不完整或格式无效，请刷新后重试。'**
+  String get maintenanceContainerConfigInvalid;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'该运行时不支持还原独立容器的 run 命令。'**
+  String get maintenanceContainerRunUnsupported;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'以下配置无法等价还原，未复制命令：{fields}'**
+  String maintenanceContainerRunIncomplete(String fields);
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'容器未提供有效的镜像引用，请刷新后重试。'**
+  String get maintenanceContainerImageMissing;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'容器已被替换或移除，请刷新后重试。'**
+  String get maintenanceContainerIdentityChanged;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'构建历史与镜像层'**
+  String get maintenanceImageLayers;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像元数据已读取，但构建历史暂不可用。'**
+  String get maintenanceImageHistoryUnavailable;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'仅显示最近的 512 条构建记录。'**
+  String get maintenanceImageHistoryLimited;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'Kubernetes API 仅提供镜像引用与容器状态；镜像层和构建历史需在对应节点的运行时中查看。'**
+  String get maintenanceImageReferenceOnly;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像标签'**
+  String get maintenanceImageTags;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像摘要'**
+  String get maintenanceImageDigests;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像大小'**
+  String get maintenanceImageSize;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'构建指令'**
+  String get maintenanceImageBuildCommand;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'层大小'**
+  String get maintenanceImageLayerSize;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像元数据'**
+  String get maintenanceImageMetadata;
+
+  /// 容器操作与镜像详情界面文案
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像文件系统'**
+  String get maintenanceImageRootFilesystem;
 }
 
 class _AppLocalizationsDelegate

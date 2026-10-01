@@ -37,6 +37,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   final _kubernetesMetadata = <String, Object?>{};
   Map<String, String> _collectionIssues = {};
   bool _busy = false, _overlay = false, _autoRuntime = true;
+  bool _copyingCommand = false;
   bool _listingFailed = false;
 
   @override
@@ -186,8 +187,11 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     if (_busy || _overlay || _listingFailed || client == null) return;
     setState(() {
       _overlay = true;
+      _copyingCommand = action == '复制 run 命令';
+      _error = '';
     });
     String? operationError;
+    var refreshNeeded = false;
     try {
       if (entry.isPod && const ['终端', '文件管理', '日志'].contains(action)) {
         final containers = _entries
@@ -259,6 +263,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               '${entry.isPod ? '\n${maintenanceLabel(context, '控制器管理的 Pod 删除后可能自动重建。')}' : ''}',
         );
         if (confirmed != true || !mounted) return;
+        refreshNeeded = true;
         final output = await client.act(entry, action);
         if (!mounted) return;
         await showAnimatedDialog<void>(
@@ -272,6 +277,38 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             }),
           ),
         );
+      } else if (action == '复制 run 命令') {
+        final command = await client.runCommand(
+          entry,
+          isCancelled: () => !mounted,
+        );
+        if (!mounted) return;
+        await copyOpenHandTextToClipboard(
+          context: context,
+          text: command,
+          logTag: 'machine_containers',
+          logAction: '复制容器运行命令',
+          successMessage: AppLocalizations.of(
+            context,
+          )!.maintenanceContainerRunCopied,
+        );
+      } else if (action == '查看镜像详情') {
+        var active = true;
+        try {
+          await showAnimatedDialog<void>(
+            context: context,
+            builder: (_) => _ContainerReportDialog(
+              title: '${entry.name} · ${maintenanceLabel(context, action)}',
+              section: 'container_image',
+              load: () => client.imageDetails(
+                entry,
+                isCancelled: () => !mounted || !active,
+              ),
+            ),
+          );
+        } finally {
+          active = false;
+        }
       } else if (action == '终端') {
         await client.verify(entry);
         if (!mounted) return;
@@ -350,13 +387,16 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         );
       }
     } catch (error) {
-      operationError = '$error';
+      if (mounted) {
+        operationError = maintenanceContainerOperationError(context, error);
+      }
     } finally {
       if (mounted) {
         setState(() {
           _overlay = false;
+          _copyingCommand = false;
         });
-        await refresh();
+        if (refreshNeeded) await refresh();
         if (mounted && operationError != null) {
           setState(() => _error = operationError!);
         }
@@ -664,7 +704,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             },
           ),
         ),
-        if (_busy)
+        if (_busy || _copyingCommand)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: LinearProgressIndicator(),
@@ -855,7 +895,7 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = '$error';
+          _error = maintenanceContainerOperationError(context, error);
           _automatic = false;
         });
       }
@@ -958,6 +998,13 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
             },
           ),
           if (_busy) const LinearProgressIndicator(),
+          if (widget.section == 'container_image' &&
+              _loaded &&
+              _error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: _MaintenanceNotice(message: _error, error: true),
+            ),
           Flexible(
             child: _busy && !_loaded
                 ? Center(
@@ -999,15 +1046,19 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
                             ),
                           )
                         : SingleChildScrollView(
-                            child: _MaintenanceReadout(
-                              text: _error.isEmpty ? _text : _error,
-                              section: _error.isEmpty
-                                  ? widget.section
-                                  : 'containers',
-                              logMaxHeight:
-                                  MediaQuery.sizeOf(context).height *
-                                  _containerLogBodyHeightFraction,
-                            ),
+                            child:
+                                widget.section == 'container_image' &&
+                                    (_error.isEmpty || _loaded)
+                                ? _ContainerImageReadout(text: _text)
+                                : _MaintenanceReadout(
+                                    text: _error.isEmpty ? _text : _error,
+                                    section: _error.isEmpty
+                                        ? widget.section
+                                        : 'containers',
+                                    logMaxHeight:
+                                        MediaQuery.sizeOf(context).height *
+                                        _containerLogBodyHeightFraction,
+                                  ),
                           ),
                   ),
           ),
@@ -1015,6 +1066,127 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
       ),
     ),
   );
+}
+
+class _ContainerImageReadout extends StatelessWidget {
+  const _ContainerImageReadout({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = jsonDecode(text) as Map<String, dynamic>;
+    final image = report['image'] as Map<String, dynamic>;
+    final details = image['status'] as Map? ?? image;
+    final layers = (report['history'] as List? ?? const []).cast<Map>();
+    final l = AppLocalizations.of(context)!;
+    String value(dynamic raw) => raw is List ? raw.join(' · ') : '${raw ?? ''}';
+    String sizeValue(dynamic raw) {
+      final bytes = raw is num ? raw : num.tryParse(value(raw));
+      return bytes == null
+          ? value(raw)
+          : formatLocalizedByteSizeOf(context, bytes);
+    }
+
+    final size = details['Size'] ?? details['size'];
+    final created = value(details['Created'] ?? details['created']);
+    return _MaintenanceAnimatedColumn(
+      spacing: _maintenanceGridGap,
+      children: [
+        _MaintenanceCard(
+          title: l.maintenanceImageMetadata,
+          icon: Icons.layers_outlined,
+          scrollBody: false,
+          child: _MaintenanceFacts(
+            values: {
+              '镜像标识': value(
+                details['Id'] ??
+                    details['id'] ??
+                    details['ImageID'] ??
+                    report['reference'],
+              ),
+              '镜像标签': value(
+                details['RepoTags'] ?? details['repoTags'] ?? details['Image'],
+              ),
+              if (details['RepoDigests'] != null ||
+                  details['repoDigests'] != null)
+                '镜像摘要': value(details['RepoDigests'] ?? details['repoDigests']),
+              if (size != null) '镜像大小': sizeValue(size),
+              if (created.isNotEmpty)
+                '创建时间':
+                    machineMaintenanceTimestamp(created, allowEpoch: true) ??
+                    created,
+              if (details['Os'] != null) '操作系统': value(details['Os']),
+              if (details['Architecture'] != null)
+                '架构': value(details['Architecture']),
+              if (details['nodeName'] != null) '节点': value(details['nodeName']),
+              if (details['imagePullPolicy'] != null)
+                '镜像拉取策略': value(details['imagePullPolicy']),
+            },
+          ),
+        ),
+        if (report['referenceOnly'] == true)
+          _MaintenanceNotice(message: l.maintenanceImageReferenceOnly),
+        if (report['historyError'] != null)
+          _MaintenanceNotice(message: l.maintenanceImageHistoryUnavailable),
+        if (report['historyLimited'] == true)
+          _MaintenanceNotice(message: l.maintenanceImageHistoryLimited),
+        if (report.containsKey('history'))
+          _MaintenanceCard(
+            title: l.maintenanceImageLayers,
+            icon: Icons.account_tree_outlined,
+            scrollBody: false,
+            child: _MaintenanceTable(
+              headers: const ['构建指令', '层大小', '创建时间'],
+              maxBodyHeight: 360,
+              rows: [
+                for (var index = 0; index < layers.length; index++)
+                  OpenHandOperationalRankRow(
+                    rowKey: index,
+                    value: 0,
+                    data: layers[index],
+                    cells: [
+                      value(
+                        layers[index]['CreatedBy'] ??
+                            layers[index]['createdBy'],
+                      ),
+                      sizeValue(layers[index]['Size'] ?? layers[index]['size']),
+                      value(
+                        layers[index]['CreatedAt'] ??
+                            layers[index]['Created'] ??
+                            layers[index]['created'],
+                      ),
+                    ].map((v) => v.isEmpty ? '—' : v).toList(),
+                  ),
+              ],
+              onRowTap: (row) => showAnimatedDialog<void>(
+                context: context,
+                builder: (_) => _ContainerReportDialog(
+                  title: l.maintenanceImageLayers,
+                  load: () async => jsonEncode(row.data),
+                ),
+              ),
+            ),
+          ),
+        _MaintenanceSection(
+          title: maintenanceLabel(context, '原始输出'),
+          icon: Icons.data_object_rounded,
+          child: _MaintenanceReadout(
+            text: jsonEncode(image),
+            section: 'container_image',
+          ),
+        ),
+        if (report['historyError'] != null)
+          _MaintenanceSection(
+            title: maintenanceLabel(context, '诊断说明'),
+            icon: Icons.info_outline_rounded,
+            child: _MaintenanceReadout(
+              text: '${report['historyError']}',
+              section: 'containers',
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _ContainerInteractiveTerminal extends StatefulWidget {

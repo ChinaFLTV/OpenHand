@@ -15317,4 +15317,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceContainerTerminalFailed => 'Terminal connection failed';
+
+  @override
+  String get maintenanceContainerCopyRun => 'Copy run command';
+
+  @override
+  String get maintenanceContainerImageDetails => 'View image details';
+
+  @override
+  String get maintenanceContainerRunCopied =>
+      'Run command copied from the current configuration';
+
+  @override
+  String get maintenanceContainerConfigInvalid =>
+      'Container configuration is incomplete or invalid. Refresh and try again.';
+
+  @override
+  String get maintenanceContainerRunUnsupported =>
+      'This runtime cannot reconstruct a standalone container run command.';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return 'These settings cannot be reproduced exactly; no command was copied: $fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing =>
+      'The container has no valid image reference. Refresh and try again.';
+
+  @override
+  String get maintenanceContainerIdentityChanged =>
+      'The container was replaced or removed. Refresh and try again.';
+
+  @override
+  String get maintenanceImageLayers => 'Build history and layers';
+
+  @override
+  String get maintenanceImageHistoryUnavailable =>
+      'Image metadata loaded, but build history is unavailable.';
+
+  @override
+  String get maintenanceImageHistoryLimited =>
+      'Showing the latest 512 build records.';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'The Kubernetes API provides image references and container status only. Inspect layers and build history through the runtime on the corresponding node.';
+
+  @override
+  String get maintenanceImageTags => 'Image tags';
+
+  @override
+  String get maintenanceImageDigests => 'Image digests';
+
+  @override
+  String get maintenanceImageSize => 'Image size';
+
+  @override
+  String get maintenanceImageBuildCommand => 'Build instruction';
+
+  @override
+  String get maintenanceImageLayerSize => 'Layer size';
+
+  @override
+  String get maintenanceImageMetadata => 'Image metadata';
+
+  @override
+  String get maintenanceImageRootFilesystem => 'Image filesystem';
 }

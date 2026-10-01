@@ -593,6 +593,114 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('容器菜单复制实际运行配置、镜像详情只读展示且六语言窄屏无溢出', (tester) async {
+    String? copied;
+    var clipboardFails = false;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        if (clipboardFails) throw PlatformException(code:'剪贴板不可用');
+        copied = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [1180.0, 420.0]) {
+        var queries = 0;
+        var inspectCalls = 0;
+        var invalid = false, imageFails = false, historyFails = false;
+        Completer<String>? pending;
+        final calls = <String>[];
+        Future<String> run(String command) async {
+          calls.add(command);
+          if (command.contains("'context' 'show'")) return 'desktop-linux';
+          if (command.contains("'ps'")) { queries++; return '{"ID":"abc123","Names":"worker","State":"running","Image":"app:latest"}'; }
+          if (command.contains("'run' '--help'")) return ' --detach --name --entrypoint ';
+          if (command.contains("'image' 'inspect'") && imageFails) throw StateError('模拟镜像刷新失败');
+          if (command.contains("'image' 'history'") && historyFails) throw StateError('模拟历史读取失败');
+          if (command.contains("'image' 'inspect'")) return jsonEncode([{'Id':'sha256:pinned','RepoTags':['app:original'], 'Size':'12345678',
+            'Created':'2026-10-01T01:02:03Z','Os':'linux','Architecture':'arm64','Config':{'Env':['MODE=test']},'RootFS':{'Type':'layers','Layers':['sha256:layer']}}]);
+          if (command.contains("'image' 'history'")) return jsonEncode({'ID':'layer', 'CreatedBy':'RUN echo "构建记录"', 'Size':'12000000', 'CreatedAt':'2026-10-01T01:02:03Z'});
+          if (command.contains("'inspect'")) {
+            inspectCalls++;
+            if (pending != null) return pending!.future;
+            return jsonEncode([{'Id':'abc123','Name':'/worker','Image':'sha256:pinned',
+              'Config':{'Entrypoint':['/entry'],'Cmd':['serve']},
+              'HostConfig':{if (invalid) 'DeviceRequests':[{'Driver':'nvidia'}]}}]);
+          }
+          return '{}';
+        }
+        final theme = width == 420 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.binding.setSurfaceSize(Size(width, 960));
+        await tester.pumpWidget(MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          builder:(context, child) => MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,960), textScaler:TextScaler.linear(width == 420 ? 1.5 : 1)),child:child!),
+          home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.automatic))));
+        await tester.pumpAndSettle();
+        final panel = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+        OpenHandOperationalRowMenu menu() => tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu).first);
+        expect(menu().actions.keys, containsAll([l.maintenanceContainerCopyRun, l.maintenanceContainerImageDetails]));
+        copied = null;
+        await tester.ensureVisible(find.byType(OpenHandOperationalRowMenu).first);
+        await tester.tap(find.byType(OpenHandOperationalRowMenu).first); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceContainerImageDetails), findsOneWidget);
+        await tester.tap(find.text(l.maintenanceContainerCopyRun)); await tester.pumpAndSettle();
+        expect(copied, "'docker' '--context' 'desktop-linux' 'run' '--detach' '--name' 'worker' '--entrypoint' '/entry' 'sha256:pinned' 'serve'");
+        expect(queries, 1); expect(panel._overlay, isFalse);
+        final before = copied;
+        invalid = true;
+        menu().actions[l.maintenanceContainerCopyRun]!(); await tester.pumpAndSettle();
+        expect(copied, before); expect(panel._error, l.maintenanceContainerRunIncomplete('DeviceRequests'));
+        invalid = false;
+        clipboardFails = true;
+        menu().actions[l.maintenanceContainerCopyRun]!(); await tester.pumpAndSettle();
+        expect(panel._overlay, isFalse); expect(copied, before);
+        clipboardFails = false;
+        menu().actions[l.maintenanceContainerImageDetails]!(); await tester.pumpAndSettle();
+        expect(find.byType(_ContainerImageReadout), findsOneWidget);
+        expect(find.text(l.maintenanceImageMetadata), findsOneWidget);
+        expect(find.text('app:original'), findsOneWidget);
+        expect(find.text(l.maintenanceImageBuildCommand), findsOneWidget);
+        expect(find.textContaining('2026-10-01'), findsWidgets);
+        expect(calls.any((c) => c.contains("'image' 'inspect' 'sha256:pinned'")), isTrue);
+        if (width == 1180) {
+          final dialog = tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog));
+          imageFails = true; await dialog._load(); await tester.pumpAndSettle();
+          expect(dialog._error, isNotEmpty); expect(find.text('app:original'), findsOneWidget);
+          imageFails = false; historyFails = true; await dialog._load(); await tester.pumpAndSettle();
+          expect(find.text(l.maintenanceImageHistoryUnavailable), findsOneWidget);
+          expect(find.text('app:original'), findsOneWidget);
+          historyFails = false; await dialog._load(); await tester.pumpAndSettle();
+          expect(find.text(l.maintenanceImageHistoryUnavailable), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.ancestor(of:find.byType(_ContainerReportDialog), matching:find.byType(RepaintBoundary)).first);
+            final image = await boundary.toImage(pixelRatio:1.5); final bytes = await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/container-image-' + width.toInt().toString() + '.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await tester.tap(find.descendant(of:find.byType(_ContainerReportDialog), matching:find.byTooltip(openHandCloseLabel(tester.element(find.byType(_ContainerReportDialog)))))); await tester.pumpAndSettle();
+        expect(queries, 1);
+        final initialInspects = inspectCalls;
+        pending = Completer<String>();
+        final first = panel._open(panel._entries.single, '复制 run 命令'); await tester.pump();
+        await panel._open(panel._entries.single, '复制 run 命令');
+        expect(inspectCalls, initialInspects + 1);
+        await tester.pumpWidget(const SizedBox());
+        final stoppedCalls = calls.length;
+        pending!.complete('[{"Id":"abc123","Config":{},"HostConfig":{},"Image":"sha256:pinned"}]');
+        await first; await tester.pump();
+        expect(calls.length, stoppedCalls); expect(copied, before);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器日志清屏保留自动刷新并只续收新增日志，六语言窄屏可用', (tester) async {
     final newline = String.fromCharCode(10);
     for (final locale in AppLocalizations.supportedLocales) {

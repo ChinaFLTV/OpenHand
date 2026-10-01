@@ -14965,4 +14965,69 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceContainerTerminalFailed => 'ターミナルへの接続に失敗しました';
+
+  @override
+  String get maintenanceContainerCopyRun => 'run コマンドをコピー';
+
+  @override
+  String get maintenanceContainerImageDetails => 'イメージの詳細を表示';
+
+  @override
+  String get maintenanceContainerRunCopied => '現在の設定から生成した run コマンドをコピーしました';
+
+  @override
+  String get maintenanceContainerConfigInvalid =>
+      'コンテナー設定が不完全または無効です。更新して再試行してください。';
+
+  @override
+  String get maintenanceContainerRunUnsupported =>
+      'このランタイムでは単独コンテナーの run コマンドを復元できません。';
+
+  @override
+  String maintenanceContainerRunIncomplete(String fields) {
+    return '次の設定を同等に復元できないため、コマンドをコピーしませんでした：$fields';
+  }
+
+  @override
+  String get maintenanceContainerImageMissing =>
+      '有効なイメージ参照がありません。更新して再試行してください。';
+
+  @override
+  String get maintenanceContainerIdentityChanged =>
+      'コンテナーが置換または削除されました。更新して再試行してください。';
+
+  @override
+  String get maintenanceImageLayers => 'ビルド履歴とレイヤー';
+
+  @override
+  String get maintenanceImageHistoryUnavailable =>
+      'メタデータを取得しましたが、ビルド履歴は利用できません。';
+
+  @override
+  String get maintenanceImageHistoryLimited => '最新のビルド記録 512 件を表示しています。';
+
+  @override
+  String get maintenanceImageReferenceOnly =>
+      'Kubernetes API ではイメージ参照とコンテナー状態のみ取得できます。レイヤーとビルド履歴は対象ノードのランタイムで確認してください。';
+
+  @override
+  String get maintenanceImageTags => 'イメージタグ';
+
+  @override
+  String get maintenanceImageDigests => 'イメージダイジェスト';
+
+  @override
+  String get maintenanceImageSize => 'イメージサイズ';
+
+  @override
+  String get maintenanceImageBuildCommand => 'ビルド命令';
+
+  @override
+  String get maintenanceImageLayerSize => 'レイヤーサイズ';
+
+  @override
+  String get maintenanceImageMetadata => 'イメージメタデータ';
+
+  @override
+  String get maintenanceImageRootFilesystem => 'イメージファイルシステム';
 }
