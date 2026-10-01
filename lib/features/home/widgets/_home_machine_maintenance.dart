@@ -244,15 +244,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
   }
 
-  String _timeoutLabel(BuildContext context, int seconds) {
-    final l = AppLocalizations.of(context)!;
-    return seconds >= 3600
-        ? l.maintenanceTimeoutHours('${seconds ~/ 3600}')
-        : seconds >= 300
-        ? l.maintenanceTimeoutMinutes('${seconds ~/ 60}')
-        : l.maintenanceTimeoutSeconds('$seconds');
-  }
-
   Future<String> _run(
     String command, {
     bool probe = false,
@@ -796,7 +787,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           const SizedBox(width: 8),
                           _MaintenanceToolbarMenu<int>(
-                            label: _timeoutLabel(context, timeoutSeconds),
+                            label: maintenanceTimeoutLabel(
+                              context,
+                              timeoutSeconds,
+                            ),
                             tooltip: AppLocalizations.of(
                               context,
                             )!.maintenanceTimeout,
@@ -809,7 +803,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             items: {
                               for (final seconds
                                   in machineMaintenanceTimeoutOptions)
-                                seconds: _timeoutLabel(context, seconds),
+                                seconds: maintenanceTimeoutLabel(
+                                  context,
+                                  seconds,
+                                ),
                             },
                             onSelected: (value) async {
                               setState(() => _savingTimeout = true);
@@ -1115,6 +1112,22 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         probe: (command) =>
             runContainerCommand(command, timeout: machineContainerProbeTimeout),
         run: runContainerCommand,
+        operationTimeout: Duration(seconds: _timeoutSeconds),
+        operate: (command, {required timeout, onOutput, isCancelled}) =>
+            context.read<MachineTerminalFileService>().runMaintenanceCommand(
+              sessionId: widget.sessionId,
+              terminalId: widget.terminalId,
+              command: command,
+              commandShell: _commandShell,
+              timeout: timeout,
+              maxOutputCharacters: machineContainerOutputLimit,
+              onOutput: onOutput,
+              isCancelled: () =>
+                  !mounted ||
+                  _closing ||
+                  _tab != 7 ||
+                  (isCancelled?.call() ?? false),
+            ),
       );
     }
     if (_bodyIdentity != identity) {

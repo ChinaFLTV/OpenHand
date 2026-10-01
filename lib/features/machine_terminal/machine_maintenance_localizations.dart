@@ -236,6 +236,14 @@ String maintenanceLabel(BuildContext context, String label) {
     '健康检查' => l10n.maintenanceContainerHealth,
     '镜像标识' => l10n.maintenanceContainerImageId,
     '容器标识' => l10n.maintenanceContainerContainerId,
+    '数据卷' => l10n.maintenanceVolumes,
+    '选项' => l10n.maintenanceDetailOptions,
+    '作用域' => l10n.maintenanceContainerScope,
+    '容器引用数' => l10n.maintenanceResourceReferences,
+    '参数' => l10n.maintenanceResourceParameters,
+    '搜索' => l10n.maintenanceImageSearch,
+    '重启策略' => l10n.maintenanceDetailRestartPolicy,
+    '挂载' => l10n.maintenanceContainerMounts,
     '最近启动时间' => l10n.maintenanceContainerLastStarted,
     '所属控制器' => l10n.maintenanceContainerOwner,
     '诊断说明' => l10n.maintenanceContainerMessage,
@@ -1082,6 +1090,10 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'ContainerID': '容器标识',
     'containerID': '容器标识',
     'ImageID': '镜像标识',
+    'Mountpoint': '挂载点',
+    'Options': '选项',
+    'Scope': '作用域',
+    'RefCount': '容器引用数',
     'RepoTags': '镜像标签',
     'repoTags': '镜像标签',
     'RepoDigests': '镜像摘要',
@@ -1492,11 +1504,12 @@ String maintenanceDetailValue(
     return l10n.maintenanceUnavailable;
   }
   final policy = switch (leaf) {
-    'Restart' || '重启策略' => switch (trimmed.toLowerCase()) {
+    'Restart' || 'RestartPolicy' || '重启策略' => switch (trimmed.toLowerCase()) {
       'always' => l10n.maintenanceReadoutRestartAlways,
       'no' => l10n.maintenanceReadoutRestartNever,
       'on-success' => l10n.maintenanceReadoutRestartSuccess,
       'on-failure' => l10n.maintenanceReadoutRestartFailure,
+      'unless-stopped' => l10n.maintenanceRestartUnlessStopped,
       'on-abnormal' => l10n.maintenanceReadoutRestartAbnormal,
       'on-watchdog' => l10n.maintenanceReadoutRestartWatchdog,
       'on-abort' => l10n.maintenanceReadoutRestartAbort,
@@ -2051,8 +2064,20 @@ String maintenanceContainerOperationError(BuildContext context, Object error) {
   return switch (error.code) {
     'incomplete' => l.maintenanceContainerRunIncomplete(error.details),
     'unsupported' => l.maintenanceContainerRunUnsupported,
+    'form' =>
+      '${l.maintenanceResourceValidation} · ${maintenanceLabel(context, error.details)}',
+    'resourceUnsupported' => l.maintenanceResourceUnsupported,
     'image' => l.maintenanceContainerImageMissing,
     'stale' => l.maintenanceContainerIdentityChanged,
     _ => l.maintenanceContainerConfigInvalid,
   };
+}
+
+String maintenanceTimeoutLabel(BuildContext context, int seconds) {
+  final l = AppLocalizations.of(context)!;
+  return seconds >= 3600
+      ? l.maintenanceTimeoutHours('${seconds ~/ 3600}')
+      : seconds >= 60
+      ? l.maintenanceTimeoutMinutes('${seconds ~/ 60}')
+      : l.maintenanceTimeoutSeconds('$seconds');
 }

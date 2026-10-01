@@ -15033,4 +15033,143 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceContainerLastStarted => '最終起動時刻';
+
+  @override
+  String get maintenanceImages => 'イメージ';
+
+  @override
+  String get maintenanceVolumes => 'ボリューム';
+
+  @override
+  String get maintenanceContainerCreate => 'コンテナーを作成';
+
+  @override
+  String get maintenanceImagePull => 'イメージを取得';
+
+  @override
+  String get maintenanceImageRemove => 'イメージを削除';
+
+  @override
+  String get maintenanceVolumeCreate => 'ボリュームを作成';
+
+  @override
+  String get maintenanceVolumeRemove => 'ボリュームを削除';
+
+  @override
+  String get maintenanceResourceFilter => '名前または ID で絞り込み';
+
+  @override
+  String get maintenanceResourceReferences => 'コンテナー参照数';
+
+  @override
+  String get maintenanceVolumeDriver => 'ボリュームドライバー';
+
+  @override
+  String get maintenanceImageTag => 'タグ';
+
+  @override
+  String get maintenanceImageQuery => 'イメージのキーワード';
+
+  @override
+  String get maintenanceImageSearch => 'イメージを検索';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      '対象ランタイムに設定されたレジストリから最大 50 件を検索します。プライベートイメージは取得時にレジストリ/イメージ:タグを入力してください。';
+
+  @override
+  String get maintenanceImageStars => 'スター数';
+
+  @override
+  String get maintenanceImageOfficial => '公式';
+
+  @override
+  String get maintenanceImageReference => 'イメージ参照';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      '選択中のマシンとランタイムに、既存の認証情報を使って取得します。大きなイメージはタイムアウトを延長してください。';
+
+  @override
+  String get maintenanceContainerNameOptional => 'コンテナー名（任意）';
+
+  @override
+  String get maintenanceContainerStartAfterCreate => '作成後すぐに起動';
+
+  @override
+  String get maintenanceHostAddress => 'ホストアドレス';
+
+  @override
+  String get maintenanceHostPort => 'ホストポート（空欄で自動）';
+
+  @override
+  String get maintenanceContainerPort => 'コンテナーポート';
+
+  @override
+  String get maintenanceBindMount => 'ホストディレクトリ';
+
+  @override
+  String get maintenanceReadOnlyMount => '読み取り専用';
+
+  @override
+  String get maintenanceResourceAddRow => '項目を追加';
+
+  @override
+  String get maintenanceContainerMounts => 'マウント設定';
+
+  @override
+  String get maintenanceMountSource => 'ボリューム名またはホストパス';
+
+  @override
+  String get maintenanceMountTarget => 'コンテナー内のパス';
+
+  @override
+  String get maintenanceResourceAdvanced => '詳細設定';
+
+  @override
+  String get maintenanceCpuLimit => 'CPU 上限（コア）';
+
+  @override
+  String get maintenanceMemoryLimit => 'メモリ上限';
+
+  @override
+  String get maintenanceContainerCommandArguments => '起動コマンドと引数';
+
+  @override
+  String get maintenanceArgumentsOnePerLine =>
+      '1 行に 1 引数。空欄の場合はイメージの既定値を使用します。';
+
+  @override
+  String get maintenanceVolumeOptions => 'ドライバーオプション';
+
+  @override
+  String get maintenanceResourceUncertain =>
+      '操作の完了を確認できませんでした。再実行する前に更新して状態を確認してください。';
+
+  @override
+  String get maintenanceResourceSuccess => '操作が完了しました';
+
+  @override
+  String get maintenanceResourceCloseRefresh => '閉じて更新';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      'このランタイムはこの管理機能に対応していません。ローカルのイメージとボリュームは Docker、Podman、nerdctl で管理してください。';
+
+  @override
+  String get maintenanceResourceValidation => '設定を確認してください';
+
+  @override
+  String get maintenanceImageRemoveHelp =>
+      'ローカルイメージを強制せずに削除します。コンテナーが参照している場合、ランタイムに拒否されることがあります。';
+
+  @override
+  String get maintenanceVolumeRemoveHelp =>
+      'ボリュームとデータを完全に削除します。使用中のボリュームは強制削除しません。';
+
+  @override
+  String get maintenanceResourceParameters => 'パラメーター';
+
+  @override
+  String get maintenanceRestartUnlessStopped => '手動停止以外は再起動';
 }

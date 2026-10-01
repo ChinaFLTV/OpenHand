@@ -14888,6 +14888,141 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceContainerLastStarted => '最近启动时间';
+
+  @override
+  String get maintenanceImages => '镜像';
+
+  @override
+  String get maintenanceVolumes => '数据卷';
+
+  @override
+  String get maintenanceContainerCreate => '创建容器';
+
+  @override
+  String get maintenanceImagePull => '下载镜像';
+
+  @override
+  String get maintenanceImageRemove => '删除镜像';
+
+  @override
+  String get maintenanceVolumeCreate => '创建数据卷';
+
+  @override
+  String get maintenanceVolumeRemove => '删除数据卷';
+
+  @override
+  String get maintenanceResourceFilter => '按名称或 ID 筛选';
+
+  @override
+  String get maintenanceResourceReferences => '容器引用数';
+
+  @override
+  String get maintenanceVolumeDriver => '数据卷驱动';
+
+  @override
+  String get maintenanceImageTag => '标签';
+
+  @override
+  String get maintenanceImageQuery => '镜像关键词';
+
+  @override
+  String get maintenanceImageSearch => '搜索镜像';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      '搜索目标运行时配置的镜像仓库，最多显示 50 条结果。私有镜像可在下载时输入完整的仓库/镜像:标签。';
+
+  @override
+  String get maintenanceImageStars => '星标数';
+
+  @override
+  String get maintenanceImageOfficial => '官方镜像';
+
+  @override
+  String get maintenanceImageReference => '镜像引用';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      '镜像会下载到当前选中的机器和运行时，并使用已有仓库凭据。大镜像可适当调高超时时间。';
+
+  @override
+  String get maintenanceContainerNameOptional => '容器名称（可选）';
+
+  @override
+  String get maintenanceContainerStartAfterCreate => '创建后立即启动';
+
+  @override
+  String get maintenanceHostAddress => '主机地址';
+
+  @override
+  String get maintenanceHostPort => '主机端口（留空自动分配）';
+
+  @override
+  String get maintenanceContainerPort => '容器端口';
+
+  @override
+  String get maintenanceBindMount => '主机目录';
+
+  @override
+  String get maintenanceReadOnlyMount => '只读挂载';
+
+  @override
+  String get maintenanceResourceAddRow => '添加一项';
+
+  @override
+  String get maintenanceContainerMounts => '挂载配置';
+
+  @override
+  String get maintenanceMountSource => '卷名称或主机路径';
+
+  @override
+  String get maintenanceMountTarget => '容器内路径';
+
+  @override
+  String get maintenanceResourceAdvanced => '高级配置';
+
+  @override
+  String get maintenanceCpuLimit => 'CPU 上限（核）';
+
+  @override
+  String get maintenanceMemoryLimit => '内存上限';
+
+  @override
+  String get maintenanceContainerCommandArguments => '启动命令及参数';
+
+  @override
+  String get maintenanceArgumentsOnePerLine => '每行一个参数，留空使用镜像默认命令。';
+
+  @override
+  String get maintenanceVolumeOptions => '驱动参数';
+
+  @override
+  String get maintenanceResourceUncertain => '未能确认操作完成。请刷新确认目标状态，避免重复提交。';
+
+  @override
+  String get maintenanceResourceSuccess => '操作已完成';
+
+  @override
+  String get maintenanceResourceCloseRefresh => '关闭并刷新';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      '当前运行时不提供此资源管理接口。请选择 Docker、Podman 或 nerdctl 管理本地镜像和数据卷。';
+
+  @override
+  String get maintenanceResourceValidation => '请检查配置项';
+
+  @override
+  String get maintenanceImageRemoveHelp => '删除此本地镜像，不强制删除；仍被容器引用的镜像可能被运行时拒绝删除。';
+
+  @override
+  String get maintenanceVolumeRemoveHelp => '永久删除此数据卷及其中的数据。不会强制删除仍被容器使用的卷。';
+
+  @override
+  String get maintenanceResourceParameters => '参数';
+
+  @override
+  String get maintenanceRestartUnlessStopped => '除非手动停止，否则重启';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29756,4 +29891,140 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerLastStarted => '最近啟動時間';
+
+  @override
+  String get maintenanceImages => '映像';
+
+  @override
+  String get maintenanceVolumes => '資料卷';
+
+  @override
+  String get maintenanceContainerCreate => '建立容器';
+
+  @override
+  String get maintenanceImagePull => '下載映像';
+
+  @override
+  String get maintenanceImageRemove => '刪除映像';
+
+  @override
+  String get maintenanceVolumeCreate => '建立資料卷';
+
+  @override
+  String get maintenanceVolumeRemove => '刪除資料卷';
+
+  @override
+  String get maintenanceResourceFilter => '依名稱或 ID 篩選';
+
+  @override
+  String get maintenanceResourceReferences => '容器參照數';
+
+  @override
+  String get maintenanceVolumeDriver => '資料卷驅動程式';
+
+  @override
+  String get maintenanceImageTag => '標籤';
+
+  @override
+  String get maintenanceImageQuery => '映像關鍵字';
+
+  @override
+  String get maintenanceImageSearch => '搜尋映像';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      '搜尋目標執行環境設定的映像倉庫，最多顯示 50 筆結果。私有映像可在下載時輸入完整的倉庫/映像:標籤。';
+
+  @override
+  String get maintenanceImageStars => '星號數';
+
+  @override
+  String get maintenanceImageOfficial => '官方映像';
+
+  @override
+  String get maintenanceImageReference => '映像參照';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      '映像會下載至目前選取的機器和執行環境，並使用既有倉庫憑證。大型映像可適度延長逾時時間。';
+
+  @override
+  String get maintenanceContainerNameOptional => '容器名稱（選填）';
+
+  @override
+  String get maintenanceContainerStartAfterCreate => '建立後立即啟動';
+
+  @override
+  String get maintenanceHostAddress => '主機位址';
+
+  @override
+  String get maintenanceHostPort => '主機連接埠（留空自動分配）';
+
+  @override
+  String get maintenanceContainerPort => '容器連接埠';
+
+  @override
+  String get maintenanceBindMount => '主機目錄';
+
+  @override
+  String get maintenanceReadOnlyMount => '唯讀掛載';
+
+  @override
+  String get maintenanceResourceAddRow => '新增一項';
+
+  @override
+  String get maintenanceContainerMounts => '掛載設定';
+
+  @override
+  String get maintenanceMountSource => '卷名稱或主機路徑';
+
+  @override
+  String get maintenanceMountTarget => '容器內路徑';
+
+  @override
+  String get maintenanceResourceAdvanced => '進階設定';
+
+  @override
+  String get maintenanceCpuLimit => 'CPU 上限（核心）';
+
+  @override
+  String get maintenanceMemoryLimit => '記憶體上限';
+
+  @override
+  String get maintenanceContainerCommandArguments => '啟動命令與參數';
+
+  @override
+  String get maintenanceArgumentsOnePerLine => '每行一個參數，留空使用映像預設命令。';
+
+  @override
+  String get maintenanceVolumeOptions => '驅動程式參數';
+
+  @override
+  String get maintenanceResourceUncertain => '無法確認操作已完成。請重新整理確認目標狀態，避免重複提交。';
+
+  @override
+  String get maintenanceResourceSuccess => '操作已完成';
+
+  @override
+  String get maintenanceResourceCloseRefresh => '關閉並重新整理';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      '目前執行環境不提供此資源管理介面。請選擇 Docker、Podman 或 nerdctl 管理本機映像和資料卷。';
+
+  @override
+  String get maintenanceResourceValidation => '請檢查設定項目';
+
+  @override
+  String get maintenanceImageRemoveHelp =>
+      '刪除此本機映像，不強制刪除；仍被容器參照的映像可能被執行環境拒絕刪除。';
+
+  @override
+  String get maintenanceVolumeRemoveHelp => '永久刪除此資料卷及其中的資料。不會強制刪除仍被容器使用的卷。';
+
+  @override
+  String get maintenanceResourceParameters => '參數';
+
+  @override
+  String get maintenanceRestartUnlessStopped => '除非手動停止，否則重新啟動';
 }

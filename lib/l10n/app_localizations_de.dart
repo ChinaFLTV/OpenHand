@@ -15560,4 +15560,145 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceContainerLastStarted => 'Zuletzt gestartet';
+
+  @override
+  String get maintenanceImages => 'Images';
+
+  @override
+  String get maintenanceVolumes => 'Volumes';
+
+  @override
+  String get maintenanceContainerCreate => 'Container erstellen';
+
+  @override
+  String get maintenanceImagePull => 'Image herunterladen';
+
+  @override
+  String get maintenanceImageRemove => 'Image löschen';
+
+  @override
+  String get maintenanceVolumeCreate => 'Volume erstellen';
+
+  @override
+  String get maintenanceVolumeRemove => 'Volume löschen';
+
+  @override
+  String get maintenanceResourceFilter => 'Nach Name oder ID filtern';
+
+  @override
+  String get maintenanceResourceReferences => 'Container-Verweise';
+
+  @override
+  String get maintenanceVolumeDriver => 'Volume-Treiber';
+
+  @override
+  String get maintenanceImageTag => 'Tag';
+
+  @override
+  String get maintenanceImageQuery => 'Image-Suchbegriff';
+
+  @override
+  String get maintenanceImageSearch => 'Images suchen';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      'Durchsucht die Registry der Ziel-Laufzeit und zeigt bis zu 50 Ergebnisse. Für private Images beim Herunterladen die vollständige Referenz Registry/Image:Tag eingeben.';
+
+  @override
+  String get maintenanceImageStars => 'Sterne';
+
+  @override
+  String get maintenanceImageOfficial => 'Offiziell';
+
+  @override
+  String get maintenanceImageReference => 'Image-Referenz';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      'Das Image wird auf die ausgewählte Maschine und Laufzeit geladen. Vorhandene Registry-Anmeldedaten werden verwendet. Für große Images das Zeitlimit erhöhen.';
+
+  @override
+  String get maintenanceContainerNameOptional => 'Containername (optional)';
+
+  @override
+  String get maintenanceContainerStartAfterCreate =>
+      'Nach dem Erstellen starten';
+
+  @override
+  String get maintenanceHostAddress => 'Hostadresse';
+
+  @override
+  String get maintenanceHostPort => 'Hostport (leer = automatisch)';
+
+  @override
+  String get maintenanceContainerPort => 'Containerport';
+
+  @override
+  String get maintenanceBindMount => 'Hostverzeichnis';
+
+  @override
+  String get maintenanceReadOnlyMount => 'Schreibgeschützt';
+
+  @override
+  String get maintenanceResourceAddRow => 'Eintrag hinzufügen';
+
+  @override
+  String get maintenanceContainerMounts => 'Einhängepunkte';
+
+  @override
+  String get maintenanceMountSource => 'Volume-Name oder Hostpfad';
+
+  @override
+  String get maintenanceMountTarget => 'Pfad im Container';
+
+  @override
+  String get maintenanceResourceAdvanced => 'Erweiterte Konfiguration';
+
+  @override
+  String get maintenanceCpuLimit => 'CPU-Limit (Kerne)';
+
+  @override
+  String get maintenanceMemoryLimit => 'Arbeitsspeicherlimit';
+
+  @override
+  String get maintenanceContainerCommandArguments => 'Befehl und Argumente';
+
+  @override
+  String get maintenanceArgumentsOnePerLine =>
+      'Ein Argument pro Zeile; leer lassen für die Image-Standardwerte.';
+
+  @override
+  String get maintenanceVolumeOptions => 'Treiberoptionen';
+
+  @override
+  String get maintenanceResourceUncertain =>
+      'Der Abschluss konnte nicht bestätigt werden. Vor erneutem Ausführen den Zielstatus aktualisieren.';
+
+  @override
+  String get maintenanceResourceSuccess => 'Vorgang abgeschlossen';
+
+  @override
+  String get maintenanceResourceCloseRefresh => 'Schließen und aktualisieren';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      'Diese Laufzeit bietet diese Ressourcenverwaltung nicht an. Docker, Podman oder nerdctl für lokale Images und Volumes auswählen.';
+
+  @override
+  String get maintenanceResourceValidation => 'Konfiguration prüfen';
+
+  @override
+  String get maintenanceImageRemoveHelp =>
+      'Dieses lokale Image ohne Erzwingen löschen. Die Laufzeit kann das Löschen referenzierter Images ablehnen.';
+
+  @override
+  String get maintenanceVolumeRemoveHelp =>
+      'Dieses Volume und seine Daten endgültig löschen. Verwendete Volumes werden nicht zwangsweise gelöscht.';
+
+  @override
+  String get maintenanceResourceParameters => 'Parameter';
+
+  @override
+  String get maintenanceRestartUnlessStopped =>
+      'Neustart, sofern nicht manuell gestoppt';
 }

@@ -154,6 +154,21 @@ extension MachineContainerInspection on MachineContainerClient {
                 containerConfig['Image'] ??
                 entry.image,
     );
+    return inspectImageReference(reference, isCancelled: isCancelled);
+  }
+
+  Future<String> inspectImageReference(
+    String imageReference, {
+    bool Function()? isCancelled,
+  }) async {
+    void checkCancelled() {
+      if (isCancelled?.call() ?? false) {
+        throw const MachineContainerConfigException('cancelled');
+      }
+    }
+
+    checkCancelled();
+    final reference = _containerImageReference(imageReference);
     final image = _containerInspectObject(
       await execute(
         runtime == MachineContainerRuntime.cri

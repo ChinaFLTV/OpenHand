@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../../shared/util/platform_shell.dart';
 
 part 'machine_container_inspection.dart';
+part 'machine_container_resources.dart';
 
 const machineContainerOutputLimit = 2 * 1024 * 1024;
 const machineContainerProbeTimeout = Duration(seconds: 6);

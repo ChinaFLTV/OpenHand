@@ -27814,6 +27814,270 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'最近启动时间'**
   String get maintenanceContainerLastStarted;
+
+  /// No description provided for @maintenanceImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像'**
+  String get maintenanceImages;
+
+  /// No description provided for @maintenanceVolumes.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据卷'**
+  String get maintenanceVolumes;
+
+  /// No description provided for @maintenanceContainerCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建容器'**
+  String get maintenanceContainerCreate;
+
+  /// No description provided for @maintenanceImagePull.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载镜像'**
+  String get maintenanceImagePull;
+
+  /// No description provided for @maintenanceImageRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除镜像'**
+  String get maintenanceImageRemove;
+
+  /// No description provided for @maintenanceVolumeCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建数据卷'**
+  String get maintenanceVolumeCreate;
+
+  /// No description provided for @maintenanceVolumeRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除数据卷'**
+  String get maintenanceVolumeRemove;
+
+  /// No description provided for @maintenanceResourceFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'按名称或 ID 筛选'**
+  String get maintenanceResourceFilter;
+
+  /// No description provided for @maintenanceResourceReferences.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器引用数'**
+  String get maintenanceResourceReferences;
+
+  /// No description provided for @maintenanceVolumeDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据卷驱动'**
+  String get maintenanceVolumeDriver;
+
+  /// No description provided for @maintenanceImageTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签'**
+  String get maintenanceImageTag;
+
+  /// No description provided for @maintenanceImageQuery.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像关键词'**
+  String get maintenanceImageQuery;
+
+  /// No description provided for @maintenanceImageSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索镜像'**
+  String get maintenanceImageSearch;
+
+  /// No description provided for @maintenanceImageSearchHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索目标运行时配置的镜像仓库，最多显示 50 条结果。私有镜像可在下载时输入完整的仓库/镜像:标签。'**
+  String get maintenanceImageSearchHelp;
+
+  /// No description provided for @maintenanceImageStars.
+  ///
+  /// In zh, this message translates to:
+  /// **'星标数'**
+  String get maintenanceImageStars;
+
+  /// No description provided for @maintenanceImageOfficial.
+  ///
+  /// In zh, this message translates to:
+  /// **'官方镜像'**
+  String get maintenanceImageOfficial;
+
+  /// No description provided for @maintenanceImageReference.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像引用'**
+  String get maintenanceImageReference;
+
+  /// No description provided for @maintenanceImagePullHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像会下载到当前选中的机器和运行时，并使用已有仓库凭据。大镜像可适当调高超时时间。'**
+  String get maintenanceImagePullHelp;
+
+  /// No description provided for @maintenanceContainerNameOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器名称（可选）'**
+  String get maintenanceContainerNameOptional;
+
+  /// No description provided for @maintenanceContainerStartAfterCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建后立即启动'**
+  String get maintenanceContainerStartAfterCreate;
+
+  /// No description provided for @maintenanceHostAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机地址'**
+  String get maintenanceHostAddress;
+
+  /// No description provided for @maintenanceHostPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机端口（留空自动分配）'**
+  String get maintenanceHostPort;
+
+  /// No description provided for @maintenanceContainerPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器端口'**
+  String get maintenanceContainerPort;
+
+  /// No description provided for @maintenanceBindMount.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机目录'**
+  String get maintenanceBindMount;
+
+  /// No description provided for @maintenanceReadOnlyMount.
+  ///
+  /// In zh, this message translates to:
+  /// **'只读挂载'**
+  String get maintenanceReadOnlyMount;
+
+  /// No description provided for @maintenanceResourceAddRow.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加一项'**
+  String get maintenanceResourceAddRow;
+
+  /// No description provided for @maintenanceContainerMounts.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载配置'**
+  String get maintenanceContainerMounts;
+
+  /// No description provided for @maintenanceMountSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'卷名称或主机路径'**
+  String get maintenanceMountSource;
+
+  /// No description provided for @maintenanceMountTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器内路径'**
+  String get maintenanceMountTarget;
+
+  /// No description provided for @maintenanceResourceAdvanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级配置'**
+  String get maintenanceResourceAdvanced;
+
+  /// No description provided for @maintenanceCpuLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 上限（核）'**
+  String get maintenanceCpuLimit;
+
+  /// No description provided for @maintenanceMemoryLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存上限'**
+  String get maintenanceMemoryLimit;
+
+  /// No description provided for @maintenanceContainerCommandArguments.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动命令及参数'**
+  String get maintenanceContainerCommandArguments;
+
+  /// No description provided for @maintenanceArgumentsOnePerLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行一个参数，留空使用镜像默认命令。'**
+  String get maintenanceArgumentsOnePerLine;
+
+  /// No description provided for @maintenanceVolumeOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'驱动参数'**
+  String get maintenanceVolumeOptions;
+
+  /// No description provided for @maintenanceResourceUncertain.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能确认操作完成。请刷新确认目标状态，避免重复提交。'**
+  String get maintenanceResourceUncertain;
+
+  /// No description provided for @maintenanceResourceSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作已完成'**
+  String get maintenanceResourceSuccess;
+
+  /// No description provided for @maintenanceResourceCloseRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭并刷新'**
+  String get maintenanceResourceCloseRefresh;
+
+  /// No description provided for @maintenanceResourceUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前运行时不提供此资源管理接口。请选择 Docker、Podman 或 nerdctl 管理本地镜像和数据卷。'**
+  String get maintenanceResourceUnsupported;
+
+  /// No description provided for @maintenanceResourceValidation.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查配置项'**
+  String get maintenanceResourceValidation;
+
+  /// No description provided for @maintenanceImageRemoveHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除此本地镜像，不强制删除；仍被容器引用的镜像可能被运行时拒绝删除。'**
+  String get maintenanceImageRemoveHelp;
+
+  /// No description provided for @maintenanceVolumeRemoveHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'永久删除此数据卷及其中的数据。不会强制删除仍被容器使用的卷。'**
+  String get maintenanceVolumeRemoveHelp;
+
+  /// No description provided for @maintenanceResourceParameters.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数'**
+  String get maintenanceResourceParameters;
+
+  /// No description provided for @maintenanceRestartUnlessStopped.
+  ///
+  /// In zh, this message translates to:
+  /// **'除非手动停止，否则重启'**
+  String get maintenanceRestartUnlessStopped;
 }
 
 class _AppLocalizationsDelegate

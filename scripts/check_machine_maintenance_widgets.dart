@@ -10,6 +10,9 @@ Future<void> main() async {
   final containerSource = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_containers.dart',
   ).readAsString();
+  final resourceSource = await File(
+    '${root.path}/lib/features/home/widgets/_home_machine_container_resources.dart',
+  ).readAsString();
   final scheduledSource = await File(
     '${root.path}/lib/features/home/widgets/_home_machine_scheduled_tasks.dart',
   ).readAsString();
@@ -89,6 +92,7 @@ import 'package:openhand/shared/util/localized_text.dart';
 import 'package:openhand/shared/util/byte_size_format.dart';
 ${source.replaceFirst("part of '../openhand_home_page.dart';", '')}
 ${containerSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
+${resourceSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
 ${scheduledSource.replaceFirst("part of '../openhand_home_page.dart';", '')}
 class _MachineTerminalFileManagerDialog extends StatelessWidget {
   const _MachineTerminalFileManagerDialog({required this.sessionId, required this.terminalId, this.targetLabel});
@@ -107,6 +111,7 @@ $_settingsHarness
 $_scheduledChecks
 $_incrementalChecks
 $_containerTerminalChecks
+$_resourceChecks
 ''',
   );
 }
@@ -253,6 +258,7 @@ __OH_OPS_end__
 void main() {
   scheduledTaskChecks();
   containerTerminalChecks();
+  resourceChecks();
   incrementalChecks();
   setUpAll(() async {
     for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {
@@ -275,8 +281,9 @@ void main() {
         sessionId: '会话', terminalId: '终端', run: run, windows: false,
         shell: MachineTerminalCommandShell.automatic))));
       await tester.pumpAndSettle();
-      expect(find.text('容器 · 1'), findsOneWidget);
       expect(find.text('连接上下文 · default'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('容器 · 1'), 220, scrollable:find.descendant(of:find.byType(_MachineContainerPanel),matching:find.byType(Scrollable)).first); await tester.pumpAndSettle();
+      expect(find.text('容器 · 1'), findsOneWidget);
       expect(find.byType(OpenHandOperationalRowMenu), findsOneWidget);
       final rowMenu = tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu));
       expect(rowMenu.onDetails, isNotNull);
@@ -704,7 +711,8 @@ void main() {
         OpenHandOperationalRowMenu menu() => tester.widget<OpenHandOperationalRowMenu>(find.byType(OpenHandOperationalRowMenu).first);
         expect(menu().actions.keys, containsAll([l.maintenanceContainerCopyRun, l.maintenanceContainerImageDetails]));
         copied = null;
-        await tester.ensureVisible(find.byType(OpenHandOperationalRowMenu).first);
+        await tester.ensureVisible(find.byType(OpenHandOperationalRowMenu).first); await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(OpenHandOperationalRowMenu).first); await tester.pumpAndSettle();
         await tester.tap(find.byType(OpenHandOperationalRowMenu).first); await tester.pumpAndSettle();
         expect(find.text(l.maintenanceContainerImageDetails), findsOneWidget);
         await tester.tap(find.text(l.maintenanceContainerCopyRun)); await tester.pumpAndSettle();
@@ -5638,6 +5646,134 @@ void containerTerminalChecks() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.runAsync(fixture.release);
     await tester.binding.setSurfaceSize(null);
+  });
+}
+''';
+
+const _resourceChecks = r'''
+void resourceChecks() {
+  testWidgets('镜像与数据卷延迟加载、筛选、创建后刷新且六语言宽窄屏可用', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      for (final width in [1180.0,420.0]) {
+        final calls=<String>[];
+        var created=false;
+        Future<String> run(String command) async {
+          calls.add(command);
+          if(command.contains("'context' 'show'"))return 'desktop-linux';
+          if(command.contains("'ps'"))return '';
+          if(command.contains("'search'"))return '{"Name":"nginx","Description":"Web server","StarCount":10,"IsOfficial":true}';
+          if(command.contains("'image' 'ls'"))return '{"Repository":"nginx","Tag":"alpine","ID":"sha256:123456789abcdef","Size":"20MB","CreatedAt":"2026-10-01T08:00:00Z","Containers":"0"}';
+          if(command.contains("'volume' 'ls'"))return jsonEncode({'Name':created?'new-data':'data','Driver':'local'});
+          if(command.contains("'volume' 'inspect'"))return jsonEncode([{'Name':created?'new-data':'data','Driver':'local','CreatedAt':'2026-10-01T08:00:00Z'}]);
+        if(command.contains("'system' 'df'"))return command.contains('.Images')?jsonEncode([{'ID':'sha256:123456789abcdef','Containers':'0'}]):jsonEncode([{'Name':created?'new-data':'data','Size':'128MB','Links':'1'}]);
+          return '{}';
+        }
+        Future<String> operate(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
+          expect(command,contains("'--context' 'desktop-linux'"));if(command.contains("'pull'")){onOutput?.call('下载中');return 'nginx:latest';}
+          expect(command,contains("'volume' 'create' 'new-data'"));
+          created=true;onOutput?.call('new-data');return 'new-data';
+        }
+        await tester.binding.setSurfaceSize(Size(width,1000));
+        final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.5:1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('资源预览'),child:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,operate:operate,windows:false,shell:MachineTerminalCommandShell.posix)))));
+        await tester.pumpAndSettle();
+        expect(calls.any((c)=>c.contains("'image' 'ls'")),isFalse);
+        await tester.tap(find.widgetWithText(ChoiceChip,l.maintenanceImages));await tester.pumpAndSettle();
+        var state=tester.state<_MachineContainerResourcesState>(find.byType(_MachineContainerResources));
+        expect(state._resources.single.name,'nginx');expect(state._error,isEmpty);
+        state._search.text='absent';state.setState((){});await tester.pumpAndSettle();expect(find.text('nginx'),findsNothing);
+        state._search.clear();state.setState((){});await tester.pumpAndSettle();
+        final searching=state._open(search:true);await tester.pumpAndSettle();
+        final registry=tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
+        registry._query.text='nginx';await registry._search();await tester.pumpAndSettle();expect(registry._results.single['Name'],'nginx');
+        final pulling=registry._pull('nginx');await tester.pumpAndSettle();
+        final download=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        await download._submit();await tester.pumpAndSettle();expect(download._completed,isTrue);
+        await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh));await tester.tap(find.text(l.maintenanceResourceCloseRefresh));await tester.pumpAndSettle();await pulling;
+        await tester.tap(find.descendant(of:find.byType(_ContainerRegistryDialog),matching:find.byTooltip(openHandCloseLabel(tester.element(find.byType(_ContainerRegistryDialog))))));
+        await tester.pumpAndSettle();await searching;
+
+        await tester.tap(find.widgetWithText(ChoiceChip,l.maintenanceVolumes));await tester.pumpAndSettle();
+        state=tester.state<_MachineContainerResourcesState>(find.byType(_MachineContainerResources));
+        expect(state._resources.single.size,'128MB');expect(state._resources.single.references,1);
+        expect(find.text('2026-10-01 08:00:00'),findsOneWidget);expect(state._error,isEmpty);
+        if(Platform.environment['MAINTENANCE_PREVIEW']!=null && locale==const Locale('zh')) {
+          await tester.runAsync(()async{final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('资源预览')));
+            final image=await boundary.toImage(pixelRatio:1.5);final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/container-volumes-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
+        }
+        await tester.ensureVisible(find.text(l.maintenanceVolumeCreate));await tester.tap(find.text(l.maintenanceVolumeCreate));await tester.pumpAndSettle();
+        final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        form._controller('name').text='new-data';await form._submit();await tester.pumpAndSettle();
+        expect(form._completed,isTrue);expect(find.text(l.maintenanceResourceSuccess),findsOneWidget);
+        await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh));await tester.tap(find.text(l.maintenanceResourceCloseRefresh));await tester.pumpAndSettle();
+        expect(state._resources.single.name,'new-data');expect(tester.takeException(),isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('创建容器表单六语言适配结构化配置且不提前执行', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales){
+      final l=await AppLocalizations.delegate.load(locale);
+      for(final width in [1180.0,420.0]){
+        final calls=<String>[];
+        final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(command)async{calls.add(command);return 'created-container';});
+        await tester.binding.setSurfaceSize(Size(width,1000));
+        final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.5:1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('创建预览'),child:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.createContainer,timeout:const Duration(seconds:60))))));
+        await tester.pumpAndSettle();
+        final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        expect(calls,isEmpty);form._controller('image').text='nginx:alpine';form._controller('name').text='web';
+        form.setState((){form._ports.add({'address':'127.0.0.1','host':'8080','container':'80'});form._environment.add({'key':'MODE','value':'production'});form._mounts.add({'source':'data','target':'/data','readonly':'true'});});
+        await tester.pumpAndSettle();
+        for (final title in [maintenanceLabel(form.context,'端口'),maintenanceLabel(form.context,'环境变量'),l.maintenanceContainerMounts]) {
+          final section=find.byWidgetPredicate((widget)=>widget is _MaintenanceSection && widget.title==title);
+          final header=find.descendant(of:section,matching:find.byType(ListTile)).first;
+          await tester.ensureVisible(header);await tester.tap(header);await tester.pumpAndSettle();expect(tester.takeException(),isNull);
+        }
+        await tester.ensureVisible(find.text(l.maintenanceResourceAdvanced));await tester.tap(find.text(l.maintenanceResourceAdvanced));await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceDetailRestartPolicy),findsOneWidget);expect(tester.takeException(),isNull);
+        if(Platform.environment['MAINTENANCE_PREVIEW']!=null && locale==const Locale('zh')){
+          await tester.ensureVisible(find.byWidgetPredicate((widget)=>widget is TextField && widget.controller==form._controller('image')));await tester.pumpAndSettle();
+          await tester.runAsync(()async{final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('创建预览')));
+            final image=await boundary.toImage(pixelRatio:1.5);final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/container-create-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
+        }
+        await form._submit();await tester.pumpAndSettle();
+        expect(calls.single,contains("'--publish' '127.0.0.1:8080:80/tcp'"));expect(calls.single,contains("'--env' 'MODE=production'"));
+        expect(calls.single,contains("'--mount' 'type=volume,source=data,target=/data,readonly'"));expect(form._completed,isTrue);
+        await form._submit();expect(calls.length,1);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('下载输出有界、取消和超时后需刷新确认且重复点击不重复提交', (tester) async {
+    final pending=Completer<String>();var calls=0;bool Function()? cancelled;
+    final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>throw StateError('不应使用默认采集通道'));
+    Future<String> operate(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async{
+      calls++;cancelled=isCancelled;expect(timeout,const Duration(minutes:15));onOutput?.call('a'*40000);return pending.future;
+    }
+    await tester.binding.setSurfaceSize(const Size(1000,900));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.pull,image:'nginx:alpine',timeout:const Duration(minutes:15),operate:operate))));
+    await tester.pumpAndSettle();final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+    final work=form._submit();await tester.pump();await tester.pump(const Duration(milliseconds:110));await form._submit();
+    expect(calls,1);expect(form._output.length,machineContainerOperationOutputLimit);
+    form.setState(()=>form._cancelled=true);expect(cancelled!(),isTrue);
+    pending.completeError(TimeoutException('模拟下载超时'));await work;await tester.pumpAndSettle();
+    expect(form._uncertain,isTrue);expect(form._busy,isFalse);await form._submit();expect(calls,1);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
   });
 }
 ''';

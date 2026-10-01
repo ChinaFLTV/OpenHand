@@ -15613,4 +15613,145 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceContainerLastStarted => 'Dernier démarrage';
+
+  @override
+  String get maintenanceImages => 'Images';
+
+  @override
+  String get maintenanceVolumes => 'Volumes';
+
+  @override
+  String get maintenanceContainerCreate => 'Créer un conteneur';
+
+  @override
+  String get maintenanceImagePull => 'Télécharger une image';
+
+  @override
+  String get maintenanceImageRemove => 'Supprimer l’image';
+
+  @override
+  String get maintenanceVolumeCreate => 'Créer un volume';
+
+  @override
+  String get maintenanceVolumeRemove => 'Supprimer le volume';
+
+  @override
+  String get maintenanceResourceFilter => 'Filtrer par nom ou ID';
+
+  @override
+  String get maintenanceResourceReferences => 'Références de conteneurs';
+
+  @override
+  String get maintenanceVolumeDriver => 'Pilote du volume';
+
+  @override
+  String get maintenanceImageTag => 'Étiquette';
+
+  @override
+  String get maintenanceImageQuery => 'Mot-clé de l’image';
+
+  @override
+  String get maintenanceImageSearch => 'Rechercher des images';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      'Recherche dans le registre configuré sur le moteur cible, avec 50 résultats au maximum. Pour une image privée, saisir la référence complète registre/image:étiquette au téléchargement.';
+
+  @override
+  String get maintenanceImageStars => 'Étoiles';
+
+  @override
+  String get maintenanceImageOfficial => 'Officielle';
+
+  @override
+  String get maintenanceImageReference => 'Référence de l’image';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      'L’image est téléchargée sur la machine et le moteur sélectionnés avec les identifiants existants. Augmenter le délai pour les grandes images.';
+
+  @override
+  String get maintenanceContainerNameOptional =>
+      'Nom du conteneur (facultatif)';
+
+  @override
+  String get maintenanceContainerStartAfterCreate =>
+      'Démarrer après la création';
+
+  @override
+  String get maintenanceHostAddress => 'Adresse de l’hôte';
+
+  @override
+  String get maintenanceHostPort => 'Port hôte (vide = automatique)';
+
+  @override
+  String get maintenanceContainerPort => 'Port du conteneur';
+
+  @override
+  String get maintenanceBindMount => 'Dossier de l’hôte';
+
+  @override
+  String get maintenanceReadOnlyMount => 'Lecture seule';
+
+  @override
+  String get maintenanceResourceAddRow => 'Ajouter une entrée';
+
+  @override
+  String get maintenanceContainerMounts => 'Montages';
+
+  @override
+  String get maintenanceMountSource => 'Nom du volume ou chemin hôte';
+
+  @override
+  String get maintenanceMountTarget => 'Chemin dans le conteneur';
+
+  @override
+  String get maintenanceResourceAdvanced => 'Configuration avancée';
+
+  @override
+  String get maintenanceCpuLimit => 'Limite CPU (cœurs)';
+
+  @override
+  String get maintenanceMemoryLimit => 'Limite de mémoire';
+
+  @override
+  String get maintenanceContainerCommandArguments => 'Commande et arguments';
+
+  @override
+  String get maintenanceArgumentsOnePerLine =>
+      'Un argument par ligne ; laisser vide pour les valeurs de l’image.';
+
+  @override
+  String get maintenanceVolumeOptions => 'Options du pilote';
+
+  @override
+  String get maintenanceResourceUncertain =>
+      'La fin de l’opération n’a pas pu être confirmée. Actualiser l’état cible avant de réessayer.';
+
+  @override
+  String get maintenanceResourceSuccess => 'Opération terminée';
+
+  @override
+  String get maintenanceResourceCloseRefresh => 'Fermer et actualiser';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      'Ce moteur ne fournit pas cette interface. Sélectionner Docker, Podman ou nerdctl pour gérer les images et volumes locaux.';
+
+  @override
+  String get maintenanceResourceValidation => 'Vérifier la configuration';
+
+  @override
+  String get maintenanceImageRemoveHelp =>
+      'Supprimer cette image locale sans forcer. Le moteur peut refuser si des conteneurs la référencent.';
+
+  @override
+  String get maintenanceVolumeRemoveHelp =>
+      'Supprimer définitivement ce volume et ses données. Les volumes utilisés ne sont pas supprimés de force.';
+
+  @override
+  String get maintenanceResourceParameters => 'Paramètres';
+
+  @override
+  String get maintenanceRestartUnlessStopped => 'Redémarrer sauf arrêt manuel';
 }

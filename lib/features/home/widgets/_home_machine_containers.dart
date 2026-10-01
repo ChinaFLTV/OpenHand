@@ -14,12 +14,16 @@ class _MachineContainerPanel extends StatefulWidget {
     required this.terminalId,
     required this.run,
     this.probe,
+    this.operate,
+    this.operationTimeout = const Duration(seconds: 30),
     required this.windows,
     required this.shell,
   });
   final String sessionId, terminalId;
   final Future<String> Function(String) run;
   final Future<String> Function(String)? probe;
+  final MachineContainerOperationRunner? operate;
+  final Duration operationTimeout;
   final bool windows;
   final MachineTerminalCommandShell shell;
   @override
@@ -29,6 +33,8 @@ class _MachineContainerPanel extends StatefulWidget {
 class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   final _scope = TextEditingController();
   final _search = TextEditingController();
+  final _resourcesKey = GlobalKey<_MachineContainerResourcesState>();
+  int _resourceTab = 0;
   MachineContainerRuntime _runtime = MachineContainerRuntime.docker;
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
@@ -57,6 +63,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
 
   Future<void> refresh({bool reset = false, bool applyScope = false}) async {
     if (_busy || _overlay || !mounted) return;
+    if (_resourceTab != 0 && !reset && !applyScope && _client != null) {
+      await _resourcesKey.currentState?.refresh();
+      return;
+    }
     final scope = reset || applyScope ? _scope.text.trim() : _appliedScope;
     final preserveDraft =
         !reset && !applyScope && _scope.text.trim() != _appliedScope;
@@ -64,6 +74,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       final scopeChanged = !reset && scope != _appliedScope;
       if (scopeChanged) _autoRuntime = false;
       if (reset || scopeChanged) {
+        _resourceTab = 0;
         _entries = [];
         _listDetails = {};
         _cpuPercentages = {};
@@ -220,6 +231,27 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         });
       }
     }
+  }
+
+  Future<void> _createContainer() async {
+    if (_busy || _overlay || _client == null) return;
+    setState(() => _overlay = true);
+    bool? changed;
+    try {
+      changed = await showAnimatedDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _ContainerResourceFormDialog(
+          client: _client!,
+          action: _ContainerResourceAction.createContainer,
+          operate: widget.operate,
+          timeout: widget.operationTimeout,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _overlay = false);
+    }
+    if (mounted && changed == true) await refresh();
   }
 
   Future<void> _open(MachineContainerEntry entry, String action) async {
@@ -749,19 +781,20 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         ),
                       ),
                     ),
-                  SizedBox(
-                    width: inputWidth,
-                    height: _maintenanceControlHeight,
-                    child: TextField(
-                      controller: _search,
-                      onChanged: (_) => setState(() {}),
-                      style: theme.textTheme.bodySmall,
-                      decoration: decoration(
-                        maintenanceLabel(context, '搜索名称、镜像、命名空间'),
-                        icon: Icons.search_rounded,
+                  if (_resourceTab == 0)
+                    SizedBox(
+                      width: inputWidth,
+                      height: _maintenanceControlHeight,
+                      child: TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        style: theme.textTheme.bodySmall,
+                        decoration: decoration(
+                          maintenanceLabel(context, '搜索名称、镜像、命名空间'),
+                          icon: Icons.search_rounded,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               );
               final contextLabel =
@@ -808,7 +841,9 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 child: _MachineTerminalIconButton(
                   onPressed: _busy || _overlay
                       ? null
-                      : () => refresh(applyScope: true),
+                      : () => refresh(
+                          applyScope: _scope.text.trim() != _appliedScope,
+                        ),
                   tooltip: maintenanceLabel(context, '刷新容器数据'),
                   icon: Icons.refresh_rounded,
                 ),
@@ -831,6 +866,63 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             },
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in [
+                  (0, '容器', Icons.inventory_2_outlined),
+                  (1, '镜像', Icons.layers_outlined),
+                  (2, '数据卷', Icons.storage_rounded),
+                ])
+                  ChoiceChip(
+                    avatar: Icon(item.$3, size: 16),
+                    label: Text(
+                      item.$1 == 1
+                          ? AppLocalizations.of(context)!.maintenanceImages
+                          : maintenanceLabel(context, item.$2),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    selected: _resourceTab == item.$1,
+                    onSelected: _busy || _overlay
+                        ? null
+                        : (_) => setState(() => _resourceTab = item.$1),
+                  ),
+                if (_resourceTab == 0 && (_client?.supportsResources ?? false))
+                  FilledButton.tonalIcon(
+                    onPressed: _busy || _overlay ? null : _createContainer,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(
+                      AppLocalizations.of(context)!.maintenanceContainerCreate,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (_resourceTab != 0 && _client != null)
+          _MachineContainerResources(
+            key: _resourcesKey,
+            client: _client!,
+            kind: _resourceTab == 1
+                ? MachineContainerResourceKind.images
+                : MachineContainerResourceKind.volumes,
+            operate: widget.operate,
+            timeout: widget.operationTimeout,
+            onBusy: (value) {
+              if (mounted) setState(() => _overlay = value);
+            },
+            onCreated: () {
+              if (mounted) {
+                setState(() => _resourceTab = 0);
+                refresh();
+              }
+            },
+          ),
         if (_busy || _copyingCommand)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -879,91 +971,93 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             ),
           ),
         ],
-        const SizedBox(height: _maintenanceGridGap),
-        if (_client != null) ...[
-          _MaintenanceGrid(
-            minWidth: 180,
-            children: [
-              for (final metric in [
-                (
-                  '运行中容器',
-                  _entries.where((e) => !e.isPod && e.running).length,
-                  OpenHandStatusColors.success,
-                  Icons.play_circle_outline_rounded,
-                ),
-                (
-                  '暂停容器',
-                  _entries
-                      .where(
-                        (e) =>
-                            !e.isPod &&
-                            e.state.toLowerCase().contains('paused'),
-                      )
-                      .length,
-                  OpenHandStatusColors.warning,
-                  Icons.pause_circle_outline_rounded,
-                ),
-                (
-                  '未运行',
-                  _entries
-                      .where(
-                        (e) =>
-                            !e.isPod &&
-                            !e.running &&
-                            !e.state.toLowerCase().contains('paused'),
-                      )
-                      .length,
-                  Theme.of(context).colorScheme.secondary,
-                  Icons.stop_circle_outlined,
-                ),
-              ])
-                _MaintenanceCard(
-                  title: metric.$1,
-                  icon: metric.$4,
-                  accent: metric.$3,
-                  scrollBody: false,
-                  child: _MaintenanceValue(
-                    value: '${metric.$2}',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: metric.$3,
+        if (_resourceTab == 0) ...[
+          const SizedBox(height: _maintenanceGridGap),
+          if (_client != null) ...[
+            _MaintenanceGrid(
+              minWidth: 180,
+              children: [
+                for (final metric in [
+                  (
+                    '运行中容器',
+                    _entries.where((e) => !e.isPod && e.running).length,
+                    OpenHandStatusColors.success,
+                    Icons.play_circle_outline_rounded,
+                  ),
+                  (
+                    '暂停容器',
+                    _entries
+                        .where(
+                          (e) =>
+                              !e.isPod &&
+                              e.state.toLowerCase().contains('paused'),
+                        )
+                        .length,
+                    OpenHandStatusColors.warning,
+                    Icons.pause_circle_outline_rounded,
+                  ),
+                  (
+                    '未运行',
+                    _entries
+                        .where(
+                          (e) =>
+                              !e.isPod &&
+                              !e.running &&
+                              !e.state.toLowerCase().contains('paused'),
+                        )
+                        .length,
+                    Theme.of(context).colorScheme.secondary,
+                    Icons.stop_circle_outlined,
+                  ),
+                ])
+                  _MaintenanceCard(
+                    title: metric.$1,
+                    icon: metric.$4,
+                    accent: metric.$3,
+                    scrollBody: false,
+                    child: _MaintenanceValue(
+                      value: '${metric.$2}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: metric.$3,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_runtime == MachineContainerRuntime.kubernetes ||
+              _runtime == MachineContainerRuntime.cri) ...[
+            table(true),
+            const SizedBox(height: 12),
+          ],
+          table(false),
+          const SizedBox(height: 12),
+          _MaintenanceCard(
+            title: '实时资源采样',
+            icon: Icons.monitor_heart_outlined,
+            scrollBody: false,
+            child: _MaintenanceReadout(
+              text: _metrics,
+              section: 'container_metrics',
+            ),
           ),
           const SizedBox(height: 12),
+          _MaintenanceSection(
+            title: maintenanceLabel(context, '运行时元数据与状态'),
+            icon: Icons.inventory_2_outlined,
+            subtitle: maintenanceLabel(
+              context,
+              _maintenanceOutputStatus(_metadata),
+            ),
+            child: _MaintenanceReadout(
+              text: _metadata,
+              section: 'container_metadata',
+            ),
+          ),
         ],
-        if (_runtime == MachineContainerRuntime.kubernetes ||
-            _runtime == MachineContainerRuntime.cri) ...[
-          table(true),
-          const SizedBox(height: 12),
-        ],
-        table(false),
-        const SizedBox(height: 12),
-        _MaintenanceCard(
-          title: '实时资源采样',
-          icon: Icons.monitor_heart_outlined,
-          scrollBody: false,
-          child: _MaintenanceReadout(
-            text: _metrics,
-            section: 'container_metrics',
-          ),
-        ),
-        const SizedBox(height: 12),
-        _MaintenanceSection(
-          title: maintenanceLabel(context, '运行时元数据与状态'),
-          icon: Icons.inventory_2_outlined,
-          subtitle: maintenanceLabel(
-            context,
-            _maintenanceOutputStatus(_metadata),
-          ),
-          child: _MaintenanceReadout(
-            text: _metadata,
-            section: 'container_metadata',
-          ),
-        ),
       ],
     );
   }

@@ -15387,4 +15387,144 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceContainerLastStarted => 'Last started';
+
+  @override
+  String get maintenanceImages => 'Images';
+
+  @override
+  String get maintenanceVolumes => 'Volumes';
+
+  @override
+  String get maintenanceContainerCreate => 'Create container';
+
+  @override
+  String get maintenanceImagePull => 'Pull image';
+
+  @override
+  String get maintenanceImageRemove => 'Delete image';
+
+  @override
+  String get maintenanceVolumeCreate => 'Create volume';
+
+  @override
+  String get maintenanceVolumeRemove => 'Delete volume';
+
+  @override
+  String get maintenanceResourceFilter => 'Filter by name or ID';
+
+  @override
+  String get maintenanceResourceReferences => 'Container references';
+
+  @override
+  String get maintenanceVolumeDriver => 'Volume driver';
+
+  @override
+  String get maintenanceImageTag => 'Tag';
+
+  @override
+  String get maintenanceImageQuery => 'Image keyword';
+
+  @override
+  String get maintenanceImageSearch => 'Search images';
+
+  @override
+  String get maintenanceImageSearchHelp =>
+      'Search the registry configured on the target runtime. Up to 50 results are shown. Enter a full registry/image:tag reference when pulling a private image.';
+
+  @override
+  String get maintenanceImageStars => 'Stars';
+
+  @override
+  String get maintenanceImageOfficial => 'Official';
+
+  @override
+  String get maintenanceImageReference => 'Image reference';
+
+  @override
+  String get maintenanceImagePullHelp =>
+      'The image is downloaded to the selected machine and runtime. Existing registry credentials are used. Increase the timeout for large images.';
+
+  @override
+  String get maintenanceContainerNameOptional => 'Container name (optional)';
+
+  @override
+  String get maintenanceContainerStartAfterCreate => 'Start after creation';
+
+  @override
+  String get maintenanceHostAddress => 'Host address';
+
+  @override
+  String get maintenanceHostPort => 'Host port (empty = automatic)';
+
+  @override
+  String get maintenanceContainerPort => 'Container port';
+
+  @override
+  String get maintenanceBindMount => 'Host directory';
+
+  @override
+  String get maintenanceReadOnlyMount => 'Read-only';
+
+  @override
+  String get maintenanceResourceAddRow => 'Add entry';
+
+  @override
+  String get maintenanceContainerMounts => 'Mounts';
+
+  @override
+  String get maintenanceMountSource => 'Volume name or host path';
+
+  @override
+  String get maintenanceMountTarget => 'Container path';
+
+  @override
+  String get maintenanceResourceAdvanced => 'Advanced configuration';
+
+  @override
+  String get maintenanceCpuLimit => 'CPU limit (cores)';
+
+  @override
+  String get maintenanceMemoryLimit => 'Memory limit';
+
+  @override
+  String get maintenanceContainerCommandArguments => 'Command and arguments';
+
+  @override
+  String get maintenanceArgumentsOnePerLine =>
+      'One argument per line; leave empty to use image defaults.';
+
+  @override
+  String get maintenanceVolumeOptions => 'Driver options';
+
+  @override
+  String get maintenanceResourceUncertain =>
+      'The operation could not be confirmed. Refresh the target state before submitting again.';
+
+  @override
+  String get maintenanceResourceSuccess => 'Operation completed';
+
+  @override
+  String get maintenanceResourceCloseRefresh => 'Close and refresh';
+
+  @override
+  String get maintenanceResourceUnsupported =>
+      'This runtime does not provide this resource management interface. Select Docker, Podman or nerdctl to manage local images and volumes.';
+
+  @override
+  String get maintenanceResourceValidation => 'Check the configuration';
+
+  @override
+  String get maintenanceImageRemoveHelp =>
+      'Delete this local image without forcing removal. Images referenced by containers may be rejected by the runtime.';
+
+  @override
+  String get maintenanceVolumeRemoveHelp =>
+      'Delete this volume and its data permanently. Volumes still used by containers are not force-deleted.';
+
+  @override
+  String get maintenanceResourceParameters => 'Parameters';
+
+  @override
+  String get maintenanceRestartUnlessStopped =>
+      'Restart unless manually stopped';
 }
