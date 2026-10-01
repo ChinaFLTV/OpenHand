@@ -500,6 +500,16 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final searchHeight = math.max(
+      40.0,
+      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
+    );
+    final searchBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
+    );
     return PopScope(
       canPop: !_busy,
       child: buildOpenHandDialog(
@@ -527,13 +537,75 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                       TextField(
                         controller: _query,
                         enabled: !_busy,
+                        textInputAction: TextInputAction.search,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                         onSubmitted: (_) => _search(),
                         decoration: InputDecoration(
-                          labelText: l.maintenanceImageQuery,
+                          hintText: l.maintenanceImageQuery,
+                          isDense: true,
+                          filled: true,
+                          fillColor: cs.surfaceContainerLowest,
+                          hoverColor: Colors.transparent,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          constraints: BoxConstraints.tightFor(
+                            height: searchHeight,
+                          ),
+                          border: searchBorder,
+                          enabledBorder: searchBorder,
+                          disabledBorder: searchBorder.copyWith(
+                            borderSide: BorderSide(
+                              color: cs.outlineVariant.withValues(alpha: .4),
+                            ),
+                          ),
+                          focusedBorder: searchBorder.copyWith(
+                            borderSide: BorderSide(
+                              color: cs.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          errorBorder: searchBorder.copyWith(
+                            borderSide: BorderSide(color: cs.error),
+                          ),
+                          focusedErrorBorder: searchBorder.copyWith(
+                            borderSide: BorderSide(color: cs.error, width: 1.5),
+                          ),
+                          suffixIconConstraints: BoxConstraints.tightFor(
+                            width: searchHeight,
+                            height: searchHeight,
+                          ),
                           suffixIcon: IconButton(
                             onPressed: _busy ? null : _search,
                             tooltip: l.maintenanceImageSearch,
-                            icon: const Icon(Icons.search_rounded),
+                            style:
+                                IconButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  disabledBackgroundColor: Colors.transparent,
+                                  foregroundColor: cs.onSurfaceVariant,
+                                  disabledForegroundColor: cs.onSurface
+                                      .withValues(alpha: .38),
+                                  padding: EdgeInsets.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.standard,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ).copyWith(
+                                  overlayColor: WidgetStateProperty.resolveWith(
+                                    (states) =>
+                                        states.contains(WidgetState.pressed) ||
+                                            states.contains(WidgetState.focused)
+                                        ? cs.primary.withValues(alpha: .1)
+                                        : Colors.transparent,
+                                  ),
+                                ),
+                            icon: const Icon(Icons.search_rounded, size: 18),
                           ),
                         ),
                       ),
