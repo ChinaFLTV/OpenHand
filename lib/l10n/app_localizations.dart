@@ -23348,6 +23348,12 @@ abstract class AppLocalizations {
   /// **'跟随新日志'**
   String get maintenanceLogFollow;
 
+  /// 清空当前日志显示，保留服务器日志与后续采集。
+  ///
+  /// In zh, this message translates to:
+  /// **'清屏'**
+  String get maintenanceLogClear;
+
   /// No description provided for @maintenanceLogAll.
   ///
   /// In zh, this message translates to:

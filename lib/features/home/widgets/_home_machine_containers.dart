@@ -816,8 +816,9 @@ class _ContainerReportDialog extends StatefulWidget {
 }
 
 class _ContainerReportDialogState extends State<_ContainerReportDialog> {
+  final _logs = MachineLogBuffer();
   String _text = '', _error = '';
-  bool _busy = false, _automatic = false;
+  bool _busy = false, _automatic = false, _loaded = false;
   Timer? _timer;
   @override
   void initState() {
@@ -842,7 +843,13 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
       final text = await widget.load();
       if (mounted) {
         setState(() {
-          _text = text;
+          _loaded = true;
+          if (widget.section == 'logs') {
+            _logs.append(text, plainText: true);
+            _text = _logs.entries.map((entry) => entry.message).join('\n');
+          } else {
+            _text = text;
+          }
         });
       }
     } catch (error) {
@@ -887,36 +894,72 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _MachineTerminalDialogHeader(
-            icon: Icons.inventory_2_outlined,
-            title: widget.title,
-            onClose: () => Navigator.pop(context),
-            trailingActions: [
-              _MachineTerminalIconButton(
-                tooltip: maintenanceLabel(
-                  context,
-                  _automatic ? '暂停自动刷新' : '自动刷新',
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final actions = <Widget>[
+                if (widget.section == 'logs')
+                  _MachineTerminalIconButton(
+                    tooltip: AppLocalizations.of(context)!.maintenanceLogClear,
+                    icon: Icons.cleaning_services_rounded,
+                    onPressed: _busy || _logs.entries.isEmpty
+                        ? null
+                        : () => setState(() {
+                            _logs.clear();
+                            _text = '';
+                          }),
+                  ),
+                _MachineTerminalIconButton(
+                  tooltip: maintenanceLabel(
+                    context,
+                    _automatic ? '暂停自动刷新' : '自动刷新',
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _automatic = !_automatic;
+                    });
+                    _schedule();
+                  },
+                  icon: _automatic
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _automatic = !_automatic;
-                  });
-                  _schedule();
-                },
-                icon: _automatic
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-              ),
-              _MachineTerminalIconButton(
-                tooltip: maintenanceLabel(context, '刷新'),
-                onPressed: _busy ? null : _load,
-                icon: Icons.refresh_rounded,
-              ),
-            ],
+                _MachineTerminalIconButton(
+                  tooltip: maintenanceLabel(context, '刷新'),
+                  onPressed: _busy ? null : _load,
+                  icon: Icons.refresh_rounded,
+                ),
+              ];
+              final compact =
+                  constraints.maxWidth <
+                  MediaQuery.textScalerOf(context).scale(440);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MachineTerminalDialogHeader(
+                    icon: Icons.inventory_2_outlined,
+                    title: widget.title,
+                    onClose: () => Navigator.pop(context),
+                    trailingActions: compact ? const [] : actions,
+                  ),
+                  if (compact)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 12, 10),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: actions,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           if (_busy) const LinearProgressIndicator(),
           Flexible(
-            child: _busy && _text.isEmpty
+            child: _busy && !_loaded
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -928,15 +971,44 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
                   )
                 : Padding(
                     padding: _maintenanceDetailPadding,
-                    child: SingleChildScrollView(
-                      child: _MaintenanceReadout(
-                        text: _error.isEmpty ? _text : _error,
-                        section: _error.isEmpty ? widget.section : 'containers',
-                        logMaxHeight:
-                            MediaQuery.sizeOf(context).height *
-                            _containerLogBodyHeightFraction,
-                      ),
-                    ),
+                    child: widget.section == 'logs' && _error.isEmpty
+                        ? SizedBox(
+                            height:
+                                MediaQuery.sizeOf(context).height *
+                                _containerLogBodyHeightFraction,
+                            child: OpenHandConsoleFrame(
+                              title: maintenanceLabel(context, '最近日志'),
+                              expandBody: true,
+                              child: _text.isEmpty
+                                  ? OpenHandOperationalEmptyState(
+                                      textColor: OpenHandConsolePalette.text,
+                                      surfaceColor:
+                                          OpenHandConsolePalette.deepSurface,
+                                      icon: Icons.article_outlined,
+                                      color: OpenHandConsolePalette.notice,
+                                      message: AppLocalizations.of(
+                                        context,
+                                      )!.maintenanceLogEmpty,
+                                    )
+                                  : OpenHandConsoleText(
+                                      title: maintenanceLabel(context, '最近日志'),
+                                      text: _text,
+                                      framed: false,
+                                      maxHeight: double.infinity,
+                                    ),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            child: _MaintenanceReadout(
+                              text: _error.isEmpty ? _text : _error,
+                              section: _error.isEmpty
+                                  ? widget.section
+                                  : 'containers',
+                              logMaxHeight:
+                                  MediaQuery.sizeOf(context).height *
+                                  _containerLogBodyHeightFraction,
+                            ),
+                          ),
                   ),
           ),
         ],

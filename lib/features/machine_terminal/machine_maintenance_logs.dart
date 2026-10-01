@@ -77,15 +77,26 @@ class MachineLogBuffer {
   MachineLogBuffer.copy(MachineLogBuffer source) {
     entries.addAll(source.entries);
     _previous = List.of(source._previous);
+    _clearedIds.addAll(source._clearedIds);
     error = source.error;
     _sequence = source._sequence;
   }
   final entries = <MachineLogEntry>[];
   List<String> _previous = [];
+  final _clearedIds = <String>{};
   String? error;
   int _sequence = 0;
 
-  void append(String raw, {bool eventLog = false}) {
+  /// 仅清空显示，保留采样游标，防止刷新重新显示已清除的记录。
+  void clear() {
+    _clearedIds.addAll(entries.map((entry) => entry.id));
+    while (_clearedIds.length > machineLogLimit) {
+      _clearedIds.remove(_clearedIds.first);
+    }
+    entries.clear();
+  }
+
+  void append(String raw, {bool eventLog = false, bool plainText = false}) {
     final text = raw.trim();
     if (text.isEmpty || text == '-- No entries --') {
       error = null;
@@ -97,7 +108,12 @@ class MachineLogBuffer {
     }
     final incoming = <MachineLogEntry>[];
     try {
-      if (text.startsWith('<Events') || text.startsWith('<?xml')) {
+      if (plainText) {
+        for (final line
+            in const LineSplitter().convert(text).take(machineLogLimit)) {
+          incoming.add(MachineLogEntry('', '', line, _level(line)));
+        }
+      } else if (text.startsWith('<Events') || text.startsWith('<?xml')) {
         final document = XmlDocument.parse(text);
         for (final event in document.findAllElements('Event')) {
           String field(String name) =>
@@ -206,7 +222,7 @@ class MachineLogBuffer {
         break;
       }
     }
-    final ids = entries.map((e) => e.id).toSet();
+    final ids = {..._clearedIds, ...entries.map((e) => e.id)};
     for (final entry in incoming.skip(overlap)) {
       if (entry.id.isNotEmpty && !ids.add(entry.id)) continue;
       final message = entry.message.length > 8000

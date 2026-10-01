@@ -1092,7 +1092,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       size,
       Localizations.localeOf(context),
       motion,
-      (data?.isComplete == false, _tab == 2 && _loading, _error),
+      (data?.isComplete == false, (_tab == 2 || _tab == 5) && _loading, _error),
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
@@ -1126,7 +1126,11 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               1 => _processes(data),
               2 => _services(data),
               4 => _gpu(data),
-              5 => _MaintenanceLogBrowser(buffers: _logBuffers, data: data),
+              5 => _MaintenanceLogBrowser(
+                buffers: _logBuffers,
+                data: data,
+                busy: _loading,
+              ),
               6 => _health(data),
               _ => _sections(data, const [
                 'sockets',
@@ -7751,9 +7755,14 @@ class _MachineMaintenanceDetailsState
 }
 
 class _MaintenanceLogBrowser extends StatefulWidget {
-  const _MaintenanceLogBrowser({required this.buffers, required this.data});
+  const _MaintenanceLogBrowser({
+    required this.buffers,
+    required this.data,
+    this.busy = false,
+  });
   final Map<String, MachineLogBuffer> buffers;
   final MachineMaintenanceSnapshot data;
+  final bool busy;
   @override
   State<_MaintenanceLogBrowser> createState() => _MaintenanceLogBrowserState();
 }
@@ -7980,6 +7989,19 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                           }
                         }),
                       ),
+                    ),
+                    _MachineTerminalIconButton(
+                      tooltip: l.maintenanceLogClear,
+                      icon: Icons.cleaning_services_rounded,
+                      onPressed: widget.busy || entries.isEmpty
+                          ? null
+                          : () => setState(() {
+                              buffer!.clear();
+                              _selecting = false;
+                              _selectionRevision++;
+                              _visible = [];
+                              if (_scroll.hasClients) _scroll.jumpTo(0);
+                            }),
                     ),
                   ],
                 );

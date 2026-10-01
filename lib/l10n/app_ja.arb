@@ -8740,6 +8740,7 @@
   "maintenanceLogApplication": "アプリケーションログ",
   "maintenanceLogSearch": "ログを検索",
   "maintenanceLogFollow": "新しいログを追跡",
+  "maintenanceLogClear": "画面をクリア",
   "maintenanceLogAll": "すべてのレベル",
   "maintenanceLogError": "エラー",
   "maintenanceLogWarning": "警告",

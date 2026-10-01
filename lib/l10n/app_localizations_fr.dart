@@ -13171,6 +13171,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get maintenanceLogFollow => 'Suivre les nouveaux événements';
 
   @override
+  String get maintenanceLogClear => 'Effacer l’écran';
+
+  @override
   String get maintenanceLogAll => 'Tous les niveaux';
 
   @override

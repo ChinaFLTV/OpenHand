@@ -12997,6 +12997,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceLogFollow => 'Follow new entries';
 
   @override
+  String get maintenanceLogClear => 'Clear screen';
+
+  @override
   String get maintenanceLogAll => 'All levels';
 
   @override

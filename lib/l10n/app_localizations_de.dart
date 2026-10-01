@@ -13131,6 +13131,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceLogFollow => 'Neue Einträge verfolgen';
 
   @override
+  String get maintenanceLogClear => 'Anzeige leeren';
+
+  @override
   String get maintenanceLogAll => 'Alle Stufen';
 
   @override

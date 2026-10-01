@@ -9687,6 +9687,10 @@
   "maintenanceLogApplication": "应用日志",
   "maintenanceLogSearch": "搜索日志",
   "maintenanceLogFollow": "跟随新日志",
+  "maintenanceLogClear": "清屏",
+  "@maintenanceLogClear": {
+    "description": "清空当前日志显示，保留服务器日志与后续采集。"
+  },
   "maintenanceLogAll": "全部级别",
   "maintenanceLogError": "错误",
   "maintenanceLogWarning": "警告",

@@ -593,6 +593,69 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('容器日志清屏保留自动刷新并只续收新增日志，六语言窄屏可用', (tester) async {
+    final newline = String.fromCharCode(10);
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [380.0, 1100.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 800));
+        var output = ['2026-10-01T12:00:00Z 旧日志', '{"message":"原始应用日志"}'].join(newline);
+        Completer<String>? pending;
+        var calls = 0;
+        final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.6 : 1)), child: child!),
+          home: Scaffold(body: RepaintBoundary(key: const ValueKey('容器日志清屏预览'),
+            child: _ContainerReportDialog(title: 'worker · 日志', section: 'logs', load: () async { calls++; return pending?.future ?? output; })))));
+        await tester.pumpAndSettle();
+        final state = tester.state<_ContainerReportDialogState>(find.byType(_ContainerReportDialog));
+        final clear = find.byTooltip(l.maintenanceLogClear);
+        expect(clear, findsOneWidget);
+        expect(state._text, output);
+        final height = tester.getSize(find.byType(OpenHandConsoleFrame)).height;
+        await tester.tap(find.byTooltip(l.maintenanceAutoRefresh));
+        await tester.pumpAndSettle();
+        await tester.tap(clear); await tester.pumpAndSettle();
+        expect(state._text, isEmpty); expect(state._logs.entries, isEmpty);
+        expect(find.text(l.maintenanceLogEmpty), findsOneWidget);
+        expect(state._automatic, isTrue); expect(calls, 1);
+        expect(tester.getSize(find.byType(OpenHandConsoleFrame)).height, height);
+        await state._load(); await tester.pumpAndSettle();
+        expect(state._text, isEmpty);
+        output += newline + '2026-10-01T12:00:01Z 新日志';
+        await tester.pump(const Duration(seconds: 11)); await tester.pumpAndSettle();
+        expect(state._text, '2026-10-01T12:00:01Z 新日志');
+        pending = Completer<String>();
+        final loading = state._load(); await tester.pump();
+        final clearButton = find.descendant(of: clear, matching: find.byType(InkWell));
+        expect(tester.widget<InkWell>(clearButton).onTap, isNull);
+        pending!.complete(output); await loading; pending = null;
+        await tester.pumpAndSettle();
+        expect(state._text, '2026-10-01T12:00:01Z 新日志');
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('容器日志清屏预览')));
+            final image = await boundary.toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/container-log-clear-' + width.toInt().toString() + '.png').writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        final lastCalls = calls;
+        await tester.pump(const Duration(seconds: 20)); expect(calls, lastCalls);
+      }
+    }
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _ContainerReportDialog(title: '容器详情', load: () async => '{"Name":"worker"}'))));
+    await tester.pumpAndSettle(); expect(find.byTooltip('清屏'), findsNothing);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器报告手动刷新、自动刷新失败停止并清理定时器', (tester) async {
     var calls = 0;
     await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _ContainerReportDialog(
@@ -1431,6 +1494,60 @@ void main() {
       }
     }
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('日志管理清屏隔离来源并重置选区计数，刷新期间禁用且保留筛选', (tester) async {
+    final newline = String.fromCharCode(10);
+    final system = MachineLogBuffer()..append(['error 旧日志', 'warning 旧日志'].join(newline));
+    final kernel = MachineLogBuffer()..append('内核记录');
+    final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+    Widget host({bool busy = false}) => MaterialApp(locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+      home: Scaffold(body: RepaintBoundary(key: const ValueKey('日志管理清屏预览'),
+        child: _MaintenanceLogBrowser(buffers: {'system': system, 'kernel': kernel}, busy: busy,
+          data: MachineMaintenanceSnapshot({'platform': 'Linux', 'log_config': '/etc/logrotate.conf' + newline + 'weekly'})))));
+    await tester.binding.setSurfaceSize(const Size(1100, 800));
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    final clear = find.byTooltip('清屏');
+    expect(tester.getSize(clear).height, _maintenanceControlHeight);
+    final state = tester.state<_MaintenanceLogBrowserState>(find.byType(_MaintenanceLogBrowser));
+    await tester.enterText(find.byType(TextField), '日志'); await tester.pumpAndSettle();
+    state.setState(() { state._selecting = true; state._follow = false; });
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(host(busy: true)); await tester.pumpAndSettle();
+    expect(tester.widget<InkWell>(find.descendant(of: clear, matching: find.byType(InkWell))).onTap, isNull);
+    expect(system.entries.length, 2);
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    await tester.tap(clear); await tester.pumpAndSettle();
+    expect(system.entries, isEmpty); expect(kernel.entries.single.message, '内核记录');
+    expect(state._visible, isEmpty); expect(state._selecting, isFalse);
+    expect(state._query, '日志'); expect(state._follow, isFalse);
+    expect(find.text('错误 0'), findsOneWidget); expect(find.text('警告 0'), findsOneWidget);
+    expect(find.text('暂无日志记录'), findsOneWidget);
+    system.append(['error 旧日志', 'warning 旧日志'].join(newline));
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    expect(state._visible, isEmpty);
+    system.append(['warning 旧日志', 'info 新日志'].join(newline));
+    await tester.pumpWidget(host()); await tester.pumpAndSettle();
+    expect(state._visible.single.message, 'info 新日志'); expect(find.text('信息 1'), findsOneWidget);
+    if (Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+      await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('日志管理清屏预览')));
+        final image = await boundary.toImage(pixelRatio: 1.5);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/maintenance-log-clear.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+      });
+    }
+    await tester.enterText(find.byType(TextField), ''); await tester.pumpAndSettle();
+    tester.widget<_MaintenanceToolbarMenu<String>>(find.byType(_MaintenanceToolbarMenu<String>)).onSelected('kernel');
+    await tester.pumpAndSettle();
+    expect(state._visible.single.message, '内核记录');
+    await tester.tap(clear); await tester.pumpAndSettle();
+    expect(kernel.entries, isEmpty); expect(system.entries.single.message, 'info 新日志');
+    expect(find.text('轮转记录与配置'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
   testWidgets('日志空态、错误和筛选空态均填满折叠区剩余高度', (tester) async {

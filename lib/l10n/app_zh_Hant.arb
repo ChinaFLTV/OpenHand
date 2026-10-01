@@ -8740,6 +8740,7 @@
   "maintenanceLogApplication": "應用程式日誌",
   "maintenanceLogSearch": "搜尋日誌",
   "maintenanceLogFollow": "跟隨新日誌",
+  "maintenanceLogClear": "清屏",
   "maintenanceLogAll": "所有層級",
   "maintenanceLogError": "錯誤",
   "maintenanceLogWarning": "警告",

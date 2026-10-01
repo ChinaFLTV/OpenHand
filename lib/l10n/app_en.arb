@@ -8745,6 +8745,7 @@
   "maintenanceLogApplication": "Application logs",
   "maintenanceLogSearch": "Search logs",
   "maintenanceLogFollow": "Follow new entries",
+  "maintenanceLogClear": "Clear screen",
   "maintenanceLogAll": "All levels",
   "maintenanceLogError": "Error",
   "maintenanceLogWarning": "Warning",

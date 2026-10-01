@@ -8740,6 +8740,7 @@
   "maintenanceLogApplication": "Journaux applicatifs",
   "maintenanceLogSearch": "Rechercher dans les journaux",
   "maintenanceLogFollow": "Suivre les nouveaux événements",
+  "maintenanceLogClear": "Effacer l’écran",
   "maintenanceLogAll": "Tous les niveaux",
   "maintenanceLogError": "Erreur",
   "maintenanceLogWarning": "Avertissement",

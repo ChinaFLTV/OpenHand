@@ -8740,6 +8740,7 @@
   "maintenanceLogApplication": "Anwendungsprotokolle",
   "maintenanceLogSearch": "Protokolle durchsuchen",
   "maintenanceLogFollow": "Neue Einträge verfolgen",
+  "maintenanceLogClear": "Anzeige leeren",
   "maintenanceLogAll": "Alle Stufen",
   "maintenanceLogError": "Fehler",
   "maintenanceLogWarning": "Warnung",

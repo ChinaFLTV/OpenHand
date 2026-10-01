@@ -12599,6 +12599,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceLogFollow => '跟随新日志';
 
   @override
+  String get maintenanceLogClear => '清屏';
+
+  @override
   String get maintenanceLogAll => '全部级别';
 
   @override
@@ -27394,6 +27397,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceLogFollow => '跟隨新日誌';
+
+  @override
+  String get maintenanceLogClear => '清屏';
 
   @override
   String get maintenanceLogAll => '所有層級';

@@ -12724,6 +12724,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceLogFollow => '新しいログを追跡';
 
   @override
+  String get maintenanceLogClear => '画面をクリア';
+
+  @override
   String get maintenanceLogAll => 'すべてのレベル';
 
   @override
