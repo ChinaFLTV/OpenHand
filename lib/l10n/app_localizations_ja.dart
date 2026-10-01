@@ -11253,6 +11253,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenancePerCore => 'コア別負荷';
 
   @override
+  String maintenanceCoreLabel(String index) {
+    return 'コア $index';
+  }
+
+  @override
   String get maintenanceBasicInfo => '基本情報';
 
   @override

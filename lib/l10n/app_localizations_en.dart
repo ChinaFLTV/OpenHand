@@ -11500,6 +11500,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenancePerCore => 'Per-core load';
 
   @override
+  String maintenanceCoreLabel(String index) {
+    return 'Core $index';
+  }
+
+  @override
   String get maintenanceBasicInfo => 'Basic information';
 
   @override

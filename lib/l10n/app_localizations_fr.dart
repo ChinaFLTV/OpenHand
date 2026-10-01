@@ -11646,6 +11646,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get maintenancePerCore => 'Charge par cœur';
 
   @override
+  String maintenanceCoreLabel(String index) {
+    return 'Cœur $index';
+  }
+
+  @override
   String get maintenanceBasicInfo => 'Informations générales';
 
   @override

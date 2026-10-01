@@ -8250,6 +8250,7 @@
   "maintenanceTrendSamples": "趨勢樣本",
   "maintenanceTargetPlatform": "目標平台",
   "maintenancePerCore": "每核心負載",
+  "maintenanceCoreLabel": "核心 {index}",
   "maintenanceBasicInfo": "基本資訊",
   "maintenanceRawSystem": "系統原始資訊",
   "maintenanceHost": "主機名稱",

@@ -8574,7 +8574,7 @@
   "@maintenanceUptime": {
     "description": "服务器运维界面文案"
   },
-  "maintenanceLoad": "负载均衡",
+  "maintenanceLoad": "系统负载",
   "@maintenanceLoad": {
     "description": "服务器运维界面文案"
   },
@@ -8609,6 +8609,15 @@
   "maintenancePerCore": "每核负载",
   "@maintenancePerCore": {
     "description": "服务器运维界面文案"
+  },
+  "maintenanceCoreLabel": "核心 {index}",
+  "@maintenanceCoreLabel": {
+    "description": "按当前语言显示逻辑核心编号，编号与采样标识一致。",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
   },
   "maintenanceBasicInfo": "基本信息",
   "@maintenanceBasicInfo": {

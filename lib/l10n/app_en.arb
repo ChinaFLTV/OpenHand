@@ -8255,6 +8255,7 @@
   "maintenanceTrendSamples": "Trend samples",
   "maintenanceTargetPlatform": "Target platform",
   "maintenancePerCore": "Per-core load",
+  "maintenanceCoreLabel": "Core {index}",
   "maintenanceBasicInfo": "Basic information",
   "maintenanceRawSystem": "Raw system information",
   "maintenanceHost": "Hostname",

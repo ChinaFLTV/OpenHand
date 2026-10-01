@@ -8250,6 +8250,7 @@
   "maintenanceTrendSamples": "トレンドサンプル",
   "maintenanceTargetPlatform": "接続先プラットフォーム",
   "maintenancePerCore": "コア別負荷",
+  "maintenanceCoreLabel": "コア {index}",
   "maintenanceBasicInfo": "基本情報",
   "maintenanceRawSystem": "システムの元の情報",
   "maintenanceHost": "ホスト名",

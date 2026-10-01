@@ -20440,7 +20440,7 @@ abstract class AppLocalizations {
   /// 服务器运维界面文案
   ///
   /// In zh, this message translates to:
-  /// **'负载均衡'**
+  /// **'系统负载'**
   String get maintenanceLoad;
 
   /// 服务器运维界面文案
@@ -20490,6 +20490,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'每核负载'**
   String get maintenancePerCore;
+
+  /// 按当前语言显示逻辑核心编号，编号与采样标识一致。
+  ///
+  /// In zh, this message translates to:
+  /// **'核心 {index}'**
+  String maintenanceCoreLabel(String index);
 
   /// 服务器运维界面文案
   ///

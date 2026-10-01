@@ -11601,6 +11601,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenancePerCore => 'Last pro Kern';
 
   @override
+  String maintenanceCoreLabel(String index) {
+    return 'Kern $index';
+  }
+
+  @override
   String get maintenanceBasicInfo => 'Grundinformationen';
 
   @override

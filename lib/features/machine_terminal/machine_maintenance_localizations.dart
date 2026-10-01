@@ -443,7 +443,7 @@ String maintenanceLabel(BuildContext context, String label) {
     "当前采样 · 完整原始内容" => l10n.maintenanceRawSample,
     "资源使用" => l10n.maintenanceResourceUse,
     "运行时间" => l10n.maintenanceUptime,
-    "负载均衡" => l10n.maintenanceLoad,
+    "系统负载" => l10n.maintenanceLoad,
     "处理器" => l10n.maintenanceProcessor,
     "采样状态" => l10n.maintenanceSampleStatus,
     "数据可能过期" => l10n.maintenanceStale,

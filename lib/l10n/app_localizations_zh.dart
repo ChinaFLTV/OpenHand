@@ -11104,7 +11104,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceUptime => '运行时间';
 
   @override
-  String get maintenanceLoad => '负载均衡';
+  String get maintenanceLoad => '系统负载';
 
   @override
   String get maintenanceProcessor => '处理器';
@@ -11129,6 +11129,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenancePerCore => '每核负载';
+
+  @override
+  String maintenanceCoreLabel(String index) {
+    return '核心 $index';
+  }
 
   @override
   String get maintenanceBasicInfo => '基本信息';
@@ -25929,6 +25934,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenancePerCore => '每核心負載';
+
+  @override
+  String maintenanceCoreLabel(String index) {
+    return '核心 $index';
+  }
 
   @override
   String get maintenanceBasicInfo => '基本資訊';

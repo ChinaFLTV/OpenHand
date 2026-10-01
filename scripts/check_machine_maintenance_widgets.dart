@@ -676,7 +676,88 @@ void main() {
     expect(calls, 3);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('内存、服务、连接与显存分布卡均遵守紧凑宽度', (tester) async {
+  testWidgets('总览层次紧凑、指标均衡排布、短字段无需内层滚动且六种语言无溢出', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final width in [1440.0, 760.0, 390.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1000));
+        final service = _MaintenanceFixture();
+        final theme = width == 760 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+          child: MaterialApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+            builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(size: Size(width, 1000), textScaler: TextScaler.linear(width == 390 ? 1.6 : 1)), child: child!),
+            home: const Scaffold(body: RepaintBoundary(key: ValueKey('运行总览预览'), child: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))))));
+        await tester.pumpAndSettle();
+        final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+        final newline = String.fromCharCode(10);
+        final sections = {...state._snapshots[0]!.sections,
+          'host': 'production-worker.example.local', 'processor': 'Apple M4 Pro',
+          'core_count': '10', 'uptime': '183600 0', 'load': '1.25 0.94 0.73',
+          'system': 'PRETTY_NAME="Ubuntu 26.04 LTS"' + newline + 'Linux worker 6.15.0',
+          'memory': ['MemTotal: 33554432 kB','MemAvailable: 10000000 kB','SwapTotal: 0 kB','SwapFree: 0 kB'].join(newline),
+          'cpu': ['cpu 400 0 0 600 0 0 0 0','cpu0 200 0 0 300 0 0 0 0','cpu1 200 0 0 300 0 0 0 0'].join(newline),
+        };
+        state.setState(() {
+          state._snapshots[0] = MachineMaintenanceSnapshot(sections);
+          state._previous[0] = MachineMaintenanceSnapshot({...sections, 'cpu': ['cpu 100 0 0 300 0 0 0 0','cpu0 50 0 0 150 0 0 0 0','cpu1 50 0 0 150 0 0 0 0'].join(newline)});
+          state._cpuHistory..clear()..addAll(List.generate(12, (i) => (time: i * 10000.0, value: .2 + (i % 4) * .1)));
+          state._bodyIdentity = null;
+        });
+        await tester.pumpAndSettle();
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('运行总览预览')));
+            final image = await boundary.toImage(pixelRatio: 1.5); final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/maintenance-overview-' + locale.toString() + '-' + width.toInt().toString() + '.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        final summary = tester.widget<_MaintenanceGrid>(find.byKey(const ValueKey('maintenance-overview-summary')));
+        final summaryRects = [for (final child in summary.children) tester.getRect(find.byWidget(child))];
+        for (final rect in summaryRects) {
+          expect(rect.width, closeTo(summaryRects.first.width, .01));
+          expect(rect.height, closeTo(summaryRects.first.height, .01), reason: '摘要等高：' + locale.toString() + '，宽度 ' + width.toString() + '，位置 ' + summaryRects.toString());
+        }
+        final panels = tester.widget<_MaintenanceGrid>(find.byKey(const ValueKey('maintenance-overview-resources'))).children.cast<_MaintenanceCard>();
+        expect(panels.any((card) => card.title == l.maintenanceResourceUse), isFalse);
+        final basic = panels.firstWhere((card) => card.title == l.maintenanceBasicInfo);
+        final basicFinder = find.byWidget(basic);
+        expect(find.descendant(of: basicFinder, matching: find.byType(_MaintenanceFields)), findsNothing);
+        expect(find.descendant(of: basicFinder, matching: find.text('production-worker.example.local')), findsOneWidget);
+        expect(find.descendant(of: basicFinder, matching: find.text('Apple M4 Pro')), findsOneWidget);
+        expect(find.text('cpu0 · 50%'), findsNothing);
+        expect(find.text('50.0%'), findsOneWidget);
+        expect(find.textContaining(l.maintenanceCoreLabel('0') + ' · '), findsOneWidget);
+        expect(find.text('负载均衡'), findsNothing);
+        expect(find.byTooltip(l.maintenanceLoadIntervals), findsOneWidget);
+        if (width == 1440) {
+          final firstRow = [for (final card in panels.take(3)) tester.getRect(find.byWidget(card))];
+          for (final rect in firstRow) {
+            expect(rect.width, closeTo(firstRow.first.width, .01));
+            expect(rect.height, closeTo(firstRow.first.height, .01), reason: '首排等高：' + locale.toString() + '，位置 ' + firstRow.toString());
+            expect(rect.top, closeTo(firstRow.first.top, .01));
+          }
+          expect(firstRow.first.height, lessThan(340), reason: '首排高度：' + locale.toString());
+          final fields = tester.getRect(find.byType(_MaintenanceFacts).first);
+          expect(fields.bottom, lessThanOrEqualTo(firstRow.first.bottom));
+          final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+          await mouse.addPointer(location: Offset.zero); await mouse.moveTo(firstRow.first.center); await tester.pumpAndSettle();
+          for (final box in tester.widgetList<DecoratedBox>(find.descendant(of: basicFinder, matching: find.byType(DecoratedBox)))) {
+            if (box.decoration case final BoxDecoration decoration) {
+              expect(decoration.gradient, isNull); expect(decoration.boxShadow ?? [], isEmpty);
+            }
+          }
+          await mouse.removePointer();
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('总览内存分布填满网格，其余分布卡保持紧凑宽度', (tester) async {
     final service = _MaintenanceFixture();
     for (final width in [1400.0, 360.0]) {
       await tester.binding.setSurfaceSize(Size(width, 1100));
@@ -701,7 +782,11 @@ void main() {
         }
         expect(cards, findsOneWidget, reason: '分区 ' + tab.toString());
         final painted = find.descendant(of: cards, matching: find.byWidgetPredicate((w) => w is Container && w.foregroundDecoration != null)).first;
-        expect(tester.getSize(painted).width, lessThanOrEqualTo(380));
+        if (tab == 0) {
+          expect(tester.getSize(painted).width, closeTo(tester.getSize(cards).width, .01));
+        } else {
+          expect(tester.getSize(painted).width, lessThanOrEqualTo(380));
+        }
         expect(tester.takeException(), isNull);
       }
       await tester.pumpWidget(const SizedBox());
@@ -3824,14 +3909,15 @@ void main() {
     expect(find.text('Apple M4'), findsOneWidget);
     expect(find.text('GPU 利用率趋势'), findsNothing);
     expect(find.byType(_MaintenanceFacts), findsOneWidget);
+    final factsGrid = tester.widget<_MaintenanceGrid>(find.descendant(of: find.byType(_MaintenanceFacts), matching: find.byType(_MaintenanceGrid)));
     final fieldRows = <double, List<Rect>>{};
-    for (var i = 0; i < 12; i++) {
-      final rect = tester.getRect(find.byWidgetPredicate((w) => w is AnimatedContainer && w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('maintenance-field-')).at(i));
+    for (final child in factsGrid.children) {
+      final rect = tester.getRect(find.byWidget(child));
       (fieldRows[rect.top] ??= []).add(rect);
+      expect(rect.height, lessThan(80));
     }
-    expect(fieldRows.values.map((row) => row.length), [4, 4, 4]);
+    expect(fieldRows.values.map((row) => row.length), List.filled(6, 2));
     for (final row in fieldRows.values) {
-      expect(row.first.width, lessThan(400));
       expect(row.last.right, closeTo(tester.getRect(find.byType(_MaintenanceFacts)).right, .01));
     }
     expect(find.descendant(of: find.byType(_MaintenanceFacts), matching: find.text('GPU 核心数')), findsOneWidget);

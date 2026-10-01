@@ -8250,6 +8250,7 @@
   "maintenanceTrendSamples": "Trendmessungen",
   "maintenanceTargetPlatform": "Zielplattform",
   "maintenancePerCore": "Last pro Kern",
+  "maintenanceCoreLabel": "Kern {index}",
   "maintenanceBasicInfo": "Grundinformationen",
   "maintenanceRawSystem": "Systemrohdaten",
   "maintenanceHost": "Hostname",

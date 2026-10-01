@@ -8250,6 +8250,7 @@
   "maintenanceTrendSamples": "Échantillons de tendance",
   "maintenanceTargetPlatform": "Plateforme cible",
   "maintenancePerCore": "Charge par cœur",
+  "maintenanceCoreLabel": "Cœur {index}",
   "maintenanceBasicInfo": "Informations générales",
   "maintenanceRawSystem": "Informations système brutes",
   "maintenanceHost": "Nom d’hôte",

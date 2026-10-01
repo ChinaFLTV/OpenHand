@@ -1291,14 +1291,32 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     final swap = memory['SwapTotal'];
     final freeSwap = memory['SwapFree'];
     final cpu = data.cpuUsage(_previous[0]);
-    final memoryUsage = total != null && total > 0 && available != null
-        ? (total - available) / total
+    final usedMemory =
+        total != null && total > 0 && available != null && available >= 0
+        ? (total - available).clamp(0, total)
+        : null;
+    final memoryUsage = usedMemory == null ? null : usedMemory / total!;
+    final swapUsage =
+        swap != null && swap > 0 && freeSwap != null && freeSwap >= 0
+        ? ((swap - freeSwap) / swap).clamp(0.0, 1.0)
         : null;
     final cores = data
         .counters('cpu')
         .keys
         .where((key) => RegExp(r'^cpu\d+$').hasMatch(key))
         .toList();
+    final load = data
+        .text('load')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .take(3)
+        .toList();
+    final hasLoad =
+        load.length == 3 &&
+        load.every((value) {
+          final number = double.tryParse(value);
+          return number != null && number.isFinite && number >= 0;
+        });
     final facts = _maintenanceFacts(data);
     if (data.uptime != null) {
       facts['运行时间'] = AppLocalizations.of(context)!.maintenanceDuration(
@@ -1335,111 +1353,12 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           (!mount.startsWith('/System/Volumes/') ||
               mount == '/System/Volumes/Data');
     }).toList();
-    final left = <Widget>[
-      _MaintenanceCard(
-        title: maintenanceLabel(context, '资源使用'),
-        icon: Icons.speed_rounded,
-        child: Column(
-          children: [
-            _MaintenanceUsage(
-              label: 'CPU',
-              icon: Icons.memory_rounded,
-              value: cpu,
-              color: _maintenanceUsageColor(cs, cpu),
-            ),
-            _MaintenanceUsage(
-              label: maintenanceLabel(context, '内存'),
-              icon: Icons.storage_rounded,
-              value: memoryUsage,
-              color: _maintenanceUsageColor(cs, memoryUsage),
-            ),
-            _MaintenanceUsage(
-              label: 'SWAP',
-              icon: Icons.swap_horiz_rounded,
-              value: swap != null && swap > 0 && freeSwap != null
-                  ? (swap - freeSwap) / swap
-                  : null,
-              color: _maintenanceUsageColor(
-                cs,
-                swap != null && swap > 0 && freeSwap != null
-                    ? (swap - freeSwap) / swap
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _MaintenanceFacts(
-              values: {
-                '运行时间': facts['运行时间']!,
-                '负载均衡': data
-                    .text('load')
-                    .split(RegExp(r'\s+'))
-                    .take(3)
-                    .join(' / '),
-                '处理器': data.text('processor'),
-              },
-            ),
-          ],
-        ),
-      ),
-      _MaintenanceCard(
-        title: maintenanceLabel(context, '采样状态'),
-        icon: Icons.sensors_rounded,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _MaintenanceStatus(
-              label: _error != null
-                  ? '数据可能过期'
-                  : data.isComplete
-                  ? '采集成功'
-                  : '采集中',
-              color: _error != null
-                  ? OpenHandStatusColors.error
-                  : data.isComplete
-                  ? OpenHandStatusColors.success
-                  : cs.primary,
-            ),
-            const SizedBox(height: 10),
-            _MaintenanceFacts(
-              values: {
-                '刷新方式': _automatic
-                    ? AppLocalizations.of(
-                        context,
-                      )!.maintenanceAutoInterval('$_intervalSeconds')
-                    : maintenanceLabel(context, '手动刷新'),
-                '趋势样本': '${_cpuHistory.length} / 60',
-                '目标平台': facts['操作系统']!,
-              },
-            ),
-          ],
-        ),
-      ),
-      if (cores.isNotEmpty)
-        _MaintenanceCard(
-          title: maintenanceLabel(context, '每核负载'),
-          icon: Icons.grid_view_rounded,
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final core in cores)
-                _MaintenanceStatus(
-                  label:
-                      '$core · ${data.cpuUsage(_previous[0], core) == null ? '—' : '${(data.cpuUsage(_previous[0], core)! * 100).round()}%'}',
-                  color: _maintenanceUsageColor(
-                    cs,
-                    data.cpuUsage(_previous[0], core),
-                  ),
-                ),
-            ],
-          ),
-        ),
-    ];
-    final center = <Widget>[
+    final panels = <Widget>[
       _MaintenanceCard(
         title: maintenanceLabel(context, '基本信息'),
         icon: Icons.info_outline_rounded,
         onOpen: () => _showCollected('系统原始信息', data.text('system')),
+        scrollBody: false,
         child: _MaintenanceFacts(
           values: {
             '主机名': facts['主机名']!,
@@ -1447,9 +1366,72 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             '系统版本': facts['系统版本']!,
             '内核版本': facts['内核版本']!,
             '逻辑处理器': facts['逻辑处理器']!,
+            '处理器': data.text('processor'),
           },
         ),
       ),
+      _MaintenanceCard(
+        title: maintenanceLabel(context, 'CPU 实时趋势'),
+        icon: Icons.show_chart_rounded,
+        scrollBody: false,
+        child: _MaintenanceAnimatedColumn(
+          children: [
+            if (_cpuHistory.length < 2)
+              _MaintenanceEmptyHint(
+                key: const ValueKey('cpu-trend-empty'),
+                icon: Icons.show_chart_rounded,
+                message: _automatic
+                    ? AppLocalizations.of(context)!.maintenanceAccumulating
+                    : AppLocalizations.of(context)!.maintenanceTrendHelp,
+              )
+            else
+              SizedBox(
+                key: const ValueKey('cpu-trend-data'),
+                height: 160,
+                child: _MaintenanceTrend(points: List.of(_cpuHistory)),
+              ),
+            const SizedBox(height: 12),
+            Tooltip(
+              message: AppLocalizations.of(context)!.maintenanceLoadIntervals,
+              child: _MaintenanceFacts(
+                values: {'系统负载': hasLoad ? load.join(' / ') : '未提供'},
+              ),
+            ),
+          ],
+        ),
+      ),
+      _MaintenanceCard(
+        title: AppLocalizations.of(context)!.maintenanceMemoryShare,
+        icon: Icons.donut_large_rounded,
+        fillWidth: true,
+        scrollBody: false,
+        child: memoryUsage == null
+            ? _MaintenanceEmptyHint(
+                message: maintenanceLabel(context, '暂无可用数据'),
+              )
+            : _MaintenanceVisual(
+                donut: true,
+                centerLabel: formatLocalizedByteSizeOf(context, total!),
+                segments: [
+                  OpenHandChartSegment(
+                    label: AppLocalizations.of(context)!.maintenanceUsed,
+                    value: usedMemory!,
+                    color: cs.primary,
+                    valueLabel: formatLocalizedByteSizeOf(context, usedMemory),
+                  ),
+                  OpenHandChartSegment(
+                    label: AppLocalizations.of(context)!.maintenanceAvailable,
+                    value: available!.clamp(0, total),
+                    color: cs.tertiary,
+                    valueLabel: formatLocalizedByteSizeOf(
+                      context,
+                      available.clamp(0, total),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+
       _MaintenanceCard(
         title: maintenanceLabel(context, '存储空间'),
         icon: Icons.storage_rounded,
@@ -1508,7 +1490,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           _MaintenanceValue(
                             value:
-                                '${formatByteSize(int.parse(v[2]) * 1024)} / ${formatByteSize(int.parse(v[1]) * 1024)}',
+                                '${formatLocalizedByteSizeOf(context, int.parse(v[2]) * 1024)} / ${formatLocalizedByteSizeOf(context, int.parse(v[1]) * 1024)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant,
@@ -1533,54 +1515,59 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           const [1, 1],
         ),
       ),
-    ];
-    final right = <Widget>[
-      if (total != null && total > 0 && available != null)
-        _MaintenanceCard(
-          title: AppLocalizations.of(context)!.maintenanceMemoryShare,
-          icon: Icons.donut_large_rounded,
-          child: _MaintenanceVisual(
-            donut: true,
-            centerLabel: formatByteSize(total),
-            segments: [
-              OpenHandChartSegment(
-                label: AppLocalizations.of(context)!.maintenanceUsed,
-                value: (total - available).clamp(0, total),
-                color: cs.primary,
-                valueLabel: formatByteSize((total - available).clamp(0, total)),
-              ),
-              OpenHandChartSegment(
-                label: AppLocalizations.of(context)!.maintenanceAvailable,
-                value: available.clamp(0, total),
-                color: cs.tertiary,
-                valueLabel: formatByteSize(available.clamp(0, total)),
-              ),
-            ],
-          ),
-        ),
-
       _MaintenanceCard(
-        title: maintenanceLabel(context, 'CPU 实时趋势'),
-        icon: Icons.show_chart_rounded,
-        child: _MaintenanceAnimatedColumn(
+        title: maintenanceLabel(context, '采样状态'),
+        icon: Icons.sensors_rounded,
+        scrollBody: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_cpuHistory.length < 2)
-              _MaintenanceEmptyHint(
-                key: const ValueKey('cpu-trend-empty'),
-                icon: Icons.show_chart_rounded,
-                message: _automatic
-                    ? AppLocalizations.of(context)!.maintenanceAccumulating
-                    : AppLocalizations.of(context)!.maintenanceTrendHelp,
-              )
-            else
-              SizedBox(
-                key: const ValueKey('cpu-trend-data'),
-                height: 190,
-                child: _MaintenanceTrend(points: List.of(_cpuHistory)),
-              ),
+            _MaintenanceStatus(
+              label: _error != null
+                  ? '数据可能过期'
+                  : data.isComplete
+                  ? '采集成功'
+                  : '采集中',
+              color: _error != null
+                  ? OpenHandStatusColors.error
+                  : data.isComplete
+                  ? OpenHandStatusColors.success
+                  : cs.primary,
+            ),
+            const SizedBox(height: 10),
+            _MaintenanceFacts(
+              values: {
+                '刷新方式': _automatic
+                    ? AppLocalizations.of(
+                        context,
+                      )!.maintenanceAutoInterval('$_intervalSeconds')
+                    : maintenanceLabel(context, '手动刷新'),
+                '趋势样本': '${_cpuHistory.length} / 60',
+              },
+            ),
           ],
         ),
       ),
+      if (cores.isNotEmpty)
+        _MaintenanceCard(
+          title: maintenanceLabel(context, '每核负载'),
+          icon: Icons.grid_view_rounded,
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final core in cores)
+                _MaintenanceStatus(
+                  label:
+                      '${AppLocalizations.of(context)!.maintenanceCoreLabel(core.substring(3))} · ${data.cpuUsage(_previous[0], core) == null ? '—' : '${(data.cpuUsage(_previous[0], core)! * 100).round()}%'}',
+                  color: _maintenanceUsageColor(
+                    cs,
+                    data.cpuUsage(_previous[0], core),
+                  ),
+                ),
+            ],
+          ),
+        ),
       _MaintenanceCard(
         title: maintenanceLabel(context, '资源提醒'),
         icon: Icons.notifications_none_rounded,
@@ -1640,13 +1627,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           key: const ValueKey('maintenance-overview-summary'),
           minWidth: 200,
           maxColumns: 4,
+          balanceColumns: true,
           children: [
             _metric(
               'CPU 使用率',
               cpu == null ? '—' : '${(cpu * 100).toStringAsFixed(1)}%',
-              AppLocalizations.of(
-                context,
-              )!.maintenanceCpuCount(facts['逻辑处理器']!),
+              (int.tryParse(facts['逻辑处理器']!) ?? 0) > 0
+                  ? AppLocalizations.of(
+                      context,
+                    )!.maintenanceCpuCount(facts['逻辑处理器']!)
+                  : maintenanceLabel(context, '未提供'),
               Icons.memory_rounded,
               _maintenanceUsageColor(cs, cpu),
               cpu,
@@ -1656,33 +1646,31 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               memoryUsage == null
                   ? '—'
                   : '${(memoryUsage * 100).toStringAsFixed(0)}%',
-              total == null || available == null
+              usedMemory == null
                   ? '暂无数据'
-                  : '${formatByteSize(total - available)} / ${formatByteSize(total)}',
+                  : '${formatLocalizedByteSizeOf(context, usedMemory)} / ${formatLocalizedByteSizeOf(context, total!)}',
               Icons.storage_rounded,
               _maintenanceUsageColor(cs, memoryUsage),
               memoryUsage,
             ),
             _metric(
               'SWAP 使用量',
-              swap == null || freeSwap == null
+              swap == null || swap < 0 || freeSwap == null || freeSwap < 0
                   ? '—'
-                  : formatByteSize(swap - freeSwap),
+                  : formatLocalizedByteSizeOf(
+                      context,
+                      (swap - freeSwap).clamp(0, swap),
+                    ),
               swap == 0
                   ? '未配置交换空间'
                   : AppLocalizations.of(context)!.maintenanceTotal(
-                      swap == null ? '—' : formatByteSize(swap),
+                      swap == null || swap < 0
+                          ? '—'
+                          : formatLocalizedByteSizeOf(context, swap),
                     ),
               Icons.swap_horiz_rounded,
-              _maintenanceUsageColor(
-                cs,
-                swap != null && swap > 0 && freeSwap != null
-                    ? (swap - freeSwap) / swap
-                    : null,
-              ),
-              swap != null && swap > 0 && freeSwap != null
-                  ? (swap - freeSwap) / swap
-                  : null,
+              _maintenanceUsageColor(cs, swapUsage),
+              swapUsage,
             ),
             _metric(
               '运行时间',
@@ -1698,18 +1686,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         _MaintenanceGrid(
           key: const ValueKey('maintenance-overview-resources'),
           minWidth: 300,
-          children: [
-            for (
-              var row = 0;
-              row <
-                  math.max(center.length, math.max(left.length, right.length));
-              row++
-            ) ...[
-              if (row < left.length) left[row],
-              if (row < center.length) center[row],
-              if (row < right.length) right[row],
-            ],
-          ],
+          children: panels,
         ),
         const SizedBox(height: _maintenanceGridGap),
         _MaintenanceCard(
@@ -1792,15 +1769,21 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    maintenanceLabel(context, title),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
+                  Tooltip(
+                    message: maintenanceLabel(context, title),
+                    child: Text(
+                      maintenanceLabel(context, title),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 5),
                   _MaintenanceNumber(
                     raw: value,
+                    padding: EdgeInsets.zero,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       fontSize: 20,
@@ -1808,14 +1791,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 5),
-                    _MaintenanceValue(
-                      value: maintenanceLabel(context, subtitle),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+                    Tooltip(
+                      message: maintenanceLabel(context, subtitle),
+                      child: _MaintenanceValue(
+                        value: maintenanceLabel(context, subtitle),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
-                  if (progress != null) const SizedBox(height: 7),
+                  const SizedBox(height: 7),
                   if (progress != null)
                     TweenAnimationBuilder<double>(
                       tween: Tween<double>(
@@ -3844,14 +3830,19 @@ Map<String, String> _maintenanceFacts(MachineMaintenanceSnapshot data) {
       : platform == 'Windows'
       ? field('Caption')
       : field('PRETTY_NAME');
+  final coreCount =
+      int.tryParse(data.text('core_count')) ??
+      data
+          .counters('cpu')
+          .keys
+          .where((key) => RegExp(r'^cpu\d+$').hasMatch(key))
+          .length;
   return {
     '主机名': data.text('host'),
     '操作系统': name,
     '系统版本': version.isEmpty ? '未提供' : version,
     '内核版本': kernel == null || kernel.isEmpty ? '未提供' : kernel,
-    '逻辑处理器': data.text('core_count').isEmpty
-        ? '${data.counters('cpu').keys.where((key) => RegExp(r'^cpu\d+$').hasMatch(key)).length}'
-        : data.text('core_count'),
+    '逻辑处理器': coreCount > 0 ? '$coreCount' : '未提供',
     '运行时间': data.uptime == null
         ? '—'
         : '${(data.uptime! / 86400).floor()} 天 ${(data.uptime! / 3600).floor() % 24} 小时',
@@ -4870,16 +4861,55 @@ class _MaintenanceFacts extends StatelessWidget {
   final Map<String, String> values;
   @override
   Widget build(BuildContext context) {
-    return _MaintenanceFields(
-      fieldKeys: values.keys.toList(),
-      rows: [
+    final theme = Theme.of(context);
+    final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
+    return _MaintenanceGrid(
+      minWidth: 380,
+      maxColumns: 2,
+      children: [
         for (final entry in values.entries)
-          [
-            maintenanceLabel(context, entry.key),
-            entry.value.isEmpty || entry.value == '未提供'
-                ? maintenanceLabel(context, '未提供')
-                : entry.value,
-          ],
+          LayoutBuilder(
+            key: ValueKey(entry.key),
+            builder: (context, bounds) {
+              final label = Text(
+                maintenanceLabel(context, entry.key),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              );
+              final value = _MaintenanceValue(
+                value: entry.value.isEmpty || entry.value == '未提供'
+                    ? maintenanceLabel(context, '未提供')
+                    : entry.value,
+                selectable: true,
+                maxLines: null,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: bounds.maxWidth < 260 * scale
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 4,
+                        children: [label, value],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: math.min(bounds.maxWidth * .34, 140 * scale),
+                            child: label,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: value),
+                        ],
+                      ),
+              );
+            },
+          ),
       ],
     );
   }
@@ -4937,6 +4967,7 @@ class _MaintenanceNumber extends StatefulWidget {
     this.readable,
     this.style,
     this.maxLines = 1,
+    this.padding = const EdgeInsets.symmetric(vertical: 4),
   });
   final String raw;
   final String unit;
@@ -4944,6 +4975,7 @@ class _MaintenanceNumber extends StatefulWidget {
   final String? readable;
   final TextStyle? style;
   final int maxLines;
+  final EdgeInsetsGeometry padding;
   @override
   State<_MaintenanceNumber> createState() => _MaintenanceNumberState();
 }
@@ -5029,10 +5061,7 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
           overlayColor: _maintenanceNoOverlay,
           borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() => _exact = !_exact),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: value,
-          ),
+          child: Padding(padding: widget.padding, child: value),
         ),
       ),
     );
@@ -5314,10 +5343,12 @@ class _MaintenanceGrid extends StatelessWidget {
     required this.children,
     this.minWidth = 360,
     this.maxColumns = 3,
+    this.balanceColumns = false,
   });
   final List<Widget> children;
   final double minWidth;
   final int maxColumns;
+  final bool balanceColumns;
   @override
   Widget build(BuildContext context) {
     context.watch<SettingsController?>();
@@ -5329,12 +5360,15 @@ class _MaintenanceGrid extends StatelessWidget {
       builder: (_, constraints) {
         final keyed = _maintenanceMotionChildren(children, mergeSpacing: false);
         final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-        final columns =
+        final capacity =
             ((constraints.maxWidth + _maintenanceGridGap) /
                     (minWidth * scale + _maintenanceGridGap))
                 .floor()
                 .clamp(1, math.max(1, math.min(maxColumns, children.length)))
                 .toInt();
+        final columns = balanceColumns && children.isNotEmpty
+            ? (children.length / (children.length / capacity).ceil()).ceil()
+            : capacity;
         final tiles = <Widget>[];
         for (var start = 0; start < children.length; start += columns) {
           // 末行按实际卡片数分配宽度，不留下整列空位。
@@ -6443,6 +6477,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.trailing,
     this.wrapHeader = false,
     this.accent,
+    this.fillWidth = false,
   });
   final String title;
   final Widget child;
@@ -6454,9 +6489,10 @@ class _MaintenanceCard extends StatelessWidget {
   final Widget? trailing;
   final bool wrapHeader;
   final Color? accent;
+  final bool fillWidth;
 
   double preferredWidth(BuildContext context) {
-    if (child is! _MaintenanceVisual) return double.infinity;
+    if (fillWidth || child is! _MaintenanceVisual) return double.infinity;
     final visual = child as _MaintenanceVisual;
     if (!visual.donut) return double.infinity;
     if (trailing != null) return _maintenanceDistributionMaxWidth;
