@@ -9596,5 +9596,12 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceHealthPartial": "一部の指標を取得できませんでした。取得済みのデータを表示しています。",
+  "maintenanceHealthUnsynchronized": "時計は未同期です",
+  "maintenanceHealthSyncStatus": "現在の同期状態",
+  "maintenanceHealthMeasurementNotes": "測定の詳細",
+  "maintenanceHealthNativeTimedLimit": "システムの timed サービスでは、選択中の同期元と時計のオフセットを取得できません。",
+  "maintenanceHealthConfiguredOnly": "設定情報のみ取得できました。選択中の同期元、オフセット、同期状態は不明です。",
+  "maintenanceHealthSntpNotes": "設定済みの同期元を最大 3 件測定します。時計は変更しません。SNTP の結果は、システムが選択中の同期元を示すものではありません。"
 }

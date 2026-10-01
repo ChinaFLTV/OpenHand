@@ -27610,6 +27610,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'超时 {value} 小时'**
   String maintenanceTimeoutHours(String value);
+
+  /// No description provided for @maintenanceHealthPartial.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分指标不可用，已保留成功采集的数据'**
+  String get maintenanceHealthPartial;
+
+  /// No description provided for @maintenanceHealthUnsynchronized.
+  ///
+  /// In zh, this message translates to:
+  /// **'时钟尚未同步'**
+  String get maintenanceHealthUnsynchronized;
+
+  /// No description provided for @maintenanceHealthSyncStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'实时同步状态'**
+  String get maintenanceHealthSyncStatus;
+
+  /// No description provided for @maintenanceHealthMeasurementNotes.
+  ///
+  /// In zh, this message translates to:
+  /// **'测量说明'**
+  String get maintenanceHealthMeasurementNotes;
+
+  /// No description provided for @maintenanceHealthNativeTimedLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统 timed 服务不提供当前选中源和偏移查询接口'**
+  String get maintenanceHealthNativeTimedLimit;
+
+  /// No description provided for @maintenanceHealthConfiguredOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅有配置，无法确定当前选中源、偏移或同步状态'**
+  String get maintenanceHealthConfiguredOnly;
+
+  /// No description provided for @maintenanceHealthSntpNotes.
+  ///
+  /// In zh, this message translates to:
+  /// **'最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟'**
+  String get maintenanceHealthSntpNotes;
 }
 
 class _AppLocalizationsDelegate

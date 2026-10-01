@@ -1737,6 +1737,8 @@ String maintenanceGpuSourceLabel(BuildContext context, String source) {
 String maintenanceHealthLabel(BuildContext context, String field) {
   final l = AppLocalizations.of(context)!;
   return switch (field) {
+    '实时同步状态' => l.maintenanceHealthSyncStatus,
+    '测量说明' => l.maintenanceHealthMeasurementNotes,
     'GID' || 'ID' || 'UTC' || 'PID' => field,
     'Name' => maintenanceLabel(context, '名称'),
 
@@ -1908,6 +1910,9 @@ String maintenanceHealthValue(BuildContext context, String value) {
   ).firstMatch(trimmed);
   if (logout != null) return l.maintenanceExited;
   return switch (trimmed) {
+    '原生 timed 不提供当前选中源及偏移查询接口' => l.maintenanceHealthNativeTimedLimit,
+    '仅有配置，无法确定当前选中源、偏移或同步状态' => l.maintenanceHealthConfiguredOnly,
+    '最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟' => l.maintenanceHealthSntpNotes,
     'Darwin' || 'darwin' => l.maintenanceMacos,
     'P' || 'PS' => l.maintenanceHealthParsedPasswordSet,
     'L' || 'LK' => l.maintenanceHealthParsedPasswordLocked,

@@ -283,7 +283,8 @@ class MachineTimeReport {
             '源',
           ].contains(r[0]),
         ) &&
-        fields.any((r) => r[0] == 'configured')) {
+        fields.any((r) => r[0] == 'configured') &&
+        !fields.any((r) => r[0] == '实时同步状态')) {
       fields.add(['实时同步状态', '仅有配置，无法确定当前选中源、偏移或同步状态']);
       partial = true;
     }

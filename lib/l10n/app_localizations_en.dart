@@ -15267,4 +15267,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String maintenanceTimeoutHours(String value) {
     return 'Timeout $value h';
   }
+
+  @override
+  String get maintenanceHealthPartial =>
+      'Some metrics are unavailable; collected data is retained.';
+
+  @override
+  String get maintenanceHealthUnsynchronized => 'Clock is not synchronized';
+
+  @override
+  String get maintenanceHealthSyncStatus => 'Live synchronization status';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => 'Measurement details';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit =>
+      'The system timed service does not expose the selected source or clock offset.';
+
+  @override
+  String get maintenanceHealthConfiguredOnly =>
+      'Only configuration is available; the selected source, offset and synchronization state are unknown.';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      'Measures up to 3 configured sources without changing the clock. SNTP results do not identify the system’s selected source.';
 }

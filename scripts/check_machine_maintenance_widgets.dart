@@ -1508,6 +1508,53 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('NTP 部分可用时展示紧凑状态，说明折叠且适配六种语言和窄屏', (tester) async {
+    const raw = 'configured: /etc/ntp.conf\\nNetwork Time Server: time.apple.com\\n实时同步状态: 原生 timed 不提供当前选中源及偏移查询接口\\n测量说明: 最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟';
+    final report = MachineHealthReport.parse('ntp', raw, '0');
+    expect(report.issue, 'partial');
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final width in [360.0, 1200.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 1100));
+        final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        final l = lookupAppLocalizations(locale);
+        await tester.pumpWidget(MaterialApp(locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+          theme: Platform.environment['MAINTENANCE_FONT'] == null ? theme : theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: '运维预览字体')),
+          home: Scaffold(body: SingleChildScrollView(child: RepaintBoundary(key: const ValueKey('NTP布局预览'),
+            child: _MaintenanceCard(title: l.maintenanceHealthNtp, scrollBody: false,
+              icon: Icons.access_time_filled, accent: OpenHandStatusColors.warning,
+              trailing: const _MaintenanceStatus(label: '待检查', color: OpenHandStatusColors.warning),
+              child: _MaintenanceHealthContent(report: report, raw: raw)))))));
+        await tester.pumpAndSettle();
+        expect(find.byType(_MaintenanceEmptyHint), findsNothing);
+        expect(find.text('/etc/ntp.conf'), findsOneWidget);
+        expect(find.text('time.apple.com'), findsOneWidget);
+        expect(tester.widget<_MaintenanceFields>(find.byType(_MaintenanceFields)).rows.length, 2);
+        expect(find.text(l.maintenanceHealthNativeTimedLimit), findsNothing);
+        final statusRect = tester.getRect(find.text(l.maintenanceHealthPartial));
+        final fieldsRect = tester.getRect(find.byType(_MaintenanceFields));
+        expect(fieldsRect.top - statusRect.bottom, lessThan(32));
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale.toString() == 'zh') {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('NTP布局预览')));
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/maintenance-ntp-\${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        await tester.tap(find.byType(ExpansionTile)); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceHealthSyncStatus), findsOneWidget);
+        expect(find.text(l.maintenanceHealthNativeTimedLimit), findsOneWidget);
+        expect(find.text(l.maintenanceHealthSntpNotes), findsOneWidget);
+        expect(find.text('部分输出格式尚未识别，请检查采集工具版本和数据范围'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('共用分页器按实际宽度换行，适配页数、语言和字体', (tester) async {
     for (final locale in ['zh', 'en', 'de']) {
       for (final scale in [1.0, 1.5]) {

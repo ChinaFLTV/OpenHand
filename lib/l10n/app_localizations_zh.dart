@@ -14780,6 +14780,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String maintenanceTimeoutHours(String value) {
     return '超时 $value 小时';
   }
+
+  @override
+  String get maintenanceHealthPartial => '部分指标不可用，已保留成功采集的数据';
+
+  @override
+  String get maintenanceHealthUnsynchronized => '时钟尚未同步';
+
+  @override
+  String get maintenanceHealthSyncStatus => '实时同步状态';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => '测量说明';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit => '系统 timed 服务不提供当前选中源和偏移查询接口';
+
+  @override
+  String get maintenanceHealthConfiguredOnly => '仅有配置，无法确定当前选中源、偏移或同步状态';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      '最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29540,4 +29562,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String maintenanceTimeoutHours(String value) {
     return '逾時 $value 小時';
   }
+
+  @override
+  String get maintenanceHealthPartial => '部分指標不可用，已保留成功採集的資料';
+
+  @override
+  String get maintenanceHealthUnsynchronized => '時鐘尚未同步';
+
+  @override
+  String get maintenanceHealthSyncStatus => '即時同步狀態';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => '量測說明';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit => '系統 timed 服務不提供目前選用來源和偏移查詢介面';
+
+  @override
+  String get maintenanceHealthConfiguredOnly => '僅有設定，無法確定目前選用來源、偏移或同步狀態';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      '最多量測 3 個設定來源；唯讀 SNTP 結果不代表系統目前選用來源，也不會修改時鐘';
 }

@@ -10675,5 +10675,12 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceHealthPartial": "部分指标不可用，已保留成功采集的数据",
+  "maintenanceHealthUnsynchronized": "时钟尚未同步",
+  "maintenanceHealthSyncStatus": "实时同步状态",
+  "maintenanceHealthMeasurementNotes": "测量说明",
+  "maintenanceHealthNativeTimedLimit": "系统 timed 服务不提供当前选中源和偏移查询接口",
+  "maintenanceHealthConfiguredOnly": "仅有配置，无法确定当前选中源、偏移或同步状态",
+  "maintenanceHealthSntpNotes": "最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟"
 }

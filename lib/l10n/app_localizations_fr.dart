@@ -15490,4 +15490,30 @@ class AppLocalizationsFr extends AppLocalizations {
   String maintenanceTimeoutHours(String value) {
     return 'Délai $value h';
   }
+
+  @override
+  String get maintenanceHealthPartial =>
+      'Certaines mesures sont indisponibles ; les données recueillies sont conservées.';
+
+  @override
+  String get maintenanceHealthUnsynchronized =>
+      'L’horloge n’est pas synchronisée';
+
+  @override
+  String get maintenanceHealthSyncStatus => 'État de synchronisation actuel';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => 'Détails des mesures';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit =>
+      'Le service système timed ne fournit ni la source sélectionnée ni le décalage de l’horloge.';
+
+  @override
+  String get maintenanceHealthConfiguredOnly =>
+      'Seule la configuration est disponible ; la source sélectionnée, le décalage et l’état de synchronisation sont inconnus.';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      'Mesure jusqu’à 3 sources configurées sans modifier l’horloge. Les résultats SNTP n’indiquent pas la source sélectionnée par le système.';
 }

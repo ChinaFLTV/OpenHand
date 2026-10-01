@@ -5512,8 +5512,8 @@ class _MaintenanceHealthContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final issue = switch (report.issue) {
-      'unsynchronized' => '时钟尚未同步',
-      'partial' => '部分指标不可用，已保留成功采集的数据',
+      'unsynchronized' => l.maintenanceHealthUnsynchronized,
+      'partial' => l.maintenanceHealthPartial,
       'unsupported' => l.maintenanceHealthUnsupported,
       'empty' => maintenanceLabel(context, '暂无数据'),
       'pending' => maintenanceHealthLabel(context, 'pending'),
@@ -5524,17 +5524,51 @@ class _MaintenanceHealthContent extends StatelessWidget {
       null => '',
       _ => l.maintenanceHealthUnavailable,
     };
+    final fields = <List<String>>[];
+    final notes = <List<String>>[];
+    for (final row in report.data.rows) {
+      if (report.data.fields && const {'实时同步状态', '测量说明'}.contains(row[0])) {
+        notes.add(row);
+      } else {
+        fields.add(row);
+      }
+    }
+    final hasData = fields.isNotEmpty || report.tables.isNotEmpty;
+    final tone = const {'partial', 'pending', 'empty'}.contains(report.issue)
+        ? OpenHandStatusColors.warning
+        : Theme.of(context).colorScheme.error;
     return _MaintenanceAnimatedColumn(
       spacing: _maintenanceGridGap,
       children: [
-        if (issue.isNotEmpty)
+        if (issue.isNotEmpty && hasData)
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: .07),
+              borderRadius: kOpenHandBorderRadius10,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 18, color: tone),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MaintenanceValue(
+                    value: issue,
+                    maxLines: null,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (issue.isNotEmpty)
           _MaintenanceEmptyHint(message: issue)
         else if (report.data.rows.isEmpty && report.tables.isEmpty)
           _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据')),
-        if (report.data.rows.isNotEmpty && report.data.fields)
+        if (fields.isNotEmpty && report.data.fields)
           _MaintenanceFields(
             rows: [
-              for (final row in report.data.rows)
+              for (final row in fields)
                 [
                   maintenanceHealthLabel(context, row[0]),
                   maintenanceHealthValue(context, row[1]),
@@ -5616,12 +5650,39 @@ class _MaintenanceHealthContent extends StatelessWidget {
               ),
             ],
           ),
-        if (raw.isNotEmpty && (report.issue != null || report.unparsed > 0))
+        if (notes.isNotEmpty ||
+            (raw.isNotEmpty && (report.issue != null || report.unparsed > 0)))
           _MaintenanceSection(
             title: maintenanceHealthLabel(context, 'diagnostic'),
             icon: Icons.fact_check_outlined,
-            child: _MaintenanceFields(
-              rows: machineMaintenanceDiagnosticFields(raw),
+            child: _MaintenanceAnimatedColumn(
+              spacing: _maintenanceGridGap,
+              children: [
+                for (final note in notes)
+                  Column(
+                    key: ValueKey(note[0]),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        maintenanceHealthLabel(context, note[0]),
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      _MaintenanceValue(
+                        value: maintenanceHealthValue(context, note[1]),
+                        maxLines: null,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                if (raw.isNotEmpty &&
+                    (notes.isEmpty ||
+                        report.unparsed > 0 ||
+                        raw.contains('@@OH_RESULT:')))
+                  _MaintenanceFields(
+                    rows: machineMaintenanceDiagnosticFields(raw),
+                  ),
+              ],
             ),
           ),
       ],

@@ -15439,4 +15439,29 @@ class AppLocalizationsDe extends AppLocalizations {
   String maintenanceTimeoutHours(String value) {
     return 'Zeitlimit $value h';
   }
+
+  @override
+  String get maintenanceHealthPartial =>
+      'Einige Messwerte fehlen; erfasste Daten bleiben erhalten.';
+
+  @override
+  String get maintenanceHealthUnsynchronized => 'Uhr ist nicht synchronisiert';
+
+  @override
+  String get maintenanceHealthSyncStatus => 'Aktueller Synchronisierungsstatus';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => 'Messdetails';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit =>
+      'Der Systemdienst timed stellt die ausgewählte Quelle und Zeitabweichung nicht bereit.';
+
+  @override
+  String get maintenanceHealthConfiguredOnly =>
+      'Nur die Konfiguration ist verfügbar; ausgewählte Quelle, Zeitabweichung und Synchronisierungsstatus sind unbekannt.';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      'Misst bis zu 3 konfigurierte Quellen, ohne die Uhr zu ändern. SNTP-Ergebnisse zeigen nicht die vom System ausgewählte Quelle.';
 }

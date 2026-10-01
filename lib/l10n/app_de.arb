@@ -9596,5 +9596,12 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceHealthPartial": "Einige Messwerte fehlen; erfasste Daten bleiben erhalten.",
+  "maintenanceHealthUnsynchronized": "Uhr ist nicht synchronisiert",
+  "maintenanceHealthSyncStatus": "Aktueller Synchronisierungsstatus",
+  "maintenanceHealthMeasurementNotes": "Messdetails",
+  "maintenanceHealthNativeTimedLimit": "Der Systemdienst timed stellt die ausgewählte Quelle und Zeitabweichung nicht bereit.",
+  "maintenanceHealthConfiguredOnly": "Nur die Konfiguration ist verfügbar; ausgewählte Quelle, Zeitabweichung und Synchronisierungsstatus sind unbekannt.",
+  "maintenanceHealthSntpNotes": "Misst bis zu 3 konfigurierte Quellen, ohne die Uhr zu ändern. SNTP-Ergebnisse zeigen nicht die vom System ausgewählte Quelle."
 }

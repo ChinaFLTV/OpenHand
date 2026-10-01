@@ -9596,5 +9596,12 @@
         "type": "String"
       }
     }
-  }
+  },
+  "maintenanceHealthPartial": "Certaines mesures sont indisponibles ; les données recueillies sont conservées.",
+  "maintenanceHealthUnsynchronized": "L’horloge n’est pas synchronisée",
+  "maintenanceHealthSyncStatus": "État de synchronisation actuel",
+  "maintenanceHealthMeasurementNotes": "Détails des mesures",
+  "maintenanceHealthNativeTimedLimit": "Le service système timed ne fournit ni la source sélectionnée ni le décalage de l’horloge.",
+  "maintenanceHealthConfiguredOnly": "Seule la configuration est disponible ; la source sélectionnée, le décalage et l’état de synchronisation sont inconnus.",
+  "maintenanceHealthSntpNotes": "Mesure jusqu’à 3 sources configurées sans modifier l’horloge. Les résultats SNTP n’indiquent pas la source sélectionnée par le système."
 }

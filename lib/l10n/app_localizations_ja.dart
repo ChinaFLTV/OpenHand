@@ -14916,4 +14916,28 @@ class AppLocalizationsJa extends AppLocalizations {
   String maintenanceTimeoutHours(String value) {
     return 'タイムアウト $value 時間';
   }
+
+  @override
+  String get maintenanceHealthPartial => '一部の指標を取得できませんでした。取得済みのデータを表示しています。';
+
+  @override
+  String get maintenanceHealthUnsynchronized => '時計は未同期です';
+
+  @override
+  String get maintenanceHealthSyncStatus => '現在の同期状態';
+
+  @override
+  String get maintenanceHealthMeasurementNotes => '測定の詳細';
+
+  @override
+  String get maintenanceHealthNativeTimedLimit =>
+      'システムの timed サービスでは、選択中の同期元と時計のオフセットを取得できません。';
+
+  @override
+  String get maintenanceHealthConfiguredOnly =>
+      '設定情報のみ取得できました。選択中の同期元、オフセット、同期状態は不明です。';
+
+  @override
+  String get maintenanceHealthSntpNotes =>
+      '設定済みの同期元を最大 3 件測定します。時計は変更しません。SNTP の結果は、システムが選択中の同期元を示すものではありません。';
 }
