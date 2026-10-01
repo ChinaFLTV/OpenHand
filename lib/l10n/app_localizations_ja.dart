@@ -14940,4 +14940,8 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceHealthSntpNotes =>
       '設定済みの同期元を最大 3 件測定します。時計は変更しません。SNTP の結果は、システムが選択中の同期元を示すものではありません。';
+
+  @override
+  String get maintenanceServiceMetricsUnavailable =>
+      '一部のサービスプロセスの指標を取得できませんでした。更新して再試行してください。';
 }

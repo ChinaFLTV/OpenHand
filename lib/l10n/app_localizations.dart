@@ -27652,6 +27652,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟'**
   String get maintenanceHealthSntpNotes;
+
+  /// No description provided for @maintenanceServiceMetricsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分服务进程指标未能采集，请刷新重试。'**
+  String get maintenanceServiceMetricsUnavailable;
 }
 
 class _AppLocalizationsDelegate

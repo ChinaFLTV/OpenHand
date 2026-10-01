@@ -2561,11 +2561,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         serviceMetrics[name] = values;
       }
     }
-    final processMetrics = <String, List<String>>{
-      for (final line in data.text('service_processes').split('\n'))
-        if (line.split('\t').length >= 7)
-          line.split('\t').first: line.split('\t'),
-    };
+    final processMetrics = <int, List<String>>{};
+    for (final line in data.text('service_processes').split('\n')) {
+      final fields = line.split('\t');
+      final pid = int.tryParse(fields.first);
+      if (pid != null && pid > 0 && fields.length >= 7) {
+        processMetrics[pid] = fields;
+      }
+    }
     final serviceHeaders = switch (manager) {
       'systemd' => const [
         '名称',
@@ -2659,21 +2662,20 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ];
       }
       if (manager == 'launchd') {
+        final pid = fields.length > 1 ? int.tryParse(fields[1]) : null;
+        final metrics = processMetrics[pid];
+        final memory = metrics == null ? null : int.tryParse(metrics[3]);
         return [
           name,
           status,
           fields.length > 1 ? fields[1] : '—',
           fields.length > 2 ? fields[2] : '—',
-          for (var i = 1; i < 7; i++)
-            if (processMetrics[fields.length > 1 ? fields[1] : '']
-                case final values?)
-              i == 3
-                  ? formatByteSize((int.tryParse(values[i]) ?? 0) * 1024)
-                  : i == 2
-                  ? '${values[i]}%'
-                  : values[i]
-            else
-              '—',
+          metrics?[1] ?? '—',
+          metrics == null ? '—' : '${metrics[2]}%',
+          memory == null || memory < 0 ? '—' : formatByteSize(memory * 1024),
+          metrics?[4] ?? '—',
+          metrics?[5] ?? '—',
+          metrics?[6] ?? '—',
         ];
       }
       if (manager == 'Windows SCM') {
@@ -2692,7 +2694,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     String state(String line) {
       final fields = line.trim().split(RegExp(r'\s+'));
       if (manager == 'launchd') {
-        return fields.length > 1 && int.tryParse(fields[1]) != null
+        return fields.length > 1 && (int.tryParse(fields[1]) ?? 0) > 0
             ? '运行中'
             : '未运行';
       }
@@ -2777,6 +2779,17 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           ],
         ),
 
+        if (const {
+          'failed',
+          'partial',
+        }.contains(data.text('service_processes_status'))) ...[
+          const SizedBox(height: _maintenanceGridGap),
+          _MaintenanceNotice(
+            message: AppLocalizations.of(
+              context,
+            )!.maintenanceServiceMetricsUnavailable,
+          ),
+        ],
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {

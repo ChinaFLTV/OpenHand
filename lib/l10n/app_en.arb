@@ -9608,5 +9608,6 @@
   "maintenanceHealthMeasurementNotes": "Measurement details",
   "maintenanceHealthNativeTimedLimit": "The system timed service does not expose the selected source or clock offset.",
   "maintenanceHealthConfiguredOnly": "Only configuration is available; the selected source, offset and synchronization state are unknown.",
-  "maintenanceHealthSntpNotes": "Measures up to 3 configured sources without changing the clock. SNTP results do not identify the system’s selected source."
+  "maintenanceHealthSntpNotes": "Measures up to 3 configured sources without changing the clock. SNTP results do not identify the system’s selected source.",
+  "maintenanceServiceMetricsUnavailable": "Some service process metrics could not be collected. Refresh to try again."
 }

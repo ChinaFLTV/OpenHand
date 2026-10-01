@@ -108,9 +108,28 @@ class _MacMaintenanceAdapter extends MachineMaintenancePlatformAdapter {
 section manager
 printf 'launchd\n'
 section services
-launchctl list | awk 'NR>1 {printf "%s\t%s\t%s\n",$3,$1,$2}' | head -c 50000
+if oh_services=$(launchctl list 2>&1); then
+  printf '%s\n' "$oh_services" | awk 'NR>1 && NF>=3 {printf "%s\t%s\t%s\n",$3,$1,$2}' | head -c 50000
+else
+  printf '%s\n' "$oh_services" >&2
+  exit 1
+fi
 section service_processes
-ps -axo pid=,user=,%cpu=,rss=,etime=,time=,comm= | awk '{printf "%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6;for(i=7;i<=NF;i++)printf "%s%s",i>7?" ":"",$i;printf "\n"}' | head -c 160000
+oh_pids=$(printf '%s\n' "$oh_services" | awk 'NR>1 && $1~/^[0-9]+$/ && $1>0 && !seen[$1]++ {printf "%s%s",sep,$1;sep=","}')
+if [ -n "$oh_pids" ]; then
+  ps -ww -p "$oh_pids" -o pid=,user=,%cpu=,rss=,etime=,time=,command= | awk '
+  NF>=7 && $1~/^[0-9]+$/ {
+    row=sprintf("%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6)
+    for(i=7;i<=NF;i++)row=row (i>7?" ":"") $i
+    if(size+length(row)+1>160000){truncated=1;next}
+    print row;size+=length(row)+1;count++
+  }
+  END {printf "\n__OH_OPS_service_processes_status__\n%s\n",(count?(truncated?"partial":"ok"):"failed")}'
+  if [ "$?" -ne 0 ]; then section service_processes_status; printf 'failed\n'; fi
+else
+  section service_processes_status
+  printf 'ok\n'
+fi
 section startup
 for d in /Library/LaunchDaemons /Library/LaunchAgents "$HOME/Library/LaunchAgents"; do
   [ -d "$d" ] || continue
@@ -297,7 +316,7 @@ done
 if [ -z "$info" ]; then launchctl list "$name" 2>&1; fi
 section process
 pid=$(printf '%s\n' "$info" | awk '$1=="pid" && $2=="=" {print $3;exit}')
-case "$pid" in ''|*[!0-9]*) ;; *) ps -p "$pid" -o pid=,ppid=,user=,%cpu=,rss=,vsz=,etime=,time=,command= | awk '{printf "PID = %s\nPPID = %s\nUser = %s\nCPU = %s %%\nRSS = %s KiB\nVSZ = %s KiB\nElapsed = %s\nCPUTime = %s\nCommand = ",$1,$2,$3,$4,$5,$6,$7,$8;for(i=9;i<=NF;i++)printf "%s%s",i>9?" ":"",$i;printf "\n"}' | head -c 16000 ;; esac
+case "$pid" in ''|*[!0-9]*) ;; *) ps -ww -p "$pid" -o pid=,ppid=,user=,%cpu=,rss=,vsz=,etime=,time=,command= | awk '{printf "PID = %s\nPPID = %s\nUser = %s\nCPU = %s %%\nRSS = %s KiB\nVSZ = %s KiB\nElapsed = %s\nCPUTime = %s\nCommand = ",$1,$2,$3,$4,$5,$6,$7,$8;for(i=9;i<=NF;i++)printf "%s%s",(i>9?" ":""),$i;printf "\n"}' | head -c 16000 ;; esac
 section logs
 program=$(printf '%s\n' "$info" | sed -n 's/^[[:space:]]*program = //p' | head -n 1)
 base=${program##*/}

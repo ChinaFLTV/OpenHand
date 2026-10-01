@@ -15292,4 +15292,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceHealthSntpNotes =>
       'Measures up to 3 configured sources without changing the clock. SNTP results do not identify the system’s selected source.';
+
+  @override
+  String get maintenanceServiceMetricsUnavailable =>
+      'Some service process metrics could not be collected. Refresh to try again.';
 }

@@ -14802,6 +14802,9 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get maintenanceHealthSntpNotes =>
       '最多测量 3 个配置源；只读 SNTP 结果不代表系统当前选中源，不修改时钟';
+
+  @override
+  String get maintenanceServiceMetricsUnavailable => '部分服务进程指标未能采集，请刷新重试。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -29584,4 +29587,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get maintenanceHealthSntpNotes =>
       '最多量測 3 個設定來源；唯讀 SNTP 結果不代表系統目前選用來源，也不會修改時鐘';
+
+  @override
+  String get maintenanceServiceMetricsUnavailable => '部分服務進程指標未能採集，請重新整理後再試。';
 }

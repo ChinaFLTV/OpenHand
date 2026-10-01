@@ -3165,6 +3165,51 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('服务列表按 PID 关联进程指标，采样失败提示且恢复后清除', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1100));
+    for (final locale in AppLocalizations.supportedLocales) {
+      final service = _MaintenanceFixture()..platform = 'Darwin';
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+        child: MaterialApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+      await tester.pumpAndSettle();
+      final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+      final data = {
+        'platform': 'Darwin', 'manager': 'launchd',
+        'services': 'com.example.running\\t42\\t0\\ncom.example.idle\\t-\\t0\\ncom.example.zero\\t0\\t0\\ncom.example.gone\\t99\\t0\\ncom.example.unknownMemory\\t7\\t0',
+        'service_processes': '42\\treader\\t2.5\\t1024\\t01:23\\t1:02.30\\t/Applications/Example App/run --flag value\\n7\\troot\\t0.0\\tinvalid\\t00:10\\t0:00.00\\t/example\\n错误信息\\n99\\t截断记录',
+        'service_processes_status': 'ok',
+      };
+      void show(Map<String, String> sample) => state.setState(() {
+        state._automatic = false; state._tab = 2; state._snapshots[2] = MachineMaintenanceSnapshot(sample);
+      });
+      _MaintenanceTable table() => tester.widgetList<_MaintenanceTable>(find.byType(_MaintenanceTable))
+          .firstWhere((w) => w.headers.contains('累计 CPU 时间'));
+      show(data); await tester.pumpAndSettle();
+      final rows = {for (final row in table().rows) row.cells.first: row.cells};
+      expect(rows['com.example.running']!.skip(4).toList(),
+          ['reader', '2.5%', '1 MB', '01:23', '1:02.30', '/Applications/Example App/run --flag value']);
+      expect(rows['com.example.idle']!.skip(4), everyElement('—'));
+      expect(rows['com.example.zero']!.skip(4), everyElement('—'));
+      expect(rows['com.example.zero']![1], rows['com.example.idle']![1]);
+      expect(rows['com.example.gone']!.skip(4), everyElement('—'));
+      expect(rows['com.example.unknownMemory']![6], '—');
+      final warning = lookupAppLocalizations(locale).maintenanceServiceMetricsUnavailable;
+      expect(find.text(warning), findsNothing);
+      for (final status in ['failed', 'partial']) {
+        show({...data, 'service_processes_status': status}); await tester.pumpAndSettle();
+        expect(find.text(warning), findsOneWidget);
+        expect(table().rows.first.cells[4], 'reader');
+      }
+      show(data); await tester.pumpAndSettle();
+      expect(find.text(warning), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('进程工具栏排序与视图切换同行等高，窄屏换行并保留视图状态', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 1100));
     final service = _MaintenanceFixture();

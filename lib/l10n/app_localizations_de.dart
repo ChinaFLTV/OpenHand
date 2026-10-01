@@ -15464,4 +15464,8 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceHealthSntpNotes =>
       'Misst bis zu 3 konfigurierte Quellen, ohne die Uhr zu ändern. SNTP-Ergebnisse zeigen nicht die vom System ausgewählte Quelle.';
+
+  @override
+  String get maintenanceServiceMetricsUnavailable =>
+      'Einige Prozessmesswerte der Dienste konnten nicht erfasst werden. Bitte erneut aktualisieren.';
 }
