@@ -15,6 +15,10 @@ import '../../features/ai/model/ai_tool_execution_limit_policy.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/ai/model/offline_speech_model.dart';
+import '../../features/machine_terminal/machine_maintenance.dart'
+    show
+        machineMaintenanceDefaultTimeoutSeconds,
+        machineMaintenanceTimeoutOptions;
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -165,6 +169,7 @@ class AppSettingsSnapshot {
     required this.editorWordWrap,
     required this.editorIndentSpaces,
     this.maintenanceWorkers = defaultMaintenanceWorkers,
+    this.maintenanceTimeoutSeconds = machineMaintenanceDefaultTimeoutSeconds,
     required this.editorCodeTheme,
     required this.editorLspSettings,
     required this.editorShortcutBindings,
@@ -798,6 +803,11 @@ class AppSettingsSnapshot {
       ? value!
       : defaultMaintenanceWorkers;
 
+  static int normalizeMaintenanceTimeoutSeconds(int? value) =>
+      machineMaintenanceTimeoutOptions.contains(value)
+      ? value!
+      : machineMaintenanceDefaultTimeoutSeconds;
+
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
   final AppLanguage language;
@@ -844,6 +854,7 @@ class AppSettingsSnapshot {
   final bool editorWordWrap;
   final int editorIndentSpaces;
   final int maintenanceWorkers;
+  final int maintenanceTimeoutSeconds;
   final EditorCodeTheme editorCodeTheme;
   final Map<String, AiLspLanguageSettings> editorLspSettings;
   final Map<EditorShortcutAction, List<int>> editorShortcutBindings;
@@ -1066,6 +1077,7 @@ class AppSettingsSnapshot {
     bool? editorWordWrap,
     int? editorIndentSpaces,
     int? maintenanceWorkers,
+    int? maintenanceTimeoutSeconds,
     EditorCodeTheme? editorCodeTheme,
     Map<String, AiLspLanguageSettings>? editorLspSettings,
     Map<EditorShortcutAction, List<int>>? editorShortcutBindings,
@@ -1189,6 +1201,8 @@ class AppSettingsSnapshot {
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,
       editorIndentSpaces: editorIndentSpaces ?? this.editorIndentSpaces,
       maintenanceWorkers: maintenanceWorkers ?? this.maintenanceWorkers,
+      maintenanceTimeoutSeconds:
+          maintenanceTimeoutSeconds ?? this.maintenanceTimeoutSeconds,
       editorCodeTheme: editorCodeTheme ?? this.editorCodeTheme,
       editorLspSettings: editorLspSettings ?? this.editorLspSettings,
       editorShortcutBindings:

@@ -55,6 +55,7 @@ import 'package:openhand/app/model/app_settings_snapshot.dart';
 import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/app/state/settings_store.dart';
+import 'package:openhand/shared/db/database_service.dart';
 import 'package:openhand/features/machine_terminal/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/app/theme/openhand_theme.dart';
@@ -4218,10 +4219,12 @@ late SettingsController _testSettings;
 class _MemorySettingsStore extends SettingsStore {
   AppSettingsSnapshot snapshot = AppSettingsSnapshot.defaults();
   bool fail = false;
+  Completer<void>? pending;
   @override
   Future<SettingsLoadResult> load() async => SettingsLoadResult(snapshot: snapshot, canPersist: true);
   @override
   Future<void> save(AppSettingsSnapshot value) async {
+    await pending?.future;
     if (fail) throw StateError('模拟保存失败');
     snapshot = value;
   }
@@ -4382,10 +4385,76 @@ Widget incrementalApp(_MaintenanceFixture service) => ChangeNotifierProvider<Mac
     home: Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端'))));
 void incrementalChecks() {
 
+  test('超时配置经过真实数据库编码、重开恢复及旧值兼容', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand-timeout-settings-');
+    var database = await DatabaseService.initialize(databasePath: '${directory.path}/settings.db', useNoIsolateFactory: true);
+    final store = SettingsStore();
+    try {
+      for (final seconds in machineMaintenanceTimeoutOptions) {
+        await store.save(AppSettingsSnapshot.defaults().copyWith(maintenanceTimeoutSeconds: seconds));
+        await database.close();
+        database = await DatabaseService.initialize(databasePath: '${directory.path}/settings.db', useNoIsolateFactory: true);
+        final loaded = await SettingsStore().load();
+        expect(loaded.canPersist, isTrue);
+        expect(loaded.snapshot.maintenanceTimeoutSeconds, seconds);
+        expect(loaded.snapshot.copyWith(maintenanceWorkers: 8).maintenanceTimeoutSeconds, seconds);
+      }
+      final row = (await database.database.query('app_settings', where: 'key = ?', whereArgs: ['app_settings_json'])).single;
+      final saved = jsonDecode(row['value'] as String) as Map<String, dynamic>;
+      for (final invalid in [null, -1, 0, 31, 3601, 60.5, '损坏数据', true]) {
+        final value = {...saved};
+        if (invalid == null) { value.remove('maintenance_timeout_seconds'); }
+        else { value['maintenance_timeout_seconds'] = invalid; }
+        await database.database.update('app_settings', {'value': jsonEncode(value)}, where: 'key = ?', whereArgs: ['app_settings_json']);
+        expect((await store.load()).snapshot.maintenanceTimeoutSeconds, 30);
+      }
+    } finally {
+      await database.close(); await directory.delete(recursive: true);
+    }
+  });
+
+  testWidgets('超时选择保存后重开弹窗和重建控制器保留，失败回滚且关闭期间保存安全', (tester) async {
+    final store = _MemorySettingsStore();
+    _testSettings.dispose(); _testSettings = await SettingsController.create(store: store);
+    final service = _MaintenanceFixture();
+    Future<void> open() async { await tester.pumpWidget(incrementalApp(service)); await tester.pumpAndSettle(); }
+    _MaintenanceToolbarMenu<int> menu() => tester.widget<_MaintenanceToolbarMenu<int>>(find.byWidgetPredicate(
+      (w) => w is _MaintenanceToolbarMenu<int> && w.icon == Icons.hourglass_bottom_rounded));
+    Future<void> select(int value) async {
+      await tester.runAsync(() async {
+        menu().onSelected(value);
+        await _testSettings.updateMaintenanceTimeoutSeconds(value);
+      });
+      await tester.pumpAndSettle();
+    }
+    await open(); expect(menu().value, 30);
+    await select(900); expect(menu().value, 900);
+    await tester.pumpWidget(const SizedBox()); await open();
+    expect(menu().value, 900); expect(service.lastTimeout, const Duration(minutes: 15));
+    await tester.pumpWidget(const SizedBox());
+    _testSettings.dispose(); _testSettings = await SettingsController.create(store: store);
+    await open(); expect(menu().value, 900); expect(service.lastTimeout, const Duration(minutes: 15));
+    expect(await _testSettings.updateMaintenanceTimeoutSeconds(901), isFalse);
+    store.fail = true;
+    await select(3600); expect(menu().value, 900); expect(store.snapshot.maintenanceTimeoutSeconds, 900);
+    expect(_testSettings.persistenceIssue?.kind, SettingsPersistenceIssueKind.saveFailed);
+    store.fail = false;
+    await tester.runAsync(() async { store.pending = Completer<void>(); menu().onSelected(60); });
+    await tester.pump();
+    expect(menu().enabled, isFalse);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() async { store.pending!.complete(); await _testSettings.updateMaintenanceTimeoutSeconds(60); });
+    store.pending = null;
+    await open(); expect(menu().value, 60); expect(service.lastTimeout, const Duration(seconds: 60));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('超时菜单位于 Shell 与刷新间隔之间，六种语言与全部档位传递到采集链路', (tester) async {
     final service = _MaintenanceFixture();
     for (final locale in AppLocalizations.supportedLocales) {
       for (final width in [440.0, 1500.0]) {
+        await tester.runAsync(() => _testSettings.updateMaintenanceTimeoutSeconds(30));
         await tester.binding.setSurfaceSize(Size(width, 1000));
         await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
           child: _SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -4407,7 +4476,11 @@ void incrementalChecks() {
         for (final seconds in machineMaintenanceTimeoutOptions) {
           final menu = tester.widget<_MaintenanceToolbarMenu<int>>(selector);
           expect(menu.items.keys.toList(), machineMaintenanceTimeoutOptions);
-          menu.onSelected(seconds); await tester.pump();
+          await tester.runAsync(() async {
+            menu.onSelected(seconds);
+            await _testSettings.updateMaintenanceTimeoutSeconds(seconds);
+          });
+          await tester.pumpAndSettle();
           await state._refresh(manual: true); await tester.pumpAndSettle();
           expect(service.lastTimeout, Duration(seconds: seconds));
           if (seconds == 30 && locale.toString() == 'zh' && width == 1500 && Platform.environment['MAINTENANCE_FONT'] != null) {

@@ -101,6 +101,7 @@ class SettingsController extends ChangeNotifier {
        _editorWordWrap = snapshot.editorWordWrap,
        _editorIndentSpaces = snapshot.editorIndentSpaces,
        _maintenanceWorkers = snapshot.maintenanceWorkers,
+       _maintenanceTimeoutSeconds = snapshot.maintenanceTimeoutSeconds,
        _editorCodeTheme = snapshot.editorCodeTheme,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
@@ -269,6 +270,7 @@ class SettingsController extends ChangeNotifier {
   bool _editorWordWrap;
   int _editorIndentSpaces;
   int _maintenanceWorkers;
+  int _maintenanceTimeoutSeconds;
   EditorCodeTheme _editorCodeTheme;
   Map<String, AiLspLanguageSettings> _editorLspSettings;
   Map<EditorShortcutAction, List<int>> _editorShortcutBindings;
@@ -406,6 +408,7 @@ class SettingsController extends ChangeNotifier {
   bool get editorWordWrap => _editorWordWrap;
   int get editorIndentSpaces => _editorIndentSpaces;
   int get maintenanceWorkers => _maintenanceWorkers;
+  int get maintenanceTimeoutSeconds => _maintenanceTimeoutSeconds;
   EditorCodeTheme get editorCodeTheme => _editorCodeTheme;
   Map<String, AiLspLanguageSettings> get editorLspSettings =>
       _cloneEditorLspSettingsMap(_editorLspSettings);
@@ -886,6 +889,19 @@ class SettingsController extends ChangeNotifier {
       return _MutationDisposition.apply;
     });
   }
+
+  Future<bool> updateMaintenanceTimeoutSeconds(int value) =>
+      _commitMutation(() {
+        if (AppSettingsSnapshot.normalizeMaintenanceTimeoutSeconds(value) !=
+            value) {
+          return _MutationDisposition.reject;
+        }
+        if (_maintenanceTimeoutSeconds == value) {
+          return _MutationDisposition.successNoChange;
+        }
+        _maintenanceTimeoutSeconds = value;
+        return _MutationDisposition.apply;
+      });
 
   Future<bool> updateMaintenanceWorkers(int value) => _commitMutation(() {
     if (!AppSettingsSnapshot.maintenanceWorkerOptions.contains(value)) {
@@ -2435,6 +2451,7 @@ class SettingsController extends ChangeNotifier {
       editorWordWrap: _editorWordWrap,
       editorIndentSpaces: _editorIndentSpaces,
       maintenanceWorkers: _maintenanceWorkers,
+      maintenanceTimeoutSeconds: _maintenanceTimeoutSeconds,
       editorCodeTheme: _editorCodeTheme,
       editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
       editorShortcutBindings: _cloneEditorShortcutBindings(
@@ -2559,6 +2576,7 @@ class SettingsController extends ChangeNotifier {
     _editorWordWrap = snapshot.editorWordWrap;
     _editorIndentSpaces = snapshot.editorIndentSpaces;
     _maintenanceWorkers = snapshot.maintenanceWorkers;
+    _maintenanceTimeoutSeconds = snapshot.maintenanceTimeoutSeconds;
     _editorCodeTheme = snapshot.editorCodeTheme;
     _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
     _editorShortcutBindings = _cloneEditorShortcutBindings(

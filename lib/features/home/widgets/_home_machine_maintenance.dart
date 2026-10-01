@@ -185,7 +185,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
   String? _shellLabel;
   int _tab = 0, _sort = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
-  int _timeoutSeconds = machineMaintenanceTimeout.inSeconds;
+  int get _timeoutSeconds =>
+      context.read<SettingsController>().maintenanceTimeoutSeconds;
+  bool _savingTimeout = false;
   int get _workers => context.read<SettingsController>().maintenanceWorkers;
   bool _savingWorkers = false;
   int _scheduledTaskOperations = 0;
@@ -663,6 +665,9 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
   @override
   Widget build(BuildContext context) {
+    final timeoutSeconds = context.select<SettingsController, int>(
+      (settings) => settings.maintenanceTimeoutSeconds,
+    );
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final size = MediaQuery.sizeOf(context);
@@ -788,20 +793,33 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           ),
                           const SizedBox(width: 8),
                           _MaintenanceToolbarMenu<int>(
-                            label: _timeoutLabel(context, _timeoutSeconds),
+                            label: _timeoutLabel(context, timeoutSeconds),
                             tooltip: AppLocalizations.of(
                               context,
                             )!.maintenanceTimeout,
                             icon: Icons.hourglass_bottom_rounded,
-                            enabled: !_loading && !_scheduledTasksBusy,
-                            value: _timeoutSeconds,
+                            enabled:
+                                !_loading &&
+                                !_scheduledTasksBusy &&
+                                !_savingTimeout,
+                            value: timeoutSeconds,
                             items: {
                               for (final seconds
                                   in machineMaintenanceTimeoutOptions)
                                 seconds: _timeoutLabel(context, seconds),
                             },
-                            onSelected: (value) =>
-                                setState(() => _timeoutSeconds = value),
+                            onSelected: (value) async {
+                              setState(() => _savingTimeout = true);
+                              try {
+                                await context
+                                    .read<SettingsController>()
+                                    .updateMaintenanceTimeoutSeconds(value);
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _savingTimeout = false);
+                                }
+                              }
+                            },
                           ),
                           const SizedBox(width: 8),
                           _MaintenanceToolbarMenu<int>(

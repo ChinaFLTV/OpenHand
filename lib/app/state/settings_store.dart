@@ -356,6 +356,10 @@ class SettingsStore {
       'maintenance_workers': AppSettingsSnapshot.normalizeMaintenanceWorkers(
         snapshot.maintenanceWorkers,
       ),
+      'maintenance_timeout_seconds':
+          AppSettingsSnapshot.normalizeMaintenanceTimeoutSeconds(
+            snapshot.maintenanceTimeoutSeconds,
+          ),
       'editor_indent_spaces': normalizeEditorIndentSpaces(
         snapshot.editorIndentSpaces,
       ),
@@ -1231,6 +1235,10 @@ class SettingsStore {
       maintenanceWorkers: AppSettingsSnapshot.normalizeMaintenanceWorkers(
         optionalIntFromValue(json['maintenance_workers']),
       ),
+      maintenanceTimeoutSeconds:
+          AppSettingsSnapshot.normalizeMaintenanceTimeoutSeconds(
+            optionalIntegralIntFromValue(json['maintenance_timeout_seconds']),
+          ),
       editorCodeTheme: editorCodeTheme,
       editorLspSettings: editorLspSettings,
       editorShortcutBindings: editorShortcutBindings,
