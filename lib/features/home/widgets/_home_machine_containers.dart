@@ -1,5 +1,8 @@
 part of '../openhand_home_page.dart';
 
+const _containerLogDialogHeightFraction = .9;
+const _containerLogBodyHeightFraction = .7;
+
 class _MachineContainerPanel extends StatefulWidget {
   const _MachineContainerPanel({
     super.key,
@@ -858,7 +861,9 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
 
   @override
   Widget build(BuildContext context) => buildOpenHandDialog(
-    maxHeight: MediaQuery.sizeOf(context).height * .85,
+    maxHeight:
+        MediaQuery.sizeOf(context).height *
+        (widget.section == 'logs' ? _containerLogDialogHeightFraction : .85),
     child: SizedBox(
       width: math.min(1000, MediaQuery.sizeOf(context).width * .9),
       child: Column(
@@ -909,6 +914,9 @@ class _ContainerReportDialogState extends State<_ContainerReportDialog> {
                       child: _MaintenanceReadout(
                         text: _error.isEmpty ? _text : _error,
                         section: _error.isEmpty ? widget.section : 'containers',
+                        logMaxHeight:
+                            MediaQuery.sizeOf(context).height *
+                            _containerLogBodyHeightFraction,
                       ),
                     ),
                   ),

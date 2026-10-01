@@ -10,6 +10,7 @@ const _maintenanceFieldHeight = 104.0;
 const _maintenanceFieldMaxColumns = 4;
 const _maintenanceSectionHeaderHeight = 54.0;
 const _maintenancePanelBottomInset = 8.0;
+const _maintenanceLogPreviewMaxHeight = 260.0;
 const _maintenanceDetailPadding = EdgeInsets.fromLTRB(18, 4, 18, 12);
 
 const _maintenanceTabs = [
@@ -6057,10 +6058,16 @@ class _MaintenanceSection extends StatelessWidget {
 }
 
 class _MaintenanceReadout extends StatefulWidget {
-  const _MaintenanceReadout({this.text = '', this.section = '', this.report});
+  const _MaintenanceReadout({
+    this.text = '',
+    this.section = '',
+    this.report,
+    this.logMaxHeight = _maintenanceLogPreviewMaxHeight,
+  });
   final MachineMaintenanceReadout? report;
   final String text;
   final String section;
+  final double logMaxHeight;
   @override
   State<_MaintenanceReadout> createState() => _MaintenanceReadoutState();
 }
@@ -6213,7 +6220,10 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       );
     }
     if (widget.section == 'logs') {
-      return _MaintenanceLogTimeline(rows: _data.rows);
+      return _MaintenanceLogTimeline(
+        rows: _data.rows,
+        maxHeight: widget.logMaxHeight,
+      );
     }
     if (_data.fields &&
         (widget.section == 'network_stats' ||
@@ -7056,8 +7066,12 @@ class _MaintenanceEdgePainter extends CustomPainter {
 }
 
 class _MaintenanceLogTimeline extends StatelessWidget {
-  const _MaintenanceLogTimeline({required this.rows});
+  const _MaintenanceLogTimeline({
+    required this.rows,
+    this.maxHeight = _maintenanceLogPreviewMaxHeight,
+  });
   final List<List<String>> rows;
+  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -7077,7 +7091,7 @@ class _MaintenanceLogTimeline extends StatelessWidget {
     return OpenHandConsoleText(
       title: maintenanceLabel(context, '最近日志'),
       text: text,
-      maxHeight: 260,
+      maxHeight: maxHeight,
     );
   }
 }
