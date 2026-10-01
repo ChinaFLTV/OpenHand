@@ -15061,6 +15061,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImageTagSearch => '搜索标签';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return '搜索结果 · $count';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30103,4 +30108,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImageTagSearch => '搜尋標籤';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return '搜尋結果 · $count';
+  }
 }

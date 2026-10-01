@@ -9691,5 +9691,13 @@
   "maintenanceImageTagInvalid": "Use 1–128 letters, digits, underscores, dots or hyphens. Do not start with a dot or hyphen.",
   "maintenanceImageTagRetry": "Reload",
   "maintenanceImageTagsMore": "Load more tags",
-  "maintenanceImageTagSearch": "Search tags"
+  "maintenanceImageTagSearch": "Search tags",
+  "maintenanceImageResults": "Search results · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

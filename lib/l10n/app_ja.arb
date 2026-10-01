@@ -9686,5 +9686,13 @@
   "maintenanceImageTagInvalid": "英数字、アンダースコア、ピリオド、ハイフンを 1～128 文字で入力してください。先頭にピリオドやハイフンは使えません。",
   "maintenanceImageTagRetry": "再読み込み",
   "maintenanceImageTagsMore": "タグをさらに読み込む",
-  "maintenanceImageTagSearch": "タグを検索"
+  "maintenanceImageTagSearch": "タグを検索",
+  "maintenanceImageResults": "検索結果 · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -420,6 +420,70 @@ class _MachineContainerResourcesState
   }
 }
 
+const _containerResourceFontSize = 13.0;
+const _containerResourceControlHeight = 40.0;
+
+double _containerResourceControlHeightOf(BuildContext context) => math.max(
+  _containerResourceControlHeight,
+  MediaQuery.textScalerOf(context).scale(_containerResourceFontSize) * 1.4 + 16,
+);
+
+ThemeData _containerResourceDialogTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  final actionStyle = ButtonStyle(
+    minimumSize: WidgetStatePropertyAll(
+      Size(88, _containerResourceControlHeightOf(context)),
+    ),
+    padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14)),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
+    textStyle: WidgetStatePropertyAll(
+      theme.textTheme.labelLarge?.copyWith(
+        fontSize: _containerResourceFontSize,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+    elevation: const WidgetStatePropertyAll(0),
+    shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+    surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+  );
+  return theme.copyWith(
+    hoverColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+      ).merge(actionStyle),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: actionStyle),
+    textButtonTheme: TextButtonThemeData(style: actionStyle),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        padding: EdgeInsets.zero,
+        backgroundColor: cs.surfaceContainerLowest,
+        foregroundColor: cs.onSurfaceVariant,
+        disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
+      ),
+    ),
+    listTileTheme: theme.listTileTheme.copyWith(
+      minTileHeight: _containerResourceControlHeightOf(context),
+      minVerticalPadding: 4,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      titleTextStyle: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: _containerResourceFontSize,
+        height: 1.4,
+      ),
+    ),
+  );
+}
+
 class _ContainerRegistrySearchField extends StatelessWidget {
   const _ContainerRegistrySearchField({
     required this.controller,
@@ -439,10 +503,7 @@ class _ContainerRegistrySearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final searchHeight = math.max(
-      40.0,
-      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
-    );
+    final searchHeight = _containerResourceControlHeightOf(context);
     final searchBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
@@ -490,6 +551,7 @@ class _ContainerRegistrySearchField extends StatelessWidget {
               IconButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 disabledBackgroundColor: Colors.transparent,
+                side: BorderSide.none,
                 foregroundColor: cs.onSurfaceVariant,
                 disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
                 padding: EdgeInsets.zero,
@@ -667,207 +729,269 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return PopScope(
-      canPop: !_busy,
-      child: buildOpenHandDialog(
-        maxHeight: MediaQuery.sizeOf(context).height * .9,
-        backgroundColor: cs.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
-        child: SizedBox(
-          width: 920,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _MachineTerminalDialogHeader(
-                icon: Icons.travel_explore_rounded,
-                title: l.maintenanceImageSearch,
-                onClose: () => Navigator.pop(context, _changed),
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: _maintenanceDetailPadding,
-                  child: _MaintenanceAnimatedColumn(
-                    spacing: 12,
-                    children: [
-                      Text(
-                        l.maintenanceImageSearchHelp,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      _ContainerRegistrySearchField(
-                        controller: _query,
-                        enabled: !_busy,
-                        hint: l.maintenanceImageQuery,
-                        searchLabel: l.maintenanceImageSearch,
-                        onSearch: _search,
-                      ),
-                      if (_searching)
-                        const LinearProgressIndicator(minHeight: 2),
-                      if (_error.isNotEmpty)
-                        _MaintenanceNotice(message: _error, error: true),
-                      if (_metadataFailed)
-                        _MaintenanceNotice(
-                          message: l.maintenanceImageMetadataUnavailable,
+    return Theme(
+      data: _containerResourceDialogTheme(context),
+      child: PopScope(
+        canPop: !_busy,
+        child: buildOpenHandDialog(
+          maxHeight: MediaQuery.sizeOf(context).height * .9,
+          backgroundColor: cs.surfaceContainerLow,
+          surfaceTintColor: Colors.transparent,
+          child: SizedBox(
+            width: kOpenHandDialogWidthWide,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MachineTerminalDialogHeader(
+                  icon: Icons.travel_explore_rounded,
+                  title: l.maintenanceImageSearch,
+                  subtitle:
+                      '${widget.client.runtime.label}${widget.client.contextName.isEmpty ? '' : ' · ${widget.client.contextName}'}${widget.client.scope.isEmpty ? '' : ' / ${widget.client.scope}'}',
+                  onClose: () => Navigator.pop(context, _changed),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: _maintenanceDetailPadding,
+                    child: _MaintenanceAnimatedColumn(
+                      spacing: 12,
+                      children: [
+                        _MaintenanceCard(
+                          title: l.maintenanceImageQuery,
+                          icon: Icons.search_rounded,
+                          scrollBody: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _ContainerRegistrySearchField(
+                                controller: _query,
+                                enabled: !_busy,
+                                hint: l.maintenanceImageQuery,
+                                searchLabel: l.maintenanceImageSearch,
+                                onSearch: _search,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                l.maintenanceImageSearchHelp,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      if (_searched && _results.isEmpty)
-                        _MaintenanceEmptyHint(
-                          message: maintenanceLabel(context, '当前范围没有记录'),
-                        ),
-                      if (_results.isNotEmpty)
-                        _MaintenanceTable(
-                          headers: [
-                            '名称',
-                            '描述',
-                            l.maintenanceImageTag,
-                            l.maintenanceImageStars,
-                            l.maintenanceImageDownloads,
-                            l.maintenanceImageOfficial,
-                          ],
-                          maxBodyHeight: 400,
-                          minimumColumnWidths: {
-                            2:
-                                160 *
-                                MediaQuery.textScalerOf(context).scale(13) /
-                                13,
-                          },
-                          rows: [
-                            for (final row in _results)
-                              OpenHandOperationalRankRow(
-                                value: 0,
-                                data: row,
-                                rowKey: row.name,
-                                cells: [
-                                  row.name,
-                                  row.description,
-                                  _tags[row.name] ?? 'latest',
-                                  '${row.stars ?? '—'}',
-                                  '${row.pulls ?? '—'}',
-                                  row.official == null
-                                      ? '—'
-                                      : row.official!
-                                      ? l.maintenanceHealthParsedYes
-                                      : l.maintenanceHealthParsedNo,
-                                ],
-                                cellWidgets: [
-                                  if (row.iconUrl != null)
+                        if (_searching)
+                          const LinearProgressIndicator(minHeight: 2),
+                        if (_error.isNotEmpty)
+                          _MaintenanceNotice(message: _error, error: true),
+                        if (_metadataFailed)
+                          _MaintenanceNotice(
+                            message: l.maintenanceImageMetadataUnavailable,
+                          ),
+                        if (_searched && _results.isEmpty)
+                          _MaintenanceEmptyHint(
+                            message: maintenanceLabel(context, '当前范围没有记录'),
+                          ),
+                        if (_results.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              l.maintenanceImageResults(_results.length),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          _MaintenanceTable(
+                            headers: [
+                              '名称',
+                              '描述',
+                              l.maintenanceImageTag,
+                              l.maintenanceImageStars,
+                              l.maintenanceImageDownloads,
+                              l.maintenanceImageOfficial,
+                            ],
+                            maxBodyHeight: 400,
+                            minimumColumnWidths: {
+                              2:
+                                  160 *
+                                  MediaQuery.textScalerOf(context).scale(13) /
+                                  13,
+                            },
+                            rows: [
+                              for (final row in _results)
+                                OpenHandOperationalRankRow(
+                                  value: 0,
+                                  data: row,
+                                  rowKey: row.name,
+                                  cells: [
+                                    row.name,
+                                    row.description,
+                                    _tags[row.name] ?? 'latest',
+                                    '${row.stars ?? '—'}',
+                                    '${row.pulls ?? '—'}',
+                                    row.official == null
+                                        ? '—'
+                                        : row.official!
+                                        ? l.maintenanceHealthParsedYes
+                                        : l.maintenanceHealthParsedNo,
+                                  ],
+                                  cellWidgets: [
                                     Row(
                                       children: [
-                                        Image.network(
-                                          row.iconUrl!,
-                                          width: 22,
-                                          height: 22,
-                                          cacheWidth: 44,
-                                          cacheHeight: 44,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (_, _, _) => Icon(
-                                            Icons.layers_outlined,
-                                            size: 20,
-                                            color: cs.onSurfaceVariant,
+                                        if (row.iconUrl != null) ...[
+                                          Image.network(
+                                            row.iconUrl!,
+                                            width: 20,
+                                            height: 20,
+                                            cacheWidth: 40,
+                                            cacheHeight: 40,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, _, _) => Icon(
+                                              Icons.layers_outlined,
+                                              size: 18,
+                                              color: cs.onSurfaceVariant,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
+                                          const SizedBox(width: 8),
+                                        ],
                                         Expanded(
                                           child: Text(
                                             row.name,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  else
-                                    null,
-                                  null,
-                                  TextButton(
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _selectTag(row),
-                                    style: TextButton.styleFrom(
-                                      minimumSize: const Size(
-                                        0,
-                                        _maintenanceControlHeight,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      backgroundColor:
-                                          cs.surfaceContainerLowest,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        side: BorderSide(
-                                          color: cs.outlineVariant,
-                                        ),
-                                      ),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            _tags[row.name] ?? 'latest',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(
-                                          Icons.expand_more_rounded,
-                                          size: 16,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  for (final metric in [
-                                    ('stars', row.stars),
-                                    ('pulls', row.pulls),
-                                  ])
-                                    metric.$2 == null
-                                        ? null
-                                        : _MaintenanceNumber(
-                                            key: ValueKey((
-                                              row.name,
-                                              metric.$1,
-                                            )),
-                                            raw: '${metric.$2}',
-                                            readable: openHandCompactCountLabel(
-                                              context,
-                                              metric.$2!,
-                                            ),
                                             style: theme.textTheme.bodyMedium
                                                 ?.copyWith(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                           ),
-                                ],
-                              ),
-                          ],
-                          rowActions: (row) => {
-                            if (!_busy) ...{
-                              l.maintenanceImageSelectTag: () => _selectTag(
-                                row.data as MachineContainerImageSearchResult,
-                              ),
-                              l.maintenanceImagePullOnly: () => _openImage(
-                                _reference(
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      row.description,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    TextButton(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _selectTag(row),
+                                      style: TextButton.styleFrom(
+                                        minimumSize: const Size(
+                                          0,
+                                          _maintenanceControlHeight,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        backgroundColor:
+                                            cs.surfaceContainerLowest,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          side: BorderSide(
+                                            color: cs.outlineVariant,
+                                          ),
+                                        ),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              _tags[row.name] ?? 'latest',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(
+                                            Icons.expand_more_rounded,
+                                            size: 16,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    for (final metric in [
+                                      ('stars', row.stars),
+                                      ('pulls', row.pulls),
+                                    ])
+                                      metric.$2 == null
+                                          ? null
+                                          : _MaintenanceNumber(
+                                              key: ValueKey((
+                                                row.name,
+                                                metric.$1,
+                                              )),
+                                              raw: '${metric.$2}',
+                                              readable:
+                                                  openHandCompactCountLabel(
+                                                    context,
+                                                    metric.$2!,
+                                                  ),
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                            ),
+                                    row.official == null
+                                        ? null
+                                        : _MaintenanceStatus(
+                                            label: row.official!
+                                                ? l.maintenanceHealthParsedYes
+                                                : l.maintenanceHealthParsedNo,
+                                            color: row.official!
+                                                ? cs.primary
+                                                : cs.onSurfaceVariant,
+                                          ),
+                                  ],
+                                ),
+                            ],
+                            rowActions: (row) => {
+                              if (!_busy) ...{
+                                l.maintenanceImageSelectTag: () => _selectTag(
                                   row.data as MachineContainerImageSearchResult,
                                 ),
-                              ),
-                              l.maintenanceContainerCreate: () => _openImage(
-                                _reference(
-                                  row.data as MachineContainerImageSearchResult,
+                                l.maintenanceImagePullOnly: () => _openImage(
+                                  _reference(
+                                    row.data
+                                        as MachineContainerImageSearchResult,
+                                  ),
                                 ),
-                                action:
-                                    _ContainerResourceAction.createContainer,
-                              ),
+                                l.maintenanceContainerCreate: () => _openImage(
+                                  _reference(
+                                    row.data
+                                        as MachineContainerImageSearchResult,
+                                  ),
+                                  action:
+                                      _ContainerResourceAction.createContainer,
+                                ),
+                              },
                             },
-                          },
-                        ),
-                    ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -950,154 +1074,139 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
     final cs = theme.colorScheme;
     final valid = machineContainerValidImageTag(_tag.text.trim());
     final supported = widget.image.hubRepository != null;
-    final controlHeight = math.max(
-      40.0,
-      MediaQuery.textScalerOf(context).scale(13) * 1.4 + 16,
-    );
-    final actionStyle = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(88, controlHeight)),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 14),
-      ),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-      textStyle: WidgetStatePropertyAll(
-        theme.textTheme.labelLarge?.copyWith(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-    return buildOpenHandDialog(
-      maxHeight: MediaQuery.sizeOf(context).height * .9,
-      backgroundColor: cs.surfaceContainerLow,
-      surfaceTintColor: Colors.transparent,
-      child: SizedBox(
-        width: 560,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _MachineTerminalDialogHeader(
-              icon: Icons.sell_outlined,
-              title: l.maintenanceImageSelectTag,
-              subtitle: widget.image.name,
-              onClose: () => Navigator.pop(context),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: _maintenanceDetailPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l.maintenanceImageTagHelp,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    _ContainerRegistrySearchField(
-                      controller: _tag,
-                      hint: l.maintenanceImageTag,
-                      searchLabel: l.maintenanceImageTagSearch,
-                      onSearch: supported && !_loading
-                          ? () => _load(reset: true)
-                          : null,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    if (!valid && _tag.text.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _MaintenanceNotice(
-                        message: l.maintenanceImageTagInvalid,
-                        error: true,
+    return Theme(
+      data: _containerResourceDialogTheme(context),
+      child: buildOpenHandDialog(
+        maxHeight: MediaQuery.sizeOf(context).height * .9,
+        backgroundColor: cs.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        child: SizedBox(
+          width: 560,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _MachineTerminalDialogHeader(
+                icon: Icons.sell_outlined,
+                title: l.maintenanceImageSelectTag,
+                subtitle: widget.image.name,
+                onClose: () => Navigator.pop(context),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: _maintenanceDetailPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l.maintenanceImageTagHelp,
+                        style: theme.textTheme.bodySmall,
                       ),
-                    ],
-                    if (_failed || !supported) ...[
-                      const SizedBox(height: 8),
-                      _MaintenanceNotice(
-                        message: l.maintenanceImageTagsUnavailable,
-                      ),
-                    ],
-                    if (_loading) ...[
                       const SizedBox(height: 12),
-                      const LinearProgressIndicator(minHeight: 2),
-                    ],
-                    if (_tags.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        constraints: const BoxConstraints(maxHeight: 260),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _tags.length,
-                          itemBuilder: (context, index) {
-                            final tag = _tags[index];
-                            final selected = tag == _tag.text.trim();
-                            return ListTile(
-                              dense: true,
-                              selected: selected,
-                              selectedTileColor: cs.primary.withValues(
-                                alpha: .08,
-                              ),
-                              title: Text(
-                                tag,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: selected
-                                  ? Icon(
-                                      Icons.check_rounded,
-                                      size: 18,
-                                      color: cs.primary,
-                                    )
-                                  : null,
-                              onTap: () => setState(() => _tag.text = tag),
-                            );
-                          },
-                        ),
+                      _ContainerRegistrySearchField(
+                        controller: _tag,
+                        hint: l.maintenanceImageTag,
+                        searchLabel: l.maintenanceImageTagSearch,
+                        onSearch: supported && !_loading
+                            ? () => _load(reset: true)
+                            : null,
+                        onChanged: (_) => setState(() {}),
                       ),
-                    ],
-                    if (!_loading && supported && (_hasMore || _failed))
-                      Center(
-                        child: TextButton(
-                          onPressed: _load,
-                          child: Text(
-                            _failed
-                                ? l.maintenanceImageTagRetry
-                                : l.maintenanceImageTagsMore,
+                      if (!valid && _tag.text.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _MaintenanceNotice(
+                          message: l.maintenanceImageTagInvalid,
+                          error: true,
+                        ),
+                      ],
+                      if (_failed || !supported) ...[
+                        const SizedBox(height: 8),
+                        _MaintenanceNotice(
+                          message: l.maintenanceImageTagsUnavailable,
+                        ),
+                      ],
+                      if (_loading) ...[
+                        const SizedBox(height: 12),
+                        const LinearProgressIndicator(minHeight: 2),
+                      ],
+                      if (_tags.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: cs.outlineVariant),
+                          ),
+                          constraints: const BoxConstraints(maxHeight: 260),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _tags.length,
+                            itemBuilder: (context, index) {
+                              final tag = _tags[index];
+                              final selected = tag == _tag.text.trim();
+                              return ListTile(
+                                dense: true,
+                                minTileHeight:
+                                    _containerResourceControlHeightOf(context),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                selected: selected,
+                                selectedTileColor: cs.primary.withValues(
+                                  alpha: .08,
+                                ),
+                                title: Text(
+                                  tag,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: selected
+                                    ? Icon(
+                                        Icons.check_rounded,
+                                        size: 18,
+                                        color: cs.primary,
+                                      )
+                                    : null,
+                                onTap: () => setState(() => _tag.text = tag),
+                              );
+                            },
                           ),
                         ),
-                      ),
-                    if (!_loading && !_failed && supported && _tags.isEmpty)
-                      _MaintenanceEmptyHint(
-                        message: maintenanceLabel(context, '当前范围没有记录'),
-                      ),
-                  ],
+                      ],
+                      if (!_loading && supported && (_hasMore || _failed))
+                        Center(
+                          child: TextButton(
+                            onPressed: _load,
+                            child: Text(
+                              _failed
+                                  ? l.maintenanceImageTagRetry
+                                  : l.maintenanceImageTagsMore,
+                            ),
+                          ),
+                        ),
+                      if (!_loading && !_failed && supported && _tags.isEmpty)
+                        _MaintenanceEmptyHint(
+                          message: maintenanceLabel(context, '当前范围没有记录'),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            buildOpenHandDialogActionsBar(
-              actions: [
-                OutlinedButton(
-                  style: actionStyle,
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l.commonCancel),
-                ),
-                FilledButton(
-                  style: actionStyle,
-                  onPressed: valid
-                      ? () => Navigator.pop(context, _tag.text.trim())
-                      : null,
-                  child: Text(l.commonConfirm),
-                ),
-              ],
-            ),
-          ],
+              buildOpenHandDialogActionsBar(
+                actions: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(l.commonCancel),
+                  ),
+                  FilledButton(
+                    onPressed: valid
+                        ? () => Navigator.pop(context, _tag.text.trim())
+                        : null,
+                    child: Text(l.commonConfirm),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1285,8 +1394,8 @@ class _ContainerResourceFormDialogState
     }
   }
 
-  static const _formFontSize = 13.0;
-  static const _formControlHeight = 40.0;
+  static const _formFontSize = _containerResourceFontSize;
+  static const _formControlHeight = _containerResourceControlHeight;
 
   bool get _editable => !_busy && !_completed && !_uncertain;
   double get _controlHeight => math.max(
@@ -1560,51 +1669,8 @@ class _ContainerResourceFormDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final create = widget.action == _ContainerResourceAction.createContainer;
-    final actionStyle = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(0, _controlHeight)),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 14),
-      ),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-      textStyle: WidgetStatePropertyAll(
-        theme.textTheme.labelLarge?.copyWith(
-          fontSize: _formFontSize,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(0),
-      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-    );
     return Theme(
-      data: theme.copyWith(
-        hoverColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: cs.primary,
-            foregroundColor: cs.onPrimary,
-          ).merge(actionStyle),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(style: actionStyle),
-        textButtonTheme: TextButtonThemeData(style: actionStyle),
-        iconButtonTheme: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: cs.surfaceContainerLowest,
-            foregroundColor: cs.onSurfaceVariant,
-            disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            side: BorderSide(color: cs.outlineVariant.withValues(alpha: .7)),
-          ),
-        ),
-      ),
+      data: _containerResourceDialogTheme(context),
       child: PopScope(
         canPop: !_busy,
         child: buildOpenHandDialog(
@@ -1717,14 +1783,28 @@ class _ContainerResourceFormDialogState
                             ),
                         ],
                         if (widget.action == _ContainerResourceAction.pull) ...[
-                          _field(
-                            'image',
-                            l.maintenanceImageReference,
-                            hint: 'nginx:alpine',
-                          ),
-                          Text(
-                            l.maintenanceImagePullHelp,
-                            style: theme.textTheme.bodySmall,
+                          _MaintenanceCard(
+                            title: l.maintenanceImages,
+                            icon: Icons.layers_outlined,
+                            scrollBody: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _field(
+                                  'image',
+                                  l.maintenanceImageReference,
+                                  hint: 'nginx:alpine',
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  l.maintenanceImagePullHelp,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                         if (create) ...[
@@ -1876,6 +1956,51 @@ class _ContainerResourceFormDialogState
                             'value': maintenanceLabel(context, '数值'),
                           }),
                         ],
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: .65),
+                            ),
+                          ),
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              Text(
+                                l.maintenanceOperationTimeout,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              _MaintenanceToolbarMenu<int>(
+                                label: maintenanceTimeoutLabel(
+                                  context,
+                                  _timeout,
+                                ),
+                                tooltip: l.maintenanceOperationTimeout,
+                                icon: Icons.timer_outlined,
+                                value: _timeout,
+                                enabled: _editable,
+                                controlHeight: _controlHeight,
+                                items: {
+                                  for (final seconds
+                                      in machineMaintenanceTimeoutOptions)
+                                    seconds: maintenanceTimeoutLabel(
+                                      context,
+                                      seconds,
+                                    ),
+                                },
+                                onSelected: (value) =>
+                                    setState(() => _timeout = value),
+                              ),
+                            ],
+                          ),
+                        ),
                         if (_output.isNotEmpty)
                           _MaintenanceReadout(
                             text: _output,
@@ -1922,29 +2047,6 @@ class _ContainerResourceFormDialogState
                       ],
                       buildOpenHandDialogActionsBar(
                         padding: EdgeInsets.zero,
-                        leading: Align(
-                          alignment: Alignment.centerLeft,
-                          child: SizedBox(
-                            height: _controlHeight,
-                            child: _MaintenanceToolbarMenu<int>(
-                              label: maintenanceTimeoutLabel(context, _timeout),
-                              tooltip: l.maintenanceOperationTimeout,
-                              icon: Icons.timer_outlined,
-                              value: _timeout,
-                              enabled: _editable,
-                              items: {
-                                for (final seconds
-                                    in machineMaintenanceTimeoutOptions)
-                                  seconds: maintenanceTimeoutLabel(
-                                    context,
-                                    seconds,
-                                  ),
-                              },
-                              onSelected: (value) =>
-                                  setState(() => _timeout = value),
-                            ),
-                          ),
-                        ),
                         actions: [
                           if (_busy)
                             OutlinedButton(

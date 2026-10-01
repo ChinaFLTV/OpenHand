@@ -15567,4 +15567,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImageTagSearch => 'Search tags';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return 'Search results · $count';
+  }
 }

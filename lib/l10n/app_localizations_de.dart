@@ -15742,4 +15742,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImageTagSearch => 'Tags suchen';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return 'Suchergebnisse · $count';
+  }
 }

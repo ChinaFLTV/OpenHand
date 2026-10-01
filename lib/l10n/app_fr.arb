@@ -9686,5 +9686,13 @@
   "maintenanceImageTagInvalid": "Utilisez 1 à 128 lettres, chiffres, tirets bas, points ou tirets. Ne commencez pas par un point ou un tiret.",
   "maintenanceImageTagRetry": "Recharger",
   "maintenanceImageTagsMore": "Charger plus d’étiquettes",
-  "maintenanceImageTagSearch": "Rechercher des étiquettes"
+  "maintenanceImageTagSearch": "Rechercher des étiquettes",
+  "maintenanceImageResults": "Résultats · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -28150,6 +28150,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'搜索标签'**
   String get maintenanceImageTagSearch;
+
+  /// No description provided for @maintenanceImageResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索结果 · {count}'**
+  String maintenanceImageResults(int count);
 }
 
 class _AppLocalizationsDelegate

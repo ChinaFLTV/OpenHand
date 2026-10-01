@@ -15212,4 +15212,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImageTagSearch => 'タグを検索';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return '検索結果 · $count';
+  }
 }

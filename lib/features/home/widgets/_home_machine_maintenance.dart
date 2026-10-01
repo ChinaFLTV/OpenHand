@@ -5441,6 +5441,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
     required this.onSelected,
     this.icon,
     this.enabled = true,
+    this.controlHeight = _maintenanceControlHeight,
   });
   final String label, tooltip;
   final T value;
@@ -5448,6 +5449,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   final ValueChanged<T> onSelected;
   final IconData? icon;
   final bool enabled;
+  final double controlHeight;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -5484,7 +5486,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
                 PopupMenuItem(
                   value: item.key,
                   height: math.max(
-                    _maintenanceControlHeight,
+                    controlHeight,
                     MediaQuery.textScalerOf(context).scale(12) * 1.4 + 12,
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -5525,7 +5527,7 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
               opacity: enabled ? 1 : .42,
               duration: openHandMotionDuration(context, kOpenHandMotion140),
               child: Container(
-                height: _maintenanceControlHeight,
+                height: controlHeight,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: cs.surface.withValues(alpha: .72),
@@ -6603,7 +6605,7 @@ class _MaintenanceCard extends StatelessWidget {
           maintenanceLabel(context, title),
           (theme.textTheme.titleSmall ?? base).copyWith(
             fontSize: 13,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         );
     final bodyWidth =
@@ -6631,7 +6633,7 @@ class _MaintenanceCard extends StatelessWidget {
           child: _MaintenanceValue(
             value: maintenanceLabel(context, title),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
           ),

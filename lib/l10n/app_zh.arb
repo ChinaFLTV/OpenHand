@@ -10838,5 +10838,13 @@
   "maintenanceImageTagInvalid": "标签须为 1–128 个字母、数字、下划线、点或连字符，且不能以点或连字符开头。",
   "maintenanceImageTagRetry": "重新加载",
   "maintenanceImageTagsMore": "加载更多标签",
-  "maintenanceImageTagSearch": "搜索标签"
+  "maintenanceImageTagSearch": "搜索标签",
+  "maintenanceImageResults": "搜索结果 · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

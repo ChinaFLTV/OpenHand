@@ -9686,5 +9686,13 @@
   "maintenanceImageTagInvalid": "Verwenden Sie 1–128 Buchstaben, Ziffern, Unterstriche, Punkte oder Bindestriche. Nicht mit Punkt oder Bindestrich beginnen.",
   "maintenanceImageTagRetry": "Neu laden",
   "maintenanceImageTagsMore": "Weitere Tags laden",
-  "maintenanceImageTagSearch": "Tags suchen"
+  "maintenanceImageTagSearch": "Tags suchen",
+  "maintenanceImageResults": "Suchergebnisse · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

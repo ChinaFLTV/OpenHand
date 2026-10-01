@@ -9686,5 +9686,13 @@
   "maintenanceImageTagInvalid": "標籤須為 1–128 個字母、數字、底線、點或連字號，且不能以點或連字號開頭。",
   "maintenanceImageTagRetry": "重新載入",
   "maintenanceImageTagsMore": "載入更多標籤",
-  "maintenanceImageTagSearch": "搜尋標籤"
+  "maintenanceImageTagSearch": "搜尋標籤",
+  "maintenanceImageResults": "搜尋結果 · {count}",
+  "@maintenanceImageResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

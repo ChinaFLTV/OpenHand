@@ -15794,4 +15794,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImageTagSearch => 'Rechercher des étiquettes';
+
+  @override
+  String maintenanceImageResults(int count) {
+    return 'Résultats · $count';
+  }
 }
