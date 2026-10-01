@@ -280,8 +280,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _timer?.cancel();
       await _containersKey.currentState?.refresh(applyScope: manual);
       if (!mounted || _closing) return;
-      if (_containersKey.currentState?._client == null ||
-          _containersKey.currentState?._listingFailed == true) {
+      if (_containersKey.currentState?._refreshFailed == true) {
         setState(() => _automatic = false);
       }
       _schedule();
@@ -3901,6 +3900,10 @@ String _maintenanceReadoutValue(
     final bytes = int.tryParse(plain);
     if (bytes != null && bytes >= 0) return formatByteSize(bytes * 1024);
   }
+  if (const {'MemTotal', '内存总量'}.contains(leaf)) {
+    final bytes = int.tryParse(plain);
+    if (bytes != null && bytes >= 0) return formatByteSize(bytes);
+  }
   if (const {'%CPU', '%MEM', 'CPU / 单核', '内存使用率'}.contains(normalized) &&
       num.tryParse(plain) != null &&
       !plain.contains('%')) {
@@ -6460,6 +6463,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
               for (var c = 0; c < _data.rows[i].length; c++)
                 const [
                           '状态',
+                          '就绪',
                           'STAT',
                           'STATUS',
                           'STATE',

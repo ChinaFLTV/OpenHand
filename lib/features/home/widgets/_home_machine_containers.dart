@@ -88,6 +88,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   final _scope = TextEditingController();
   final _search = TextEditingController();
   final _resourcesKey = GlobalKey<_MachineContainerResourcesState>();
+  final _telemetryKey = GlobalKey<_ContainerTelemetryPanelState>();
   int _resourceTab = 0;
   MachineContainerRuntime _runtime = MachineContainerRuntime.docker;
   MachineContainerClient? _client;
@@ -102,6 +103,19 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   bool _copyingCommand = false;
   bool _listingFailed = false;
   _ContainerQueryScope? _query;
+
+  bool get _refreshFailed {
+    if (_resourceTab >= 3) {
+      final telemetry = _telemetryKey.currentState;
+      return telemetry != null &&
+          (telemetry._error.isNotEmpty ||
+              telemetry._plan.isNotEmpty &&
+                  telemetry._plan.every(
+                    (item) => telemetry._issues.containsKey(item.id),
+                  ));
+    }
+    return _client == null || _listingFailed;
+  }
 
   @override
   void initState() {
@@ -131,8 +145,13 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   }
 
   Future<void> refresh({bool reset = false, bool applyScope = false}) async {
-    applyScope = applyScope && _scope.text.trim() != _appliedScope;
+    applyScope =
+        applyScope && _resourceTab < 3 && _scope.text.trim() != _appliedScope;
     if ((_busy && !reset && !applyScope) || _overlay || !mounted) return;
+    if (_resourceTab >= 3 && !reset && !applyScope) {
+      await _telemetryKey.currentState?.refresh();
+      return;
+    }
     if (_resourceTab != 0 && !reset && !applyScope && _client != null) {
       await _resourcesKey.currentState?.refresh();
       return;
@@ -779,9 +798,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               final cs = theme.colorScheme;
               final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
               final hasScope =
-                  _runtime == MachineContainerRuntime.containerd ||
-                  _runtime == MachineContainerRuntime.kubernetes ||
-                  _runtime == MachineContainerRuntime.cri;
+                  _resourceTab < 3 &&
+                  (_runtime == MachineContainerRuntime.containerd ||
+                      _runtime == MachineContainerRuntime.kubernetes ||
+                      _runtime == MachineContainerRuntime.cri);
               final wide = bounds.maxWidth >= (hasScope ? 980 : 720) * scale;
               final inputWidth = wide ? 260 * scale : bounds.maxWidth;
               final scopeHint = maintenanceLabel(
@@ -954,111 +974,139 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final item in [
-                  (0, '容器', Icons.inventory_2_outlined),
-                  (1, '镜像', Icons.layers_outlined),
-                  (2, '数据卷', Icons.storage_rounded),
-                ])
-                  SizedBox(
-                    height: _maintenanceControlHeight,
-                    child: ChoiceChip(
-                      showCheckmark: false,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.standard,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      labelPadding: const EdgeInsets.only(left: 6),
-                      avatarBoxConstraints: const BoxConstraints.tightFor(
-                        width: 16,
-                        height: 16,
-                      ),
-                      shape: resourceControlShape,
-                      side: BorderSide(
-                        color:
-                            (_resourceTab == item.$1
-                                    ? cs.primary
-                                    : cs.outlineVariant)
-                                .withValues(alpha: .55),
-                      ),
-                      backgroundColor: cs.surface.withValues(alpha: .72),
-                      selectedColor: cs.primaryContainer,
-                      labelStyle: theme.textTheme.bodySmall?.copyWith(
-                        color: _resourceTab == item.$1
-                            ? cs.onPrimaryContainer
-                            : cs.onSurface,
-                      ),
-                      iconTheme: IconThemeData(
-                        color: _resourceTab == item.$1
-                            ? cs.onPrimaryContainer
-                            : cs.onSurfaceVariant,
-                      ),
-                      elevation: 0,
-                      pressElevation: 0,
-                      shadowColor: Colors.transparent,
-                      selectedShadowColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      avatar: Icon(item.$3, size: 16),
-                      label: Text(
-                        item.$1 == 1
-                            ? AppLocalizations.of(context)!.maintenanceImages
-                            : maintenanceLabel(context, item.$2),
-                      ),
-                      selected: _resourceTab == item.$1,
-                      onSelected: _overlay || _client == null
-                          ? null
-                          : (_) {
-                              if (_resourceTab == item.$1) return;
-                              _query?.cancel();
-                              setState(() {
-                                _busy = false;
-                                _resourceTab = item.$1;
-                              });
-                              if (_resourceTab == 0) refresh();
-                            },
-                    ),
-                  ),
-                if (_resourceTab == 0 && (_client?.supportsResources ?? false))
-                  SizedBox(
-                    height: _maintenanceControlHeight,
-                    child: FilledButton.tonalIcon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, _maintenanceControlHeight),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            child: LayoutBuilder(
+              builder: (context, bounds) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in [
+                    (0, '容器', Icons.inventory_2_outlined),
+                    (1, '镜像', Icons.layers_outlined),
+                    (2, '数据卷', Icons.storage_rounded),
+                    (3, '运行时概览', Icons.monitor_heart_outlined),
+                    (4, 'Kubernetes', Icons.hub_outlined),
+                  ])
+                    SizedBox(
+                      height: _maintenanceControlHeight,
+                      child: ChoiceChip(
+                        showCheckmark: false,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        labelPadding: const EdgeInsets.only(left: 6),
+                        avatarBoxConstraints: const BoxConstraints.tightFor(
+                          width: 16,
+                          height: 16,
+                        ),
                         shape: resourceControlShape,
                         side: BorderSide(
-                          color: (_overlay ? cs.outlineVariant : cs.primary)
-                              .withValues(alpha: .55),
+                          color:
+                              (_resourceTab == item.$1
+                                      ? cs.primary
+                                      : cs.outlineVariant)
+                                  .withValues(alpha: .55),
                         ),
-                        backgroundColor: cs.primaryContainer,
-                        foregroundColor: cs.onPrimaryContainer,
-                        disabledBackgroundColor: cs.surfaceContainerHighest,
-                        disabledForegroundColor: cs.onSurface.withValues(
-                          alpha: .38,
+                        backgroundColor: cs.surface.withValues(alpha: .72),
+                        selectedColor: cs.primaryContainer,
+                        labelStyle: theme.textTheme.bodySmall?.copyWith(
+                          color: _resourceTab == item.$1
+                              ? cs.onPrimaryContainer
+                              : cs.onSurface,
                         ),
-                        textStyle: theme.textTheme.bodySmall,
+                        iconTheme: IconThemeData(
+                          color: _resourceTab == item.$1
+                              ? cs.onPrimaryContainer
+                              : cs.onSurfaceVariant,
+                        ),
                         elevation: 0,
+                        pressElevation: 0,
                         shadowColor: Colors.transparent,
+                        selectedShadowColor: Colors.transparent,
                         surfaceTintColor: Colors.transparent,
-                      ),
-                      onPressed: _overlay ? null : _createContainer,
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(
-                        AppLocalizations.of(
-                          context,
-                        )!.maintenanceContainerCreate,
+                        avatar: Icon(item.$3, size: 16),
+                        label: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: math.max(48, bounds.maxWidth - 72),
+                          ),
+                          child: Tooltip(
+                            message: maintenanceLabel(context, item.$2),
+                            child: Text(
+                              item.$1 == 1
+                                  ? AppLocalizations.of(
+                                      context,
+                                    )!.maintenanceImages
+                                  : maintenanceLabel(context, item.$2),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        selected: _resourceTab == item.$1,
+                        onSelected:
+                            _overlay ||
+                                _client == null &&
+                                    const [1, 2, 3].contains(item.$1)
+                            ? null
+                            : (_) {
+                                if (_resourceTab == item.$1) return;
+                                _query?.cancel();
+                                setState(() {
+                                  _busy = false;
+                                  _resourceTab = item.$1;
+                                });
+                                if (_resourceTab == 0) refresh();
+                              },
                       ),
                     ),
-                  ),
-              ],
+                  if (_resourceTab == 0 &&
+                      (_client?.supportsResources ?? false))
+                    SizedBox(
+                      height: _maintenanceControlHeight,
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, _maintenanceControlHeight),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                          shape: resourceControlShape,
+                          side: BorderSide(
+                            color: (_overlay ? cs.outlineVariant : cs.primary)
+                                .withValues(alpha: .55),
+                          ),
+                          backgroundColor: cs.primaryContainer,
+                          foregroundColor: cs.onPrimaryContainer,
+                          disabledBackgroundColor: cs.surfaceContainerHighest,
+                          disabledForegroundColor: cs.onSurface.withValues(
+                            alpha: .38,
+                          ),
+                          textStyle: theme.textTheme.bodySmall,
+                          elevation: 0,
+                          shadowColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
+                        ),
+                        onPressed: _overlay ? null : _createContainer,
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(
+                          AppLocalizations.of(
+                            context,
+                          )!.maintenanceContainerCreate,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-        if (_resourceTab != 0 && _client != null)
+        if (_resourceTab >= 3)
+          _ContainerTelemetryPanel(
+            key: _telemetryKey,
+            client: _client,
+            kubernetes: _resourceTab == 4,
+            windows: widget.windows,
+            beginQuery: _beginQuery,
+          ),
+        if ((_resourceTab == 1 || _resourceTab == 2) && _client != null)
           _MachineContainerResources(
             key: _resourcesKey,
             client: _client!,
@@ -1083,7 +1131,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             padding: EdgeInsets.symmetric(vertical: 8),
             child: LinearProgressIndicator(),
           ),
-        if (_error.isNotEmpty)
+        if (_resourceTab < 3 && _error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: _MaintenanceSection(
@@ -1094,7 +1142,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
               child: _MaintenanceReadout(text: _error, section: 'containers'),
             ),
           ),
-        if (_collectionIssues.isNotEmpty) ...[
+        if (_resourceTab < 3 && _collectionIssues.isNotEmpty) ...[
           const SizedBox(height: _maintenanceGridGap),
           _MaintenanceSection(
             title: maintenanceLabel(context, '诊断项目'),
@@ -1210,6 +1258,447 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             child: _MaintenanceReadout(
               text: _metadata,
               section: 'container_metadata',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ContainerTelemetryPanel extends StatefulWidget {
+  const _ContainerTelemetryPanel({
+    super.key,
+    required this.client,
+    required this.kubernetes,
+    required this.windows,
+    required this.beginQuery,
+  });
+  final MachineContainerClient? client;
+  final bool kubernetes, windows;
+  final _ContainerQueryScope Function() beginQuery;
+
+  @override
+  State<_ContainerTelemetryPanel> createState() =>
+      _ContainerTelemetryPanelState();
+}
+
+class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
+  final _namespace = TextEditingController();
+  final _reports = <String, MachineMaintenanceReadout>{};
+  final _outputs = <String, String>{};
+  final _issues = <String, String>{};
+  final _updated = <String, DateTime>{};
+  List<MachineContainerTelemetryQuery> _plan = [];
+  _ContainerQueryScope? _query;
+  MachineContainerClient? _client;
+  String _error = '', _active = '';
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _namespace.text =
+        widget.client?.runtime == MachineContainerRuntime.kubernetes
+        ? widget.client!.scope
+        : '';
+    refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContainerTelemetryPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kubernetes != widget.kubernetes ||
+        oldWidget.client?.runtime != widget.client?.runtime ||
+        oldWidget.client?.scope != widget.client?.scope ||
+        oldWidget.client?.contextName != widget.client?.contextName) {
+      _clearReports();
+      _plan = [];
+      _client = null;
+      if (widget.client?.runtime == MachineContainerRuntime.kubernetes) {
+        _namespace.text = widget.client!.scope;
+      }
+      refresh(replace: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _query?.cancel();
+    _namespace.dispose();
+    super.dispose();
+  }
+
+  void _clearReports() {
+    _reports.clear();
+    _outputs.clear();
+    _issues.clear();
+    _updated.clear();
+  }
+
+  Future<void> refresh({bool replace = false, String? only}) async {
+    if (!mounted || _busy && !replace) return;
+    _query?.cancel();
+    final query = _query = widget.beginQuery();
+    final watch = Stopwatch()..start();
+    bool stopped() => !mounted || query.cancelled;
+    setState(() {
+      _busy = true;
+      _error = '';
+      if (widget.kubernetes &&
+          _client != null &&
+          _client!.scope != _namespace.text.trim()) {
+        _clearReports();
+      }
+    });
+    Future<String> run(String command) {
+      final remaining = machineContainerTelemetryBudget - watch.elapsed;
+      if (remaining <= Duration.zero) throw TimeoutException('容器遥测采集总时限已到。');
+      final limit = query.timeout < machineContainerTelemetryTimeout
+          ? query.timeout
+          : machineContainerTelemetryTimeout;
+      return query.run(command, timeout: remaining < limit ? remaining : limit);
+    }
+
+    try {
+      final inherited = widget.client;
+      var client = widget.kubernetes
+          ? inherited?.runtime == MachineContainerRuntime.kubernetes
+                ? inherited!.copyWith(run: run, scope: _namespace.text.trim())
+                : MachineContainerClient(
+                    runtime: MachineContainerRuntime.kubernetes,
+                    run: run,
+                    scope: _namespace.text.trim(),
+                    windows: widget.windows,
+                  )
+          : inherited?.copyWith(run: run);
+      if (client == null) throw StateError('容器运行时尚未连接。');
+      if (widget.kubernetes && client.contextName.isEmpty) {
+        try {
+          final name = (await client.execute([
+            'config',
+            'current-context',
+          ])).trim();
+          if (name.isNotEmpty && !name.contains(RegExp(r'[\r\n\x00-\x1f]'))) {
+            client = client.copyWith(contextName: name);
+          }
+        } catch (error) {
+          if (stopped() ||
+              widget.windows ||
+              inherited?.runtime == MachineContainerRuntime.kubernetes ||
+              !RegExp(
+                'command not found|not recognized|executable file not found|no such file or directory',
+                caseSensitive: false,
+              ).hasMatch('$error')) {
+            rethrow;
+          }
+          client = await MachineContainerClient(
+            runtime: MachineContainerRuntime.kubernetes,
+            run: run,
+            scope: _namespace.text.trim(),
+            launcher: const ['k3s', 'kubectl'],
+          ).resolveContext();
+        }
+      }
+      if (stopped()) return;
+      setState(() {
+        if (_client != null &&
+            (_client!.scope != client!.scope ||
+                _client!.contextName != client.contextName)) {
+          _clearReports();
+        }
+        _client = client;
+        _plan = client!.telemetryQueries;
+      });
+      final selected = only == null
+          ? _plan
+          : _plan.where((item) => item.id == only).toList();
+      for (final item in selected) {
+        if (stopped()) return;
+        if (watch.elapsed >= machineContainerTelemetryBudget) {
+          setState(() {
+            for (final pending in selected.skipWhile(
+              (entry) => entry.id != item.id,
+            )) {
+              _issues[pending.id] = 'TimeoutException: 容器遥测采集总时限已到。';
+            }
+          });
+          break;
+        }
+        setState(() => _active = item.id);
+        try {
+          final output = await client.execute(item.arguments);
+          final report = item.parse(output);
+          if (stopped()) return;
+          setState(() {
+            _reports[item.id] = report;
+            _outputs[item.id] = output;
+            _updated[item.id] = DateTime.now();
+            _issues.remove(item.id);
+          });
+        } catch (error) {
+          if (stopped()) return;
+          setState(() => _issues[item.id] = '$error');
+        }
+      }
+    } catch (error) {
+      if (!stopped()) setState(() => _error = '$error');
+    } finally {
+      watch.stop();
+      if (!stopped()) {
+        setState(() {
+          _busy = false;
+          _active = '';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final client = _client;
+    final controlHeight = _containerResourceControlHeightOf(context);
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.outlineVariant),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MaintenanceCard(
+          title: widget.kubernetes ? 'Kubernetes' : '运行时概览',
+          icon: widget.kubernetes
+              ? Icons.hub_outlined
+              : Icons.monitor_heart_outlined,
+          scrollBody: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (client != null)
+                    Text(
+                      '${client.runtime.label} · ${client.contextName.isEmpty ? '—' : client.contextName}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  if (widget.kubernetes)
+                    SizedBox(
+                      width: 280,
+                      height: controlHeight,
+                      child: TextField(
+                        controller: _namespace,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        decoration: InputDecoration(
+                          hintText: maintenanceLabel(context, '命名空间（留空为全部）'),
+                          isDense: false,
+                          isCollapsed: false,
+                          constraints: BoxConstraints.tightFor(
+                            height: controlHeight,
+                          ),
+                          border: inputBorder,
+                          enabledBorder: inputBorder,
+                          focusedBorder: inputBorder.copyWith(
+                            borderSide: BorderSide(
+                              color: cs.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: cs.surfaceContainerLow,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 36,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.filter_alt_outlined,
+                            size: 18,
+                          ),
+                        ),
+                        onSubmitted: (_) => refresh(replace: true),
+                      ),
+                    ),
+                  SizedBox.square(
+                    dimension: controlHeight,
+                    child: _MachineTerminalIconButton(
+                      tooltip: maintenanceLabel(context, '刷新容器数据'),
+                      icon: Icons.refresh_rounded,
+                      onPressed: _busy ? null : refresh,
+                    ),
+                  ),
+                  if (_busy)
+                    SizedBox.square(
+                      dimension: controlHeight,
+                      child: _MachineTerminalIconButton(
+                        tooltip: AppLocalizations.of(context)!.commonCancel,
+                        icon: Icons.stop_rounded,
+                        onPressed: () {
+                          _query?.cancel();
+                          setState(() {
+                            _busy = false;
+                            _active = '';
+                          });
+                        },
+                      ),
+                    ),
+                ],
+              ),
+              if (_busy) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+                Text(
+                  maintenanceLabel(
+                    context,
+                    _plan
+                            .where((item) => item.id == _active)
+                            .firstOrNull
+                            ?.label ??
+                        '正在连接',
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+              if (_error.isNotEmpty)
+                _MaintenanceReadout(text: _error, section: 'containers'),
+            ],
+          ),
+        ),
+        for (final item in _plan) ...[
+          const SizedBox(height: _maintenanceGridGap),
+          _MaintenanceSection(
+            key: ValueKey('telemetry-${item.id}'),
+            title: maintenanceLabel(context, item.label),
+            icon: switch (item.id) {
+              'metrics' ||
+              'node_metrics' ||
+              'pod_metrics' => Icons.monitor_heart_outlined,
+              'disk' || 'storage' || 'storage_claims' => Icons.storage_rounded,
+              'events' => Icons.warning_amber_rounded,
+              'networks' || 'services' => Icons.hub_outlined,
+              _ => Icons.dns_outlined,
+            },
+            initiallyExpanded: const {
+              'metadata',
+              'readiness',
+              'nodes',
+              'node_metrics',
+              'metrics',
+            }.contains(item.id),
+            accent: _issues.containsKey(item.id)
+                ? OpenHandStatusColors.warning
+                : cs.primary,
+            subtitle: [
+              if (_updated[item.id] case final updated?)
+                '${maintenanceLabel(context, '采样时间')} · ${MaterialLocalizations.of(context).formatShortDate(updated)} ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(updated), alwaysUse24HourFormat: true)}',
+              if (_issues.containsKey(item.id) && _reports.containsKey(item.id))
+                maintenanceLabel(context, '刷新失败，当前显示上次成功结果'),
+            ].join(' · '),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_issues[item.id] case final issue?)
+                  if (const {'node_metrics', 'pod_metrics'}.contains(item.id) &&
+                      RegExp(
+                        'metrics API|metrics.k8s.io|metrics-server',
+                        caseSensitive: false,
+                      ).hasMatch(issue))
+                    _MaintenanceEmptyHint(
+                      message: AppLocalizations.of(
+                        context,
+                      )!.maintenanceTelemetryMetricsUnavailable,
+                      icon: Icons.monitor_heart_outlined,
+                    )
+                  else
+                    _MaintenanceReadout(
+                      text: issue,
+                      section: 'containers',
+                      report: MachineMaintenanceReadout(
+                        [],
+                        [],
+                        issue: issue.contains('TimeoutException')
+                            ? 'timeout'
+                            : machineMaintenanceCollectionIssue(
+                                    issue,
+                                    'containers',
+                                  ) ??
+                                  'unavailable',
+                      ),
+                    ),
+                if (_reports[item.id] case final report?)
+                  if (item.id == 'readiness')
+                    const _MaintenanceStatus(
+                      label: '就绪',
+                      color: OpenHandStatusColors.success,
+                    )
+                  else if (report.fields)
+                    _MaintenanceTable(
+                      headers: const ['名称', '数值'],
+                      maxBodyHeight: 420,
+                      paginate: report.rows.length > 20,
+                      rows: [
+                        for (final row in report.rows)
+                          OpenHandOperationalRankRow(
+                            rowKey: row.first,
+                            value: 0,
+                            cells: [
+                              maintenanceDetailLabel(context, row.first),
+                              _maintenanceReadoutValue(
+                                context,
+                                row.first,
+                                row.last,
+                              ),
+                            ],
+                          ),
+                      ],
+                    )
+                  else
+                    _MaintenanceReadout(
+                      report: report,
+                      section: 'container_metrics',
+                    )
+                else if (!_issues.containsKey(item.id))
+                  _MaintenanceEmptyHint(
+                    message: maintenanceLabel(context, '等待采样'),
+                  ),
+                if (_outputs.containsKey(item.id))
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.data_object_rounded, size: 16),
+                      label: Text(maintenanceLabel(context, '完整元数据')),
+                      onPressed: () async {
+                        final output = _outputs[item.id]!;
+                        await showAnimatedDialog<void>(
+                          context: context,
+                          builder: (_) => _ContainerReportDialog(
+                            title: maintenanceLabel(context, item.label),
+                            section: 'container_metadata',
+                            load: () async => output,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                if (_issues.containsKey(item.id))
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: Text(
+                        AppLocalizations.of(context)!.maintenanceImageTagRetry,
+                      ),
+                      onPressed: _busy ? null : () => refresh(only: item.id),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

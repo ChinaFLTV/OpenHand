@@ -28156,6 +28156,240 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'搜索结果 · {count}'**
   String maintenanceImageResults(int count);
+
+  /// No description provided for @maintenanceTelemetryRuntimeOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时概览'**
+  String get maintenanceTelemetryRuntimeOverview;
+
+  /// No description provided for @maintenanceTelemetryApiHealth.
+  ///
+  /// In zh, this message translates to:
+  /// **'API 服务健康'**
+  String get maintenanceTelemetryApiHealth;
+
+  /// No description provided for @maintenanceTelemetryNodeMetrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点资源采样'**
+  String get maintenanceTelemetryNodeMetrics;
+
+  /// No description provided for @maintenanceTelemetryWorkloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作负载'**
+  String get maintenanceTelemetryWorkloads;
+
+  /// No description provided for @maintenanceTelemetryServiceNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务与网络'**
+  String get maintenanceTelemetryServiceNetwork;
+
+  /// No description provided for @maintenanceTelemetryPersistentStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'持久存储'**
+  String get maintenanceTelemetryPersistentStorage;
+
+  /// No description provided for @maintenanceTelemetryStorageClaims.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储声明'**
+  String get maintenanceTelemetryStorageClaims;
+
+  /// No description provided for @maintenanceTelemetryQuotas.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源配额'**
+  String get maintenanceTelemetryQuotas;
+
+  /// No description provided for @maintenanceTelemetryWarningEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'告警事件'**
+  String get maintenanceTelemetryWarningEvents;
+
+  /// No description provided for @maintenanceTelemetryDiskUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘占用与回收'**
+  String get maintenanceTelemetryDiskUsage;
+
+  /// No description provided for @maintenanceTelemetrySampleTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'采样时间'**
+  String get maintenanceTelemetrySampleTime;
+
+  /// No description provided for @maintenanceTelemetryPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待采样'**
+  String get maintenanceTelemetryPending;
+
+  /// No description provided for @maintenanceTelemetryConnecting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在连接'**
+  String get maintenanceTelemetryConnecting;
+
+  /// No description provided for @maintenanceTelemetryFullMetadata.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整元数据'**
+  String get maintenanceTelemetryFullMetadata;
+
+  /// No description provided for @maintenanceTelemetryCpuCapacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 容量'**
+  String get maintenanceTelemetryCpuCapacity;
+
+  /// No description provided for @maintenanceTelemetryCpuAllocatable.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 可分配'**
+  String get maintenanceTelemetryCpuAllocatable;
+
+  /// No description provided for @maintenanceTelemetryMemoryCapacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存容量'**
+  String get maintenanceTelemetryMemoryCapacity;
+
+  /// No description provided for @maintenanceTelemetryMemoryAllocatable.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存可分配'**
+  String get maintenanceTelemetryMemoryAllocatable;
+
+  /// No description provided for @maintenanceTelemetryPodCapacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'Pod 容量'**
+  String get maintenanceTelemetryPodCapacity;
+
+  /// No description provided for @maintenanceTelemetryDesiredReplicas.
+  ///
+  /// In zh, this message translates to:
+  /// **'期望副本'**
+  String get maintenanceTelemetryDesiredReplicas;
+
+  /// No description provided for @maintenanceTelemetryReadyReplicas.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪副本'**
+  String get maintenanceTelemetryReadyReplicas;
+
+  /// No description provided for @maintenanceTelemetryAvailableReplicas.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用副本'**
+  String get maintenanceTelemetryAvailableReplicas;
+
+  /// No description provided for @maintenanceTelemetryDesiredNodes.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标节点数'**
+  String get maintenanceTelemetryDesiredNodes;
+
+  /// No description provided for @maintenanceTelemetryReadyNodes.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪节点数'**
+  String get maintenanceTelemetryReadyNodes;
+
+  /// No description provided for @maintenanceTelemetrySucceeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功次数'**
+  String get maintenanceTelemetrySucceeded;
+
+  /// No description provided for @maintenanceTelemetryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败次数'**
+  String get maintenanceTelemetryFailed;
+
+  /// No description provided for @maintenanceTelemetryNetworkRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络规则'**
+  String get maintenanceTelemetryNetworkRules;
+
+  /// No description provided for @maintenanceTelemetryStorageClass.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储类'**
+  String get maintenanceTelemetryStorageClass;
+
+  /// No description provided for @maintenanceTelemetryResourceRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求资源'**
+  String get maintenanceTelemetryResourceRequests;
+
+  /// No description provided for @maintenanceTelemetryAccessModes.
+  ///
+  /// In zh, this message translates to:
+  /// **'访问模式'**
+  String get maintenanceTelemetryAccessModes;
+
+  /// No description provided for @maintenanceTelemetryReclaimPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'回收策略'**
+  String get maintenanceTelemetryReclaimPolicy;
+
+  /// No description provided for @maintenanceTelemetryResourceUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用资源'**
+  String get maintenanceTelemetryResourceUsed;
+
+  /// No description provided for @maintenanceTelemetryStorageRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储目录'**
+  String get maintenanceTelemetryStorageRoot;
+
+  /// No description provided for @maintenanceTelemetryExternalAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部地址'**
+  String get maintenanceTelemetryExternalAddress;
+
+  /// No description provided for @maintenanceTelemetryVolumeBinding.
+  ///
+  /// In zh, this message translates to:
+  /// **'卷绑定模式'**
+  String get maintenanceTelemetryVolumeBinding;
+
+  /// No description provided for @maintenanceTelemetryVolumeExpansion.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许扩容'**
+  String get maintenanceTelemetryVolumeExpansion;
+
+  /// No description provided for @maintenanceTelemetryMemoryPercent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存用量比例'**
+  String get maintenanceTelemetryMemoryPercent;
+
+  /// No description provided for @maintenanceTelemetryNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'未就绪'**
+  String get maintenanceTelemetryNotReady;
+
+  /// No description provided for @maintenanceTelemetryMetricsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源指标服务不可用，请检查集群的 metrics-server 与访问权限。'**
+  String get maintenanceTelemetryMetricsUnavailable;
 }
 
 class _AppLocalizationsDelegate

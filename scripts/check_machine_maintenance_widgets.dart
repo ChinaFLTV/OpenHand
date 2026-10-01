@@ -113,6 +113,7 @@ $_scheduledChecks
 $_incrementalChecks
 $_containerTerminalChecks
 $_resourceChecks
+$_telemetryChecks
 ''',
   );
 }
@@ -260,6 +261,7 @@ void main() {
   scheduledTaskChecks();
   containerTerminalChecks();
   resourceChecks();
+  telemetryChecks();
   containerInteractionChecks();
   incrementalChecks();
   setUpAll(() async {
@@ -5655,6 +5657,163 @@ void containerTerminalChecks() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.runAsync(fixture.release);
     await tester.binding.setSurfaceSize(null);
+  });
+}
+''';
+
+const _telemetryChecks = r'''
+String telemetryFixture(String command) {
+  if (command.contains("'current-context'")) return '测试集群';
+  if (command.contains("'context' 'show'")) return 'desktop-linux';
+  if (command.contains("'ps'")) return '';
+  if (command.contains("'--raw=/readyz'")) return 'ok';
+  if (command.contains("'info'")) return '{"Name":"运维引擎","ServerVersion":"28.0.1","NCPU":8,"MemTotal":17179869184,"ContainersRunning":3,"Images":8,"Driver":"overlay2","CgroupDriver":"systemd","LoggingDriver":"json-file","LiveRestoreEnabled":true}';
+  if (command.contains("'version'")) return '{"serverVersion":{"gitVersion":"v1.33.0"},"clientVersion":{"gitVersion":"v1.33.1"}}';
+  if (command.contains("'stats'")) return '{"Name":"api","CPUPerc":"12.5%","MemUsage":"256MiB / 2GiB","NetIO":"12MB / 4MB","BlockIO":"8MB / 1MB","PIDs":"18"}';
+  if (command.contains("'system' 'df'")) return '{"Type":"Images","TotalCount":"8","Active":"3","Size":"2.4GB","Reclaimable":"1.2GB"}';
+  if (command.contains("'network' 'ls'")) return '{"Name":"bridge","Driver":"bridge","Scope":"local"}';
+  if (command.contains("'top' 'nodes'")) return 'NAME    CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%\nnode-1  500m         6%     2048Mi          12%';
+  if (command.contains("'top' 'pods'")) return 'NAMESPACE   POD       NAME   CPU(cores)   MEMORY(bytes)\n生产        api-pod   api    100m         256Mi';
+  if (command.contains("'get' 'nodes'")) return jsonEncode({'items':[{'metadata':{'name':'node-1'},'status':{'capacity':{'cpu':'8','memory':'16Gi'},'allocatable':{'cpu':'7500m','memory':'15Gi','pods':'110'},'conditions':[{'type':'Ready','status':'True'}],'nodeInfo':{'containerRuntimeVersion':'containerd://2.0','osImage':'Ubuntu 24.04','kernelVersion':'6.8','architecture':'arm64'},'addresses':[{'type':'InternalIP','address':'10.0.0.2'}]}}]});
+  if (command.contains("'get' 'events'")) return jsonEncode({'items':[{'metadata':{'namespace':'生产'},'involvedObject':{'name':'api-pod'},'type':'Warning','reason':'BackOff','message':'测试告警','count':3,'lastTimestamp':'2026-10-02T09:00:00Z'}]});
+  if (command.contains("'get' 'deployments,statefulsets,daemonsets,jobs,cronjobs'")) return jsonEncode({'items':[{'kind':'Deployment','metadata':{'name':'api','namespace':'生产'},'spec':{'replicas':3},'status':{'readyReplicas':2,'availableReplicas':2}}]});
+  return '{"items":[]}';
+}
+
+void telemetryChecks() {
+  for (final locale in AppLocalizations.supportedLocales) {
+    for (final width in [380.0, 1180.0]) {
+      for (final brightness in Brightness.values) {
+        testWidgets('遥测分区国际化与布局 ' + locale.toString() + ' ' + width.toString() + ' ' + brightness.name, (tester) async {
+          await tester.binding.setSurfaceSize(Size(width, 1050));
+          final l = await AppLocalizations.delegate.load(locale);
+          final key = GlobalKey<_ContainerTelemetryPanelState>();
+          _ContainerQueryScope? scope;
+          final client = MachineContainerClient(runtime:MachineContainerRuntime.docker,contextName:'desktop-linux',run:(command)async=>telemetryFixture(command));
+          _ContainerQueryScope begin() {
+            scope?.cancel();
+            return scope = _ContainerQueryScope(fallback:client.run,timeout:machineContainerTelemetryTimeout,previous:scope?.settled);
+          }
+          Future<void> screen(bool kube) async {
+            final theme = brightness == Brightness.light ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen) : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+            await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+              theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+              builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width < 500 ? 1.6 : 1)),child:child!),
+              home:Scaffold(body:RepaintBoundary(key:const ValueKey('遥测预览'),child:SingleChildScrollView(padding:const EdgeInsets.all(16),child:_ContainerTelemetryPanel(key:key,client:client,kubernetes:kube,windows:false,beginQuery:begin))))));
+            await tester.pumpAndSettle();
+          }
+          for (final kube in [false,true]) {
+            await screen(kube);
+            final state = key.currentState!;
+            expect(state._busy,isFalse); expect(state._issues,isEmpty); expect(state._error,isEmpty);
+            expect(state._reports.length,kube ? 13 : 5);
+            expect(find.text(kube ? 'Kubernetes' : l.maintenanceTelemetryRuntimeOverview),findsWidgets);
+            expect(find.text(kube ? l.maintenanceTelemetryApiHealth : l.maintenanceContainerMetadata),findsWidgets);
+            expect(find.text(kube ? l.maintenanceTelemetryNodeMetrics : l.maintenanceContainerMetrics),findsWidgets);
+            expect(find.text('采样时间'),findsNothing);
+            expect(tester.takeException(),isNull);
+            for (final decorated in tester.widgetList<DecoratedBox>(find.byType(DecoratedBox))) {
+              if (decorated.decoration case final BoxDecoration decoration) {
+                expect(decoration.gradient,isNull); expect(decoration.boxShadow ?? [],isEmpty);
+              }
+            }
+            if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+              await tester.runAsync(() async {
+                final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('遥测预览')));
+                final shot = await boundary.toImage(pixelRatio:1.5); final data = await shot.toByteData(format:ui.ImageByteFormat.png);
+                await File('/tmp/container-telemetry-' + (kube ? 'kube' : 'runtime') + '-' + brightness.name + '-' + width.toInt().toString() + '.png').writeAsBytes(data!.buffer.asUint8List()); shot.dispose();
+              });
+            }
+          }
+          await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
+        });
+      }
+    }
+  }
+  testWidgets('遥测失败保留旧值并逐项重试', (tester) async {
+    var failed=false; final commands=<String>[];
+    Future<String> run(String command) async {
+      commands.add(command);
+      if(failed && command.contains("'top' 'nodes'")) throw StateError('error: Metrics API not available');
+      return telemetryFixture(command);
+    }
+    _ContainerQueryScope? query;
+    final key=GlobalKey<_ContainerTelemetryPanelState>();
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:SingleChildScrollView(child:_ContainerTelemetryPanel(key:key,client:MachineContainerClient(runtime:MachineContainerRuntime.kubernetes,contextName:'测试集群',run:run),kubernetes:true,windows:false,
+        beginQuery:()=>query=_ContainerQueryScope(fallback:run,timeout:machineContainerTelemetryTimeout,previous:query?.settled))))));
+    await tester.pumpAndSettle(); final state=key.currentState!; final previous=state._reports['node_metrics']; final stamp=state._updated['node_metrics'];
+    failed=true; await state.refresh(); await tester.pumpAndSettle();
+    expect(state._reports['node_metrics'],same(previous));expect(state._updated['node_metrics'],stamp);
+    expect(state._issues.keys,['node_metrics']);expect(state._reports.containsKey('events'),isTrue);
+    expect(find.textContaining('刷新失败，当前显示上次成功结果'),findsWidgets);
+    failed=false;commands.clear();await state.refresh(only:'node_metrics');await tester.pumpAndSettle();
+    expect(state._issues,isEmpty);expect(commands.length,1);expect(commands.single,contains("'top' 'nodes'"));
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('Kubernetes 缺少独立客户端时仅尝试一次 k3s，不掩盖连接错误', (tester) async {
+    for (final missing in [true,false]) {
+      final calls=<String>[];
+      Future<String> run(String command) async {
+        calls.add(command);
+        if (command.startsWith("'kubectl'")) throw StateError(missing ? 'kubectl: command not found' : '连接上下文无效');
+        return telemetryFixture(command);
+      }
+      final key=GlobalKey<_ContainerTelemetryPanelState>();
+      await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:SingleChildScrollView(child:_ContainerTelemetryPanel(key:key,client:null,kubernetes:true,windows:false,
+          beginQuery:()=>_ContainerQueryScope(fallback:run,timeout:machineContainerTelemetryTimeout))))));
+      await tester.pumpAndSettle();
+      expect(calls.where((command)=>command.startsWith("'kubectl'")),hasLength(1));
+      if(missing) {
+        expect(key.currentState!._client!.launcher,['k3s','kubectl']);expect(key.currentState!._reports.length,13);
+      } else {
+        expect(calls,hasLength(1));expect(key.currentState!._error,isNotEmpty);
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('切换命名空间取消旧采样并清空跨作用域缓存，遵守全局超时', (tester) async {
+    final pending=Completer<String>();var delayed=false;final durations=<Duration>[];final calls=<String>[];
+    Future<String> runner(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
+      durations.add(timeout);calls.add(command);
+      if(delayed && command.contains("'get' 'nodes'")) return pending.future;
+      return telemetryFixture(command);
+    }
+    final key=GlobalKey<_ContainerTelemetryPanelState>();_ContainerQueryScope? scope;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:SingleChildScrollView(child:_ContainerTelemetryPanel(key:key,client:MachineContainerClient(runtime:MachineContainerRuntime.kubernetes,contextName:'测试集群',run:(command)async=>telemetryFixture(command)),kubernetes:true,windows:false,
+        beginQuery:(){scope?.cancel();return scope=_ContainerQueryScope(fallback:(command)async=>telemetryFixture(command),query:runner,timeout:const Duration(seconds:5),previous:scope?.settled);})))));
+    await tester.pumpAndSettle();final state=key.currentState!;delayed=true;
+    final old=state.refresh();await tester.pump();expect(state._active,'nodes');final oldScope=scope!;
+    state._namespace.text='新命名空间';final changed=state.refresh(replace:true);await tester.pump();expect(oldScope.cancelled,isTrue);expect(state._reports,isEmpty);
+    delayed=false;pending.complete('{"items":[{"metadata":{"name":"迟到节点"}}]}');await old;await changed;await tester.pumpAndSettle();
+    expect(state._client!.scope,'新命名空间');expect(state._reports['nodes']!.rows.first.first,'node-1');expect(state._issues,isEmpty);
+    expect(durations.every((duration)=>duration<=const Duration(seconds:5)),isTrue);
+    expect(calls.last,contains("'-n' '新命名空间'"));expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('遥测切换与取消丢弃迟到结果，镜像列表仍可操作', (tester) async {
+    final pending=Completer<String>(); var delay=false;
+    Future<String> run(String command) async {
+      if(delay && command.contains("'info'")) return pending.future;
+      if(command.contains("'image' 'ls'")) return '[]';
+      return telemetryFixture(command);
+    }
+    await tester.binding.setSurfaceSize(const Size(1180,900));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
+    await tester.pumpAndSettle(); final parent=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
+    expect(parent._telemetryKey.currentState,isNull);
+    delay=true;await tester.tap(find.widgetWithText(ChoiceChip,'运行时概览'));await tester.pump();await tester.pump(const Duration(milliseconds:700));
+    final state=parent._telemetryKey.currentState!;expect(state._busy,isTrue);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip,'镜像')).onSelected,isNotNull);
+    await tester.tap(find.widgetWithText(ChoiceChip,'镜像'));await tester.pump();
+    expect(state._query!.cancelled,isTrue);
+    pending.complete('{"Name":"迟到引擎"}');await tester.pumpAndSettle();
+    expect(parent._resourceTab,1);expect(find.text('迟到引擎'),findsNothing);expect(parent._overlay,isFalse);
+    expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
   });
 }
 ''';

@@ -39,6 +39,12 @@ String? machineMaintenanceCollectionIssue(String output, String section) {
     r'^(?:you need administrator access|not authorised|not authorized|cannot talk to daemon|FATA\[.*?\].*|error:.*(?:failed|cannot|denied|not found|refused)|failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|查询失败|未安装|缺少|权限不足|无法连接|(?:docker|podman|crictl|nerdctl|ctr|kubectl|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|pfctl|nft|iptables|ip6tables-save|iptables-save)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
     caseSensitive: false,
   );
+  if (RegExp(
+    r'^error from server \((?:Forbidden|Unauthorized)\)',
+    caseSensitive: false,
+  ).hasMatch(first)) {
+    return 'permission';
+  }
   if (!failure.hasMatch(first)) {
     return RegExp(
           '^(?:Bad state|FormatException|Exception):',

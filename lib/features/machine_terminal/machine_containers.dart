@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../shared/util/platform_shell.dart';
+import 'machine_maintenance_readout.dart';
 
 part 'machine_container_inspection.dart';
 part 'machine_container_resources.dart';
+part 'machine_container_telemetry.dart';
 
 const machineContainerOutputLimit = 2 * 1024 * 1024;
 const machineContainerProbeTimeout = Duration(seconds: 6);

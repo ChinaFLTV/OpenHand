@@ -15747,4 +15747,123 @@ class AppLocalizationsDe extends AppLocalizations {
   String maintenanceImageResults(int count) {
     return 'Suchergebnisse · $count';
   }
+
+  @override
+  String get maintenanceTelemetryRuntimeOverview => 'Laufzeitübersicht';
+
+  @override
+  String get maintenanceTelemetryApiHealth => 'API-Dienstzustand';
+
+  @override
+  String get maintenanceTelemetryNodeMetrics => 'Knotenressourcen';
+
+  @override
+  String get maintenanceTelemetryWorkloads => 'Workloads';
+
+  @override
+  String get maintenanceTelemetryServiceNetwork => 'Dienste und Netzwerk';
+
+  @override
+  String get maintenanceTelemetryPersistentStorage => 'Persistenter Speicher';
+
+  @override
+  String get maintenanceTelemetryStorageClaims => 'Speicheranforderungen';
+
+  @override
+  String get maintenanceTelemetryQuotas => 'Ressourcenkontingente';
+
+  @override
+  String get maintenanceTelemetryWarningEvents => 'Warnereignisse';
+
+  @override
+  String get maintenanceTelemetryDiskUsage =>
+      'Speicherbelegung und Rückgewinnung';
+
+  @override
+  String get maintenanceTelemetrySampleTime => 'Messzeitpunkt';
+
+  @override
+  String get maintenanceTelemetryPending => 'Messung ausstehend';
+
+  @override
+  String get maintenanceTelemetryConnecting => 'Verbindung wird hergestellt';
+
+  @override
+  String get maintenanceTelemetryFullMetadata => 'Vollständige Metadaten';
+
+  @override
+  String get maintenanceTelemetryCpuCapacity => 'CPU-Kapazität';
+
+  @override
+  String get maintenanceTelemetryCpuAllocatable => 'Zuweisbare CPU';
+
+  @override
+  String get maintenanceTelemetryMemoryCapacity => 'Speicherkapazität';
+
+  @override
+  String get maintenanceTelemetryMemoryAllocatable => 'Zuweisbarer Speicher';
+
+  @override
+  String get maintenanceTelemetryPodCapacity => 'Pod-Kapazität';
+
+  @override
+  String get maintenanceTelemetryDesiredReplicas => 'Gewünschte Replikate';
+
+  @override
+  String get maintenanceTelemetryReadyReplicas => 'Bereite Replikate';
+
+  @override
+  String get maintenanceTelemetryAvailableReplicas => 'Verfügbare Replikate';
+
+  @override
+  String get maintenanceTelemetryDesiredNodes => 'Gewünschte Knoten';
+
+  @override
+  String get maintenanceTelemetryReadyNodes => 'Bereite Knoten';
+
+  @override
+  String get maintenanceTelemetrySucceeded => 'Erfolgreich';
+
+  @override
+  String get maintenanceTelemetryFailed => 'Fehlgeschlagen';
+
+  @override
+  String get maintenanceTelemetryNetworkRules => 'Netzwerkregeln';
+
+  @override
+  String get maintenanceTelemetryStorageClass => 'Speicherklasse';
+
+  @override
+  String get maintenanceTelemetryResourceRequests => 'Ressourcenanforderungen';
+
+  @override
+  String get maintenanceTelemetryAccessModes => 'Zugriffsmodi';
+
+  @override
+  String get maintenanceTelemetryReclaimPolicy => 'Rückgewinnungsrichtlinie';
+
+  @override
+  String get maintenanceTelemetryResourceUsed => 'Genutzte Ressourcen';
+
+  @override
+  String get maintenanceTelemetryStorageRoot => 'Speicherverzeichnis';
+
+  @override
+  String get maintenanceTelemetryExternalAddress => 'Externe Adresse';
+
+  @override
+  String get maintenanceTelemetryVolumeBinding => 'Volume-Bindungsmodus';
+
+  @override
+  String get maintenanceTelemetryVolumeExpansion => 'Erweiterung erlaubt';
+
+  @override
+  String get maintenanceTelemetryMemoryPercent => 'Speichernutzung (%)';
+
+  @override
+  String get maintenanceTelemetryNotReady => 'Nicht bereit';
+
+  @override
+  String get maintenanceTelemetryMetricsUnavailable =>
+      'Ressourcenmetriken sind nicht verfügbar. Prüfen Sie den metrics-server und die Zugriffsrechte des Clusters.';
 }

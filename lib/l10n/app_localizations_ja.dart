@@ -15217,4 +15217,122 @@ class AppLocalizationsJa extends AppLocalizations {
   String maintenanceImageResults(int count) {
     return '検索結果 · $count';
   }
+
+  @override
+  String get maintenanceTelemetryRuntimeOverview => 'ランタイム概要';
+
+  @override
+  String get maintenanceTelemetryApiHealth => 'API サービスの健全性';
+
+  @override
+  String get maintenanceTelemetryNodeMetrics => 'ノードのリソース使用量';
+
+  @override
+  String get maintenanceTelemetryWorkloads => 'ワークロード';
+
+  @override
+  String get maintenanceTelemetryServiceNetwork => 'サービスとネットワーク';
+
+  @override
+  String get maintenanceTelemetryPersistentStorage => '永続ストレージ';
+
+  @override
+  String get maintenanceTelemetryStorageClaims => 'ストレージ要求';
+
+  @override
+  String get maintenanceTelemetryQuotas => 'リソースクォータ';
+
+  @override
+  String get maintenanceTelemetryWarningEvents => '警告イベント';
+
+  @override
+  String get maintenanceTelemetryDiskUsage => 'ディスク使用量と回収可能領域';
+
+  @override
+  String get maintenanceTelemetrySampleTime => '取得時刻';
+
+  @override
+  String get maintenanceTelemetryPending => '取得待ち';
+
+  @override
+  String get maintenanceTelemetryConnecting => '接続中';
+
+  @override
+  String get maintenanceTelemetryFullMetadata => '完全なメタデータ';
+
+  @override
+  String get maintenanceTelemetryCpuCapacity => 'CPU 容量';
+
+  @override
+  String get maintenanceTelemetryCpuAllocatable => '割り当て可能 CPU';
+
+  @override
+  String get maintenanceTelemetryMemoryCapacity => 'メモリ容量';
+
+  @override
+  String get maintenanceTelemetryMemoryAllocatable => '割り当て可能メモリ';
+
+  @override
+  String get maintenanceTelemetryPodCapacity => 'Pod 容量';
+
+  @override
+  String get maintenanceTelemetryDesiredReplicas => '要求レプリカ数';
+
+  @override
+  String get maintenanceTelemetryReadyReplicas => '準備完了レプリカ数';
+
+  @override
+  String get maintenanceTelemetryAvailableReplicas => '利用可能レプリカ数';
+
+  @override
+  String get maintenanceTelemetryDesiredNodes => '要求ノード数';
+
+  @override
+  String get maintenanceTelemetryReadyNodes => '準備完了ノード数';
+
+  @override
+  String get maintenanceTelemetrySucceeded => '成功数';
+
+  @override
+  String get maintenanceTelemetryFailed => '失敗数';
+
+  @override
+  String get maintenanceTelemetryNetworkRules => 'ネットワークルール';
+
+  @override
+  String get maintenanceTelemetryStorageClass => 'ストレージクラス';
+
+  @override
+  String get maintenanceTelemetryResourceRequests => 'リソース要求';
+
+  @override
+  String get maintenanceTelemetryAccessModes => 'アクセスモード';
+
+  @override
+  String get maintenanceTelemetryReclaimPolicy => '回収ポリシー';
+
+  @override
+  String get maintenanceTelemetryResourceUsed => '使用リソース';
+
+  @override
+  String get maintenanceTelemetryStorageRoot => 'ストレージルート';
+
+  @override
+  String get maintenanceTelemetryExternalAddress => '外部アドレス';
+
+  @override
+  String get maintenanceTelemetryVolumeBinding => 'ボリュームバインドモード';
+
+  @override
+  String get maintenanceTelemetryVolumeExpansion => '拡張を許可';
+
+  @override
+  String get maintenanceTelemetryMemoryPercent => 'メモリ使用率 (%)';
+
+  @override
+  String get maintenanceTelemetryNotReady => '未準備';
+
+  @override
+  String get maintenanceTelemetryMetricsUnavailable =>
+      'リソースメトリクスを取得できません。クラスターの metrics-server とアクセス権限を確認してください。';
 }

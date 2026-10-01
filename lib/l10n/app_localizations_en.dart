@@ -15572,4 +15572,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String maintenanceImageResults(int count) {
     return 'Search results · $count';
   }
+
+  @override
+  String get maintenanceTelemetryRuntimeOverview => 'Runtime overview';
+
+  @override
+  String get maintenanceTelemetryApiHealth => 'API service health';
+
+  @override
+  String get maintenanceTelemetryNodeMetrics => 'Node resource usage';
+
+  @override
+  String get maintenanceTelemetryWorkloads => 'Workloads';
+
+  @override
+  String get maintenanceTelemetryServiceNetwork => 'Services and networking';
+
+  @override
+  String get maintenanceTelemetryPersistentStorage => 'Persistent storage';
+
+  @override
+  String get maintenanceTelemetryStorageClaims => 'Storage claims';
+
+  @override
+  String get maintenanceTelemetryQuotas => 'Resource quotas';
+
+  @override
+  String get maintenanceTelemetryWarningEvents => 'Warning events';
+
+  @override
+  String get maintenanceTelemetryDiskUsage =>
+      'Disk usage and reclaimable space';
+
+  @override
+  String get maintenanceTelemetrySampleTime => 'Sample time';
+
+  @override
+  String get maintenanceTelemetryPending => 'Awaiting sample';
+
+  @override
+  String get maintenanceTelemetryConnecting => 'Connecting';
+
+  @override
+  String get maintenanceTelemetryFullMetadata => 'Full metadata';
+
+  @override
+  String get maintenanceTelemetryCpuCapacity => 'CPU capacity';
+
+  @override
+  String get maintenanceTelemetryCpuAllocatable => 'Allocatable CPU';
+
+  @override
+  String get maintenanceTelemetryMemoryCapacity => 'Memory capacity';
+
+  @override
+  String get maintenanceTelemetryMemoryAllocatable => 'Allocatable memory';
+
+  @override
+  String get maintenanceTelemetryPodCapacity => 'Pod capacity';
+
+  @override
+  String get maintenanceTelemetryDesiredReplicas => 'Desired replicas';
+
+  @override
+  String get maintenanceTelemetryReadyReplicas => 'Ready replicas';
+
+  @override
+  String get maintenanceTelemetryAvailableReplicas => 'Available replicas';
+
+  @override
+  String get maintenanceTelemetryDesiredNodes => 'Desired nodes';
+
+  @override
+  String get maintenanceTelemetryReadyNodes => 'Ready nodes';
+
+  @override
+  String get maintenanceTelemetrySucceeded => 'Succeeded';
+
+  @override
+  String get maintenanceTelemetryFailed => 'Failed';
+
+  @override
+  String get maintenanceTelemetryNetworkRules => 'Network rules';
+
+  @override
+  String get maintenanceTelemetryStorageClass => 'Storage class';
+
+  @override
+  String get maintenanceTelemetryResourceRequests => 'Resource requests';
+
+  @override
+  String get maintenanceTelemetryAccessModes => 'Access modes';
+
+  @override
+  String get maintenanceTelemetryReclaimPolicy => 'Reclaim policy';
+
+  @override
+  String get maintenanceTelemetryResourceUsed => 'Used resources';
+
+  @override
+  String get maintenanceTelemetryStorageRoot => 'Storage root';
+
+  @override
+  String get maintenanceTelemetryExternalAddress => 'External address';
+
+  @override
+  String get maintenanceTelemetryVolumeBinding => 'Volume binding mode';
+
+  @override
+  String get maintenanceTelemetryVolumeExpansion => 'Expansion allowed';
+
+  @override
+  String get maintenanceTelemetryMemoryPercent => 'Memory usage (%)';
+
+  @override
+  String get maintenanceTelemetryNotReady => 'Not ready';
+
+  @override
+  String get maintenanceTelemetryMetricsUnavailable =>
+      'Resource metrics are unavailable. Check the cluster’s metrics-server and access permissions.';
 }

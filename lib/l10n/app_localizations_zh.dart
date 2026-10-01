@@ -15066,6 +15066,124 @@ class AppLocalizationsZh extends AppLocalizations {
   String maintenanceImageResults(int count) {
     return '搜索结果 · $count';
   }
+
+  @override
+  String get maintenanceTelemetryRuntimeOverview => '运行时概览';
+
+  @override
+  String get maintenanceTelemetryApiHealth => 'API 服务健康';
+
+  @override
+  String get maintenanceTelemetryNodeMetrics => '节点资源采样';
+
+  @override
+  String get maintenanceTelemetryWorkloads => '工作负载';
+
+  @override
+  String get maintenanceTelemetryServiceNetwork => '服务与网络';
+
+  @override
+  String get maintenanceTelemetryPersistentStorage => '持久存储';
+
+  @override
+  String get maintenanceTelemetryStorageClaims => '存储声明';
+
+  @override
+  String get maintenanceTelemetryQuotas => '资源配额';
+
+  @override
+  String get maintenanceTelemetryWarningEvents => '告警事件';
+
+  @override
+  String get maintenanceTelemetryDiskUsage => '磁盘占用与回收';
+
+  @override
+  String get maintenanceTelemetrySampleTime => '采样时间';
+
+  @override
+  String get maintenanceTelemetryPending => '等待采样';
+
+  @override
+  String get maintenanceTelemetryConnecting => '正在连接';
+
+  @override
+  String get maintenanceTelemetryFullMetadata => '完整元数据';
+
+  @override
+  String get maintenanceTelemetryCpuCapacity => 'CPU 容量';
+
+  @override
+  String get maintenanceTelemetryCpuAllocatable => 'CPU 可分配';
+
+  @override
+  String get maintenanceTelemetryMemoryCapacity => '内存容量';
+
+  @override
+  String get maintenanceTelemetryMemoryAllocatable => '内存可分配';
+
+  @override
+  String get maintenanceTelemetryPodCapacity => 'Pod 容量';
+
+  @override
+  String get maintenanceTelemetryDesiredReplicas => '期望副本';
+
+  @override
+  String get maintenanceTelemetryReadyReplicas => '就绪副本';
+
+  @override
+  String get maintenanceTelemetryAvailableReplicas => '可用副本';
+
+  @override
+  String get maintenanceTelemetryDesiredNodes => '目标节点数';
+
+  @override
+  String get maintenanceTelemetryReadyNodes => '就绪节点数';
+
+  @override
+  String get maintenanceTelemetrySucceeded => '成功次数';
+
+  @override
+  String get maintenanceTelemetryFailed => '失败次数';
+
+  @override
+  String get maintenanceTelemetryNetworkRules => '网络规则';
+
+  @override
+  String get maintenanceTelemetryStorageClass => '存储类';
+
+  @override
+  String get maintenanceTelemetryResourceRequests => '请求资源';
+
+  @override
+  String get maintenanceTelemetryAccessModes => '访问模式';
+
+  @override
+  String get maintenanceTelemetryReclaimPolicy => '回收策略';
+
+  @override
+  String get maintenanceTelemetryResourceUsed => '已用资源';
+
+  @override
+  String get maintenanceTelemetryStorageRoot => '存储目录';
+
+  @override
+  String get maintenanceTelemetryExternalAddress => '外部地址';
+
+  @override
+  String get maintenanceTelemetryVolumeBinding => '卷绑定模式';
+
+  @override
+  String get maintenanceTelemetryVolumeExpansion => '允许扩容';
+
+  @override
+  String get maintenanceTelemetryMemoryPercent => '内存用量比例';
+
+  @override
+  String get maintenanceTelemetryNotReady => '未就绪';
+
+  @override
+  String get maintenanceTelemetryMetricsUnavailable =>
+      '资源指标服务不可用，请检查集群的 metrics-server 与访问权限。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30113,4 +30231,122 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String maintenanceImageResults(int count) {
     return '搜尋結果 · $count';
   }
+
+  @override
+  String get maintenanceTelemetryRuntimeOverview => '執行階段概覽';
+
+  @override
+  String get maintenanceTelemetryApiHealth => 'API 服務健康';
+
+  @override
+  String get maintenanceTelemetryNodeMetrics => '節點資源取樣';
+
+  @override
+  String get maintenanceTelemetryWorkloads => '工作負載';
+
+  @override
+  String get maintenanceTelemetryServiceNetwork => '服務與網路';
+
+  @override
+  String get maintenanceTelemetryPersistentStorage => '持久儲存';
+
+  @override
+  String get maintenanceTelemetryStorageClaims => '儲存宣告';
+
+  @override
+  String get maintenanceTelemetryQuotas => '資源配額';
+
+  @override
+  String get maintenanceTelemetryWarningEvents => '警告事件';
+
+  @override
+  String get maintenanceTelemetryDiskUsage => '磁碟使用與回收';
+
+  @override
+  String get maintenanceTelemetrySampleTime => '取樣時間';
+
+  @override
+  String get maintenanceTelemetryPending => '等待取樣';
+
+  @override
+  String get maintenanceTelemetryConnecting => '正在連線';
+
+  @override
+  String get maintenanceTelemetryFullMetadata => '完整中繼資料';
+
+  @override
+  String get maintenanceTelemetryCpuCapacity => 'CPU 容量';
+
+  @override
+  String get maintenanceTelemetryCpuAllocatable => 'CPU 可分配';
+
+  @override
+  String get maintenanceTelemetryMemoryCapacity => '記憶體容量';
+
+  @override
+  String get maintenanceTelemetryMemoryAllocatable => '記憶體可分配';
+
+  @override
+  String get maintenanceTelemetryPodCapacity => 'Pod 容量';
+
+  @override
+  String get maintenanceTelemetryDesiredReplicas => '預期副本';
+
+  @override
+  String get maintenanceTelemetryReadyReplicas => '就緒副本';
+
+  @override
+  String get maintenanceTelemetryAvailableReplicas => '可用副本';
+
+  @override
+  String get maintenanceTelemetryDesiredNodes => '目標節點數';
+
+  @override
+  String get maintenanceTelemetryReadyNodes => '就緒節點數';
+
+  @override
+  String get maintenanceTelemetrySucceeded => '成功次數';
+
+  @override
+  String get maintenanceTelemetryFailed => '失敗次數';
+
+  @override
+  String get maintenanceTelemetryNetworkRules => '網路規則';
+
+  @override
+  String get maintenanceTelemetryStorageClass => '儲存類別';
+
+  @override
+  String get maintenanceTelemetryResourceRequests => '請求資源';
+
+  @override
+  String get maintenanceTelemetryAccessModes => '存取模式';
+
+  @override
+  String get maintenanceTelemetryReclaimPolicy => '回收策略';
+
+  @override
+  String get maintenanceTelemetryResourceUsed => '已用資源';
+
+  @override
+  String get maintenanceTelemetryStorageRoot => '儲存目錄';
+
+  @override
+  String get maintenanceTelemetryExternalAddress => '外部位址';
+
+  @override
+  String get maintenanceTelemetryVolumeBinding => '磁碟區繫結模式';
+
+  @override
+  String get maintenanceTelemetryVolumeExpansion => '允許擴容';
+
+  @override
+  String get maintenanceTelemetryMemoryPercent => '記憶體使用比例';
+
+  @override
+  String get maintenanceTelemetryNotReady => '未就緒';
+
+  @override
+  String get maintenanceTelemetryMetricsUnavailable =>
+      '資源指標服務無法使用，請檢查叢集的 metrics-server 與存取權限。';
 }
