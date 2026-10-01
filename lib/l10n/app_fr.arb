@@ -9739,5 +9739,6 @@
   "maintenanceTelemetryKubernetesHelp": "Consultez l’état du cluster, les nœuds, les charges et les métriques.",
   "maintenanceTelemetryCompleted": "Contrôles terminés : {completed}/{total}",
   "maintenanceTelemetryPartial": "Certaines données sont indisponibles",
-  "maintenanceTelemetryCancelled": "Collecte annulée"
+  "maintenanceTelemetryCancelled": "Collecte annulée",
+  "maintenanceLoadWindow": "{minutes} min"
 }

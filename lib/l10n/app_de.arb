@@ -9739,5 +9739,6 @@
   "maintenanceTelemetryKubernetesHelp": "Cluster-Zustand, Knoten, Workloads und Ressourcenmetriken prüfen.",
   "maintenanceTelemetryCompleted": "{completed}/{total} Prüfungen abgeschlossen",
   "maintenanceTelemetryPartial": "Einige Daten sind nicht verfügbar",
-  "maintenanceTelemetryCancelled": "Erfassung abgebrochen"
+  "maintenanceTelemetryCancelled": "Erfassung abgebrochen",
+  "maintenanceLoadWindow": "{minutes} Min."
 }

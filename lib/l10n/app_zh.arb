@@ -10901,5 +10901,13 @@
         "type": "int"
       }
     }
+  },
+  "maintenanceLoadWindow": "{minutes} 分钟",
+  "@maintenanceLoadWindow": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
   }
 }

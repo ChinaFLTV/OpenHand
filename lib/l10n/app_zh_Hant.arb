@@ -9739,5 +9739,6 @@
   "maintenanceTelemetryKubernetesHelp": "檢視叢集健康、節點、工作負載與資源指標。",
   "maintenanceTelemetryCompleted": "已完成 {completed}/{total} 項",
   "maintenanceTelemetryPartial": "部分資料無法使用",
-  "maintenanceTelemetryCancelled": "已取消採集"
+  "maintenanceTelemetryCancelled": "已取消採集",
+  "maintenanceLoadWindow": "{minutes} 分鐘"
 }

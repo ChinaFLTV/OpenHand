@@ -15357,4 +15357,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTelemetryCancelled => '収集をキャンセルしました';
+
+  @override
+  String maintenanceLoadWindow(String minutes) {
+    return '$minutes 分';
+  }
 }

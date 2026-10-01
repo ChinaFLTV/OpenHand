@@ -15204,6 +15204,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTelemetryCancelled => '采集已取消';
+
+  @override
+  String maintenanceLoadWindow(String minutes) {
+    return '$minutes 分钟';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30389,4 +30394,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTelemetryCancelled => '已取消採集';
+
+  @override
+  String maintenanceLoadWindow(String minutes) {
+    return '$minutes 分鐘';
+  }
 }

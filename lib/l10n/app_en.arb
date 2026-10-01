@@ -9744,5 +9744,6 @@
   "maintenanceTelemetryKubernetesHelp": "Inspect cluster health, nodes, workloads and resource metrics.",
   "maintenanceTelemetryCompleted": "Completed {completed}/{total} checks",
   "maintenanceTelemetryPartial": "Some data is unavailable",
-  "maintenanceTelemetryCancelled": "Collection cancelled"
+  "maintenanceTelemetryCancelled": "Collection cancelled",
+  "maintenanceLoadWindow": "{minutes} min"
 }

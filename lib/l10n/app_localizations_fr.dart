@@ -15941,4 +15941,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceTelemetryCancelled => 'Collecte annulée';
+
+  @override
+  String maintenanceLoadWindow(String minutes) {
+    return '$minutes min';
+  }
 }

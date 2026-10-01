@@ -87,9 +87,10 @@ const _maintenanceTabIcons = <IconData>[
   Icons.inventory_2_outlined,
 ];
 const _maintenanceDistributionMaxWidth = 380.0;
-const _maintenanceDonutSize = 132.0;
+const _maintenanceDonutSize = 120.0;
 const _maintenanceDonutGap = 16.0;
-const _maintenanceDonutLegendMinWidth = 128.0;
+const _maintenanceDonutLegendMinWidth = 148.0;
+const _maintenanceChartHeight = 160.0;
 const _maintenanceCardRadius = kOpenHandRadius12;
 const _maintenanceNoOverlay = WidgetStatePropertyAll<Color?>(
   Colors.transparent,
@@ -1385,6 +1386,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               _MaintenanceEmptyHint(
                 key: const ValueKey('cpu-trend-empty'),
                 icon: Icons.show_chart_rounded,
+                compact: true,
                 message: _automatic
                     ? AppLocalizations.of(context)!.maintenanceAccumulating
                     : AppLocalizations.of(context)!.maintenanceTrendHelp,
@@ -1392,15 +1394,13 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             else
               SizedBox(
                 key: const ValueKey('cpu-trend-data'),
-                height: 160,
+                height: _maintenanceChartHeight,
                 child: _MaintenanceTrend(points: List.of(_cpuHistory)),
               ),
             const SizedBox(height: 12),
             Tooltip(
               message: AppLocalizations.of(context)!.maintenanceLoadIntervals,
-              child: _MaintenanceFacts(
-                values: {'系统负载': hasLoad ? load.join(' / ') : '未提供'},
-              ),
+              child: _MaintenanceLoadReadout(values: hasLoad ? load : const []),
             ),
           ],
         ),
@@ -2020,7 +2020,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           title: l10n.maintenanceGpuTrend,
                           icon: Icons.show_chart_rounded,
                           child: SizedBox(
-                            height: 190,
+                            height: _maintenanceChartHeight,
                             child: _MaintenanceTrend(
                               key: ValueKey(device.id),
                               points: List.of(_gpuHistory[device.id]!),
@@ -2034,6 +2034,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                           icon: Icons.pie_chart_outline_rounded,
                           child: _MaintenanceVisual(
                             donut: true,
+                            centerLabel: formatLocalizedByteSizeOf(
+                              context,
+                              device.metrics['memoryTotal']!,
+                            ),
                             segments: [
                               OpenHandChartSegment(
                                 label: l10n.maintenanceGpuMemoryUsed,
@@ -2051,7 +2055,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                                   device.metrics['memoryTotal']! -
                                       device.metrics['memoryUsed']!,
                                 ),
-                                color: cs.secondary,
+                                valueLabel: formatLocalizedByteSizeOf(
+                                  context,
+                                  math.max(
+                                    0,
+                                    device.metrics['memoryTotal']! -
+                                        device.metrics['memoryUsed']!,
+                                  ),
+                                ),
+                                color: cs.tertiary,
                               ),
                             ],
                           ),
@@ -2317,7 +2329,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   OpenHandChartSegment(
                     label: '${p.pid} · ${p.name.split('/').last}',
                     value: p.residentPages * pageSize,
-                    valueLabel: formatByteSize(p.residentPages * pageSize),
+                    valueLabel: formatLocalizedByteSizeOf(
+                      context,
+                      p.residentPages * pageSize,
+                    ),
                     color: cs.tertiary,
                   ),
               ],
@@ -6496,13 +6511,18 @@ class _MaintenanceEmptyHint extends StatelessWidget {
     super.key,
     required this.message,
     this.icon = Icons.inbox_outlined,
+    this.compact = false,
   });
   final String message;
   final IconData icon;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) =>
-      OpenHandOperationalEmptyState(message: message, icon: icon);
+  Widget build(BuildContext context) => OpenHandOperationalEmptyState(
+    message: message,
+    icon: icon,
+    compact: compact,
+  );
 }
 
 class _MaintenanceIconBadge extends StatelessWidget {
@@ -6599,7 +6619,7 @@ class _MaintenanceCard extends StatelessWidget {
       );
       legendWidth = math.max(
         legendWidth,
-        15 + math.max(labelWidth, valueWidth + 8 + shareWidth),
+        37 + math.max(labelWidth, valueWidth + 8 + shareWidth),
       );
     }
     final headerWidth =
@@ -6613,7 +6633,7 @@ class _MaintenanceCard extends StatelessWidget {
           ),
         );
     final bodyWidth =
-        _maintenanceDonutSize +
+        _maintenanceDonutSize * (scaler.scale(12) / 12).clamp(1.0, 1.4) +
         _maintenanceDonutGap +
         legendWidth +
         contentPadding.resolve(direction).horizontal +
@@ -6636,6 +6656,7 @@ class _MaintenanceCard extends StatelessWidget {
         Flexible(
           child: _MaintenanceValue(
             value: maintenanceLabel(context, title),
+            maxLines: null,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               fontSize: 13,
@@ -6655,99 +6676,126 @@ class _MaintenanceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(_maintenanceCardRadius),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: .65)),
       ),
-      // 等高网格或尺寸过渡压缩卡片时，保留自然布局并允许访问全部内容。
-      child: SingleChildScrollView(
-        primary: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: wrapHeader
-                        ? OverflowBar(
-                            alignment: MainAxisAlignment.spaceBetween,
-                            overflowAlignment: OverflowBarAlignment.end,
-                            spacing: 12,
-                            overflowSpacing: 10,
-                            children: [
-                              heading,
-                              if (trailing != null) trailing!,
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(child: heading),
-                              if (trailing != null) ...[
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    heightFactor: 1,
-                                    child: trailing,
-                                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final header = Padding(
+            padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+            child: Row(
+              children: [
+                Expanded(
+                  child: wrapHeader
+                      ? OverflowBar(
+                          alignment: MainAxisAlignment.spaceBetween,
+                          overflowAlignment: OverflowBarAlignment.end,
+                          spacing: 12,
+                          overflowSpacing: 10,
+                          children: [heading, if (trailing != null) trailing!],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: heading),
+                            if (trailing != null) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  heightFactor: 1,
+                                  child: trailing,
                                 ),
-                              ],
+                              ),
                             ],
-                          ),
-                  ),
-                  if (onOpen != null)
-                    Tooltip(
-                      message: maintenanceLabel(context, '查看详情'),
-                      child: InkWell(
-                        onTap: onOpen,
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        overlayColor: _maintenanceNoOverlay,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(3),
-                          child: Icon(
-                            Icons.chevron_right_rounded,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
+                          ],
+                        ),
+                ),
+                if (onOpen != null)
+                  Tooltip(
+                    message: maintenanceLabel(context, '查看详情'),
+                    child: InkWell(
+                      onTap: onOpen,
+                      hoverColor: Colors.transparent,
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      overlayColor: _maintenanceNoOverlay,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant.withValues(alpha: .45)),
-            Padding(
-              padding: contentPadding,
-              // 列表自行约束数据区，外层不能再次截断分页栏。
-              child: _MaintenanceAnimatedSize(
-                child:
-                    !scrollBody ||
-                        child is _MaintenanceTable ||
-                        child is _MaintenanceBrowser ||
-                        child is _MaintenanceReadout ||
-                        child is _MaintenanceLogTimeline
-                    ? child
-                    : ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: math.min(
-                            maxHeight,
-                            MediaQuery.sizeOf(context).height * .56,
-                          ),
-                        ),
-                        child: Material(
-                          type: MaterialType.transparency,
-                          child: SingleChildScrollView(
-                            primary: false,
-                            child: child,
-                          ),
+          );
+          final divider = Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: .45),
+          );
+          final body = Padding(
+            padding: contentPadding,
+            // 列表自行约束数据区，外层不能再次截断分页栏。
+            child: _MaintenanceAnimatedSize(
+              child:
+                  !scrollBody ||
+                      child is _MaintenanceTable ||
+                      child is _MaintenanceBrowser ||
+                      child is _MaintenanceReadout ||
+                      child is _MaintenanceLogTimeline
+                  ? child
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.min(
+                          maxHeight,
+                          MediaQuery.sizeOf(context).height * .56,
                         ),
                       ),
-              ),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: child,
+                        ),
+                      ),
+                    ),
             ),
-          ],
-        ),
+          );
+          if (constraints.hasBoundedHeight &&
+              child is _MaintenanceVisual &&
+              (child as _MaintenanceVisual).donut) {
+            return Column(
+              children: [
+                header,
+                divider,
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, bodyConstraints) =>
+                        SingleChildScrollView(
+                          primary: false,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: bodyConstraints.maxHeight,
+                            ),
+                            child: Center(child: body),
+                          ),
+                        ),
+                  ),
+                ),
+              ],
+            );
+          }
+          // 尺寸过渡压缩卡片时，保留自然布局并允许访问全部内容。
+          return SingleChildScrollView(
+            primary: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [header, divider, body],
+            ),
+          );
+        },
       ),
     );
     final width = preferredWidth(context);
@@ -6867,117 +6915,132 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
             for (final segment in segments)
               Padding(
                 key: ValueKey(segment.label),
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Semantics(
-                  label:
-                      '${segment.label}: ${segment.valueLabel ?? segment.value}',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: segment.color,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Container(
+                  padding: donut ? const EdgeInsets.all(10) : EdgeInsets.zero,
+                  decoration: donut
+                      ? BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius10,
                           ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Tooltip(
-                                  message: segment.label,
-                                  child: Text(
-                                    segment.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: donut ? cs.onSurfaceVariant : null,
-                                    ),
-                                  ),
-                                ),
-                                if (donut) ...[
-                                  const SizedBox(height: 3),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 3,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      _MaintenanceValue(
-                                        value:
-                                            segment.valueLabel ??
-                                            '${segment.value}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      _MaintenanceValue(
-                                        value: total > 0
-                                            ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
-                                            : '—',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          color: segment.color,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (!donut) ...[
-                            const SizedBox(width: 8),
-                            Flexible(
-                              fit: FlexFit.tight,
-                              child: _MaintenanceValue(
-                                value: segment.valueLabel ?? '${segment.value}',
-                                alignment: Alignment.centerRight,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: segment.color,
-                                ),
+                        )
+                      : null,
+                  child: Semantics(
+                    label:
+                        '${segment.label}: ${segment.valueLabel ?? segment.value}',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: segment.color,
+                                borderRadius: BorderRadius.circular(3),
                               ),
                             ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Tooltip(
+                                    message: segment.label,
+                                    child: Text(
+                                      segment.label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: donut
+                                            ? cs.onSurfaceVariant
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                  if (donut) ...[
+                                    const SizedBox(height: 3),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 3,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        _MaintenanceValue(
+                                          value:
+                                              segment.valueLabel ??
+                                              '${segment.value}',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        _MaintenanceValue(
+                                          value: total > 0
+                                              ? '${(segment.safeValue / total * 100).toStringAsFixed(1)}%'
+                                              : '—',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: segment.color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (!donut) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                fit: FlexFit.tight,
+                                child: _MaintenanceValue(
+                                  value:
+                                      segment.valueLabel ?? '${segment.value}',
+                                  alignment: Alignment.centerRight,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: segment.color,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      if (!donut) ...[
-                        const SizedBox(height: 5),
-                        LinearProgressIndicator(
-                          value: ((values[segment.label] ?? 0) / maximum).clamp(
-                            0,
-                            1,
-                          ),
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(4),
-                          color: segment.color,
-                          backgroundColor: segment.color.withValues(alpha: .10),
                         ),
+                        if (!donut) ...[
+                          const SizedBox(height: 5),
+                          LinearProgressIndicator(
+                            value: ((values[segment.label] ?? 0) / maximum)
+                                .clamp(0, 1),
+                            minHeight: 6,
+                            borderRadius: BorderRadius.circular(4),
+                            color: segment.color,
+                            backgroundColor: segment.color.withValues(
+                              alpha: .10,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
           ],
         );
         if (!donut) return legend;
+        final chartSize =
+            _maintenanceDonutSize *
+            (MediaQuery.textScalerOf(context).scale(12) / 12).clamp(1.0, 1.4);
         final chart = Semantics(
           label: segments
               .map((s) => '${s.label}: ${s.valueLabel ?? s.value}')
               .join(', '),
           child: SizedBox(
-            width: _maintenanceDonutSize,
-            height: _maintenanceDonutSize,
+            width: chartSize,
+            height: chartSize,
             child: RepaintBoundary(
               child: CustomPaint(
                 painter: OpenHandDonutChartPainter(
@@ -6986,43 +7049,66 @@ class _MaintenanceVisualState extends State<_MaintenanceVisual> {
                   ],
                   colors: segments.map((s) => s.color).toList(),
                   trackColor: cs.surfaceContainerHighest,
+                  strokeWidth: 10,
                 ),
-                child: Center(
-                  child: _MaintenanceNumber(
-                    raw: total.toStringAsFixed(0),
-                    readable: widget.centerLabel,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: cs.primary,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.maintenanceReadoutTotal,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _MaintenanceNumber(
+                        raw: total.toStringAsFixed(0),
+                        readable: widget.centerLabel,
+                        maxLines: 2,
+                        padding: EdgeInsets.zero,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
         );
-        return LayoutBuilder(
-          builder: (_, constraints) =>
-              constraints.maxWidth <
-                  _maintenanceDonutSize +
-                      _maintenanceDonutGap +
-                      _maintenanceDonutLegendMinWidth *
-                          (MediaQuery.textScalerOf(context).scale(12) / 12)
-              ? Column(
-                  children: [
-                    chart,
-                    const SizedBox(height: _maintenanceDonutGap),
-                    legend,
-                  ],
-                )
-              : Row(
-                  children: [
-                    chart,
-                    const SizedBox(width: _maintenanceDonutGap),
-                    Expanded(child: legend),
-                  ],
-                ),
+        return Align(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: LayoutBuilder(
+              builder: (_, constraints) =>
+                  constraints.maxWidth <
+                      chartSize +
+                          _maintenanceDonutGap +
+                          _maintenanceDonutLegendMinWidth *
+                              (MediaQuery.textScalerOf(context).scale(12) / 12)
+                  ? Column(
+                      children: [
+                        chart,
+                        const SizedBox(height: _maintenanceDonutGap),
+                        legend,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        chart,
+                        const SizedBox(width: _maintenanceDonutGap),
+                        Expanded(child: legend),
+                      ],
+                    ),
+            ),
+          ),
         );
       },
     );
@@ -7232,6 +7318,81 @@ class _MaintenanceLogTimeline extends StatelessWidget {
       title: maintenanceLabel(context, '最近日志'),
       text: text,
       maxHeight: maxHeight,
+    );
+  }
+}
+
+class _MaintenanceLoadReadout extends StatelessWidget {
+  const _MaintenanceLoadReadout({required this.values});
+  final List<String> values;
+  static const _minutes = [1, 5, 15];
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.maintenanceLoad,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+            final columns = constraints.maxWidth < 240 * scale ? 1 : 3;
+            final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < _minutes.length; i++)
+                  Container(
+                    width: width,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.maintenanceLoadWindow('${_minutes[i]}'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _MaintenanceValue(
+                          value: i < values.length
+                              ? values[i]
+                              : l.maintenanceUnavailable,
+                          maxLines: null,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }

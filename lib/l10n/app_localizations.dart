@@ -28426,6 +28426,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'采集已取消'**
   String get maintenanceTelemetryCancelled;
+
+  /// No description provided for @maintenanceLoadWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟'**
+  String maintenanceLoadWindow(String minutes);
 }
 
 class _AppLocalizationsDelegate

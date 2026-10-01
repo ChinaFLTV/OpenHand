@@ -1015,8 +1015,8 @@ void main() {
           final valueRect = tester.getRect(find.text('287'));
           final shareRect = tester.getRect(find.text('51.7%'));
           final frame = find.descendant(of: find.byType(_MaintenanceCard), matching: find.byWidgetPredicate((w) => w is Container && w.foregroundDecoration != null)).first;
-          if (scale == 1) expect(tester.getSize(frame).width, lessThan(340));
-          expect(chartRect.size, const Size.square(132));
+          if (scale == 1) expect(tester.getSize(frame).width, lessThan(360));
+          expect(chartRect.size, Size.square(_maintenanceDonutSize * scale.clamp(1.0, 1.4)));
           expect(valueRect.left, closeTo(labelRect.left, .5));
           expect(valueRect.top - labelRect.bottom, inInclusiveRange(0, 5));
           expect(shareRect.left - valueRect.right, inInclusiveRange(0, 10));
@@ -1051,11 +1051,11 @@ void main() {
       ]))));
     await tester.pumpAndSettle();
     final rects = [for (final card in find.byType(_MaintenanceCard).evaluate()) tester.getRect(find.byWidget(card.widget))];
-    expect(rects[0].width, lessThan(340));
+    expect(rects[0].width, lessThan(360));
     expect(rects[1].left - rects[0].right, 12);
     expect(rects[1].right, 1400);
-    expect(rects[2].width, lessThan(340));
-    expect(rects[3].width, lessThan(340));
+    expect(rects[2].width, lessThan(360));
+    expect(rects[3].width, lessThan(360));
     expect(rects[3].left - rects[2].right, 12);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -5215,7 +5215,8 @@ void incrementalChecks() {
         expect(emptyHeight,lessThan(260));
         final message=find.text('等待更多采样以显示趋势');expect(message,findsOneWidget);
         final empty=find.byType(OpenHandOperationalEmptyState);
-        expect(tester.getCenter(message).dx,closeTo(tester.getCenter(empty).dx,.1));
+        expect(tester.getSize(empty).height,lessThan(90));
+        expect(tester.getRect(message).right,lessThanOrEqualTo(tester.getRect(empty).right - 12));
         if (!disabled && Platform.environment['MAINTENANCE_FONT'] != null) {
           await tester.runAsync(() async {
             final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('空态预览')));
@@ -5229,6 +5230,89 @@ void incrementalChecks() {
         expect(tester.getSize(find.byType(_MaintenanceCard)).height,greaterThan(emptyHeight));
         update(() => populated=false);await tester.pumpAndSettle();expect(message,findsOneWidget);
         expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('趋势与占比卡六语言明暗主题自适应，负载分栏、图例居中且悬停无阴影', (tester) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = await AppLocalizations.delegate.load(locale);
+      for (final brightness in Brightness.values) {
+        final baseTheme = brightness == Brightness.light
+            ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
+            : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+        await tester.binding.setSurfaceSize(const Size(1000, 900));
+        final service = _MaintenanceFixture();
+        await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value: service,
+          child: _SettingsApp(theme: baseTheme, locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const Scaffold(body: _MachineMaintenanceDialog(sessionId: '会话', terminalId: '终端')))));
+        await tester.pumpAndSettle();
+        final state = tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+        final sample = MachineMaintenanceSnapshot({...state._snapshots[0]!.sections,
+          'load': '3.02 3.23 3.31',
+          'memory': ['MemTotal: 33554432 kB', 'MemAvailable: 9909043 kB'].join(String.fromCharCode(10)),
+        });
+        List<_MaintenanceCard> cards() => (state._overview(sample) as _MaintenanceAnimatedList).children
+          .whereType<_MaintenanceGrid>().expand((grid) => grid.children).whereType<_MaintenanceCard>()
+          .where((card) => card.title == l.maintenanceCpuTrend || card.title == l.maintenanceMemoryShare).toList();
+        final empty = cards();
+        state._cpuHistory.addAll(List.generate(12, (i) => (time: i * 10000.0, value: .2 + (i % 4) * .1)));
+        final populated = cards();
+        for (final size in [const Size(800, 700), const Size(320, 1600), const Size(240, 2000)]) {
+          final scale = size.width == 800 ? 1.0 : 1.8;
+          for (final data in [false, true]) {
+            await tester.binding.setSurfaceSize(size);
+            await tester.pumpWidget(_SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              theme: baseTheme.copyWith(textTheme: baseTheme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
+              home: MediaQuery(data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale)),
+                child: Scaffold(body: SingleChildScrollView(child: RepaintBoundary(key: const ValueKey('图表卡片预览'),
+                  child: Padding(padding: const EdgeInsets.all(12), child: _MaintenanceGrid(maxColumns: 2,
+                    minWidth: 300, children: data ? populated : empty))))))));
+            await tester.pumpAndSettle();
+            for (final title in [l.maintenanceCpuTrend, l.maintenanceMemoryShare, l.maintenanceLoad,
+                l.maintenanceReadoutTotal, l.maintenanceUsed, l.maintenanceAvailable,
+                l.maintenanceLoadWindow('1'), l.maintenanceLoadWindow('5'), l.maintenanceLoadWindow('15')]) {
+              expect(find.text(title), findsOneWidget, reason: locale.toString());
+            }
+            for (final value in ['3.02', '3.23', '3.31']) expect(find.text(value), findsOneWidget);
+            final chart = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is OpenHandDonutChartPainter);
+            final painter = tester.widget<CustomPaint>(chart).painter as OpenHandDonutChartPainter;
+            expect(painter.values.reduce((a,b) => a + b), 33554432 * 1024);
+            final memory = find.byWidgetPredicate((w) => w is _MaintenanceCard && w.title == l.maintenanceMemoryShare);
+            final content = find.descendant(of: memory, matching: find.byType(_MaintenanceVisual));
+            final divider = find.descendant(of: memory, matching: find.byType(Divider));
+            if (size.width == 800) {
+              expect(tester.getCenter(content).dy, closeTo((tester.getRect(memory).bottom + tester.getRect(divider).bottom) / 2, 1));
+              final windows = [for (final value in ['3.02', '3.23', '3.31']) tester.getRect(find.text(value))];
+              expect(windows[1].top, windows.first.top); expect(windows[2].top, windows.first.top);
+            } else {
+              expect(tester.getRect(find.text(l.maintenanceUsed)).top, greaterThan(tester.getRect(chart).bottom));
+              expect(tester.getRect(find.text('3.23')).top, greaterThan(tester.getRect(find.text('3.02')).bottom));
+            }
+            final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+            await mouse.addPointer(location: Offset.zero); await mouse.moveTo(tester.getCenter(memory)); await tester.pumpAndSettle();
+            for (final box in tester.widgetList<DecoratedBox>(find.descendant(of: find.byKey(const ValueKey('图表卡片预览')), matching: find.byType(DecoratedBox)))) {
+              if (box.decoration case final BoxDecoration decoration) {
+                expect(decoration.gradient, isNull); expect(decoration.boxShadow ?? [], isEmpty);
+              }
+            }
+            await mouse.removePointer();
+            expect(tester.takeException(), isNull);
+            if (Platform.environment['MAINTENANCE_PREVIEW'] != null &&
+                (locale == const Locale('zh') || locale == const Locale('fr')) && size.width != 240) {
+              await tester.runAsync(() async {
+                final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('图表卡片预览')));
+                final image = await boundary.toImage(pixelRatio: 2); final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+                await File('/tmp/maintenance-chart-' + locale.toString() + '-' + brightness.name + '-' + size.width.toInt().toString() + '-' + (data ? 'data' : 'empty') + '.png')
+                  .writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+              });
+            }
+            await tester.pumpWidget(const SizedBox());
+          }
+        }
       }
     }
     await tester.binding.setSurfaceSize(null);

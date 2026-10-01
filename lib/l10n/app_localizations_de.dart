@@ -15888,4 +15888,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTelemetryCancelled => 'Erfassung abgebrochen';
+
+  @override
+  String maintenanceLoadWindow(String minutes) {
+    return '$minutes Min.';
+  }
 }

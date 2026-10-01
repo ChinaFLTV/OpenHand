@@ -1327,8 +1327,10 @@ class OpenHandDonutChartPainter extends CustomPainter {
     required this.values,
     required this.colors,
     required this.trackColor,
+    this.strokeWidth,
   });
 
+  final double? strokeWidth;
   final List<num> values;
   final List<Color> colors;
 
@@ -1341,7 +1343,9 @@ class OpenHandDonutChartPainter extends CustomPainter {
     if (geometry == null) return;
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = geometry.stroke
+      ..strokeWidth = strokeWidth == null || !strokeWidth!.isFinite
+          ? geometry.stroke
+          : strokeWidth!.clamp(math.min(1.0, geometry.stroke), geometry.stroke)
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(
       geometry.rect,
@@ -1386,7 +1390,8 @@ class OpenHandDonutChartPainter extends CustomPainter {
   bool shouldRepaint(covariant OpenHandDonutChartPainter oldDelegate) {
     return !listEquals(oldDelegate.values, values) ||
         !listEquals(oldDelegate.colors, colors) ||
-        oldDelegate.trackColor != trackColor;
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }
 
@@ -5183,9 +5188,11 @@ class OpenHandOperationalEmptyState extends StatelessWidget {
     this.color,
     this.textColor,
     this.surfaceColor,
+    this.compact = false,
   });
 
   final String message;
+  final bool compact;
   final IconData icon;
   final Color? color;
   final Color? textColor, surfaceColor;
@@ -5202,6 +5209,33 @@ class OpenHandOperationalEmptyState extends StatelessWidget {
     final cs = theme.colorScheme;
     final tone = color ?? cs.primary;
     final foreground = textColor ?? cs.onSurfaceVariant;
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.all(contentGap),
+        decoration: BoxDecoration(
+          color: surfaceColor ?? cs.surfaceContainerLow,
+          borderRadius: kOpenHandBorderRadius12,
+        ),
+        child: Row(
+          children: [
+            ExcludeSemantics(child: Icon(icon, size: 22, color: tone)),
+            const SizedBox(width: contentGap),
+            Expanded(
+              child: OpenHandOperationalLiveContent(
+                value: (message, foreground),
+                builder: () => Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: foreground,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Center(
       widthFactor: 1,
       heightFactor: 1,
