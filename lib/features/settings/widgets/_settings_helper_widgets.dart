@@ -440,19 +440,7 @@ class _SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Switch(
-      value: value,
-      onChanged: onChanged,
-      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-        if (states.contains(WidgetState.disabled)) {
-          return const Icon(Icons.lock_outline_rounded, size: 16);
-        }
-        if (states.contains(WidgetState.selected)) {
-          return const Icon(Icons.check_rounded, size: 16);
-        }
-        return const Icon(Icons.close_rounded, size: 16);
-      }),
-    );
+    return Switch(value: value, onChanged: onChanged);
   }
 }
 

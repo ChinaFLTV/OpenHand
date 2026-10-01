@@ -402,21 +402,7 @@ class _InstructionEnabledSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Switch(
-      value: value,
-      onChanged: onChanged,
-      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-        if (states.contains(WidgetState.selected)) {
-          return const Icon(Icons.check_rounded, size: 14);
-        }
-        return const Icon(Icons.close_rounded, size: 14);
-      }),
-      trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
-        if (states.contains(WidgetState.selected)) return Colors.transparent;
-        return colorScheme.outlineVariant;
-      }),
-    );
+    return Switch(value: value, onChanged: onChanged);
   }
 }
 

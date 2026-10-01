@@ -542,25 +542,6 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
             shape: const WidgetStatePropertyAll(shape),
           ),
         ),
-        switchTheme: theme.switchTheme.copyWith(
-          thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-            if (states.contains(WidgetState.disabled)) {
-              return const Icon(Icons.lock_outline_rounded, size: 15);
-            }
-            return Icon(
-              states.contains(WidgetState.selected)
-                  ? Icons.check_rounded
-                  : Icons.close_rounded,
-              size: 15,
-            );
-          }),
-          trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
-            if (states.contains(WidgetState.selected)) {
-              return Colors.transparent;
-            }
-            return colors.outlineVariant;
-          }),
-        ),
       ),
       child: child,
     );

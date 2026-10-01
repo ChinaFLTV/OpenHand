@@ -3163,12 +3163,6 @@ class _StreamThrottleSessionDialogState
                 kOpenHandHGap12,
                 Switch(
                   value: effectiveEnabled,
-                  thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return const Icon(Icons.check_rounded, size: 16);
-                    }
-                    return const Icon(Icons.close_rounded, size: 16);
-                  }),
                   onChanged: (v) {
                     setState(() => _enabledOverride = v);
                     session.setSessionStreamEnabledOverride(

@@ -172,16 +172,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
             ),
           ),
           const SizedBox(width: _kGoalStartSwitchRowGap),
-          Switch(
-            value: value,
-            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-              if (states.contains(WidgetState.selected)) {
-                return const Icon(Icons.check_rounded, size: 16);
-              }
-              return const Icon(Icons.close_rounded, size: 16);
-            }),
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

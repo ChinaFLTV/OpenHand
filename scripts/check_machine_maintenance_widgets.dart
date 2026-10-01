@@ -53,6 +53,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:xml/xml.dart' as xml;
 import 'package:openhand/shared/ui/bounded_animation.dart';
 import 'package:openhand/shared/ui/animated_appearance.dart';
@@ -5821,6 +5822,55 @@ void telemetryChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('全局开关跨平台遵循主题并支持键盘、语义和禁用状态', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final platform in TargetPlatform.values) {
+        for (final brightness in Brightness.values) {
+          final theme = (brightness == Brightness.dark
+              ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen)
+              : OpenHandTheme.light(OpenHandThemePreset.tundraGreen)).copyWith(platform: platform);
+          var value = false;
+          var enabled = true;
+          var changes = 0;
+          late StateSetter update;
+          await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(
+            body: StatefulBuilder(builder: (context, setState) {
+              update = setState;
+              return SwitchListTile(title: const Text('开关'), value: value,
+                onChanged: enabled ? (next) => setState(() { value = next; changes++; }) : null);
+            }))));
+          await tester.pumpAndSettle();
+          expect(find.byType(CupertinoSwitch), findsNothing);
+          final toggle = find.byType(Switch);
+          final icon = Theme.of(tester.element(toggle)).switchTheme.thumbIcon!;
+          expect(icon.resolve({})!.icon, Icons.close_rounded);
+          expect(icon.resolve({WidgetState.selected})!.icon, Icons.check_rounded);
+          expect(icon.resolve({WidgetState.disabled})!.icon, Icons.lock_outline_rounded);
+          expect(icon.resolve({WidgetState.disabled, WidgetState.selected})!.icon, Icons.lock_outline_rounded);
+          expect(tester.getSemantics(toggle), matchesSemantics(label: '开关',
+            hasEnabledState: true, isEnabled: true, hasToggledState: true, hasSelectedState: true,
+            isToggled: false, isFocusable: true, hasTapAction: true, hasFocusAction: true));
+          final size = tester.getSize(toggle);
+          await tester.tap(toggle); await tester.pumpAndSettle();
+          expect(value, isTrue); expect(changes, 1);
+          expect(tester.getSize(toggle), size);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab); await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.space); await tester.pumpAndSettle();
+          expect(value, isFalse); expect(changes, 2);
+          update(() => enabled = false); await tester.pumpAndSettle();
+          await tester.tap(toggle); await tester.pumpAndSettle();
+          expect(changes, 2);
+          expect(tester.widget<Switch>(toggle).onChanged, isNull);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('镜像搜索六语言支持标签选择、计数切换、仅拉取与创建容器', (tester) async {
     for (final locale in AppLocalizations.supportedLocales) {
       final l = await AppLocalizations.delegate.load(locale);
@@ -6011,7 +6061,7 @@ void resourceChecks() {
         await tester.binding.setSurfaceSize(Size(width,1000));
         final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
         await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
-          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          theme:theme.copyWith(platform:width<500?TargetPlatform.iOS:TargetPlatform.macOS,textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
           builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.5:1)),child:child!),
           home:Scaffold(body:RepaintBoundary(key:const ValueKey('创建预览'),child:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.createContainer,timeout:const Duration(seconds:60))))));
         await tester.pumpAndSettle();
@@ -6026,6 +6076,19 @@ void resourceChecks() {
         }
         await tester.ensureVisible(find.text(l.maintenanceResourceAdvanced));await tester.tap(find.text(l.maintenanceResourceAdvanced));await tester.pumpAndSettle();
         expect(find.text(l.maintenanceDetailRestartPolicy),findsOneWidget);expect(tester.takeException(),isNull);
+        expect(find.byType(CupertinoSwitch), findsNothing);
+        for (final title in [l.maintenanceContainerStartAfterCreate, l.maintenanceReadOnlyMount]) {
+          final tile = find.widgetWithText(SwitchListTile, title);
+          final toggle = find.descendant(of: tile, matching: find.byType(Switch));
+          await tester.ensureVisible(toggle); await tester.pumpAndSettle();
+          expect(tester.widget<Switch>(toggle).value, isTrue);
+          await tester.tap(toggle); await tester.pumpAndSettle();
+          expect(tester.widget<Switch>(toggle).value, isFalse);
+          await tester.tap(toggle); await tester.pumpAndSettle();
+          expect(tester.widget<Switch>(toggle).value, isTrue);
+          expect(tester.takeException(), isNull);
+        }
+
         if(Platform.environment['MAINTENANCE_PREVIEW']!=null && locale==const Locale('zh')){
           await tester.ensureVisible(find.byWidgetPredicate((widget)=>widget is TextField && widget.controller==form._controller('image')));await tester.pumpAndSettle();
           await tester.runAsync(()async{final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('创建预览')));

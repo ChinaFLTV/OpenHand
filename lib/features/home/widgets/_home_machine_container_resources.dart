@@ -1616,7 +1616,7 @@ class _ContainerResourceFormDialogState
                           const SizedBox(height: 8),
                           Material(
                             type: MaterialType.transparency,
-                            child: SwitchListTile.adaptive(
+                            child: SwitchListTile(
                               contentPadding: EdgeInsets.zero,
                               dense: true,
                               title: Text(
@@ -1843,7 +1843,7 @@ class _ContainerResourceFormDialogState
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                SwitchListTile.adaptive(
+                                SwitchListTile(
                                   contentPadding: EdgeInsets.zero,
                                   dense: true,
                                   title: Text(

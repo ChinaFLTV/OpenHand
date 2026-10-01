@@ -185,6 +185,18 @@ abstract final class OpenHandTheme {
           ),
         ),
       ),
+      switchTheme: SwitchThemeData(
+        thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+          return Icon(
+            states.contains(WidgetState.disabled)
+                ? Icons.lock_outline_rounded
+                : states.contains(WidgetState.selected)
+                ? Icons.check_rounded
+                : Icons.close_rounded,
+            size: 16,
+          );
+        }),
+      ),
       tooltipTheme: const TooltipThemeData(waitDuration: kOpenHandTooltipWait),
       inputDecorationTheme: InputDecorationTheme(
         hoverColor: Colors.transparent,

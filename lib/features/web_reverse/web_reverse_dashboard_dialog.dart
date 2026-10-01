@@ -2126,7 +2126,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
             ),
             Transform.scale(
               scale: 0.72,
-              child: Switch.adaptive(
+              child: Switch(
                 value: enabled,
                 onChanged: busy ? null : onChanged,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

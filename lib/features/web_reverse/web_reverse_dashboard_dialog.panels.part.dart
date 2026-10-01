@@ -2372,10 +2372,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                     de: 'Heap-Sampling starten',
                     ja: 'Heap サンプリングを開始',
                   ),
-            child: Switch.adaptive(
-              value: isSampling,
-              onChanged: (_) => onToggle(),
-            ),
+            child: Switch(value: isSampling, onChanged: (_) => onToggle()),
           ),
         ],
       ),

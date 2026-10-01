@@ -887,7 +887,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                   ? l.maintenanceTaskValidation
                                   : null,
                             ),
-                            SwitchListTile.adaptive(
+                            SwitchListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(l.maintenanceTaskEnabled),
                               value: _enabled,
@@ -941,7 +941,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               ],
                             ),
                             if (task == null)
-                              SwitchListTile.adaptive(
+                              SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(l.maintenanceTaskEnabled),
                                 value: _enabled,
