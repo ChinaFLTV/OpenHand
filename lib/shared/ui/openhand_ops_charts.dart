@@ -287,12 +287,47 @@ Rect? _chartTooltipAnchorRect(BuildContext context) {
   return box.localToGlobal(Offset.zero) & box.size;
 }
 
-Timer _startChartTooltipShowTimer({
+/// 同一浮层中的提示连续切换时直接交接，旧计时器不能重新显示过期内容。
+class _ChartTooltipOwner {
+  _ChartTooltipOwner({required this.isShowing, required this.dismiss});
+
+  static final _active = Expando<_ChartTooltipOwner>('当前完整内容提示');
+  final bool Function() isShowing;
+  final VoidCallback dismiss;
+  OverlayState? _scope;
+
+  bool claim(BuildContext context) {
+    final scope = Overlay.maybeOf(context);
+    if (scope == null) return false;
+    final previous = _active[scope];
+    final immediate = previous != null && previous.isShowing();
+    if (previous != null && !identical(previous, this)) previous.dismiss();
+    _scope = scope;
+    _active[scope] = this;
+    return immediate;
+  }
+
+  void release() {
+    final scope = _scope;
+    if (scope != null && identical(_active[scope], this)) _active[scope] = null;
+    _scope = null;
+  }
+}
+
+Timer? _startChartTooltipShowTimer({
   required BuildContext context,
   required bool Function() shouldShow,
   required OverlayPortalController portal,
   required AnimationController transition,
+  bool immediate = false,
 }) {
+  if (immediate) {
+    if (shouldShow()) {
+      if (!portal.isShowing) portal.show();
+      transition.value = 1;
+    }
+    return null;
+  }
   final delay = openHandTickerMotionEnabled(context)
       ? _kHeatmapHoverShowDelay
       : Duration.zero;
@@ -336,41 +371,45 @@ Widget _buildChartTooltipOverlay({
   required DialogAnimationSettings settings,
   required VoidCallback onEnter,
   required VoidCallback onExit,
+  bool ignorePointer = false,
 }) {
   return Positioned.fill(
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final metrics = _HeatmapHoverMetrics.resolve(
-          context: context,
-          overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
-          anchor: anchor,
-        );
-        return CustomSingleChildLayout(
-          delegate: OpenHandAnchoredPopupLayoutDelegate(
-            safeRect: metrics.safeRect,
-            anchorRect: metrics.anchorRect,
-            placedAbove: metrics.placedAbove,
-            anchorGap: _kHeatmapHoverAnchorGap,
-            minWidth: metrics.minWidth,
-            maxWidth: metrics.maxWidth,
-            maxHeight: metrics.maxHeight,
-          ),
-          child: MouseRegion(
-            onEnter: (_) => onEnter(),
-            onExit: (_) => onExit(),
-            child: buildAnimationStyleTransition(
-              animation: transition,
-              settings: settings,
-              profile: OpenHandAnimationTransitionProfile(
-                alignment: metrics.placedAbove
-                    ? Alignment.bottomCenter
-                    : Alignment.topCenter,
-              ),
-              child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
+    child: IgnorePointer(
+      ignoring: ignorePointer,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _HeatmapHoverMetrics.resolve(
+            context: context,
+            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
+            anchor: anchor,
+          );
+          return CustomSingleChildLayout(
+            delegate: OpenHandAnchoredPopupLayoutDelegate(
+              safeRect: metrics.safeRect,
+              anchorRect: metrics.anchorRect,
+              placedAbove: metrics.placedAbove,
+              anchorGap: _kHeatmapHoverAnchorGap,
+              minWidth: metrics.minWidth,
+              maxWidth: metrics.maxWidth,
+              maxHeight: metrics.maxHeight,
             ),
-          ),
-        );
-      },
+            child: MouseRegion(
+              onEnter: (_) => onEnter(),
+              onExit: (_) => onExit(),
+              child: buildAnimationStyleTransition(
+                animation: transition,
+                settings: settings,
+                profile: OpenHandAnimationTransitionProfile(
+                  alignment: metrics.placedAbove
+                      ? Alignment.bottomCenter
+                      : Alignment.topCenter,
+                ),
+                child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
+              ),
+            ),
+          );
+        },
+      ),
     ),
   );
 }
@@ -401,6 +440,10 @@ class _OpenHandChartTooltipTriggerState
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portal = OverlayPortalController();
   late final AnimationController _transition;
+  late final _tooltipOwner = _ChartTooltipOwner(
+    isShowing: () => _portal.isShowing,
+    dismiss: _dismissTooltip,
+  );
   DialogAnimationSettings _settings = OpenHandMotionDefaults.menu;
   Timer? _showTimer;
   Timer? _hideTimer;
@@ -431,8 +474,19 @@ class _OpenHandChartTooltipTriggerState
     _generation += 1;
     _showTimer?.cancel();
     _hideTimer?.cancel();
+    _tooltipOwner.release();
     _transition.dispose();
     super.dispose();
+  }
+
+  void _dismissTooltip() {
+    _generation++;
+    _showQueued = false;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.stop();
+    if (_portal.isShowing) _portal.hide();
+    _tooltipOwner.release();
   }
 
   void _captureAnchor(BuildContext childContext) {
@@ -440,17 +494,19 @@ class _OpenHandChartTooltipTriggerState
   }
 
   void _show(BuildContext childContext) {
+    final immediate = _tooltipOwner.claim(context);
+    final generation = ++_generation;
+    _showTimer?.cancel();
     _hideTimer?.cancel();
     _captureAnchor(childContext);
     _showQueued = true;
     if (_portal.isShowing) {
-      _transition.forward();
+      _transition.value = 1;
       return;
     }
-    final generation = ++_generation;
-    _showTimer?.cancel();
     _showTimer = _startChartTooltipShowTimer(
       context: context,
+      immediate: immediate,
       shouldShow: () => mounted && _showQueued && generation == _generation,
       portal: _portal,
       transition: _transition,
@@ -466,6 +522,7 @@ class _OpenHandChartTooltipTriggerState
       shouldHide: () => mounted && !_showQueued && generation == _generation,
       portal: _portal,
       transition: _transition,
+      onHidden: _tooltipOwner.release,
     );
   }
 
@@ -3573,6 +3630,10 @@ class _OpenHandOperationalRankTableState
   final ScrollController _vertical = ScrollController();
   final OverlayPortalController _portal = OverlayPortalController();
   late final AnimationController _transition;
+  late final _tooltipOwner = _ChartTooltipOwner(
+    isShowing: () => _portal.isShowing,
+    dismiss: _dismissTooltip,
+  );
   DialogAnimationSettings _motion = OpenHandMotionDefaults.menu;
   List<double>? _userWidths;
   bool _userResized = false;
@@ -3585,6 +3646,7 @@ class _OpenHandOperationalRankTableState
   int _generation = 0;
   bool _showQueued = false;
   Rect? _anchorGlobal;
+  final _tooltipRevision = ValueNotifier<int>(0);
   OpenHandChartTooltip? _activeTooltip;
   Color? _activeAccent;
   int _page = 1;
@@ -3636,6 +3698,8 @@ class _OpenHandOperationalRankTableState
     _generation += 1;
     _showTimer?.cancel();
     _hideTimer?.cancel();
+    _tooltipOwner.release();
+    _tooltipRevision.dispose();
     _transition.dispose();
     _horizontal.dispose();
     _vertical.dispose();
@@ -3662,6 +3726,16 @@ class _OpenHandOperationalRankTableState
     return next;
   }
 
+  void _dismissTooltip() {
+    _generation++;
+    _showQueued = false;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.stop();
+    if (_portal.isShowing) _portal.hide();
+    _tooltipOwner.release();
+  }
+
   void _captureAnchor(BuildContext cellContext) {
     _anchorGlobal = _chartTooltipAnchorRect(cellContext) ?? _anchorGlobal;
   }
@@ -3674,6 +3748,9 @@ class _OpenHandOperationalRankTableState
     required Color accent,
   }) {
     if (_dragColumn != null) return;
+    final immediate = _tooltipOwner.claim(context);
+    final generation = ++_generation;
+    _showTimer?.cancel();
     _hideTimer?.cancel();
     _activeTooltip = OpenHandChartTooltip(
       title: title,
@@ -3685,14 +3762,14 @@ class _OpenHandOperationalRankTableState
     _activeAccent = accent;
     _captureAnchor(cellContext);
     _showQueued = true;
+    _tooltipRevision.value++;
     if (_portal.isShowing) {
-      _transition.forward();
+      _transition.value = 1;
       return;
     }
-    final generation = ++_generation;
-    _showTimer?.cancel();
     _showTimer = _startChartTooltipShowTimer(
       context: context,
+      immediate: immediate,
       shouldShow: () => mounted && _showQueued && generation == _generation,
       portal: _portal,
       transition: _transition,
@@ -3708,10 +3785,17 @@ class _OpenHandOperationalRankTableState
       shouldHide: () => mounted && !_showQueued && generation == _generation,
       portal: _portal,
       transition: _transition,
+      onHidden: _tooltipOwner.release,
     );
   }
 
-  Widget _buildOverlay(BuildContext overlayContext) {
+  Widget _buildOverlay(BuildContext overlayContext) =>
+      ValueListenableBuilder<int>(
+        valueListenable: _tooltipRevision,
+        builder: (context, _, child) => _buildTooltipContent(context),
+      );
+
+  Widget _buildTooltipContent(BuildContext overlayContext) {
     final tooltip = _activeTooltip;
     final accent =
         _activeAccent ?? Theme.of(overlayContext).colorScheme.primary;
@@ -3722,6 +3806,7 @@ class _OpenHandOperationalRankTableState
       accent: accent,
       transition: _transition,
       settings: _motion,
+      ignorePointer: true,
       onEnter: () {
         _hideTimer?.cancel();
         _showQueued = true;
@@ -4382,6 +4467,10 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portal = OverlayPortalController();
   late final AnimationController _transition;
+  late final _tooltipOwner = _ChartTooltipOwner(
+    isShowing: () => _portal.isShowing,
+    dismiss: _dismissTooltip,
+  );
   DialogAnimationSettings _settings = OpenHandMotionDefaults.menu;
   Timer? _showTimer;
   Timer? _hideTimer;
@@ -4442,6 +4531,7 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     _generation += 1;
     _showTimer?.cancel();
     _hideTimer?.cancel();
+    _tooltipOwner.release();
     _transition.dispose();
     super.dispose();
   }
@@ -4481,12 +4571,26 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     return base.withValues(alpha: 0.22 + ratio * 0.78);
   }
 
+  void _dismissTooltip() {
+    _pinned = false;
+    _generation++;
+    _showQueued = false;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.stop();
+    if (_portal.isShowing) _portal.hide();
+    _tooltipOwner.release();
+  }
+
   void _captureAnchor(BuildContext cellContext) {
     _anchorGlobal = _chartTooltipAnchorRect(cellContext) ?? _anchorGlobal;
   }
 
   void _showAt(int index, BuildContext cellContext) {
     if (index < 0 || index >= widget.segments.length) return;
+    final immediate = _tooltipOwner.claim(context);
+    final generation = ++_generation;
+    _showTimer?.cancel();
     _hideTimer?.cancel();
     final segment = widget.segments[index];
     _hoveredIndex = index;
@@ -4502,13 +4606,12 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     _showQueued = true;
     if (mounted) setState(() {});
     if (_portal.isShowing) {
-      _transition.forward();
+      _transition.value = 1;
       return;
     }
-    final generation = ++_generation;
-    _showTimer?.cancel();
     _showTimer = _startChartTooltipShowTimer(
       context: context,
+      immediate: immediate,
       shouldShow: () => mounted && _showQueued && generation == _generation,
       portal: _portal,
       transition: _transition,
@@ -4526,6 +4629,7 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
       portal: _portal,
       transition: _transition,
       onHidden: () {
+        _tooltipOwner.release();
         setState(() {
           _hoveredIndex = null;
           _pressedIndex = null;
