@@ -15655,7 +15655,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Recherchez dans les registres du moteur cible (50 résultats maximum). Cette application récupère les compteurs, icônes et étiquettes publics depuis Docker Hub. Pour une image privée, saisissez registre/image:étiquette.';
+      'Rechercher Docker Hub via le proxy système global (50 résultats maximum), avec statistiques, icônes et tags. Saisissez les images privées sous la forme registre/image:tag.';
 
   @override
   String get maintenanceImageStars => 'Étoiles';
@@ -15668,7 +15668,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'L’image est téléchargée sur la machine et le moteur sélectionnés avec les identifiants existants. Augmenter le délai pour les grandes images.';
+      'Les images sont téléchargées via le proxy système global, vérifiées puis importées dans la machine et l’environnement sélectionnés avec leurs identifiants de registre. Augmentez le délai pour les grandes images.';
 
   @override
   String get maintenanceContainerNameOptional =>
@@ -16028,4 +16028,21 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab exige une commande shell sur une ligne. Séparez les commandes par des points-virgules ou appelez un fichier script.';
+
+  @override
+  String get maintenanceImageDownloading => 'Téléchargement de l’image';
+
+  @override
+  String get maintenanceImageUploading => 'Transfert vers la machine cible';
+
+  @override
+  String get maintenanceImageImporting => 'Importation de l’image';
+
+  @override
+  String get maintenanceImageAuthFailed =>
+      'Échec de l’authentification au registre. Vérifiez les identifiants de connexion sur la machine cible.';
+
+  @override
+  String get maintenanceImagePlatformUnavailable =>
+      'Aucune version de l’image ne correspond au système et à l’architecture de l’environnement cible.';
 }

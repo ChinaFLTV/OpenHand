@@ -1149,6 +1149,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       );
       return _MachineContainerPanel(
         key: _containersKey,
+        registryFactory: _machineImageRegistry,
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         windows: _platformName == 'Windows',

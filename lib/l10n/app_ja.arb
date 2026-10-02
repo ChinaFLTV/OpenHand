@@ -9644,11 +9644,11 @@
   "maintenanceImageTag": "タグ",
   "maintenanceImageQuery": "イメージのキーワード",
   "maintenanceImageSearch": "イメージを検索",
-  "maintenanceImageSearchHelp": "対象ランタイムのレジストリを検索します（最大 50 件）。公開件数、アイコン、タグはこのアプリから Docker Hub に問い合わせます。非公開イメージはレジストリ/イメージ:タグを手動で入力できます。",
+  "maintenanceImageSearchHelp": "グローバルのシステムプロキシ経由で Docker Hub を検索します（最大 50 件）。統計、アイコン、タグも取得します。非公開イメージは レジストリ/イメージ:タグ で入力してください。",
   "maintenanceImageStars": "スター数",
   "maintenanceImageOfficial": "公式",
   "maintenanceImageReference": "イメージ参照",
-  "maintenanceImagePullHelp": "選択中のマシンとランタイムに、既存の認証情報を使って取得します。大きなイメージはタイムアウトを延長してください。",
+  "maintenanceImagePullHelp": "グローバルのシステムプロキシ経由でイメージをダウンロードし、検証後に選択したマシンとランタイムへインポートします。対象マシンのレジストリ認証情報を使用します。大きなイメージはタイムアウトを延長してください。",
   "maintenanceContainerNameOptional": "コンテナー名（任意）",
   "maintenanceContainerStartAfterCreate": "作成後すぐに起動",
   "maintenanceHostAddress": "ホストアドレス",
@@ -9765,5 +9765,10 @@
   "maintenanceCronMonthly": "毎月",
   "maintenanceCronReboot": "システム起動時",
   "maintenanceCronHelp": "周期を選び、カードから値を設定します。対象マシンのタスクのタイムゾーンを使用します。日付と曜日の両方を指定した場合、どちらかが一致すれば実行します。",
-  "maintenanceCronCommandHelp": "Crontab には1行のシェルコマンドを指定します。複数のコマンドはセミコロンで区切るか、スクリプトを呼び出してください。"
+  "maintenanceCronCommandHelp": "Crontab には1行のシェルコマンドを指定します。複数のコマンドはセミコロンで区切るか、スクリプトを呼び出してください。",
+  "maintenanceImageDownloading": "イメージをダウンロード中",
+  "maintenanceImageUploading": "対象マシンに転送中",
+  "maintenanceImageImporting": "イメージをインポート中",
+  "maintenanceImageAuthFailed": "レジストリ認証に失敗しました。対象マシンのログイン認証情報を確認してください。",
+  "maintenanceImagePlatformUnavailable": "対象ランタイムの OS とアーキテクチャに一致するイメージがありません。"
 }

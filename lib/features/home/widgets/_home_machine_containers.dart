@@ -69,6 +69,7 @@ class _MachineContainerPanel extends StatefulWidget {
     this.probe,
     this.query,
     this.operate,
+    required this.registryFactory,
     this.operationTimeout = const Duration(seconds: 30),
     required this.windows,
     required this.shell,
@@ -77,6 +78,7 @@ class _MachineContainerPanel extends StatefulWidget {
   final Future<String> Function(String) run;
   final Future<String> Function(String)? probe;
   final MachineContainerOperationRunner? query, operate;
+  final MachineImageRegistry Function() registryFactory;
   final Duration operationTimeout;
   final bool windows;
   final MachineTerminalCommandShell shell;
@@ -142,6 +144,69 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       query: widget.query,
       timeout: widget.operationTimeout,
       previous: previous?.settled,
+    );
+  }
+
+  Future<({String output, String image})> _pullImage(
+    MachineContainerClient client,
+    String image, {
+    required Duration timeout,
+    void Function(String)? onOutput,
+    bool Function()? isCancelled,
+  }) {
+    final service = context.read<MachineTerminalFileService>();
+    final query = _query!;
+    final l = AppLocalizations.of(context)!;
+    return MachineImageOperations(
+      clientFactory: SystemProxyResolver.instance.createRawHttpClient,
+      run: (command, {required timeout, onOutput, isCancelled}) => query.run(
+        command,
+        runner: widget.operate,
+        timeout: timeout,
+        onOutput: onOutput,
+        isCancelled: isCancelled,
+      ),
+      upload: (file, directory, stopped, progress) =>
+          service.uploadTemporaryFile(
+            sessionId: widget.sessionId,
+            terminalId: widget.terminalId,
+            sourcePath: file.path,
+            targetDirectory: directory,
+            targetName: 'image.tar',
+            onProgress: progress,
+            isCancelled: stopped,
+          ),
+      cleanup: (command) async {
+        try {
+          await service.runMaintenanceCommand(
+            sessionId: widget.sessionId,
+            terminalId: widget.terminalId,
+            command: command,
+            commandShell: widget.shell,
+            timeout: const Duration(seconds: 5),
+          );
+        } catch (error, stack) {
+          silentLog('machine_image', '清理目标机器的镜像临时目录', error, stack);
+        }
+      },
+    ).pull(
+      client,
+      image,
+      timeout: timeout,
+      isCancelled: isCancelled,
+      onOutput: onOutput,
+      onProgress: (stage, received, total) {
+        if (!mounted || (isCancelled?.call() ?? false) || onOutput == null) {
+          return;
+        }
+        onOutput(
+          '${switch (stage) {
+            MachineImageTransferStage.download => l.maintenanceImageDownloading,
+            MachineImageTransferStage.upload => l.maintenanceImageUploading,
+            MachineImageTransferStage.import => l.maintenanceImageImporting,
+          }}${total == 0 ? '' : ' · ${formatLocalizedByteSizeOf(context, received)} / ${formatLocalizedByteSizeOf(context, total)}'}',
+        );
+      },
     );
   }
 
@@ -340,6 +405,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         builder: (_) => _ContainerResourceFormDialog(
           client: client,
           action: _ContainerResourceAction.createContainer,
+          pullImage: _pullImage,
+          registryFactory: widget.registryFactory,
           operate: (command, {required timeout, onOutput, isCancelled}) =>
               query.run(
                 command,
@@ -1110,6 +1177,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                 ? MachineContainerResourceKind.images
                 : MachineContainerResourceKind.volumes,
             operate: widget.operate,
+            pullImage: _pullImage,
+            registryFactory: widget.registryFactory,
             timeout: widget.operationTimeout,
             onOverlayChanged: (value) {
               if (mounted) setState(() => _overlay = value);

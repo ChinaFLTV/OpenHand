@@ -38,16 +38,6 @@ Future<void> main() async {
         return '[{"Id":"sha256:fixed","Size":20000000}]';
       }
       if (command.contains("'image' 'history'")) return '';
-      if (command.contains("'search'")) {
-        return List.generate(
-          60,
-          (i) => jsonEncode({
-            'Name': 'app-$i',
-            'Description': '测试',
-            'StarCount': i,
-          }),
-        ).join('\n');
-      }
       return '';
     },
   );
@@ -97,12 +87,6 @@ Future<void> main() async {
     cancel = true;
   }
   check(calls.length == before + 1, '关闭面板后继续采集卷详情');
-  final results = await client.searchImages('nginx');
-  check(
-    results.length == machineContainerSearchLimit &&
-        calls.last.contains("'--limit' '50'"),
-    '仓库搜索未限量',
-  );
   final details =
       jsonDecode(await client.inspectImageReference('sha256:fixed')) as Map;
   check(details['image']['Id'] == 'sha256:fixed', '本地镜像无法直接查看详情');
@@ -344,6 +328,7 @@ Future<void> checkRegistry() async {
   }
   final requests = <Uri>[];
   final registry = MachineImageRegistry(
+    clientFactory: HttpClient.new,
     read: (uri) async {
       requests.add(uri);
       if (uri.path.endsWith('/tags')) {
@@ -434,7 +419,7 @@ Future<void> checkRegistry() async {
     check('$error'.contains('已关闭'), '仓库关闭状态错误');
   }
   if (Platform.environment['OPENHAND_VERIFY_IMAGE_REGISTRY'] == '1') {
-    final live = MachineImageRegistry();
+    final live = MachineImageRegistry(clientFactory: HttpClient.new);
     try {
       final metadata = await live.searchMetadata('nginx');
       final tags = await live.tags('library/nginx', filter: 'stable');

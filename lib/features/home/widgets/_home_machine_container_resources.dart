@@ -1,5 +1,9 @@
 part of '../openhand_home_page.dart';
 
+MachineImageRegistry _machineImageRegistry() => MachineImageRegistry(
+  clientFactory: SystemProxyResolver.instance.createRawHttpClient,
+);
+
 enum _ContainerResourceAction {
   pull,
   createContainer,
@@ -32,11 +36,15 @@ class _MachineContainerResources extends StatefulWidget {
     required this.onOverlayChanged,
     required this.onCreated,
     this.operate,
+    this.pullImage,
+    this.registryFactory = _machineImageRegistry,
   });
   final MachineContainerClient client;
   final _ContainerQueryScope Function() beginQuery;
   final MachineContainerResourceKind kind;
   final MachineContainerOperationRunner? operate;
+  final MachineContainerImagePuller? pullImage;
+  final MachineImageRegistry Function() registryFactory;
   final Duration timeout;
   final ValueChanged<bool> onOverlayChanged;
   final VoidCallback onCreated;
@@ -152,8 +160,9 @@ class _MachineContainerResourcesState
           builder: (_) => _ContainerRegistryDialog(
             client: client,
             operate: operate,
+            pullImage: widget.pullImage,
             timeout: widget.timeout,
-            registryFactory: MachineImageRegistry.new,
+            registryFactory: widget.registryFactory,
             onChanged: () => changed = true,
             onCreated: () => containerCreated = true,
           ),
@@ -169,8 +178,9 @@ class _MachineContainerResourcesState
                 action: action,
                 resource: resource,
                 operate: operate,
+                pullImage: widget.pullImage,
                 timeout: widget.timeout,
-                registryFactory: MachineImageRegistry.new,
+                registryFactory: widget.registryFactory,
                 imageReferences: _images
                     ? _resources.map((image) => image.reference).toList()
                     : const [],
@@ -558,12 +568,14 @@ class _ContainerRegistryDialog extends StatefulWidget {
     required this.registryFactory,
     required this.timeout,
     this.operate,
+    this.pullImage,
   });
   final MachineContainerClient client;
   final VoidCallback? onChanged, onCreated;
   final MachineImageRegistry Function() registryFactory;
   final Duration timeout;
   final MachineContainerOperationRunner? operate;
+  final MachineContainerImagePuller? pullImage;
   @override
   State<_ContainerRegistryDialog> createState() =>
       _ContainerRegistryDialogState();
@@ -597,7 +609,7 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
       _error = '';
     });
     try {
-      final rows = await widget.client.searchImages(query);
+      final rows = (await _registry.searchMetadata(query)).values.toList();
       if (mounted) {
         setState(() {
           _results = rows;
@@ -605,7 +617,6 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
           _tags.removeWhere((name, _) => !rows.any((row) => row.name == name));
         });
         if (rows.any((row) => row.hubRepository != null)) {
-          unawaited(_enrich(query, revision));
           unawaited(_enrich(query, revision, logos: true));
         }
       }
@@ -681,6 +692,7 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
         action: action,
         image: image,
         operate: widget.operate,
+        pullImage: widget.pullImage,
         timeout: widget.timeout,
         registryFactory: widget.registryFactory,
         imageReferences: _results.map(_reference).toList(),
@@ -820,17 +832,35 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                                     Row(
                                       children: [
                                         if (row.iconUrl != null) ...[
-                                          Image.network(
-                                            row.iconUrl!,
+                                          SizedBox(
                                             width: 20,
                                             height: 20,
-                                            cacheWidth: 40,
-                                            cacheHeight: 40,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, _, _) => Icon(
-                                              Icons.layers_outlined,
-                                              size: 18,
-                                              color: cs.onSurfaceVariant,
+                                            child: FutureBuilder<Uint8List>(
+                                              future: _registry.icon(
+                                                row.iconUrl!,
+                                              ),
+                                              builder: (_, snapshot) =>
+                                                  snapshot.hasData
+                                                  ? Image.memory(
+                                                      snapshot.data!,
+                                                      cacheWidth: 40,
+                                                      cacheHeight: 40,
+                                                      fit: BoxFit.contain,
+                                                      errorBuilder: (_, _, _) =>
+                                                          Icon(
+                                                            Icons
+                                                                .layers_outlined,
+                                                            size: 18,
+                                                            color: cs
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                    )
+                                                  : Icon(
+                                                      Icons.layers_outlined,
+                                                      size: 18,
+                                                      color:
+                                                          cs.onSurfaceVariant,
+                                                    ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -992,7 +1022,7 @@ class _ContainerImageTagDialog extends StatefulWidget {
 class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
   late final _tag = TextEditingController(text: widget.selected);
   late final _registry =
-      widget.registryFactory?.call() ?? MachineImageRegistry();
+      widget.registryFactory?.call() ?? _machineImageRegistry();
   final _tags = <String>[];
   bool _loading = false, _hasMore = false, _failed = false;
   int _page = 0;
@@ -1222,7 +1252,7 @@ class _ContainerImageReferenceField extends StatefulWidget {
 class _ContainerImageReferenceFieldState
     extends State<_ContainerImageReferenceField> {
   late final _registry =
-      widget.registryFactory?.call() ?? MachineImageRegistry();
+      widget.registryFactory?.call() ?? _machineImageRegistry();
   final _focus = FocusNode();
   List<String> _suggestions = [];
   List<MachineContainerImageSearchResult> _images = [];
@@ -1412,6 +1442,7 @@ class _ContainerResourceFormDialog extends StatefulWidget {
     required this.action,
     required this.timeout,
     this.operate,
+    this.pullImage,
     this.resource,
     this.image = '',
     this.registryFactory,
@@ -1421,6 +1452,7 @@ class _ContainerResourceFormDialog extends StatefulWidget {
   final _ContainerResourceAction action;
   final Duration timeout;
   final MachineContainerOperationRunner? operate;
+  final MachineContainerImagePuller? pullImage;
   final MachineContainerResource? resource;
   final String image;
   final MachineImageRegistry Function()? registryFactory;
@@ -1455,7 +1487,14 @@ class _ContainerResourceFormDialogState
   @override
   void initState() {
     super.initState();
-    _timeout = widget.timeout.inSeconds;
+    _timeout =
+        widget.action == _ContainerResourceAction.pull ||
+            widget.action == _ContainerResourceAction.createContainer
+        ? math.max(
+            widget.timeout.inSeconds,
+            machineContainerImageTimeout.inSeconds,
+          )
+        : widget.timeout.inSeconds;
     _controller('image').text = widget.image.isNotEmpty
         ? widget.image
         : widget.resource?.reference ?? '';
@@ -1500,11 +1539,15 @@ class _ContainerResourceFormDialogState
       _output = '';
     });
     late List<String> args;
+    final launchArguments = _value(
+      'arguments',
+    ).split(RegExp(r'\r?\n')).where((value) => value.isNotEmpty).toList();
     try {
+      if (widget.action == _ContainerResourceAction.pull) {
+        MachineImageReference.parse(_value('image'));
+      }
       args = switch (widget.action) {
-        _ContainerResourceAction.pull => widget.client.pullArguments(
-          _value('image'),
-        ),
+        _ContainerResourceAction.pull => const [],
         _ContainerResourceAction.removeImage =>
           widget.client.removeResourceArguments(
             MachineContainerResourceKind.images,
@@ -1534,12 +1577,7 @@ class _ContainerResourceFormDialogState
           user: _value('user'),
           directory: _value('directory'),
           entrypoint: _value('entrypoint'),
-          arguments: _value('arguments').isEmpty
-              ? []
-              : _value('arguments')
-                    .split(RegExp(r'\r?\n'))
-                    .where((value) => value.isNotEmpty)
-                    .toList(),
+          arguments: launchArguments,
           cpus: _value('cpus'),
           memory: _value('memory'),
         ).commandArguments(),
@@ -1554,12 +1592,59 @@ class _ContainerResourceFormDialogState
       _busy = true;
       _cancelled = false;
     });
+    final budget = MonotonicDeadline(Duration(seconds: _timeout));
     try {
-      final result = widget.operate == null
+      String? pullOutput;
+      if (widget.action == _ContainerResourceAction.pull ||
+          widget.action == _ContainerResourceAction.createContainer) {
+        final puller = widget.pullImage;
+        var missing = true;
+        if (widget.action == _ContainerResourceAction.createContainer) {
+          // 本地镜像无需下载；指定摘要在导入后改用已校验的镜像标识创建。
+          final imageArguments = [
+            'image',
+            'ls',
+            '-q',
+            '--no-trunc',
+            _value('image').trim(),
+          ];
+          final images = widget.operate == null
+              ? await widget.client.execute(imageArguments)
+              : await widget.operate!(
+                  widget.client.command(imageArguments),
+                  timeout: budget.limit(const Duration(seconds: 15)),
+                  isCancelled: () => !mounted || _cancelled,
+                );
+          missing = images.trim().isEmpty;
+        }
+        if (missing) {
+          if (puller == null) {
+            throw const MachineContainerConfigException('resourceUnsupported');
+          }
+          final pulled = await puller(
+            widget.client,
+            _value('image'),
+            timeout: budget.remaining(),
+            onOutput: _receive,
+            isCancelled: () => !mounted || _cancelled,
+          );
+          pullOutput = pulled.output;
+          if (widget.action == _ContainerResourceAction.createContainer) {
+            final index = args.length - launchArguments.length - 1;
+            args[index] = pulled.image;
+          }
+        }
+        if (widget.action == _ContainerResourceAction.createContainer) {
+          args.insert(1, '--pull=never');
+        }
+      }
+      final result = widget.action == _ContainerResourceAction.pull
+          ? pullOutput!
+          : widget.operate == null
           ? await widget.client.execute(args)
           : await widget.operate!(
               widget.client.command(args),
-              timeout: Duration(seconds: _timeout),
+              timeout: budget.remaining(),
               onOutput: _receive,
               isCancelled: () => !mounted || _cancelled,
             );
@@ -1585,6 +1670,7 @@ class _ContainerResourceFormDialogState
         });
       }
     } finally {
+      budget.stop();
       _outputTimer?.cancel();
       _outputTimer = null;
       if (mounted) setState(() => _busy = false);

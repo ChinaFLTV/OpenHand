@@ -51,6 +51,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:openhand/app/support/system_proxy.dart';
+import 'package:openhand/shared/util/async_concurrency.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
@@ -286,7 +289,7 @@ void main() {
     }
     for (final width in [1280.0, 420.0]) {
       await tester.binding.setSurfaceSize(Size(width, 900));
-      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+      await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId: '会话', terminalId: '终端', run: run, windows: false,
         shell: MachineTerminalCommandShell.automatic))));
       await selectContainerList(tester);
@@ -324,7 +327,7 @@ void main() {
     }
     await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),
       localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
+      home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,sessionId:'会话',terminalId:'终端',run:run,
         windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -379,7 +382,7 @@ void main() {
     }
     await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),
       localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,
+      home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,sessionId:'会话',terminalId:'终端',run:run,
         windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -470,7 +473,7 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
           builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.6 : 1)), child: child!),
-          home: Scaffold(body: RepaintBoundary(key: const ValueKey('容器面板预览'), child: _MachineContainerPanel(
+          home: Scaffold(body: RepaintBoundary(key: const ValueKey('容器面板预览'), child: _MachineContainerPanel(registryFactory:_machineImageRegistry,
             sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.automatic)))));
         await selectContainerList(tester);
         await tester.pumpAndSettle();
@@ -535,7 +538,7 @@ void main() {
       final l = await AppLocalizations.delegate.load(locale);
       final theme = OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
       await tester.pumpWidget(MaterialApp(theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
-        home:Scaffold(body:RepaintBoundary(key:const ValueKey('容器异常预览'),child:_MachineContainerPanel(
+        home:Scaffold(body:RepaintBoundary(key:const ValueKey('容器异常预览'),child:_MachineContainerPanel(registryFactory:_machineImageRegistry,
           sessionId:'会话', terminalId:'终端', windows:false, shell:MachineTerminalCommandShell.automatic,
           run:(_) async => throw StateError('failed to connect to the docker API at unix:///run/docker.sock: no such file or directory'))))));
       await selectContainerList(tester);
@@ -602,7 +605,7 @@ void main() {
       return '{}';
     }
     Widget screen(Locale locale) => MaterialApp(locale:locale, localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_MachineContainerPanel(key:const ValueKey('保留容器状态'), sessionId:'会话', terminalId:'终端', run:run, windows:false,shell:MachineTerminalCommandShell.automatic)));
+      home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,key:const ValueKey('保留容器状态'), sessionId:'会话', terminalId:'终端', run:run, windows:false,shell:MachineTerminalCommandShell.automatic)));
     await tester.binding.setSurfaceSize(const Size(1100,900));
     await tester.pumpWidget(screen(const Locale('zh'))); await selectContainerList(tester); await tester.pumpAndSettle();
     await tester.tap(find.text('worker')); await tester.pumpAndSettle();
@@ -650,7 +653,7 @@ void main() {
     }
     await tester.binding.setSurfaceSize(const Size(1400,1000));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
-      supportedLocales:AppLocalizations.supportedLocales, home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',
+      supportedLocales:AppLocalizations.supportedLocales, home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,sessionId:'会话',terminalId:'终端',
         run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -728,7 +731,7 @@ void main() {
           supportedLocales:AppLocalizations.supportedLocales,
           theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
           builder:(context, child) => MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,960), textScaler:TextScaler.linear(width == 420 ? 1.5 : 1)),child:child!),
-          home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.automatic))));
+          home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.automatic))));
         await selectContainerList(tester);
         await tester.pumpAndSettle();
         final panel = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
@@ -5705,7 +5708,7 @@ void incrementalChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -5750,7 +5753,7 @@ void incrementalChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -5784,7 +5787,7 @@ void incrementalChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话', terminalId:'终端', run:run, windows:false, shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pump(); await tester.pump(const Duration(milliseconds: 700)); final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
@@ -6086,7 +6089,7 @@ void telemetryChecks() {
       return telemetryFixture(command);
     }
     await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话', terminalId:'终端', run:(command)=>run(command, timeout: const Duration(seconds:30)), query:run,
         windows:false, shell:MachineTerminalCommandShell.posix))));
     await tester.pump(); await tester.pump(const Duration(milliseconds: 700));
@@ -6246,7 +6249,7 @@ void telemetryChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1180,900));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
+      home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,sessionId:'会话',terminalId:'终端',run:run,windows:false,shell:MachineTerminalCommandShell.posix))));
     await tester.pumpAndSettle(); final parent=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     expect(parent._resourceTab,3);
     final tabs = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)).toList();
@@ -6318,7 +6321,7 @@ void resourceChecks() {
             client: MachineContainerClient(runtime: MachineContainerRuntime.docker, run: (command) async { calls.add(command); return 'created'; }),
             action: _ContainerResourceAction.createContainer, timeout: const Duration(seconds: 30),
             imageReferences: const ['nginx:alpine', 'redis:7'],
-            registryFactory: () => MachineImageRegistry(read: (_) async => {'results': []}),
+            registryFactory: () => MachineImageRegistry(clientFactory: HttpClient.new, read: (_) async => {'results': []}),
           ))));
         await tester.pumpAndSettle();
         final form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
@@ -6363,7 +6366,7 @@ void resourceChecks() {
     final pending = <String, Completer<Map<String, dynamic>>>{};
     final controller = TextEditingController();
     var failed = false;
-    final registry = MachineImageRegistry(read: (uri) async {
+    final registry = MachineImageRegistry(clientFactory: HttpClient.new, read: (uri) async {
       requests.add(uri);
       if (failed) throw const FormatException('模拟仓库不可用');
       if (uri.path.endsWith('/tags')) {
@@ -6470,7 +6473,7 @@ void resourceChecks() {
         final stats = Completer<Map<String, dynamic>>();
         final commands = <String>[];
         var created = 0;
-        MachineImageRegistry registryFactory() => MachineImageRegistry(read: (uri) async {
+        MachineImageRegistry registryFactory() => MachineImageRegistry(clientFactory: HttpClient.new, read: (uri) async {
           if (uri.path.endsWith('/tags')) return {'results': [{'name': 'latest'}, {'name': 'stable'}, {'name': '1.28-alpine'}], 'next': null};
           if (uri.path.contains('/catalog/')) return {'results': [{'slug': 'nginx', 'logo_url': {'small': 'https://example.invalid/nginx.png'}}]};
           return stats.future;
@@ -6484,7 +6487,7 @@ void resourceChecks() {
         await tester.pumpWidget(_SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
           builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像搜索预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
-          home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, timeout: const Duration(seconds: 30), onCreated: () => created++))));
+          home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, pullImage: (client, image, {required timeout, onOutput, isCancelled}) async => (output: 'downloaded', image: image), timeout: const Duration(seconds: 30), onCreated: () => created++))));
         await tester.pumpAndSettle();
         final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
         registry._query.text = 'nginx'; await tester.pumpAndSettle();
@@ -6506,6 +6509,7 @@ void resourceChecks() {
           });
         }
         await press.cancel();await tester.pumpAndSettle();
+        stats.complete({'results': [{'repo_name': 'nginx', 'star_count': 21396, 'pull_count': 13413760258, 'is_official': true}]});
         await tester.tap(searchAction);await tester.pumpAndSettle();
         expect(registry._busy, isFalse); expect(registry._results.single.official, isTrue);
         final selecting = registry._selectTag(registry._results.single); await tester.pumpAndSettle();
@@ -6521,7 +6525,7 @@ void resourceChecks() {
         }
         await tester.tap(find.text(l.commonConfirm)); await tester.pumpAndSettle(); await selecting;
         expect(registry._tags['nginx'], '1.28-alpine');
-        stats.complete({'results': [{'repo_name': 'nginx', 'star_count': 21396, 'pull_count': 13413760258, 'is_official': true}]}); await tester.pumpAndSettle();
+
         expect(registry._results.single.pulls, 13413760258); expect(registry._tags['nginx'], '1.28-alpine');
         for (final metric in [('stars', 21396), ('pulls', 13413760258)]) {
           final number = find.byKey(ValueKey(('nginx', metric.$1)));
@@ -6548,7 +6552,7 @@ void resourceChecks() {
         var form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
         expect(form._value('image'), 'nginx:1.28-alpine');
         await form._submit(); await tester.pumpAndSettle();
-        expect(commands.last, contains("'--context' 'desktop-linux' 'pull' 'nginx:1.28-alpine'"));
+        expect(form._completed,isTrue);expect(commands.any((command)=>command.contains("'pull'")||command.contains("'search'")),isFalse);
         expect(commands.any((command) => command.contains("'run'")), isFalse);
         await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh)); await tester.tap(find.text(l.maintenanceResourceCloseRefresh)); await tester.pumpAndSettle();
         table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
@@ -6565,10 +6569,10 @@ void resourceChecks() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('镜像元数据迟到不覆盖新搜索，标签失败可手动输入且关闭不写回', (tester) async {
+  testWidgets('仓库搜索不重复提交，失败保留结果且关闭不写回', (tester) async {
     final pending = <Completer<Map<String, dynamic>>>[];
     var fail = false;
-    MachineImageRegistry factory() => MachineImageRegistry(read: (uri) async {
+    MachineImageRegistry factory() => MachineImageRegistry(clientFactory: HttpClient.new, read: (uri) async {
       if (uri.path.contains('/catalog/')) return {'results': []};
       if (uri.path.endsWith('/tags') || fail) throw const FormatException('模拟仓库不可用');
       final request = Completer<Map<String, dynamic>>(); pending.add(request); return request.future;
@@ -6578,12 +6582,15 @@ void resourceChecks() {
       home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: factory, timeout: const Duration(seconds: 30)))));
     await tester.pumpAndSettle();
     final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
-    registry._query.text = 'nginx'; await registry._search(); await registry._search();
-    pending[1].complete({'results': [{'repo_name': 'nginx', 'star_count': 7, 'pull_count': 9999}]}); await tester.pumpAndSettle();
-    pending[0].complete({'results': [{'repo_name': 'nginx', 'star_count': 100}]}); await tester.pumpAndSettle();
+    registry._query.text = 'nginx'; final first=registry._search();await tester.pump();
+    expect(registry._busy,isTrue);await registry._search();expect(pending.length,1);
+    pending[0].complete({'results': [{'repo_name': 'nginx', 'star_count': 7, 'pull_count': 9999}]});await first;
+    final second=registry._search();await tester.pump();
+    pending[1].complete({'results': [{'repo_name': 'nginx', 'star_count': 7, 'pull_count': 9999}]});await second;await tester.pumpAndSettle();
+
     expect(registry._results.single.stars, 7);
     fail = true; await registry._search(); await tester.pumpAndSettle();
-    expect(registry._metadataFailed, isTrue); expect(registry._results.single.name, 'nginx'); expect(registry._busy, isFalse);
+    expect(registry._error, isNotEmpty); expect(registry._results.single.name, 'nginx'); expect(registry._busy, isFalse);
     final selecting = registry._selectTag(registry._results.single); await tester.pumpAndSettle();
     final tags = tester.state<_ContainerImageTagDialogState>(find.byType(_ContainerImageTagDialog));
     expect(tags._failed, isTrue);
@@ -6592,8 +6599,8 @@ void resourceChecks() {
     tags._tag.text = 'v2-manual'; tags.setState(() {}); await tester.pumpAndSettle();
     await tester.tap(find.text('确定')); await tester.pumpAndSettle(); await selecting;
     expect(registry._tags['nginx'], 'v2-manual');
-    fail = false; await registry._search(); await tester.pumpWidget(const SizedBox());
-    pending.last.complete({'results': [{'repo_name': 'nginx', 'star_count': 8}]}); await tester.pumpAndSettle();
+    fail = false; final closing=registry._search();await tester.pump(); await tester.pumpWidget(const SizedBox());
+    pending.last.complete({'results': [{'repo_name': 'nginx', 'star_count': 8}]});await closing; await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
   testWidgets('镜像与数据卷延迟加载、筛选、创建后刷新且六语言宽窄屏可用', (tester) async {
@@ -6614,7 +6621,7 @@ void resourceChecks() {
           return '{}';
         }
         Future<String> operate(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
-          expect(command,contains("'--context' 'desktop-linux'"));if(command.contains("'pull'")){onOutput?.call('下载中');return 'nginx:latest';}
+          expect(command,contains("'--context' 'desktop-linux'"));
           expect(command,contains("'volume' 'create' 'new-data'"));
           created=true;onOutput?.call('new-data');return 'new-data';
         }
@@ -6623,7 +6630,7 @@ void resourceChecks() {
         await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
           theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
           builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.5:1)),child:child!),
-          home:Scaffold(body:RepaintBoundary(key:const ValueKey('资源预览'),child:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,operate:operate,windows:false,shell:MachineTerminalCommandShell.posix)))));
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('资源预览'),child:_MachineContainerPanel(sessionId:'会话',terminalId:'终端',run:run,operate:operate,registryFactory:()=>MachineImageRegistry(clientFactory:HttpClient.new,read:(_)async=>{'results':[{'repo_name':'nginx','star_count':10,'is_official':true}]}),windows:false,shell:MachineTerminalCommandShell.posix)))));
         await tester.pumpAndSettle();
         expect(calls.any((c)=>c.contains("'image' 'ls'")),isFalse);
         await tester.tap(find.widgetWithText(ChoiceChip,l.maintenanceImages));await tester.pumpAndSettle();
@@ -6634,10 +6641,6 @@ void resourceChecks() {
         final searching=state._open(search:true);await tester.pumpAndSettle();
         final registry=tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
         registry._query.text='nginx';await registry._search();await tester.pumpAndSettle();expect(registry._results.single.name,'nginx');
-        final pulling=registry._openImage('nginx');await tester.pumpAndSettle();
-        final download=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
-        await download._submit();await tester.pumpAndSettle();expect(download._completed,isTrue);
-        await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh));await tester.tap(find.text(l.maintenanceResourceCloseRefresh));await tester.pumpAndSettle();await pulling;
         await tester.tap(find.descendant(of:find.byType(_ContainerRegistryDialog),matching:find.byTooltip(openHandCloseLabel(tester.element(find.byType(_ContainerRegistryDialog))))));
         await tester.pumpAndSettle();await searching;
 
@@ -6706,24 +6709,41 @@ void resourceChecks() {
             await File('/tmp/container-create-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
         }
         await form._submit();await tester.pumpAndSettle();
-        expect(calls.single,contains("'--publish' '127.0.0.1:8080:80/tcp'"));expect(calls.single,contains("'--env' 'MODE=production'"));
-        expect(calls.single,contains("'--mount' 'type=volume,source=data,target=/data,readonly'"));expect(form._completed,isTrue);
-        await form._submit();expect(calls.length,1);
+        expect(calls.last,contains("'--publish' '127.0.0.1:8080:80/tcp'"));expect(calls.last,contains("'--env' 'MODE=production'"));
+        expect(calls.last,contains("'--mount' 'type=volume,source=data,target=/data,readonly'"));expect(form._completed,isTrue);
+        await form._submit();expect(calls.length,2);
         await tester.pumpWidget(const SizedBox());
       }
     }
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('创建缺失镜像通过应用下载，禁止运行时自动拉取且不误改同名参数', (tester) async {
+    final commands=<String>[];var pulled=0;
+    const imported='sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(command)async{commands.add(command);return command.contains("'image' 'ls'")?'':'created';});
+    await tester.binding.setSurfaceSize(const Size(1000,1000));
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.createContainer,timeout:const Duration(seconds:30),
+        pullImage:(client,image,{required timeout,onOutput,isCancelled})async{pulled++;expect(image,'nginx');return(output:'已下载',image:imported);} ))));
+    final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+    form._controller('image').text='nginx';form._controller('name').text='nginx';form._controller('entrypoint').text='nginx';form._controller('arguments').text='nginx\n--test';
+    await form._submit();await tester.pumpAndSettle();
+    expect(pulled,1);expect(form._completed,isTrue);expect(commands.last,contains("'--pull=never'"));
+    expect(commands.last,contains("'--name' 'nginx'"));expect(commands.last,contains("'--entrypoint' 'nginx'"));expect(commands.last,endsWith("'"+imported+"' 'nginx' '--test'"));
+    expect(commands.any((command)=>command.contains("'pull'")),isFalse);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('下载输出有界、取消和超时后需刷新确认且重复点击不重复提交', (tester) async {
     final pending=Completer<String>();var calls=0;bool Function()? cancelled;
     final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>throw StateError('不应使用默认采集通道'));
     Future<String> operate(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async{
-      calls++;cancelled=isCancelled;expect(timeout,const Duration(minutes:15));onOutput?.call('a'*40000);return pending.future;
+      calls++;cancelled=isCancelled;expect(timeout.inSeconds,lessThanOrEqualTo(900));onOutput?.call('a'*40000);return pending.future;
     }
     await tester.binding.setSurfaceSize(const Size(1000,900));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.pull,image:'nginx:alpine',timeout:const Duration(minutes:15),operate:operate))));
+      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.pull,image:'nginx:alpine',timeout:const Duration(minutes:15),operate:operate,pullImage:(client,image,{required timeout,onOutput,isCancelled})async=>(output:await operate('下载',timeout:timeout,onOutput:onOutput,isCancelled:isCancelled),image:image)))));
     await tester.pumpAndSettle();final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
     final work=form._submit();await tester.pump();await tester.pump(const Duration(milliseconds:110));await form._submit();
     expect(calls,1);expect(form._output.length,machineContainerOperationOutputLimit);
@@ -6758,7 +6778,7 @@ void containerInteractionChecks() {
     Future<String> run(String command)=>query(command,timeout:const Duration(seconds:30));
     await tester.binding.setSurfaceSize(const Size(1300,1000));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
-      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话',terminalId:'终端',run:run,query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();
@@ -6801,7 +6821,7 @@ void containerInteractionChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1100,900));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
-      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
@@ -6835,7 +6855,7 @@ void containerInteractionChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1200,1000));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
-      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
     await selectContainerList(tester);
     await tester.pumpAndSettle();final panel=tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
@@ -6866,7 +6886,7 @@ void containerInteractionChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1200,1000));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
-      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineContainerPanel(registryFactory:_machineImageRegistry,
         sessionId:'会话',terminalId:'终端',run:(command)=>query(command,timeout:const Duration(seconds:30)),query:query,windows:false,shell:MachineTerminalCommandShell.posix))));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip,'镜像'));await tester.pumpAndSettle();

@@ -2110,6 +2110,8 @@ String maintenanceContainerOperationError(BuildContext context, Object error) {
       '${l.maintenanceResourceValidation} · ${maintenanceLabel(context, error.details)}',
     'resourceUnsupported' => l.maintenanceResourceUnsupported,
     'image' => l.maintenanceContainerImageMissing,
+    'imageAuth' => l.maintenanceImageAuthFailed,
+    'imagePlatform' => l.maintenanceImagePlatformUnavailable,
     'stale' => l.maintenanceContainerIdentityChanged,
     _ => l.maintenanceContainerConfigInvalid,
   };

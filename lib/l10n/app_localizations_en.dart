@@ -15429,7 +15429,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Search the target runtime’s registries (up to 50 results). Public counts, icons and tags are fetched from Docker Hub by this app. Enter registry/image:tag manually for private images.';
+      'Search Docker Hub through the global system proxy (up to 50 results), including statistics, icons and tags. Enter private images as registry/image:tag.';
 
   @override
   String get maintenanceImageStars => 'Stars';
@@ -15442,7 +15442,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'The image is downloaded to the selected machine and runtime. Existing registry credentials are used. Increase the timeout for large images.';
+      'Images are downloaded through the global system proxy, verified and imported into the selected machine and runtime using its registry credentials. Increase the timeout for large images.';
 
   @override
   String get maintenanceContainerNameOptional => 'Container name (optional)';
@@ -15799,4 +15799,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab requires a single-line shell command. Separate commands with semicolons or invoke a script file.';
+
+  @override
+  String get maintenanceImageDownloading => 'Downloading image';
+
+  @override
+  String get maintenanceImageUploading => 'Transferring to target machine';
+
+  @override
+  String get maintenanceImageImporting => 'Importing image';
+
+  @override
+  String get maintenanceImageAuthFailed =>
+      'Registry authentication failed. Check the registry login credentials on the target machine.';
+
+  @override
+  String get maintenanceImagePlatformUnavailable =>
+      'No image version matches the target runtime operating system and architecture.';
 }

@@ -3,6 +3,7 @@ part of 'machine_containers.dart';
 const machineContainerSearchLimit = 50;
 const machineContainerFormRowLimit = 64;
 const machineContainerOperationOutputLimit = 32768;
+const machineContainerImageTimeout = Duration(minutes: 15);
 const _machineContainerFormCharacterLimit = 32768;
 
 typedef MachineContainerOperationRunner =
@@ -14,6 +15,15 @@ typedef MachineContainerOperationRunner =
     });
 
 enum MachineContainerResourceKind { images, volumes }
+
+typedef MachineContainerImagePuller =
+    Future<({String output, String image})> Function(
+      MachineContainerClient client,
+      String image, {
+      required Duration timeout,
+      void Function(String)? onOutput,
+      bool Function()? isCancelled,
+    });
 
 class MachineContainerResource {
   const MachineContainerResource({
@@ -163,9 +173,7 @@ List<Map<String, dynamic>> _containerResourceObjects(String text) {
 
 extension MachineContainerResources on MachineContainerClient {
   bool get supportsResources => supportsRunCommand;
-  bool get supportsImageSearch =>
-      runtime == MachineContainerRuntime.docker ||
-      runtime == MachineContainerRuntime.podman;
+  bool get supportsImageSearch => supportsResources;
 
   Stream<List<MachineContainerResource>> resources(
     MachineContainerResourceKind kind, {
@@ -284,45 +292,6 @@ extension MachineContainerResources on MachineContainerClient {
     }
   }
 
-  Future<List<MachineContainerImageSearchResult>> searchImages(
-    String query,
-  ) async {
-    if (!supportsImageSearch) {
-      throw const MachineContainerConfigException('resourceUnsupported');
-    }
-    final term = query.trim();
-    if (term.isEmpty ||
-        term.length > 128 ||
-        term.startsWith('-') ||
-        term.contains(RegExp(r'[\x00-\x1f\x7f]'))) {
-      throw const MachineContainerConfigException('form', '搜索');
-    }
-    return _containerResourceObjects(
-          await execute([
-            'search',
-            '--limit',
-            '$machineContainerSearchLimit',
-            '--no-trunc',
-            '--format',
-            '{{json .}}',
-            term,
-          ]),
-        )
-        .take(machineContainerSearchLimit)
-        .map(
-          (row) => MachineContainerImageSearchResult.fromJson(
-            row,
-            allowUnqualifiedHub: runtime == MachineContainerRuntime.docker,
-          ),
-        )
-        .where((row) => row.name.isNotEmpty)
-        .toList();
-  }
-
-  List<String> pullArguments(String image) => [
-    'pull',
-    _containerImageReference(image.trim()),
-  ];
   List<String> removeResourceArguments(
     MachineContainerResourceKind kind,
     MachineContainerResource resource,

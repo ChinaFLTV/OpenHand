@@ -9649,11 +9649,11 @@
   "maintenanceImageTag": "Tag",
   "maintenanceImageQuery": "Image keyword",
   "maintenanceImageSearch": "Search images",
-  "maintenanceImageSearchHelp": "Search the target runtime’s registries (up to 50 results). Public counts, icons and tags are fetched from Docker Hub by this app. Enter registry/image:tag manually for private images.",
+  "maintenanceImageSearchHelp": "Search Docker Hub through the global system proxy (up to 50 results), including statistics, icons and tags. Enter private images as registry/image:tag.",
   "maintenanceImageStars": "Stars",
   "maintenanceImageOfficial": "Official",
   "maintenanceImageReference": "Image reference",
-  "maintenanceImagePullHelp": "The image is downloaded to the selected machine and runtime. Existing registry credentials are used. Increase the timeout for large images.",
+  "maintenanceImagePullHelp": "Images are downloaded through the global system proxy, verified and imported into the selected machine and runtime using its registry credentials. Increase the timeout for large images.",
   "maintenanceContainerNameOptional": "Container name (optional)",
   "maintenanceContainerStartAfterCreate": "Start after creation",
   "maintenanceHostAddress": "Host address",
@@ -9770,5 +9770,10 @@
   "maintenanceCronMonthly": "Monthly",
   "maintenanceCronReboot": "At system startup",
   "maintenanceCronHelp": "Choose a schedule, then select a card to configure its values. Uses the task timezone on the target machine. If both day of month and weekday are restricted, either match runs the task.",
-  "maintenanceCronCommandHelp": "Crontab requires a single-line shell command. Separate commands with semicolons or invoke a script file."
+  "maintenanceCronCommandHelp": "Crontab requires a single-line shell command. Separate commands with semicolons or invoke a script file.",
+  "maintenanceImageDownloading": "Downloading image",
+  "maintenanceImageUploading": "Transferring to target machine",
+  "maintenanceImageImporting": "Importing image",
+  "maintenanceImageAuthFailed": "Registry authentication failed. Check the registry login credentials on the target machine.",
+  "maintenanceImagePlatformUnavailable": "No image version matches the target runtime operating system and architecture."
 }

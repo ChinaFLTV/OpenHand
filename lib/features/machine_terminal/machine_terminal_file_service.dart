@@ -611,6 +611,29 @@ class MachineTerminalFileService extends ChangeNotifier {
     );
   }
 
+  Future<void> uploadTemporaryFile({
+    required String sessionId,
+    required String terminalId,
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadCancelCheck isCancelled,
+  }) => _withTerminalGate(
+    sessionId,
+    terminalId,
+    () => _uploadFile(
+      sessionId: sessionId,
+      terminalId: terminalId,
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      targetName: targetName,
+      onProgress: onProgress,
+      waitWhilePaused: () async {},
+      isCancelled: isCancelled,
+    ),
+  );
+
   Future<void> _uploadFile({
     required String sessionId,
     required String terminalId,

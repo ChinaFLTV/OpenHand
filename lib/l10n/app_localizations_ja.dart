@@ -15075,7 +15075,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '対象ランタイムのレジストリを検索します（最大 50 件）。公開件数、アイコン、タグはこのアプリから Docker Hub に問い合わせます。非公開イメージはレジストリ/イメージ:タグを手動で入力できます。';
+      'グローバルのシステムプロキシ経由で Docker Hub を検索します（最大 50 件）。統計、アイコン、タグも取得します。非公開イメージは レジストリ/イメージ:タグ で入力してください。';
 
   @override
   String get maintenanceImageStars => 'スター数';
@@ -15088,7 +15088,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      '選択中のマシンとランタイムに、既存の認証情報を使って取得します。大きなイメージはタイムアウトを延長してください。';
+      'グローバルのシステムプロキシ経由でイメージをダウンロードし、検証後に選択したマシンとランタイムへインポートします。対象マシンのレジストリ認証情報を使用します。大きなイメージはタイムアウトを延長してください。';
 
   @override
   String get maintenanceContainerNameOptional => 'コンテナー名（任意）';
@@ -15441,4 +15441,21 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab には1行のシェルコマンドを指定します。複数のコマンドはセミコロンで区切るか、スクリプトを呼び出してください。';
+
+  @override
+  String get maintenanceImageDownloading => 'イメージをダウンロード中';
+
+  @override
+  String get maintenanceImageUploading => '対象マシンに転送中';
+
+  @override
+  String get maintenanceImageImporting => 'イメージをインポート中';
+
+  @override
+  String get maintenanceImageAuthFailed =>
+      'レジストリ認証に失敗しました。対象マシンのログイン認証情報を確認してください。';
+
+  @override
+  String get maintenanceImagePlatformUnavailable =>
+      '対象ランタイムの OS とアーキテクチャに一致するイメージがありません。';
 }

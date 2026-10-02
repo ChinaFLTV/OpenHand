@@ -9644,11 +9644,11 @@
   "maintenanceImageTag": "標籤",
   "maintenanceImageQuery": "映像關鍵字",
   "maintenanceImageSearch": "搜尋映像",
-  "maintenanceImageSearchHelp": "搜尋目標執行環境的倉庫（最多 50 筆）；公開統計、圖示和標籤由本機查詢 Docker Hub。私有映像可手動輸入倉庫/映像:標籤。",
+  "maintenanceImageSearchHelp": "透過全域系統代理搜尋 Docker Hub（最多 50 筆），查詢統計、圖示和標籤。私人映像檔可手動輸入倉庫/映像檔:標籤。",
   "maintenanceImageStars": "星號數",
   "maintenanceImageOfficial": "官方映像",
   "maintenanceImageReference": "映像參照",
-  "maintenanceImagePullHelp": "映像會下載至目前選取的機器和執行環境，並使用既有倉庫憑證。大型映像可適度延長逾時時間。",
+  "maintenanceImagePullHelp": "映像檔透過全域系統代理下載，驗證後匯入目前選取的機器和執行環境，沿用目標機器的倉庫憑證。大型映像檔可提高逾時時間。",
   "maintenanceContainerNameOptional": "容器名稱（選填）",
   "maintenanceContainerStartAfterCreate": "建立後立即啟動",
   "maintenanceHostAddress": "主機位址",
@@ -9765,5 +9765,10 @@
   "maintenanceCronMonthly": "每月",
   "maintenanceCronReboot": "系統啟動時",
   "maintenanceCronHelp": "選擇週期，再點擊卡片設定數值。使用目標機器的工作時區；同時指定日期和星期時，任一符合即執行。",
-  "maintenanceCronCommandHelp": "Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。"
+  "maintenanceCronCommandHelp": "Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。",
+  "maintenanceImageDownloading": "正在下載映像檔",
+  "maintenanceImageUploading": "正在傳輸至目標機器",
+  "maintenanceImageImporting": "正在匯入映像檔",
+  "maintenanceImageAuthFailed": "映像檔倉庫驗證失敗，請檢查目標機器的倉庫登入憑證。",
+  "maintenanceImagePlatformUnavailable": "映像檔沒有符合目標執行環境作業系統及架構的版本。"
 }

@@ -9644,11 +9644,11 @@
   "maintenanceImageTag": "Tag",
   "maintenanceImageQuery": "Image-Suchbegriff",
   "maintenanceImageSearch": "Images suchen",
-  "maintenanceImageSearchHelp": "Suchen Sie in den Registrierungen der Ziel-Laufzeit (bis zu 50 Ergebnisse). Die App lädt öffentliche Zähler, Symbole und Tags von Docker Hub. Private Images können als Registrierung/Image:Tag eingegeben werden.",
+  "maintenanceImageSearchHelp": "Docker Hub über den globalen Systemproxy durchsuchen (bis zu 50 Ergebnisse), mit Statistiken, Symbolen und Tags. Private Images als Registry/Image:Tag eingeben.",
   "maintenanceImageStars": "Sterne",
   "maintenanceImageOfficial": "Offiziell",
   "maintenanceImageReference": "Image-Referenz",
-  "maintenanceImagePullHelp": "Das Image wird auf die ausgewählte Maschine und Laufzeit geladen. Vorhandene Registry-Anmeldedaten werden verwendet. Für große Images das Zeitlimit erhöhen.",
+  "maintenanceImagePullHelp": "Images werden über den globalen Systemproxy heruntergeladen, geprüft und mit den Registrierungszugangsdaten des Zielrechners in die gewählte Laufzeit importiert. Bei großen Images das Zeitlimit erhöhen.",
   "maintenanceContainerNameOptional": "Containername (optional)",
   "maintenanceContainerStartAfterCreate": "Nach dem Erstellen starten",
   "maintenanceHostAddress": "Hostadresse",
@@ -9765,5 +9765,10 @@
   "maintenanceCronMonthly": "Monatlich",
   "maintenanceCronReboot": "Beim Systemstart",
   "maintenanceCronHelp": "Zeitplan wählen und Werte über die Karten festlegen. Es gilt die Aufgabenzeitzone des Zielrechners. Bei eingeschränktem Monats- und Wochentag genügt eine Übereinstimmung.",
-  "maintenanceCronCommandHelp": "Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen."
+  "maintenanceCronCommandHelp": "Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen.",
+  "maintenanceImageDownloading": "Image wird heruntergeladen",
+  "maintenanceImageUploading": "Übertragung auf den Zielrechner",
+  "maintenanceImageImporting": "Image wird importiert",
+  "maintenanceImageAuthFailed": "Registrierungsanmeldung fehlgeschlagen. Prüfen Sie die Zugangsdaten auf dem Zielrechner.",
+  "maintenanceImagePlatformUnavailable": "Keine Image-Version passt zum Betriebssystem und zur Architektur der Ziellaufzeit."
 }

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../shared/net/loopback_hosts.dart';
+import '../../shared/net/socks_http_connection.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -365,10 +366,63 @@ class SystemProxyResolver {
   HttpClient createRawHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
     String? userAgent,
+    SecurityContext? context,
+    bool Function(X509Certificate certificate, String host, int port)?
+    badCertificateCallback,
   }) {
-    final inner = HttpClient()
+    final inner = HttpClient(context: context)
       ..connectionTimeout = connectionTimeout
+      ..badCertificateCallback = badCertificateCallback
       ..findProxy = findProxyFor;
+    final supportsSocks = _settings.mode == AppProxyMode.manual
+        ? _settings.protocols.contains(AppProxyProtocol.socks)
+        : _settings.mode == AppProxyMode.automatic && _socksProxy != null;
+    if (supportsSocks) {
+      inner.findProxy = (uri) {
+        final route = findProxyFor(uri);
+        // dart:io 的代理指令仅支持 HTTP，SOCKS 由连接工厂负责握手。
+        return route.startsWith('SOCKS ') ? 'DIRECT' : route;
+      };
+      inner.connectionFactory = (uri, proxyHost, proxyPort) {
+        final route = findProxyFor(uri);
+        if (route.startsWith('SOCKS ')) {
+          final endpoint = _parseHostPortEndpoint(route.substring(6));
+          if (endpoint == null) throw const FormatException('SOCKS 代理地址无效。');
+          final authenticated =
+              _settings.mode == AppProxyMode.manual && _settings.authEnabled;
+          return startSocksHttpConnection(
+            uri,
+            host: endpoint.host,
+            port: endpoint.port,
+            timeout: connectionTimeout,
+            username: authenticated ? nullIfBlank(_settings.username) : null,
+            password: authenticated ? _settings.password : null,
+            context: context,
+            onBadCertificate: badCertificateCallback == null
+                ? null
+                : (certificate) =>
+                      badCertificateCallback(certificate, uri.host, uri.port),
+          );
+        }
+        if (proxyHost != null && proxyPort != null) {
+          return Socket.startConnect(proxyHost, proxyPort);
+        }
+        return uri.scheme == 'https'
+            ? SecureSocket.startConnect(
+                uri.host,
+                uri.port,
+                context: context,
+                onBadCertificate: badCertificateCallback == null
+                    ? null
+                    : (certificate) => badCertificateCallback(
+                        certificate,
+                        uri.host,
+                        uri.port,
+                      ),
+              )
+            : Socket.startConnect(uri.host, uri.port);
+      };
+    }
     if (userAgent?.trim().isNotEmpty ?? false) {
       inner.userAgent = userAgent!.trim();
     }

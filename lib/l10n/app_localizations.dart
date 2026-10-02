@@ -27896,7 +27896,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceImageSearchHelp.
   ///
   /// In zh, this message translates to:
-  /// **'搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。'**
+  /// **'通过全局系统代理搜索 Docker Hub（最多 50 条），查询统计、图标和标签。私有镜像可手动输入仓库/镜像:标签。'**
   String get maintenanceImageSearchHelp;
 
   /// No description provided for @maintenanceImageStars.
@@ -27920,7 +27920,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceImagePullHelp.
   ///
   /// In zh, this message translates to:
-  /// **'镜像会下载到当前选中的机器和运行时，并使用已有仓库凭据。大镜像可适当调高超时时间。'**
+  /// **'镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。'**
   String get maintenanceImagePullHelp;
 
   /// No description provided for @maintenanceContainerNameOptional.
@@ -28582,6 +28582,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。'**
   String get maintenanceCronCommandHelp;
+
+  /// No description provided for @maintenanceImageDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载镜像'**
+  String get maintenanceImageDownloading;
+
+  /// No description provided for @maintenanceImageUploading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在传输到目标机器'**
+  String get maintenanceImageUploading;
+
+  /// No description provided for @maintenanceImageImporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导入镜像'**
+  String get maintenanceImageImporting;
+
+  /// No description provided for @maintenanceImageAuthFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像仓库鉴权失败，请检查目标机器上的仓库登录凭据。'**
+  String get maintenanceImageAuthFailed;
+
+  /// No description provided for @maintenanceImagePlatformUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像没有与目标运行时操作系统和架构匹配的版本。'**
+  String get maintenanceImagePlatformUnavailable;
 }
 
 class _AppLocalizationsDelegate

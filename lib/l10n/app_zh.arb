@@ -10796,11 +10796,11 @@
   "maintenanceImageTag": "标签",
   "maintenanceImageQuery": "镜像关键词",
   "maintenanceImageSearch": "搜索镜像",
-  "maintenanceImageSearchHelp": "搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。",
+  "maintenanceImageSearchHelp": "通过全局系统代理搜索 Docker Hub（最多 50 条），查询统计、图标和标签。私有镜像可手动输入仓库/镜像:标签。",
   "maintenanceImageStars": "星标数",
   "maintenanceImageOfficial": "官方镜像",
   "maintenanceImageReference": "镜像引用",
-  "maintenanceImagePullHelp": "镜像会下载到当前选中的机器和运行时，并使用已有仓库凭据。大镜像可适当调高超时时间。",
+  "maintenanceImagePullHelp": "镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。",
   "maintenanceContainerNameOptional": "容器名称（可选）",
   "maintenanceContainerStartAfterCreate": "创建后立即启动",
   "maintenanceHostAddress": "主机地址",
@@ -10941,5 +10941,10 @@
   "maintenanceCronMonthly": "每月",
   "maintenanceCronReboot": "系统启动时",
   "maintenanceCronHelp": "选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。",
-  "maintenanceCronCommandHelp": "Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。"
+  "maintenanceCronCommandHelp": "Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。",
+  "maintenanceImageDownloading": "正在下载镜像",
+  "maintenanceImageUploading": "正在传输到目标机器",
+  "maintenanceImageImporting": "正在导入镜像",
+  "maintenanceImageAuthFailed": "镜像仓库鉴权失败，请检查目标机器上的仓库登录凭据。",
+  "maintenanceImagePlatformUnavailable": "镜像没有与目标运行时操作系统和架构匹配的版本。"
 }

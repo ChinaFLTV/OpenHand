@@ -14930,7 +14930,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '搜索目标运行时仓库（最多 50 条）；公开统计、图标和标签由本机查询 Docker Hub。私有镜像可手动输入仓库/镜像:标签。';
+      '通过全局系统代理搜索 Docker Hub（最多 50 条），查询统计、图标和标签。私有镜像可手动输入仓库/镜像:标签。';
 
   @override
   String get maintenanceImageStars => '星标数';
@@ -14943,7 +14943,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      '镜像会下载到当前选中的机器和运行时，并使用已有仓库凭据。大镜像可适当调高超时时间。';
+      '镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。';
 
   @override
   String get maintenanceContainerNameOptional => '容器名称（可选）';
@@ -15288,6 +15288,21 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。';
+
+  @override
+  String get maintenanceImageDownloading => '正在下载镜像';
+
+  @override
+  String get maintenanceImageUploading => '正在传输到目标机器';
+
+  @override
+  String get maintenanceImageImporting => '正在导入镜像';
+
+  @override
+  String get maintenanceImageAuthFailed => '镜像仓库鉴权失败，请检查目标机器上的仓库登录凭据。';
+
+  @override
+  String get maintenanceImagePlatformUnavailable => '镜像没有与目标运行时操作系统和架构匹配的版本。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30198,7 +30213,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImageSearchHelp =>
-      '搜尋目標執行環境的倉庫（最多 50 筆）；公開統計、圖示和標籤由本機查詢 Docker Hub。私有映像可手動輸入倉庫/映像:標籤。';
+      '透過全域系統代理搜尋 Docker Hub（最多 50 筆），查詢統計、圖示和標籤。私人映像檔可手動輸入倉庫/映像檔:標籤。';
 
   @override
   String get maintenanceImageStars => '星號數';
@@ -30211,7 +30226,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImagePullHelp =>
-      '映像會下載至目前選取的機器和執行環境，並使用既有倉庫憑證。大型映像可適度延長逾時時間。';
+      '映像檔透過全域系統代理下載，驗證後匯入目前選取的機器和執行環境，沿用目標機器的倉庫憑證。大型映像檔可提高逾時時間。';
 
   @override
   String get maintenanceContainerNameOptional => '容器名稱（選填）';
@@ -30557,4 +30572,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。';
+
+  @override
+  String get maintenanceImageDownloading => '正在下載映像檔';
+
+  @override
+  String get maintenanceImageUploading => '正在傳輸至目標機器';
+
+  @override
+  String get maintenanceImageImporting => '正在匯入映像檔';
+
+  @override
+  String get maintenanceImageAuthFailed => '映像檔倉庫驗證失敗，請檢查目標機器的倉庫登入憑證。';
+
+  @override
+  String get maintenanceImagePlatformUnavailable => '映像檔沒有符合目標執行環境作業系統及架構的版本。';
 }

@@ -15602,7 +15602,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImageSearchHelp =>
-      'Suchen Sie in den Registrierungen der Ziel-Laufzeit (bis zu 50 Ergebnisse). Die App lädt öffentliche Zähler, Symbole und Tags von Docker Hub. Private Images können als Registrierung/Image:Tag eingegeben werden.';
+      'Docker Hub über den globalen Systemproxy durchsuchen (bis zu 50 Ergebnisse), mit Statistiken, Symbolen und Tags. Private Images als Registry/Image:Tag eingeben.';
 
   @override
   String get maintenanceImageStars => 'Sterne';
@@ -15615,7 +15615,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'Das Image wird auf die ausgewählte Maschine und Laufzeit geladen. Vorhandene Registry-Anmeldedaten werden verwendet. Für große Images das Zeitlimit erhöhen.';
+      'Images werden über den globalen Systemproxy heruntergeladen, geprüft und mit den Registrierungszugangsdaten des Zielrechners in die gewählte Laufzeit importiert. Bei großen Images das Zeitlimit erhöhen.';
 
   @override
   String get maintenanceContainerNameOptional => 'Containername (optional)';
@@ -15974,4 +15974,21 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceCronCommandHelp =>
       'Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen.';
+
+  @override
+  String get maintenanceImageDownloading => 'Image wird heruntergeladen';
+
+  @override
+  String get maintenanceImageUploading => 'Übertragung auf den Zielrechner';
+
+  @override
+  String get maintenanceImageImporting => 'Image wird importiert';
+
+  @override
+  String get maintenanceImageAuthFailed =>
+      'Registrierungsanmeldung fehlgeschlagen. Prüfen Sie die Zugangsdaten auf dem Zielrechner.';
+
+  @override
+  String get maintenanceImagePlatformUnavailable =>
+      'Keine Image-Version passt zum Betriebssystem und zur Architektur der Ziellaufzeit.';
 }

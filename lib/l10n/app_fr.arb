@@ -9644,11 +9644,11 @@
   "maintenanceImageTag": "Étiquette",
   "maintenanceImageQuery": "Mot-clé de l’image",
   "maintenanceImageSearch": "Rechercher des images",
-  "maintenanceImageSearchHelp": "Recherchez dans les registres du moteur cible (50 résultats maximum). Cette application récupère les compteurs, icônes et étiquettes publics depuis Docker Hub. Pour une image privée, saisissez registre/image:étiquette.",
+  "maintenanceImageSearchHelp": "Rechercher Docker Hub via le proxy système global (50 résultats maximum), avec statistiques, icônes et tags. Saisissez les images privées sous la forme registre/image:tag.",
   "maintenanceImageStars": "Étoiles",
   "maintenanceImageOfficial": "Officielle",
   "maintenanceImageReference": "Référence de l’image",
-  "maintenanceImagePullHelp": "L’image est téléchargée sur la machine et le moteur sélectionnés avec les identifiants existants. Augmenter le délai pour les grandes images.",
+  "maintenanceImagePullHelp": "Les images sont téléchargées via le proxy système global, vérifiées puis importées dans la machine et l’environnement sélectionnés avec leurs identifiants de registre. Augmentez le délai pour les grandes images.",
   "maintenanceContainerNameOptional": "Nom du conteneur (facultatif)",
   "maintenanceContainerStartAfterCreate": "Démarrer après la création",
   "maintenanceHostAddress": "Adresse de l’hôte",
@@ -9765,5 +9765,10 @@
   "maintenanceCronMonthly": "Chaque mois",
   "maintenanceCronReboot": "Au démarrage du système",
   "maintenanceCronHelp": "Choisissez un rythme, puis une carte pour régler ses valeurs. Le fuseau de la tâche sur la machine cible s’applique. Si le jour du mois et de la semaine sont restreints, une seule correspondance suffit.",
-  "maintenanceCronCommandHelp": "Crontab exige une commande shell sur une ligne. Séparez les commandes par des points-virgules ou appelez un fichier script."
+  "maintenanceCronCommandHelp": "Crontab exige une commande shell sur une ligne. Séparez les commandes par des points-virgules ou appelez un fichier script.",
+  "maintenanceImageDownloading": "Téléchargement de l’image",
+  "maintenanceImageUploading": "Transfert vers la machine cible",
+  "maintenanceImageImporting": "Importation de l’image",
+  "maintenanceImageAuthFailed": "Échec de l’authentification au registre. Vérifiez les identifiants de connexion sur la machine cible.",
+  "maintenanceImagePlatformUnavailable": "Aucune version de l’image ne correspond au système et à l’architecture de l’environnement cible."
 }
