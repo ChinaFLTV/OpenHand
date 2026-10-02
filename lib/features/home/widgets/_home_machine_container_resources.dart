@@ -1161,22 +1161,31 @@ class _ContainerRegistryDetailsDialogState
       (l.maintenanceImageFullDescription, Icons.article_outlined),
       (l.maintenanceTelemetryFullMetadata, Icons.data_object_rounded),
     ];
-    final tagButton = FilledButton.tonal(
-      onPressed: _tagLoading || _selecting ? null : _selectTag,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.sell_outlined, size: 16),
-          const SizedBox(width: 6),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 150),
-              child: Text(_tag, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
+    final tagButton = Tooltip(
+      message: '${l.maintenanceImageSelectTag}\n$_tag',
+      child: FilledButton.tonal(
+        onPressed: _tagLoading || _selecting ? null : _selectTag,
+        style: _maintenanceActionButtonStyle(context).copyWith(
+          minimumSize: WidgetStatePropertyAll(
+            Size(0, _maintenanceFormControlHeightOf(context)),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.expand_more_rounded, size: 16),
-        ],
+          backgroundColor: WidgetStatePropertyAll(cs.surfaceContainerLowest),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sell_outlined, size: 16),
+            const SizedBox(width: 6),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(_tag, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.expand_more_rounded, size: 16),
+          ],
+        ),
       ),
     );
     final repositoryNotice = _repositoryError.isEmpty
@@ -1206,35 +1215,30 @@ class _ContainerRegistryDetailsDialogState
         content = _MaintenanceAnimatedColumn(
           spacing: 12,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: .06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.primary.withValues(alpha: .16)),
-              ),
+            _MaintenanceCard(
+              title: l.maintenanceImageTags,
+              icon: Icons.sell_outlined,
+              trailing: tagButton,
+              wrapHeader: true,
+              headerOverflowAlignment: OverflowBarAlignment.start,
+              scrollBody: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 8,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _MaintenanceStatus(
-                        label:
-                            '${l.maintenanceImageOfficial} · ${image.official == null
-                                ? l.maintenanceUnknown
-                                : image.official!
-                                ? l.maintenanceHealthParsedYes
-                                : l.maintenanceHealthParsedNo}',
-                        color: image.official == true
-                            ? cs.primary
-                            : cs.onSurfaceVariant,
-                      ),
-                      tagButton,
-                    ],
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _MaintenanceStatus(
+                      label:
+                          '${l.maintenanceImageOfficial} · ${image.official == null
+                              ? l.maintenanceUnknown
+                              : image.official!
+                              ? l.maintenanceHealthParsedYes
+                              : l.maintenanceHealthParsedNo}',
+                      color: image.official == true
+                          ? cs.primary
+                          : cs.onSurfaceVariant,
+                    ),
                   ),
                   if (summary.isNotEmpty)
                     SelectableText(
@@ -1357,18 +1361,6 @@ class _ContainerRegistryDetailsDialogState
         content = _MaintenanceAnimatedColumn(
           spacing: 12,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  l.maintenanceImageTagDetails,
-                  style: theme.textTheme.titleSmall,
-                ),
-                tagButton,
-              ],
-            ),
             if (tagNotice != null) ...[
               tagNotice,
               Align(
@@ -1380,8 +1372,12 @@ class _ContainerRegistryDetailsDialogState
                 ),
               ),
             ],
-            if (_tagData != null)
-              _ContainerImagePlatforms(key: ValueKey(_tag), images: platforms),
+            _ContainerImagePlatforms(
+              key: ValueKey(_tag),
+              images: platforms,
+              tagSelector: tagButton,
+              enabled: _tagData != null,
+            ),
           ],
         );
       case 2:
@@ -1786,8 +1782,15 @@ class _ContainerImageFacts extends StatelessWidget {
 const _containerImagePlatformPageSize = 12;
 
 class _ContainerImagePlatforms extends StatefulWidget {
-  const _ContainerImagePlatforms({super.key, required this.images});
+  const _ContainerImagePlatforms({
+    super.key,
+    required this.images,
+    this.tagSelector,
+    this.enabled = true,
+  });
   final List<Map> images;
+  final Widget? tagSelector;
+  final bool enabled;
   @override
   State<_ContainerImagePlatforms> createState() =>
       _ContainerImagePlatformsState();
@@ -1823,28 +1826,43 @@ class _ContainerImagePlatformsState extends State<_ContainerImagePlatforms> {
     return _MaintenanceAnimatedColumn(
       spacing: 12,
       children: [
-        _ContainerRegistrySearchField(
-          controller: _query,
-          hint: l.maintenanceImagePlatformSearch,
-          searchLabel: l.maintenanceImagePlatformSearch,
-          onSearch: () =>
-              setState(() => _limit = _containerImagePlatformPageSize),
-          onChanged: (_) =>
-              setState(() => _limit = _containerImagePlatformPageSize),
-        ),
-        Text(
-          l.maintenanceImagePlatformCount(rows.length),
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontSize: 12,
-            color: cs.onSurfaceVariant,
+        _MaintenanceCard(
+          title: l.maintenanceImageTagDetails,
+          icon: Icons.devices_outlined,
+          trailing: widget.tagSelector,
+          wrapHeader: true,
+          headerOverflowAlignment: OverflowBarAlignment.start,
+          scrollBody: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 8,
+            children: [
+              _ContainerRegistrySearchField(
+                enabled: widget.enabled,
+                controller: _query,
+                hint: l.maintenanceImagePlatformSearch,
+                searchLabel: l.maintenanceImagePlatformSearch,
+                onSearch: () =>
+                    setState(() => _limit = _containerImagePlatformPageSize),
+                onChanged: (_) =>
+                    setState(() => _limit = _containerImagePlatformPageSize),
+              ),
+              Text(
+                l.maintenanceImagePlatformCount(rows.length),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
-        if (rows.isEmpty)
+        if (widget.enabled && rows.isEmpty)
           _MaintenanceEmptyHint(
             message: maintenanceLabel(context, '暂无可用数据'),
             compact: true,
           )
-        else
+        else if (widget.enabled)
           _MaintenanceGrid(
             minWidth: 290,
             maxColumns: 2,
@@ -1917,7 +1935,7 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
   late final _registry =
       widget.registryFactory?.call() ?? _machineImageRegistry();
   final _tags = <String>[];
-  bool _loading = false, _hasMore = false, _failed = false;
+  bool _loading = false, _hasMore = false, _failed = false, _retryReset = false;
   int _page = 0;
   String _filter = '';
 
@@ -1937,30 +1955,33 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
   Future<void> _load({bool reset = false}) async {
     if (_loading || widget.image.hubRepository == null) return;
     if (reset && _tag.text.trim().length > 128) return;
+    final filter = reset ? _tag.text.trim() : _filter;
+    final page = reset ? 1 : _page + 1;
     setState(() {
       _loading = true;
       _failed = false;
-      if (reset) {
-        _page = 0;
-        _filter = _tag.text.trim();
-        _tags.clear();
-        _hasMore = false;
-      }
     });
     try {
       final result = await _registry.tags(
         widget.image.hubRepository!,
-        filter: _filter,
-        page: _page + 1,
+        filter: filter,
+        page: page,
       );
       if (!mounted) return;
       setState(() {
-        _page++;
+        _page = page;
+        _filter = filter;
+        if (reset) _tags.clear();
         _tags.addAll(result.tags.where((tag) => !_tags.contains(tag)));
         _hasMore = result.hasMore;
       });
     } on Exception {
-      if (mounted) setState(() => _failed = true);
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _retryReset = reset;
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1968,6 +1989,7 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -1977,12 +1999,14 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
       data: _containerResourceDialogTheme(context),
       child: buildOpenHandDialog(
         maxHeight: MediaQuery.sizeOf(context).height * .9,
+        maxWidth: kOpenHandDialogWidthCompact,
         backgroundColor: cs.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         child: SizedBox(
-          width: 560,
+          width: kOpenHandDialogWidthCompact,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _MachineTerminalDialogHeader(
                 icon: Icons.sell_outlined,
@@ -1991,106 +2015,209 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                 onClose: () => Navigator.pop(context),
               ),
               Flexible(
-                child: SingleChildScrollView(
-                  padding: _maintenanceDetailPadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        l.maintenanceImageTagHelp,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 12),
-                      _ContainerRegistrySearchField(
-                        controller: _tag,
-                        hint: l.maintenanceImageTag,
-                        searchLabel: l.maintenanceImageTagSearch,
-                        onSearch: supported && !_loading
-                            ? () => _load(reset: true)
-                            : null,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      if (!valid && _tag.text.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _MaintenanceNotice(
-                          message: l.maintenanceImageTagInvalid,
-                          error: true,
-                        ),
-                      ],
-                      if (_failed || !supported) ...[
-                        const SizedBox(height: 8),
-                        _MaintenanceNotice(
-                          message: l.maintenanceImageTagsUnavailable,
-                        ),
-                      ],
-                      if (_loading) ...[
-                        const SizedBox(height: 12),
-                        const LinearProgressIndicator(minHeight: 2),
-                      ],
-                      if (_tags.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          clipBehavior: Clip.antiAlias,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: cs.outlineVariant),
-                          ),
-                          constraints: const BoxConstraints(maxHeight: 260),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: _tags.length,
-                            itemBuilder: (context, index) {
-                              final tag = _tags[index];
-                              final selected = tag == _tag.text.trim();
-                              return ListTile(
-                                dense: true,
-                                minTileHeight: _maintenanceFormControlHeightOf(
-                                  context,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                selected: selected,
-                                selectedTileColor: cs.primary.withValues(
-                                  alpha: .08,
-                                ),
-                                title: Text(
-                                  tag,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: selected
-                                    ? Icon(
-                                        Icons.check_rounded,
-                                        size: 18,
-                                        color: cs.primary,
-                                      )
+                child: OpenHandAnimatedDialogSize(
+                  child: SingleChildScrollView(
+                    padding: _maintenanceDetailPadding,
+                    child: _MaintenanceAnimatedColumn(
+                      spacing: 12,
+                      children: [
+                        _MaintenanceCard(
+                          title: l.maintenanceImageTag,
+                          icon: Icons.edit_outlined,
+                          scrollBody: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            spacing: 10,
+                            children: [
+                              _ContainerRegistrySearchField(
+                                controller: _tag,
+                                hint: l.maintenanceImageTag,
+                                searchLabel: l.maintenanceImageTagSearch,
+                                onSearch:
+                                    supported &&
+                                        !_loading &&
+                                        _tag.text.trim().length <= 128
+                                    ? () => _load(reset: true)
                                     : null,
-                                onTap: () => setState(() => _tag.text = tag),
-                              );
-                            },
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              Text(
+                                l.maintenanceImageTagHelp,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.5,
+                                ),
+                              ),
+                              if (!valid && _tag.text.isNotEmpty)
+                                _MaintenanceNotice(
+                                  message: l.maintenanceImageTagInvalid,
+                                  error: true,
+                                ),
+                            ],
                           ),
                         ),
-                      ],
-                      if (!_loading && supported && (_hasMore || _failed)) ...[
-                        kOpenHandGap12,
-                        Center(
-                          child: FilledButton.tonal(
-                            style: _maintenanceActionButtonStyle(context),
-                            onPressed: _load,
-                            child: Text(
-                              _failed
-                                  ? l.maintenanceImageTagRetry
-                                  : l.maintenanceImageTagsMore,
+                        if (supported)
+                          _MaintenanceCard(
+                            title:
+                                '${l.maintenanceImageTags} · ${_tags.length}',
+                            icon: Icons.list_alt_rounded,
+                            scrollBody: false,
+                            wrapHeader: true,
+                            headerOverflowAlignment: OverflowBarAlignment.start,
+                            trailing: !_loading && (_hasMore || _failed)
+                                ? FilledButton.tonalIcon(
+                                    style: _maintenanceActionButtonStyle(
+                                      context,
+                                    ),
+                                    onPressed: () =>
+                                        _load(reset: _failed && _retryReset),
+                                    icon: Icon(
+                                      _failed
+                                          ? Icons.refresh_rounded
+                                          : Icons.add_rounded,
+                                      size: 16,
+                                    ),
+                                    label: Text(
+                                      _failed
+                                          ? l.maintenanceImageTagRetry
+                                          : l.maintenanceImageTagsMore,
+                                    ),
+                                  )
+                                : null,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                OpenHandDialogBusyBar(
+                                  busy: _loading,
+                                  topGap: 0,
+                                ),
+                                if (_failed)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _MaintenanceNotice(
+                                      message:
+                                          l.maintenanceImageTagsUnavailable,
+                                    ),
+                                  ),
+                                if (_tags.isNotEmpty)
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: math.min(
+                                        280,
+                                        MediaQuery.sizeOf(context).height * .38,
+                                      ),
+                                    ),
+                                    child: ListView.separated(
+                                      key: const PageStorageKey(
+                                        'image-tag-options',
+                                      ),
+                                      primary: false,
+                                      shrinkWrap: true,
+                                      padding: EdgeInsets.only(
+                                        top: _loading ? 10 : 0,
+                                      ),
+                                      itemCount: _tags.length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(height: 6),
+                                      itemBuilder: (context, index) {
+                                        final tag = _tags[index];
+                                        final selected =
+                                            tag == _tag.text.trim();
+                                        return Material(
+                                          color: selected
+                                              ? cs.primary.withValues(
+                                                  alpha: .08,
+                                                )
+                                              : cs.surfaceContainerLowest,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                kOpenHandBorderRadius8,
+                                            side: BorderSide(
+                                              color: selected
+                                                  ? cs.primary
+                                                  : cs.outlineVariant
+                                                        .withValues(alpha: .55),
+                                            ),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: OpenHandFormTile(
+                                            child: ListTile(
+                                              dense: true,
+                                              minTileHeight:
+                                                  _maintenanceFormControlHeightOf(
+                                                    context,
+                                                  ),
+                                              minLeadingWidth: 16,
+                                              horizontalTitleGap: 10,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              selected: selected,
+                                              selectedTileColor:
+                                                  Colors.transparent,
+                                              leading: Icon(
+                                                Icons.sell_outlined,
+                                                size: 16,
+                                                color: selected
+                                                    ? cs.primary
+                                                    : cs.onSurfaceVariant,
+                                              ),
+                                              title: Tooltip(
+                                                message: tag,
+                                                child: Text(
+                                                  tag,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontSize:
+                                                            _maintenanceFormFontSize,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: selected
+                                                            ? cs.primary
+                                                            : cs.onSurface,
+                                                      ),
+                                                ),
+                                              ),
+                                              trailing: selected
+                                                  ? Icon(
+                                                      Icons
+                                                          .check_circle_rounded,
+                                                      size: 18,
+                                                      color: cs.primary,
+                                                    )
+                                                  : const SizedBox(width: 18),
+                                              onTap: () => setState(
+                                                () => _tag.text = tag,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                if (!_loading && !_failed && _tags.isEmpty)
+                                  _MaintenanceEmptyHint(
+                                    message: maintenanceLabel(
+                                      context,
+                                      '当前范围没有记录',
+                                    ),
+                                    compact: true,
+                                  ),
+                              ],
                             ),
+                          )
+                        else
+                          _MaintenanceNotice(
+                            message: l.maintenanceImageTagsUnavailable,
                           ),
-                        ),
                       ],
-                      if (!_loading && !_failed && supported && _tags.isEmpty)
-                        _MaintenanceEmptyHint(
-                          message: maintenanceLabel(context, '当前范围没有记录'),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),

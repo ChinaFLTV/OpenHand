@@ -6713,6 +6713,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.contentPadding = const EdgeInsets.all(14),
     this.trailing,
     this.wrapHeader = false,
+    this.headerOverflowAlignment = OverflowBarAlignment.end,
     this.accent,
     this.fillWidth = false,
   });
@@ -6725,6 +6726,7 @@ class _MaintenanceCard extends StatelessWidget {
   final EdgeInsetsGeometry contentPadding;
   final Widget? trailing;
   final bool wrapHeader;
+  final OverflowBarAlignment headerOverflowAlignment;
   final Color? accent;
   final bool fillWidth;
 
@@ -6835,7 +6837,7 @@ class _MaintenanceCard extends StatelessWidget {
                   child: wrapHeader
                       ? OverflowBar(
                           alignment: MainAxisAlignment.spaceBetween,
-                          overflowAlignment: OverflowBarAlignment.end,
+                          overflowAlignment: headerOverflowAlignment,
                           spacing: 12,
                           overflowSpacing: 10,
                           children: [heading, if (trailing != null) trailing!],

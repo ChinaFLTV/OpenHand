@@ -6394,6 +6394,68 @@ class _DocumentRegistry extends MachineImageRegistry {
 }
 
 void resourceChecks() {
+  testWidgets('标签选择六语言使用统一卡片和等高选项，失败保留结果并重试原查询', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      for(final width in [1180.0,420.0]) {
+        await tester.binding.setSurfaceSize(Size(width,1000));
+        final calls=<Uri>[];
+        var failed=false;
+        final pending=Completer<Map<String,dynamic>>();
+        MachineImageRegistry factory()=>MachineImageRegistry(clientFactory:HttpClient.new,read:(uri) async {
+          calls.add(uri);
+          if(failed)throw const FormatException('模拟标签搜索失败');
+          if(uri.queryParameters['name']=='stable')return pending.future;
+          return {'results':[{'name':'latest'},{'name':'release-'+('a'*100)}],'next':'more'};
+        });
+        final theme=width>500?OpenHandTheme.light(OpenHandThemePreset.tundraGreen):OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale:locale,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          builder:(context,child)=>RepaintBoundary(key:const ValueKey('标签卡片预览'),child:MediaQuery(
+            data:MediaQuery.of(context).copyWith(size:Size(width,1000),textScaler:TextScaler.linear(width>500?1:1.5)),child:child!)),
+          home:Scaffold(body:_ContainerImageTagDialog(image:MachineContainerImageSearchResult.fromJson({'Name':'nginx'}),
+            selected:'latest',registryFactory:factory))));
+        await tester.pumpAndSettle();
+        final state=tester.state<_ContainerImageTagDialogState>(find.byType(_ContainerImageTagDialog));
+        expect(find.text(l.maintenanceImageTagHelp),findsOneWidget);
+        final header=find.text(l.maintenanceImageTags+' · 2');
+        expect(tester.getTopLeft(header).dx,closeTo(tester.getTopLeft(find.text(l.maintenanceImageTag).first).dx,1));
+        final rows=find.byType(ListTile);
+        expect(rows,findsNWidgets(2));
+        expect(tester.getSize(rows.at(0)).height,closeTo(tester.getSize(rows.at(1)).height,1));
+        expect(tester.widget<ListTile>(rows.at(0)).selected,isTrue);
+        final surface=find.ancestor(of:rows.at(0),matching:find.byType(Material)).first;
+        expect(tester.widget<Material>(surface).clipBehavior,Clip.antiAlias);
+        final shape=tester.widget<Material>(surface).shape! as RoundedRectangleBorder;
+        expect(shape.side.color,theme.colorScheme.primary);
+        if(locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          await tester.runAsync(()async{
+            final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('标签卡片预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/openhand-tag-cards-'+width.toInt().toString()+'.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+          });
+        }
+        state._tag.text='stable';state.setState((){});failed=true;
+        await state._load(reset:true);await tester.pumpAndSettle();
+        expect(state._failed,isTrue);expect(state._tags,['latest','release-'+('a'*100)]);
+        expect(state._page,1);expect(state._filter,isEmpty);
+        failed=false;
+        final retry=tester.widget<FilledButton>(find.widgetWithText(FilledButton,l.maintenanceImageTagRetry));
+        retry.onPressed!();await tester.pump();
+        expect(state._loading,isTrue);expect(state._tags.length,2);
+        final count=calls.length;await state._load(reset:true);expect(calls.length,count);
+        expect(calls.last.queryParameters['name'],'stable');expect(calls.last.queryParameters['page'],'1');
+        pending.complete({'results':[{'name':'stable'}]});await tester.pumpAndSettle();
+        expect(state._tags,['stable']);expect(state._filter,'stable');expect(state._hasMore,isFalse);
+        expect(tester.widget<ListTile>(find.byType(ListTile)).selected,isTrue);
+        expect(tester.takeException(),isNull,reason:'$locale $width');
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('镜像详情按内容收缩，长文受限滚动，切换尺寸和底部操作平滑过渡', (tester) async {
     tester.view.devicePixelRatio=1;tester.view.physicalSize=const Size(1180,1000);
     addTearDown(tester.view.resetDevicePixelRatio);addTearDown(tester.view.resetPhysicalSize);
@@ -6764,11 +6826,11 @@ void resourceChecks() {
         images:[for(var i=0;i<16;i++){'os':'linux','architecture':i==0?'arm64':'amd64','digest':digest,'size':1024,'variant':'v'+i.toString()}])))));
     await tester.pumpAndSettle();
     final state=tester.state<_ContainerImagePlatformsState>(find.byType(_ContainerImagePlatforms));
-    expect(find.byType(_MaintenanceCard), findsNWidgets(12));
+    expect(find.byType(_MaintenanceCard), findsNWidgets(13));
     state.setState(()=>state._limit+=_containerImagePlatformPageSize);await tester.pumpAndSettle();
-    expect(find.byType(_MaintenanceCard), findsNWidgets(16));
+    expect(find.byType(_MaintenanceCard), findsNWidgets(17));
     await tester.enterText(find.byType(TextField),'arm64');await tester.pumpAndSettle();
-    expect(state._limit,12);expect(find.byType(_MaintenanceCard),findsOneWidget);
+    expect(state._limit,12);expect(find.byType(_MaintenanceCard),findsNWidgets(2));
     final field=find.byKey(const ValueKey(('image-fact','镜像摘要')));
     await tester.ensureVisible(field);await tester.pumpAndSettle();
     final mouse=await tester.createGesture(kind:ui.PointerDeviceKind.mouse);await mouse.addPointer(location:Offset.zero);
@@ -7080,7 +7142,7 @@ void resourceChecks() {
         final theme = width < 500 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
         await tester.pumpWidget(_SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
-          builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像搜索预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
+          builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像搜索预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(size:Size(width,960),textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
           home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, pullImage: (client, image, {required timeout, onOutput, isCancelled}) async => (output: 'downloaded', image: image), timeout: const Duration(seconds: 30), onCreated: () => created++))));
         await tester.pumpAndSettle();
         final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
