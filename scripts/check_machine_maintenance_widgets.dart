@@ -7041,9 +7041,12 @@ void resourceChecks() {
         var table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
         expect(table.headers, contains(l.maintenanceImageDownloads));
         final actions = table.rowActions!(table.rows.single);
-        expect(actions.keys, [l.maintenanceContainerImageDetails, l.maintenanceImageSelectTag, l.maintenanceImagePullOnly, l.maintenanceContainerCreate]);
+        expect(actions.keys, [l.maintenanceImageSelectTag, l.maintenanceImagePullOnly, l.maintenanceContainerCreate]);
         expect(table.onRowTap, isNotNull);
-        actions[l.maintenanceContainerImageDetails]!(); await tester.pumpAndSettle();
+        final detailsMenu=tester.widget<OpenHandOperationalRowMenu>(find.descendant(
+          of:find.byType(_ContainerRegistryDialog),matching:find.byType(OpenHandOperationalRowMenu)).first);
+        expect(detailsMenu.actions, isNot(contains(l.maintenanceContainerImageDetails)));
+        detailsMenu.onDetails!(); await tester.pumpAndSettle();
         final detail = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
         expect(detail._tag, '1.28-alpine'); expect(detail._repositoryError, isEmpty); expect(detail._tagError, isEmpty);
         expect(find.text(l.maintenanceImageRepositoryDetails), findsOneWidget);

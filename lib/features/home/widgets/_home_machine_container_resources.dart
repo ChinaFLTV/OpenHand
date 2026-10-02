@@ -996,11 +996,6 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                                   ),
                             rowActions: (row) => {
                               if (!_busy) ...{
-                                l.maintenanceContainerImageDetails: () =>
-                                    _details(
-                                      row.data
-                                          as MachineContainerImageSearchResult,
-                                    ),
                                 l.maintenanceImageSelectTag: () => _selectTag(
                                   row.data as MachineContainerImageSearchResult,
                                 ),
