@@ -17,6 +17,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:markdown/markdown.dart' as md;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;

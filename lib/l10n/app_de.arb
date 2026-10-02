@@ -9753,5 +9753,17 @@
   "maintenanceTaskHistory": "Ausführungsverlauf",
   "maintenanceTaskHistoryUnavailable": "Der Planer meldet keine Ausführungszeiten oder Ergebnisse",
   "maintenanceTaskEvery": "Alle {duration}",
-  "maintenanceTaskIntervalLabel": "Ausführungsintervall"
+  "maintenanceTaskIntervalLabel": "Ausführungsintervall",
+  "maintenanceCronEvery": "Jeder Wert",
+  "maintenanceCronSelect": "Werte auswählen",
+  "maintenanceCronStep": "Festes Intervall",
+  "maintenanceCronPreserve": "Bestehende Regel behalten",
+  "maintenanceCronMinute": "Jede Minute",
+  "maintenanceCronHourly": "Stündlich",
+  "maintenanceCronDaily": "Täglich",
+  "maintenanceCronWeekly": "Wöchentlich",
+  "maintenanceCronMonthly": "Monatlich",
+  "maintenanceCronReboot": "Beim Systemstart",
+  "maintenanceCronHelp": "Zeitplan wählen und Werte über die Karten festlegen. Es gilt die Aufgabenzeitzone des Zielrechners. Bei eingeschränktem Monats- und Wochentag genügt eine Übereinstimmung.",
+  "maintenanceCronCommandHelp": "Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen."
 }

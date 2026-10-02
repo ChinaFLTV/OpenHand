@@ -9753,5 +9753,17 @@
   "maintenanceTaskHistory": "執行記錄",
   "maintenanceTaskHistoryUnavailable": "排程器未提供執行時間與結果",
   "maintenanceTaskEvery": "每 {duration} 執行一次",
-  "maintenanceTaskIntervalLabel": "執行間隔"
+  "maintenanceTaskIntervalLabel": "執行間隔",
+  "maintenanceCronEvery": "每個值",
+  "maintenanceCronSelect": "指定數值",
+  "maintenanceCronStep": "固定間隔",
+  "maintenanceCronPreserve": "保留現有規則",
+  "maintenanceCronMinute": "每分鐘",
+  "maintenanceCronHourly": "每小時",
+  "maintenanceCronDaily": "每天",
+  "maintenanceCronWeekly": "每週",
+  "maintenanceCronMonthly": "每月",
+  "maintenanceCronReboot": "系統啟動時",
+  "maintenanceCronHelp": "選擇週期，再點擊卡片設定數值。使用目標機器的工作時區；同時指定日期和星期時，任一符合即執行。",
+  "maintenanceCronCommandHelp": "Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。"
 }

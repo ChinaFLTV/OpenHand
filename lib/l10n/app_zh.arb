@@ -10929,5 +10929,17 @@
       }
     }
   },
-  "maintenanceTaskIntervalLabel": "执行间隔"
+  "maintenanceTaskIntervalLabel": "执行间隔",
+  "maintenanceCronEvery": "每个值",
+  "maintenanceCronSelect": "指定数值",
+  "maintenanceCronStep": "固定间隔",
+  "maintenanceCronPreserve": "保留现有规则",
+  "maintenanceCronMinute": "每分钟",
+  "maintenanceCronHourly": "每小时",
+  "maintenanceCronDaily": "每天",
+  "maintenanceCronWeekly": "每周",
+  "maintenanceCronMonthly": "每月",
+  "maintenanceCronReboot": "系统启动时",
+  "maintenanceCronHelp": "选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。",
+  "maintenanceCronCommandHelp": "Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。"
 }

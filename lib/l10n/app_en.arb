@@ -9758,5 +9758,17 @@
   "maintenanceTaskHistory": "Run history",
   "maintenanceTaskHistoryUnavailable": "The scheduler has not reported run times or results",
   "maintenanceTaskEvery": "Every {duration}",
-  "maintenanceTaskIntervalLabel": "Run interval"
+  "maintenanceTaskIntervalLabel": "Run interval",
+  "maintenanceCronEvery": "Every value",
+  "maintenanceCronSelect": "Choose values",
+  "maintenanceCronStep": "Fixed interval",
+  "maintenanceCronPreserve": "Keep existing rule",
+  "maintenanceCronMinute": "Every minute",
+  "maintenanceCronHourly": "Hourly",
+  "maintenanceCronDaily": "Daily",
+  "maintenanceCronWeekly": "Weekly",
+  "maintenanceCronMonthly": "Monthly",
+  "maintenanceCronReboot": "At system startup",
+  "maintenanceCronHelp": "Choose a schedule, then select a card to configure its values. Uses the task timezone on the target machine. If both day of month and weekday are restricted, either match runs the task.",
+  "maintenanceCronCommandHelp": "Crontab requires a single-line shell command. Separate commands with semicolons or invoke a script file."
 }

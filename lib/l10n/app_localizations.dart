@@ -28510,6 +28510,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'执行间隔'**
   String get maintenanceTaskIntervalLabel;
+
+  /// No description provided for @maintenanceCronEvery.
+  ///
+  /// In zh, this message translates to:
+  /// **'每个值'**
+  String get maintenanceCronEvery;
+
+  /// No description provided for @maintenanceCronSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'指定数值'**
+  String get maintenanceCronSelect;
+
+  /// No description provided for @maintenanceCronStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'固定间隔'**
+  String get maintenanceCronStep;
+
+  /// No description provided for @maintenanceCronPreserve.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留现有规则'**
+  String get maintenanceCronPreserve;
+
+  /// No description provided for @maintenanceCronMinute.
+  ///
+  /// In zh, this message translates to:
+  /// **'每分钟'**
+  String get maintenanceCronMinute;
+
+  /// No description provided for @maintenanceCronHourly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每小时'**
+  String get maintenanceCronHourly;
+
+  /// No description provided for @maintenanceCronDaily.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天'**
+  String get maintenanceCronDaily;
+
+  /// No description provided for @maintenanceCronWeekly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周'**
+  String get maintenanceCronWeekly;
+
+  /// No description provided for @maintenanceCronMonthly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月'**
+  String get maintenanceCronMonthly;
+
+  /// No description provided for @maintenanceCronReboot.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统启动时'**
+  String get maintenanceCronReboot;
+
+  /// No description provided for @maintenanceCronHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。'**
+  String get maintenanceCronHelp;
+
+  /// No description provided for @maintenanceCronCommandHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。'**
+  String get maintenanceCronCommandHelp;
 }
 
 class _AppLocalizationsDelegate

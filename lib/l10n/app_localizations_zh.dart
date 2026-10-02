@@ -15250,6 +15250,44 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTaskIntervalLabel => '执行间隔';
+
+  @override
+  String get maintenanceCronEvery => '每个值';
+
+  @override
+  String get maintenanceCronSelect => '指定数值';
+
+  @override
+  String get maintenanceCronStep => '固定间隔';
+
+  @override
+  String get maintenanceCronPreserve => '保留现有规则';
+
+  @override
+  String get maintenanceCronMinute => '每分钟';
+
+  @override
+  String get maintenanceCronHourly => '每小时';
+
+  @override
+  String get maintenanceCronDaily => '每天';
+
+  @override
+  String get maintenanceCronWeekly => '每周';
+
+  @override
+  String get maintenanceCronMonthly => '每月';
+
+  @override
+  String get maintenanceCronReboot => '系统启动时';
+
+  @override
+  String get maintenanceCronHelp =>
+      '选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。';
+
+  @override
+  String get maintenanceCronCommandHelp =>
+      'Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30481,4 +30519,42 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTaskIntervalLabel => '執行間隔';
+
+  @override
+  String get maintenanceCronEvery => '每個值';
+
+  @override
+  String get maintenanceCronSelect => '指定數值';
+
+  @override
+  String get maintenanceCronStep => '固定間隔';
+
+  @override
+  String get maintenanceCronPreserve => '保留現有規則';
+
+  @override
+  String get maintenanceCronMinute => '每分鐘';
+
+  @override
+  String get maintenanceCronHourly => '每小時';
+
+  @override
+  String get maintenanceCronDaily => '每天';
+
+  @override
+  String get maintenanceCronWeekly => '每週';
+
+  @override
+  String get maintenanceCronMonthly => '每月';
+
+  @override
+  String get maintenanceCronReboot => '系統啟動時';
+
+  @override
+  String get maintenanceCronHelp =>
+      '選擇週期，再點擊卡片設定數值。使用目標機器的工作時區；同時指定日期和星期時，任一符合即執行。';
+
+  @override
+  String get maintenanceCronCommandHelp =>
+      'Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。';
 }

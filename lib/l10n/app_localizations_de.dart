@@ -15936,4 +15936,42 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTaskIntervalLabel => 'Ausführungsintervall';
+
+  @override
+  String get maintenanceCronEvery => 'Jeder Wert';
+
+  @override
+  String get maintenanceCronSelect => 'Werte auswählen';
+
+  @override
+  String get maintenanceCronStep => 'Festes Intervall';
+
+  @override
+  String get maintenanceCronPreserve => 'Bestehende Regel behalten';
+
+  @override
+  String get maintenanceCronMinute => 'Jede Minute';
+
+  @override
+  String get maintenanceCronHourly => 'Stündlich';
+
+  @override
+  String get maintenanceCronDaily => 'Täglich';
+
+  @override
+  String get maintenanceCronWeekly => 'Wöchentlich';
+
+  @override
+  String get maintenanceCronMonthly => 'Monatlich';
+
+  @override
+  String get maintenanceCronReboot => 'Beim Systemstart';
+
+  @override
+  String get maintenanceCronHelp =>
+      'Zeitplan wählen und Werte über die Karten festlegen. Es gilt die Aufgabenzeitzone des Zielrechners. Bei eingeschränktem Monats- und Wochentag genügt eine Übereinstimmung.';
+
+  @override
+  String get maintenanceCronCommandHelp =>
+      'Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen.';
 }

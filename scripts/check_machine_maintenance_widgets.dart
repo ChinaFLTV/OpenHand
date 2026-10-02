@@ -55,6 +55,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:xml/xml.dart' as xml;
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:openhand/shared/ui/bounded_animation.dart';
 import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:openhand/shared/ui/openhand_animated_sliver_list.dart';
@@ -81,6 +82,7 @@ import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/openhand_dialog_action_button.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
+import 'package:openhand/shared/ui/openhand_code_editor.dart';
 import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
@@ -4824,6 +4826,32 @@ const _scheduledChecks = r'''
 String taskRecord(String kind, List<String> fields) => '__OH_TASK__\t$kind\t${fields.map((v) => base64Encode(utf8.encode(v))).join('\t')}\n';
 String taskFixture() => '${taskRecord('meta',['tester','UTC +0000','2026-09-30T00:00:00Z'])}${taskRecord('available',['cron'])}${taskRecord('cron',['user:tester','tester','# 保留环境\nCRON_TZ=Asia/Shanghai\n0 9 * * * /opt/backup --daily\n# OPENHAND_DISABLED @hourly /opt/cleanup\n','1'])}__OH_TASK_END__';
 void scheduledTaskChecks() {
+  testWidgets('Cron 卡片保持既有语义，预设、数值、间隔和禁用状态可靠', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(960,1200));
+    final controller=TextEditingController(text:'5,10 9-17/2 * JAN,MAR MON-FRI');
+    final form=GlobalKey<FormState>();
+    Widget app(bool enabled)=>_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:SingleChildScrollView(child:Form(key:form,
+      child:_MachineCronSchedule(controller:controller,enabled:enabled)))));
+    await tester.pumpWidget(app(true));await tester.pumpAndSettle();
+    expect(controller.text,'5,10 9-17/2 * JAN,MAR MON-FRI');expect(form.currentState!.validate(),isTrue);
+    await tester.tap(find.byKey(const ValueKey('cron-card-1')));await tester.pumpAndSettle();
+    expect(find.text('保留现有规则'),findsOneWidget);expect(controller.text,'5,10 9-17/2 * JAN,MAR MON-FRI');
+    await tester.tap(find.widgetWithText(ChoiceChip,'固定间隔'));await tester.pumpAndSettle();
+    final dropdown=tester.widget<AnimatedDropdownButton<int>>(find.byType(AnimatedDropdownButton<int>));
+    dropdown.onChanged!(2);await tester.pumpAndSettle();expect(controller.text,'5,10 */2 * JAN,MAR MON-FRI');
+    await tester.tap(find.byKey(const ValueKey('cron-card-0')));await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip,'15'));await tester.pumpAndSettle();expect(controller.text,'5,10,15 */2 * JAN,MAR MON-FRI');
+    for(final alias in ['@reboot','@yearly','@annually','@midnight','@weekly','@monthly','@hourly']) {
+      controller.text=alias;await tester.pumpAndSettle();expect(controller.text,alias);expect(form.currentState!.validate(),isTrue);
+    }
+    await tester.tap(find.widgetWithText(ChoiceChip,'每天'));await tester.pumpAndSettle();expect(controller.text,'0 9 * * *');
+    await tester.pumpWidget(app(false));await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip,'每周')).onSelected,isNull);
+    expect(tester.widget<OutlinedButton>(find.byKey(const ValueKey('cron-card-0'))).onPressed,isNull);
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());controller.dispose();await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('定时任务六语言与宽窄屏布局、空态和失败保留', (tester) async {
     final previewKey = GlobalKey();
     for (final locale in AppLocalizations.supportedLocales) {
@@ -4961,7 +4989,15 @@ void scheduledTaskChecks() {
       home:Scaffold(body:Builder(builder:(context)=>TextButton(onPressed:()=>showAnimatedDialog<bool>(context:context,builder:(_)=>_MachineTaskDialog(platform:'Linux',snapshot:snapshot,task:snapshot.tasks.first,client:client,edit:true)),child:const Text('打开编辑'))))));
     await tester.tap(find.text('打开编辑')); await tester.pumpAndSettle();
     final state=tester.state<_MachineTaskDialogState>(find.byType(_MachineTaskDialog));
-    state._schedule.text='0 10 * * *'; state._command.text='/opt/backup --new';
+    state._schedule.text='0 10 * * *';
+    final editor=tester.widget<OpenHandCodeEditor>(find.byType(OpenHandCodeEditor));
+    expect(editor.language,'bash');
+    for(final invalid in ['', 'echo first\necho second']) {
+      editor.onChanged(invalid);await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));await tester.pumpAndSettle();
+      expect(attempts,0);expect(find.byType(_MachineTaskDialog),findsOneWidget);
+    }
+    editor.onChanged('/opt/backup --new');await tester.pumpAndSettle();
     await tester.tap(find.text('保存')); await tester.pumpAndSettle();
     await tester.tap(find.text('保存').last); await tester.pumpAndSettle();
     expect(attempts,1); expect(state._command.text,'/opt/backup --new');
@@ -4986,20 +5022,34 @@ void scheduledTaskChecks() {
     final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
     for(final locale in AppLocalizations.supportedLocales) {
       for(final platform in ['Linux','Windows']) {
+       for(final width in [420.0,1100.0]) {
+        await tester.binding.setSurfaceSize(Size(width,1000));
+        final theme=width==420?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
         await tester.pumpWidget(_SettingsApp(locale:locale,
+          theme:theme.copyWith(chipTheme:theme.chipTheme.copyWith(labelStyle:theme.textTheme.labelLarge?.copyWith(fontFamily:'运维预览字体'),secondaryLabelStyle:theme.textTheme.labelLarge?.copyWith(fontFamily:'运维预览字体')),textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
           localizationsDelegates:AppLocalizations.localizationsDelegates,
           supportedLocales:AppLocalizations.supportedLocales,
-          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.5)),child:child!),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,1000),textScaler:TextScaler.linear(width==420?1.5:1)),child:child!),
           home:Scaffold(body:Builder(builder:(context)=>TextButton(
-            onPressed:()=>showAnimatedDialog<void>(context:context,builder:(_)=>_MachineTaskDialog(
+            onPressed:()=>showAnimatedDialog<void>(context:context,builder:(_)=>RepaintBoundary(key:const ValueKey('Cron表单预览'),child:_MachineTaskDialog(
               platform:platform,snapshot:snapshot,task:null,edit:true,
-              client:MachineScheduledTaskClient(platform:platform,run:(_)async=>throw StateError('布局验证不得执行远端命令')))),
+              client:MachineScheduledTaskClient(platform:platform,run:(_)async=>throw StateError('布局验证不得执行远端命令'))))),
             child:const Text('打开任务'))))));
         await tester.tap(find.text('打开任务')); await tester.pumpAndSettle();
         final state=tester.state<_MachineTaskDialogState>(find.byType(_MachineTaskDialog));
         final l=AppLocalizations.of(state.context)!;
         expect(find.text(l.maintenanceTaskAdd),findsOneWidget);
         expect(tester.takeException(),isNull);
+        if(platform=='Linux'&&locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          for(final section in ['schedule','command']) {
+           if(section=='command') {await tester.ensureVisible(find.byType(OpenHandCodeEditor));await tester.pumpAndSettle();}
+           await tester.runAsync(()async {
+            final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('Cron表单预览')));
+            final shot=await boundary.toImage(pixelRatio:1.5);final bytes=await shot.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/openhand-cron-form-'+width.toInt().toString()+'-'+section+'.png').writeAsBytes(bytes!.buffer.asUint8List());shot.dispose();
+           });
+          }
+        }
         if(platform=='Windows') {
           state._name.text='备份任务'; state._command.text=r'C:\Tools & Jobs\backup.exe';
           expect(state._start.text,'2026-10-01T09:00:00');
@@ -5012,6 +5062,7 @@ void scheduledTaskChecks() {
         await tester.tap(find.text(l.commonClose)); await tester.pumpAndSettle();
         expect(find.byType(_MachineTaskDialog),findsNothing);
         await tester.pumpWidget(const SizedBox());
+       }
       }
     }
     await tester.binding.setSurfaceSize(null);

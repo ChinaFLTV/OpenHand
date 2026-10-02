@@ -15403,4 +15403,42 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTaskIntervalLabel => '実行間隔';
+
+  @override
+  String get maintenanceCronEvery => 'すべての値';
+
+  @override
+  String get maintenanceCronSelect => '値を選択';
+
+  @override
+  String get maintenanceCronStep => '一定間隔';
+
+  @override
+  String get maintenanceCronPreserve => '既存のルールを保持';
+
+  @override
+  String get maintenanceCronMinute => '毎分';
+
+  @override
+  String get maintenanceCronHourly => '毎時';
+
+  @override
+  String get maintenanceCronDaily => '毎日';
+
+  @override
+  String get maintenanceCronWeekly => '毎週';
+
+  @override
+  String get maintenanceCronMonthly => '毎月';
+
+  @override
+  String get maintenanceCronReboot => 'システム起動時';
+
+  @override
+  String get maintenanceCronHelp =>
+      '周期を選び、カードから値を設定します。対象マシンのタスクのタイムゾーンを使用します。日付と曜日の両方を指定した場合、どちらかが一致すれば実行します。';
+
+  @override
+  String get maintenanceCronCommandHelp =>
+      'Crontab には1行のシェルコマンドを指定します。複数のコマンドはセミコロンで区切るか、スクリプトを呼び出してください。';
 }

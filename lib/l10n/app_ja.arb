@@ -9753,5 +9753,17 @@
   "maintenanceTaskHistory": "実行履歴",
   "maintenanceTaskHistoryUnavailable": "スケジューラーから実行時刻と結果が提供されていません",
   "maintenanceTaskEvery": "{duration} ごとに実行",
-  "maintenanceTaskIntervalLabel": "実行間隔"
+  "maintenanceTaskIntervalLabel": "実行間隔",
+  "maintenanceCronEvery": "すべての値",
+  "maintenanceCronSelect": "値を選択",
+  "maintenanceCronStep": "一定間隔",
+  "maintenanceCronPreserve": "既存のルールを保持",
+  "maintenanceCronMinute": "毎分",
+  "maintenanceCronHourly": "毎時",
+  "maintenanceCronDaily": "毎日",
+  "maintenanceCronWeekly": "毎週",
+  "maintenanceCronMonthly": "毎月",
+  "maintenanceCronReboot": "システム起動時",
+  "maintenanceCronHelp": "周期を選び、カードから値を設定します。対象マシンのタスクのタイムゾーンを使用します。日付と曜日の両方を指定した場合、どちらかが一致すれば実行します。",
+  "maintenanceCronCommandHelp": "Crontab には1行のシェルコマンドを指定します。複数のコマンドはセミコロンで区切るか、スクリプトを呼び出してください。"
 }

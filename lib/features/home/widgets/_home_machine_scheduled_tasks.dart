@@ -753,6 +753,339 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
   }
 }
 
+class _MachineCronSchedule extends StatefulWidget {
+  const _MachineCronSchedule({required this.controller, required this.enabled});
+  final TextEditingController controller;
+  final bool enabled;
+
+  @override
+  State<_MachineCronSchedule> createState() => _MachineCronScheduleState();
+}
+
+class _MachineCronScheduleState extends State<_MachineCronSchedule> {
+  static const _ranges = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 7)];
+  static const _aliases = {
+    '@hourly': '0 * * * *',
+    '@daily': '0 0 * * *',
+    '@midnight': '0 0 * * *',
+    '@weekly': '0 0 * * 0',
+    '@monthly': '0 0 1 * *',
+    '@yearly': '0 0 1 1 *',
+    '@annually': '0 0 1 1 *',
+  };
+  int _active = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labels = [
+      l.cronParserFieldMinute,
+      l.cronParserFieldHour,
+      l.cronParserFieldDayOfMonth,
+      l.cronParserFieldMonth,
+      l.cronParserFieldDayOfWeek,
+    ];
+    return FormField<String>(
+      validator: (_) => machineTaskCronValid(widget.controller.text.trim())
+          ? null
+          : l.maintenanceTaskValidation,
+      builder: (field) => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: widget.controller,
+        builder: (context, value, _) {
+          final raw = value.text.trim();
+          final fields = (_aliases[raw] ?? raw).split(RegExp(r'\s+'));
+          final editable = fields.length == _ranges.length;
+          final token = editable ? fields[_active] : '*';
+          final range = _ranges[_active];
+          final simple = token
+              .split(',')
+              .every((part) => int.tryParse(part) != null);
+          final step = RegExp(r'^\*/(\d+)$').firstMatch(token);
+          final mode = token == '*'
+              ? 'every'
+              : step != null
+              ? 'step'
+              : simple
+              ? 'select'
+              : 'preserve';
+          void update(String replacement) {
+            final next = [...fields];
+            next[_active] = replacement;
+            widget.controller.text = next.join(' ');
+            field.didChange(widget.controller.text);
+          }
+
+          String numberLabel(int number) {
+            final locale = Localizations.localeOf(context).toString();
+            if (_active == 4) {
+              return DateFormat.EEEE(
+                locale,
+              ).format(DateTime(2026, 1, 4 + number % 7));
+            }
+            if (_active == 3) {
+              return DateFormat.MMMM(locale).format(DateTime(2026, number));
+            }
+            return number.toString().padLeft(2, '0');
+          }
+
+          return _MaintenanceCard(
+            title: l.cronsSectionSchedule,
+            icon: Icons.schedule_rounded,
+            scrollBody: false,
+            child: _MaintenanceAnimatedColumn(
+              spacing: 12,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preset in [
+                      ('* * * * *', l.maintenanceCronMinute),
+                      ('0 * * * *', l.maintenanceCronHourly),
+                      ('0 9 * * *', l.maintenanceCronDaily),
+                      ('0 9 * * 1', l.maintenanceCronWeekly),
+                      ('0 9 1 * *', l.maintenanceCronMonthly),
+                      ('@reboot', l.maintenanceCronReboot),
+                    ])
+                      ChoiceChip(
+                        label: Text(preset.$2),
+                        selected: raw == preset.$1,
+                        onSelected: !widget.enabled
+                            ? null
+                            : (_) {
+                                widget.controller.text = preset.$1;
+                                field.didChange(preset.$1);
+                              },
+                      ),
+                  ],
+                ),
+                Text(
+                  l.maintenanceCronHelp,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (editable) ...[
+                  LayoutBuilder(
+                    builder: (context, bounds) {
+                      final scale =
+                          MediaQuery.textScalerOf(context).scale(13) / 13;
+                      final columns = (bounds.maxWidth / (110 * scale))
+                          .floor()
+                          .clamp(1, 5);
+                      final width =
+                          (bounds.maxWidth - (columns - 1) * 8) / columns;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (var i = 0; i < fields.length; i++)
+                            SizedBox(
+                              width: width,
+                              child: OutlinedButton(
+                                key: ValueKey('cron-card-$i'),
+                                onPressed: widget.enabled
+                                    ? () => setState(() => _active = i)
+                                    : null,
+                                style: _maintenanceActionButtonStyle(context)
+                                    .copyWith(
+                                      padding: const WidgetStatePropertyAll(
+                                        EdgeInsets.all(12),
+                                      ),
+                                      backgroundColor: WidgetStatePropertyAll(
+                                        i == _active
+                                            ? cs.primaryContainer
+                                            : cs.surfaceContainerLow,
+                                      ),
+                                      foregroundColor: WidgetStatePropertyAll(
+                                        i == _active
+                                            ? cs.onPrimaryContainer
+                                            : cs.onSurface,
+                                      ),
+                                    ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      labels[i],
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      fields[i],
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  _MaintenanceAnimatedSize(
+                    child: AnimatedSwitcher(
+                      duration: openHandMotionSettingsOf(
+                        context,
+                        OpenHandMotionSettingsScope.dialog,
+                      ).entranceDuration,
+                      reverseDuration: openHandMotionSettingsOf(
+                        context,
+                        OpenHandMotionSettingsScope.dialog,
+                      ).exitDuration,
+                      switchInCurve: kOpenHandSwitchInCurve,
+                      switchOutCurve: kOpenHandSwitchOutCurve,
+                      transitionBuilder: (child, animation) => AnimatedBuilder(
+                        animation: animation,
+                        child: child,
+                        builder: (context, child) => Transform(
+                          alignment: Alignment.topCenter,
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, .001)
+                            ..rotateX((1 - animation.value) * math.pi / 2),
+                          child: Opacity(
+                            opacity: animation.value.clamp(0, 1),
+                            child: child,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        key: ValueKey('cron-settings-$_active'),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            labels[_active],
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final option in [
+                                ('every', l.maintenanceCronEvery),
+                                ('select', l.maintenanceCronSelect),
+                                ('step', l.maintenanceCronStep),
+                                if (mode == 'preserve')
+                                  ('preserve', l.maintenanceCronPreserve),
+                              ])
+                                ChoiceChip(
+                                  label: Text(option.$2),
+                                  selected: mode == option.$1,
+                                  onSelected:
+                                      !widget.enabled || option.$1 == 'preserve'
+                                      ? null
+                                      : (_) {
+                                          if (option.$1 == mode) return;
+                                          update(switch (option.$1) {
+                                            'every' => '*',
+                                            'step' => '*/1',
+                                            _ => '${range.$1}',
+                                          });
+                                        },
+                                ),
+                            ],
+                          ),
+                          if (mode == 'select') ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (
+                                  var n = range.$1;
+                                  n <= (_active == 4 ? 6 : range.$2);
+                                  n++
+                                )
+                                  FilterChip(
+                                    label: Text(numberLabel(n)),
+                                    selected: token
+                                        .split(',')
+                                        .any(
+                                          (part) =>
+                                              int.parse(part) == n ||
+                                              (_active == 4 &&
+                                                  n == 0 &&
+                                                  int.parse(part) == 7),
+                                        ),
+                                    onSelected: !widget.enabled
+                                        ? null
+                                        : (selected) {
+                                            final values = token
+                                                .split(',')
+                                                .map(int.parse)
+                                                .toSet();
+                                            if (selected) {
+                                              values.add(n);
+                                            } else {
+                                              values.remove(n);
+                                              if (_active == 4 && n == 0) {
+                                                values.remove(7);
+                                              }
+                                            }
+                                            if (values.isEmpty) return;
+                                            update(
+                                              (values.toList()..sort()).join(
+                                                ',',
+                                              ),
+                                            );
+                                          },
+                                  ),
+                              ],
+                            ),
+                          ],
+                          if (mode == 'step') ...[
+                            const SizedBox(height: 10),
+                            AnimatedDropdownButton<int>(
+                              value: int.parse(step![1]!),
+                              isExpanded: true,
+                              items: [
+                                for (final n in {
+                                  for (
+                                    var i = 1;
+                                    i <= range.$2 - range.$1 + 1;
+                                    i++
+                                  )
+                                    i,
+                                  int.parse(step[1]!),
+                                })
+                                  DropdownMenuItem(value: n, child: Text('$n')),
+                              ],
+                              onChanged: widget.enabled
+                                  ? (n) {
+                                      if (n != null) update('*/$n');
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                SelectableText(
+                  raw,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                if (field.errorText != null)
+                  Text(field.errorText!, style: TextStyle(color: cs.error)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MachineTaskDialog extends StatefulWidget {
   const _MachineTaskDialog({
     required this.platform,
@@ -1105,22 +1438,63 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               label: Text(l.maintenanceTaskNative),
                             ),
                           if (_cron) ...[
-                            _field(
-                              _schedule,
-                              l.maintenanceTaskCron,
-                              validate: (value) =>
-                                  machineTaskCronValid(value.trim())
-                                  ? null
-                                  : l.maintenanceTaskValidation,
+                            _MachineCronSchedule(
+                              controller: _schedule,
+                              enabled: !_saving,
                             ),
-                            _field(
-                              _command,
-                              maintenanceLabel(context, '启动命令'),
-                              lines: 3,
-                              validate: (value) =>
-                                  RegExp(r'[\r\n\x00]').hasMatch(value)
-                                  ? l.maintenanceTaskValidation
-                                  : null,
+                            _MaintenanceCard(
+                              title: maintenanceLabel(context, '启动命令'),
+                              icon: Icons.terminal_rounded,
+                              scrollBody: false,
+                              child: FormField<String>(
+                                validator: (_) => _command.text.trim().isEmpty
+                                    ? l.maintenanceTaskValidation
+                                    : RegExp(
+                                        r'[\r\n\x00]',
+                                      ).hasMatch(_command.text)
+                                    ? l.maintenanceCronCommandHelp
+                                    : null,
+                                builder: (field) => Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      l.maintenanceCronCommandHelp,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ValueListenableBuilder<TextEditingValue>(
+                                      valueListenable: _command,
+                                      builder: (context, value, _) =>
+                                          OpenHandCodeEditor(
+                                            value: value.text,
+                                            language: 'bash',
+                                            fileName: 'cron.sh',
+                                            icon: Icons.terminal_rounded,
+                                            height: 280,
+                                            borderRadius:
+                                                kOpenHandBorderRadius8,
+                                            readOnly: _saving,
+                                            onChanged: (text) {
+                                              if (_command.text != text) {
+                                                _command.text = text;
+                                              }
+                                              field.didChange(text);
+                                            },
+                                          ),
+                                    ),
+                                    if (field.errorText != null) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        field.errorText!,
+                                        style: TextStyle(color: cs.error),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,

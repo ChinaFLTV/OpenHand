@@ -9753,5 +9753,17 @@
   "maintenanceTaskHistory": "Historique d’exécution",
   "maintenanceTaskHistoryUnavailable": "Le planificateur ne fournit ni horaires ni résultats d’exécution",
   "maintenanceTaskEvery": "Toutes les {duration}",
-  "maintenanceTaskIntervalLabel": "Intervalle d’exécution"
+  "maintenanceTaskIntervalLabel": "Intervalle d’exécution",
+  "maintenanceCronEvery": "Chaque valeur",
+  "maintenanceCronSelect": "Choisir les valeurs",
+  "maintenanceCronStep": "Intervalle fixe",
+  "maintenanceCronPreserve": "Conserver la règle actuelle",
+  "maintenanceCronMinute": "Chaque minute",
+  "maintenanceCronHourly": "Toutes les heures",
+  "maintenanceCronDaily": "Chaque jour",
+  "maintenanceCronWeekly": "Chaque semaine",
+  "maintenanceCronMonthly": "Chaque mois",
+  "maintenanceCronReboot": "Au démarrage du système",
+  "maintenanceCronHelp": "Choisissez un rythme, puis une carte pour régler ses valeurs. Le fuseau de la tâche sur la machine cible s’applique. Si le jour du mois et de la semaine sont restreints, une seule correspondance suffit.",
+  "maintenanceCronCommandHelp": "Crontab exige une commande shell sur une ligne. Séparez les commandes par des points-virgules ou appelez un fichier script."
 }
