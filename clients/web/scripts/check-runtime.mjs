@@ -1089,6 +1089,59 @@ try {
   textCache.set('丁', '六'.repeat(10));
   assert.equal(textCache.get('甲'), '', '空净化结果也必须正确缓存和计费');
 
+  const { remarkCachedParse } = await server.ssrLoadModule('/src/shared/util/markdown_parse_cache.ts');
+  const { default: ReactMarkdown } = await server.ssrLoadModule('react-markdown');
+  const { default: remarkGfm } = await server.ssrLoadModule('remark-gfm');
+  let parseCalls = 0;
+  function countParser() {
+    const parser = this.parser;
+    this.parser = (...args) => { parseCalls++; return parser(...args); };
+  }
+  const tableSource = '| 名称 | 数值 |\n| --- | --- |\n| **历史内容** | 42 |';
+  function markdownTree(source, math = false, enabled = true) {
+    return ReactMarkdown({ children: source,
+      remarkPlugins: [remarkGfm, countParser, [remarkCachedParse, { enabled, math }]],
+    });
+  }
+  function treeText(tree) {
+    if (tree == null || typeof tree === 'boolean') return '';
+    if (typeof tree === 'string' || typeof tree === 'number') return String(tree);
+    if (Array.isArray(tree)) return tree.map(treeText).join('');
+    return treeText(tree.props?.children);
+  }
+  const firstTree = markdownTree(tableSource);
+  assert.match(treeText(firstTree), /历史内容.*42/s, '真实解析管线保留表格和强调内容');
+  assert.equal(treeText(markdownTree(tableSource)), treeText(firstTree));
+  assert.equal(parseCalls, 1, '历史卡片重新挂载时复用语法树');
+  markdownTree(tableSource, true);
+  assert.equal(parseCalls, 2, '公式语法与标准语法使用不同缓存');
+  markdownTree(tableSource, false, false);
+  markdownTree(tableSource, false, false);
+  assert.equal(parseCalls, 4, '流式消息不能占用历史缓存');
+  // 后续插件修改正文不能污染缓存原件。
+  function mutateTree() { return tree => { tree.children.length = 0; }; }
+  ReactMarkdown({ children: tableSource, remarkPlugins: [remarkGfm,
+    [remarkCachedParse, { enabled: true, math: false }], mutateTree] });
+  assert.equal(treeText(markdownTree(tableSource)), treeText(firstTree), '消息之间不能共享可变语法树');
+  markdownTree(tableSource.replace('历史内容', '最新内容'));
+  assert.equal(parseCalls, 5, '内容变化必须重新解析');
+  for (let index = 0; index < 70; index++) markdownTree(`缓存淘汰-${index} **正文**`);
+  markdownTree(tableSource);
+  assert.equal(parseCalls, 76, '缓存到达上限后淘汰旧条目');
+
+  let denseParses = 0;
+  const denseParser = { parser() { denseParses++; return { children: Array.from({ length: 5999 }, () => ({})) }; } };
+  remarkCachedParse.call(denseParser, { enabled: true, math: false });
+  for (let index = 0; index < 5; index++) denseParser.parser(`密集缓存-${index}`);
+  denseParser.parser('密集缓存-0');
+  assert.equal(denseParses, 6, '源码很短的密集表格也受总节点预算约束');
+  let oversizedParses = 0;
+  const oversizedParser = { parser() { oversizedParses++; return { children: Array.from({ length: 6000 }, () => ({})) }; } };
+  remarkCachedParse.call(oversizedParser, { enabled: true, math: false });
+  oversizedParser.parser('单条过密正文');
+  oversizedParser.parser('单条过密正文');
+  assert.equal(oversizedParses, 2, '超出单条节点预算的语法树不长期保留');
+
   replaceGlobal('document', { documentElement: { getAttribute: () => null } });
   const { RichContentFrameScheduler } = await server.ssrLoadModule('/src/shared/ui/rich_content_frame_scheduler.ts');
   const frames = [];

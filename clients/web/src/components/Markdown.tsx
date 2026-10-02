@@ -13,6 +13,7 @@ import remarkGfm from 'remark-gfm';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import { ignoreError } from '../shared/util/errors';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
+import { remarkCachedParse } from '../shared/util/markdown_parse_cache';
 import { truncateEndText } from '../shared/util/text';
 import {
   isTranscriptScrollActive,
@@ -1230,8 +1231,13 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
     };
   }, [hasMath, remarkMathPlugin, rehypeKatexPlugin]);
   const remarkPlugins = useMemo(
-    () => (hasMath && remarkMathPlugin ? [remarkGfm, remarkMathPlugin as never] : [remarkGfm]),
-    [hasMath, remarkMathPlugin],
+    () => {
+      const math = Boolean(hasMath && remarkMathPlugin);
+      const plugins = math ? [remarkGfm, remarkMathPlugin as never] : [remarkGfm];
+      plugins.push([remarkCachedParse, { enabled: !streaming, math }] as never);
+      return plugins;
+    },
+    [hasMath, remarkMathPlugin, streaming],
   );
   const rehypePlugins = useMemo(
     () => {

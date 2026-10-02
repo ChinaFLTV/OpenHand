@@ -3380,7 +3380,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 beforeCenterCount - index - 1,
                               ),
                               childCount: beforeCenterCount,
-                              addRepaintBoundaries: false,
+                              addRepaintBoundaries: true,
                               findChildIndexCallback: (key) {
                                 final index = findIndex(key);
                                 return index != null &&
@@ -3400,7 +3400,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                               controller: widget.controller,
                               anchorsBottom: _anchorsTranscriptBottom,
                               childCount: listItemCount - beforeCenterCount,
-                              addRepaintBoundaries: false,
+                              addRepaintBoundaries: true,
                               findChildIndexCallback: (key) {
                                 final index = findIndex(key);
                                 return index != null &&

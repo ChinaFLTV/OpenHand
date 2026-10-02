@@ -128,6 +128,18 @@ class OpenHandEditorScrollBehavior extends OpenHandScrollBehaviorBase {
   }
 }
 
+/// 消息预览独占溢出滚动，边界位移不进入全局嵌套滚动链。
+class OpenHandContainedScrollBehavior extends OpenHandEditorScrollBehavior {
+  const OpenHandContainedScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
+}
+
 final _scrollChains = Expando<_OpenHandScrollChain>();
 
 /// 框架先处理命中的滚动域，仅将未消费的滚动量交给同一路径的外层。

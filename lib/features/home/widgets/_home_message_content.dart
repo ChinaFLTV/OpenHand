@@ -169,7 +169,7 @@ Widget _buildCollapsedPreviewScrollableFrame({
             children: [
               ClipRect(
                 child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
+                  behavior: const OpenHandContainedScrollBehavior().copyWith(
                     scrollbars: false,
                     // 正文中的可选文字不能继承全局“始终可滚”，否则空滚动区会抢走触控板手势。
                     physics: const ClampingScrollPhysics(),
@@ -1238,6 +1238,7 @@ class _SafeMarkdownRichBody extends StatefulWidget {
 
 // 大型 Markdown 冷解析先保留可读正文，再按共享帧预算构建富文本树。
 const int _markdownDeferredParseThresholdChars = 768;
+const int _markdownWorkerParseThresholdChars = 8 * kBytesPerKiB;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
 // 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。
@@ -1257,30 +1258,51 @@ typedef _MarkdownAstKey = ({
 class _MarkdownAstCache {
   static const int _maxEntries = 512;
   static const int _maxSourceChars = 4 * kBytesPerMiB;
-  final _entries = <_MarkdownAstKey, List<md.Node>>{};
+  static const int _maxAstNodes = 24000;
+  static const int _maxEntryNodes = 6000;
+  final _entries = <_MarkdownAstKey, ({List<md.Node> nodes, int nodeCount})>{};
   int _sourceChars = 0;
+  int _astNodes = 0;
 
   List<md.Node>? get(_MarkdownAstKey key) {
-    final nodes = _entries.remove(key);
-    if (nodes != null) _entries[key] = nodes;
-    return nodes;
+    final entry = _entries.remove(key);
+    if (entry != null) _entries[key] = entry;
+    return entry?.nodes;
   }
 
   void put(_MarkdownAstKey key, List<md.Node> nodes) {
-    if (_entries.remove(key) != null) _sourceChars -= key.source.length;
+    final previous = _entries.remove(key);
+    if (previous != null) {
+      _sourceChars -= key.source.length;
+      _astNodes -= previous.nodeCount;
+    }
     if (key.source.length > _maxSourceChars) return;
-    _entries[key] = nodes;
+    // 短源码也可能生成密集表格，内存预算必须同时约束节点数。
+    final pending = List<md.Node>.of(nodes);
+    var nodeCount = 0;
+    while (pending.isNotEmpty) {
+      final node = pending.removeLast();
+      nodeCount += 1;
+      if (nodeCount > _maxEntryNodes) return;
+      if (node is md.Element && node.children != null) {
+        pending.addAll(node.children!);
+      }
+    }
+    _entries[key] = (nodes: nodes, nodeCount: nodeCount);
     _sourceChars += key.source.length;
-    while (_entries.length > _maxEntries || _sourceChars > _maxSourceChars) {
+    _astNodes += nodeCount;
+    while (_entries.length > _maxEntries ||
+        _sourceChars > _maxSourceChars ||
+        _astNodes > _maxAstNodes) {
       final oldest = _entries.keys.first;
-      _entries.remove(oldest);
+      final removed = _entries.remove(oldest)!;
       _sourceChars -= oldest.source.length;
+      _astNodes -= removed.nodeCount;
     }
   }
 }
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
-final Set<_MarkdownAstKey> _pendingMarkdownWarmups = <_MarkdownAstKey>{};
 
 _MarkdownAstKey _markdownAstCacheKeyForInputs({
   required String normalizedSource,
@@ -1309,59 +1331,6 @@ _MarkdownAstKey _markdownAstCacheKeyFor(
   );
 }
 
-void _warmMarkdownAst({
-  required String data,
-  required String parseKey,
-  required List<md.InlineSyntax> inlineSyntaxes,
-  void Function(List<md.Node> astNodes)? onReady,
-}) {
-  if (data.length > _markdownPlainTextSkipThresholdChars ||
-      _canRenderMarkdownAsPlainText(data)) {
-    return;
-  }
-  final normalizedSource = normalizeOpenHandMarkdownSource(
-    data.isEmpty ? ' ' : data,
-    stripMessageScaffolding: true,
-  );
-  final effectiveInlineSyntaxes = withOpenHandMarkdownMathInlineSyntaxes(
-    inlineSyntaxes,
-  );
-  final astCacheKey = _markdownAstCacheKeyForInputs(
-    normalizedSource: normalizedSource,
-    parseKey: parseKey,
-    inlineSyntaxes: effectiveInlineSyntaxes,
-  );
-  final cachedAst = _markdownAstCache.get(astCacheKey);
-  if (cachedAst != null) {
-    onReady?.call(cachedAst);
-    return;
-  }
-  if (!_pendingMarkdownWarmups.add(astCacheKey)) {
-    return;
-  }
-  void warmup() {
-    try {
-      // 可见卡片可能已在优先队列完成解析，预热执行时再次检查缓存。
-      var astNodes = _markdownAstCache.get(astCacheKey);
-      if (astNodes == null) {
-        astNodes = parseOpenHandMarkdown(
-          normalizedSource,
-          inlineSyntaxes: effectiveInlineSyntaxes,
-        );
-        _markdownAstCache.put(astCacheKey, astNodes);
-      }
-      onReady?.call(astNodes);
-    } finally {
-      _pendingMarkdownWarmups.remove(astCacheKey);
-    }
-  }
-
-  _markdownWarmupScheduler.schedule(
-    warmup,
-    onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
-  );
-}
-
 md.Element? _findMarkdownCodeElement(md.Element element) {
   for (final child in element.children ?? const <md.Node>[]) {
     if (child is md.Element && child.tag == 'code') {
@@ -1371,69 +1340,9 @@ md.Element? _findMarkdownCodeElement(md.Element element) {
   return null;
 }
 
-void _warmHighlightedCodeBlocksFromMarkdownAst({
-  required List<md.Node> nodes,
-  required ThemeData theme,
-  required Color textColor,
-  required bool useDarkCodeSurface,
-}) {
-  for (final node in nodes) {
-    if (node is! md.Element) {
-      continue;
-    }
-    if (node.tag == 'pre') {
-      final codeElement = _findMarkdownCodeElement(node);
-      final rawCode = (codeElement?.textContent ?? node.textContent)
-          .replaceFirst(_trailingNewlineCodeBlockPattern, '');
-      final content = rawCode.isEmpty ? ' ' : rawCode;
-      _warmHighlightedCodeSpan(
-        content: content,
-        theme: theme,
-        baseColor: textColor,
-        forceDarkSurface: useDarkCodeSurface,
-        language: _extractCodeLanguage(codeElement),
-      );
-    }
-    final children = node.children;
-    if (children != null && children.isNotEmpty) {
-      _warmHighlightedCodeBlocksFromMarkdownAst(
-        nodes: children,
-        theme: theme,
-        textColor: textColor,
-        useDarkCodeSurface: useDarkCodeSurface,
-      );
-    }
-  }
-}
-
-void _warmMarkdownRenderPath({
-  required String data,
-  required String parseKey,
-  required List<md.InlineSyntax> inlineSyntaxes,
-  required ThemeData theme,
-  required Color textColor,
-  required bool useDarkCodeSurface,
-}) {
-  _warmMarkdownAst(
-    data: data,
-    parseKey: parseKey,
-    inlineSyntaxes: inlineSyntaxes,
-    onReady: (astNodes) {
-      _warmHighlightedCodeBlocksFromMarkdownAst(
-        nodes: astNodes,
-        theme: theme,
-        textColor: textColor,
-        useDarkCodeSurface: useDarkCodeSurface,
-      );
-    },
-  );
-}
-
 /// 正文在滚动期间也逐帧推进，后台预热等待滚动间歇。
 final RichContentFrameScheduler _markdownFrameScheduler =
     RichContentFrameScheduler();
-final RichContentFrameScheduler _markdownWarmupScheduler =
-    RichContentFrameScheduler(isPaused: _transcriptRenderPaused, maxPending: 8);
 
 /// 等待渲染时使用有界微光占位，不把 Markdown 或 HTML 源码暴露给用户。
 class _RichContentPendingPreview extends StatelessWidget {
@@ -1499,6 +1408,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
   bool _deferredParseScheduled = false;
   VoidCallback? _cancelDeferredParse;
   int _deferredParseGeneration = 0;
+  _MarkdownAstKey? _workerAstKey;
+  List<md.Node>? _workerAst;
+  _MarkdownAstKey? _workerFailedKey;
   Timer? _deferredParseThrottleTimer;
   final Stopwatch _markdownParseStopwatch = Stopwatch()..start();
   int _lastMarkdownParseAtMs = -1;
@@ -1553,6 +1465,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
     final overDeferredThreshold = config.data.length > deferredThreshold;
     final shouldDeferParse =
         deferHistoricalContent ||
+        config.data.length >= _markdownWorkerParseThresholdChars ||
         (overDeferredThreshold && (config.streaming || !initial));
     if (shouldDeferParse &&
         config.data.length <= _markdownPlainTextSkipThresholdChars &&
@@ -1624,11 +1537,75 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
           _deferredParseScheduled = false;
           return;
         }
-        _deferredParseScheduled = false;
-        setState(_parseMarkdown);
+        unawaited(_prepareDeferredMarkdown(generation));
       },
       priority: true,
       isValid: () => mounted && generation == _deferredParseGeneration,
+      onDropped: () {
+        if (generation != _deferredParseGeneration) return;
+        _cancelDeferredParse = null;
+        _deferredParseScheduled = false;
+      },
+    );
+  }
+
+  Future<void> _prepareDeferredMarkdown(int generation) async {
+    final data = config.data;
+    if (data.length < _markdownWorkerParseThresholdChars) {
+      _deferredParseScheduled = false;
+      setState(_parseMarkdown);
+      return;
+    }
+    final normalizedSource = normalizeOpenHandMarkdownSource(
+      data.isEmpty ? ' ' : data,
+      stripMessageScaffolding: true,
+    );
+    final key = _markdownAstCacheKeyFor(normalizedSource, config);
+    final parseKey = config.parseKey;
+    bool isValid() => mounted && generation == _deferredParseGeneration;
+    try {
+      if (!_canRenderMarkdownAsPlainText(data) &&
+          (config.streaming || _markdownAstCache.get(key) == null) &&
+          _workerAstKey != key &&
+          _workerFailedKey != key) {
+        final nodes = await parseOpenHandMarkdownOffThread(
+          normalizedSource,
+          inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(
+            config.inlineSyntaxes,
+          ),
+          isValid: isValid,
+        );
+        if (!isValid()) return;
+        if (nodes != null) {
+          _workerAstKey = key;
+          _workerAst = nodes;
+          _workerFailedKey = null;
+        }
+      }
+    } catch (error, stack) {
+      if (!isValid()) return;
+      _workerFailedKey = key;
+      silentLog('消息渲染', '后台 Markdown 解析失败，保留原文', error, stack);
+    }
+    if (!isValid()) return;
+    if (data != config.data || parseKey != config.parseKey) {
+      _deferredParseScheduled = false;
+      _scheduleDeferredParse(throttle: config.streaming);
+      return;
+    }
+    // 后台结果仍通过共享额度提交组件树，避免多个完成回调集中占用一帧。
+    _cancelDeferredParse = _markdownFrameScheduler.schedule(
+      () {
+        _cancelDeferredParse = null;
+        _deferredParseScheduled = false;
+        if (data != config.data || parseKey != config.parseKey) {
+          _scheduleDeferredParse(throttle: config.streaming);
+          return;
+        }
+        setState(_parseMarkdown);
+      },
+      priority: true,
+      isValid: isValid,
       onDropped: () {
         if (generation != _deferredParseGeneration) return;
         _cancelDeferredParse = null;
@@ -1716,12 +1693,23 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
       // 残留旧色。
       final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, config);
       final shouldCacheAst = !config.streaming;
+      if (_workerFailedKey == astCacheKey) {
+        _children = <Widget>[
+          config.selectable
+              ? SelectableText(config.data, style: effectiveStyleSheet.p)
+              : Text(config.data, style: effectiveStyleSheet.p),
+        ];
+        return false;
+      }
       final cachedAst = shouldCacheAst
           ? _markdownAstCache.get(astCacheKey)
           : null;
       final List<md.Node> astNodes;
       if (cachedAst != null) {
         astNodes = cachedAst;
+      } else if (_workerAstKey == astCacheKey && _workerAst != null) {
+        astNodes = _workerAst!;
+        if (shouldCacheAst) _markdownAstCache.put(astCacheKey, astNodes);
       } else {
         astNodes = parseOpenHandMarkdown(
           normalizedSource,

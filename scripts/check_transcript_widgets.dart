@@ -19,12 +19,20 @@ Future<void> main() async {
         "import 'package:openhand/app/state/settings_store.dart';\n"
         "import 'package:openhand/app/theme/openhand_theme.dart';\n"
         "import 'dart:ui' as ui;\n"
+        "import 'dart:isolate' show RemoteError;\n"
         '$source\n$_widgetTests',
   );
 }
 
 const _widgetTests = r'''
 // 仅替换平台视图边界；消息格式分发与延迟加载仍执行生产实现。
+class _FailingMarkdownSyntax extends md.InlineSyntax {
+  _FailingMarkdownSyntax() : super('@解析失败');
+  @override
+  bool onMatch(md.InlineParser parser, Match match) =>
+      throw const FormatException('模拟正文解析失败');
+}
+
 class _ProbeWebViewPlatform extends iaw.InAppWebViewPlatform {
   @override
   iaw.PlatformInAppWebViewWidget createPlatformInAppWebViewWidget(
@@ -816,6 +824,80 @@ void main() {
     expect(store.requests.length - previousReads, 4,
       reason: '超时的排队任务不能重新启动读取');
     expect(controller.sessions.single.messageWindowStartIndex, 8);
+  });
+
+  test('密集 Markdown 缓存同时限制单条与总节点数', () {
+    final cache = _MarkdownAstCache();
+    _MarkdownAstKey key(String source) => (source: source, parseKey: '', syntaxSignature: 0);
+    final nodes = List<md.Node>.generate(1500, (_) => md.Element.text('p', '内容'));
+    for (var index = 0; index < 9; index++) cache.put(key('正文-$index'), nodes);
+    expect(cache._astNodes, lessThanOrEqualTo(_MarkdownAstCache._maxAstNodes));
+    expect(cache.get(key('正文-0')), isNull, reason: '总节点超限时淘汰最旧正文');
+    expect(cache.get(key('正文-8')), same(nodes));
+    cache.put(key('过密表格'), List<md.Node>.generate(6001, (_) => md.Text('单元格')));
+    expect(cache.get(key('过密表格')), isNull, reason: '单条节点超限时不长期保留语法树');
+    cache.put(key('正文-8'), [md.Text('精简正文')]);
+    expect(cache._astNodes, 21001, reason: '覆盖旧条目时释放旧节点预算');
+  });
+
+  test('后台 Markdown 保留表格、公式、路径及媒体语法，失效任务不启动', () async {
+    final source = normalizeOpenHandMarkdownSource(
+      '| 名称 | 数值 |\n| --- | --- |\n| **内容** | 42 |\n\n'
+      r'$x^2$ /tmp/openhand-check.txt [音频](/tmp/openhand-check.mp3)',
+    );
+    final syntaxes = withOpenHandMarkdownMathInlineSyntaxes([
+      MessagePathCodeSyntax(candidateRoots: const ['/tmp']),
+      MessageFilePathSyntax(candidateRoots: const ['/tmp']),
+      _GeneratedMediaLinkSyntax.byExtension(pathRoots: const ['/tmp']),
+    ]);
+    String describe(List<md.Node> nodes) => nodes.map((node) => node is md.Element
+      ? '${node.tag}:${node.attributes}:${describe(node.children ?? [])}'
+      : node.textContent).join('|');
+    final expected = parseOpenHandMarkdown(source, inlineSyntaxes: syntaxes);
+    final actual = await parseOpenHandMarkdownOffThread(source,
+      inlineSyntaxes: syntaxes, isValid: () => true);
+    expect(describe(actual!), describe(expected));
+    expect(await parseOpenHandMarkdownOffThread(source,
+      inlineSyntaxes: syntaxes, isValid: () => false), isNull);
+  });
+
+  test('后台解析错误释放队列，后续消息仍可完成', () async {
+    await expectLater(parseOpenHandMarkdownOffThread('@解析失败',
+      inlineSyntaxes: [_FailingMarkdownSyntax()], isValid: () => true),
+      throwsA(isA<RemoteError>()));
+    final nodes = await parseOpenHandMarkdownOffThread('**后续正文**',
+      inlineSyntaxes: const [], isValid: () => true);
+    expect(nodes!.single.textContent, '后续正文');
+  });
+
+  testWidgets('长正文冷解析移出界面线程，更新与卸载不接收旧结果', (tester) async {
+    final initial = '**旧正文** ${'正文 ' * 3000}';
+    final latest = '**最新正文** ${'新内容 ' * 2500}';
+    late StateSetter rebuild;
+    var content = initial;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+      child: StatefulBuilder(builder: (_, setState) {
+        rebuild = setState;
+        return _SafeMarkdownRichBody(_SafeMarkdownBody(data: content,
+          styleSheet: MarkdownStyleSheet(), deferInitialParse: false));
+      }),
+    ))));
+    final state = tester.state<_SafeMarkdownBodyState>(find.byType(_SafeMarkdownRichBody));
+    expect(state._lastData, isNull, reason: '关闭首次延迟也不能同步解析长正文');
+    rebuild(() => content = latest);
+    for (var frame = 0; frame < 100 && state._lastData != latest; frame++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump();
+    }
+    expect(state._lastData, latest);
+    expect(state._workerAst, isNotNull, reason: '必须使用真实后台解析结果');
+    expect(state._workerFailedKey, isNull);
+    rebuild(() => content = '**卸载前正文** ${'更多内容 ' * 2000}');
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('失效富文本任务立即取消', (tester) async {

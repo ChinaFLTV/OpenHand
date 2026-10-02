@@ -27,7 +27,6 @@ const BoundedDeletePolicy _tempPreviewDeletePolicy = BoundedDeletePolicy(
 final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
   maxEntries: 512,
 );
-final Set<int> _pendingHighlightWarmups = <int>{};
 
 /// 全局帧分散调度器，将同时展开的代码块高亮任务拆分到多个帧执行。
 /// 每帧仅执行一个任务，避免大段输出分词阻塞界面；缓存命中时可直接复用结果。
@@ -146,65 +145,6 @@ TextSpan _computeHighlightedCodeSpan({
   }
   _highlightSpanCache.put(signature, span, content.length);
   return span;
-}
-
-void _warmHighlightedCodeSpan({
-  required String content,
-  required ThemeData theme,
-  required Color baseColor,
-  required bool forceDarkSurface,
-  String? language,
-}) {
-  final effectiveLanguage = normalizeOpenHandCodeLanguage(language);
-  final useDarkPalette =
-      forceDarkSurface || theme.brightness == Brightness.dark;
-  final signature = _highlightSignatureForInputs(
-    content: content,
-    effectiveLanguage: effectiveLanguage,
-    baseColor: baseColor,
-    useDarkPalette: useDarkPalette,
-    theme: theme,
-  );
-  if (_highlightSpanCache.get(signature) != null) {
-    return;
-  }
-  if (content.length > _highlightSkipThresholdChars) {
-    _highlightSpanCache.put(
-      signature,
-      TextSpan(
-        text: content,
-        style: _baseCodeStyleForTheme(theme: theme, baseColor: baseColor),
-      ),
-      content.length,
-    );
-    return;
-  }
-  if (!_pendingHighlightWarmups.add(signature)) {
-    return;
-  }
-  void warmup() {
-    try {
-      _computeHighlightedCodeSpan(
-        content: content,
-        effectiveLanguage: effectiveLanguage,
-        theme: theme,
-        baseColor: baseColor,
-        useDarkPalette: useDarkPalette,
-        signature: signature,
-      );
-    } finally {
-      _pendingHighlightWarmups.remove(signature);
-    }
-  }
-
-  if (content.length > _highlightDeferThresholdChars) {
-    _highlightFrameScheduler.schedule(
-      warmup,
-      onDropped: () => _pendingHighlightWarmups.remove(signature),
-    );
-    return;
-  }
-  warmup();
 }
 
 /// 线程消息与技能详情共用的围栏代码块 / Mermaid 构建器。

@@ -82,6 +82,7 @@ import '../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../shared/ui/markdown_image_gallery.dart';
 import '../../shared/ui/markdown_inline_code.dart';
 import '../../shared/ui/markdown_math.dart';
+import '../../shared/ui/markdown_parse_worker.dart';
 import '../../shared/ui/markdown_surface_tones.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
