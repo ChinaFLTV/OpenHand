@@ -493,7 +493,6 @@ class _ServiceError extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.error_outline_rounded, size: 19, color: cs.error),
                 kOpenHandHGap8,

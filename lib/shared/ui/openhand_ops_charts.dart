@@ -4966,15 +4966,11 @@ class _HeatmapHoverCard extends StatelessWidget {
                         for (var i = 0; i < tooltip.notes.length; i++) ...[
                           if (i != 0) kOpenHandGap6,
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 3),
-                                child: Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 13,
-                                  color: accentForeground,
-                                ),
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 13,
+                                color: accentForeground,
                               ),
                               kOpenHandHGap6,
                               Expanded(

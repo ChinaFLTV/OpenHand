@@ -429,7 +429,6 @@ class _DashboardScriptResultPreview extends StatelessWidget {
                   border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.check_circle_outline_rounded,

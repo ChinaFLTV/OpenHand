@@ -1047,7 +1047,6 @@ class _ConversationErrorCard extends StatelessWidget {
         border: Border.all(color: colors.error.withValues(alpha: 0.35)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.error_outline_rounded, size: 18, color: colors.error),
           kOpenHandHGap8,

@@ -633,12 +633,8 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                 border: Border.all(color: accent.withValues(alpha: 0.24)),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Icon(manualPhaseIcon, size: 16, color: accent),
-                  ),
+                  Icon(manualPhaseIcon, size: 16, color: accent),
                   kOpenHandHGap8,
                   Expanded(
                     child: Text(
@@ -670,7 +666,6 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                 ),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     Icons.history_toggle_off_rounded,
@@ -708,15 +703,11 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                 ),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 1),
-                    child: Icon(
-                      Icons.error_outline_rounded,
-                      size: 16,
-                      color: _heFailedTone,
-                    ),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 16,
+                    color: _heFailedTone,
                   ),
                   kOpenHandHGap8,
                   Expanded(

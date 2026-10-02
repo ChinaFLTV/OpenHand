@@ -1117,7 +1117,6 @@ print(resp.text[:2000])''';
         ),
         padding: const EdgeInsets.all(12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.error_outline_rounded, color: cs.error, size: 16),
             kOpenHandHGap8,

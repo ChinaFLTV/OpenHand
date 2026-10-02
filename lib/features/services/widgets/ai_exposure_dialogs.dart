@@ -4672,7 +4672,6 @@ class _InlineNotice extends StatelessWidget {
     return OpenHandTintedPanel(
       accent: accent,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 18, color: accent),
           kOpenHandHGap9,

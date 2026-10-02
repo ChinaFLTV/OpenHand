@@ -150,7 +150,6 @@ class _WorkflowCurlImportDialogState extends State<_WorkflowCurlImportDialog> {
                               ),
                             ),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
                                   Icons.error_outline_rounded,

@@ -1260,8 +1260,6 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                 ),
                                 if (!task.writable)
                                   Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
                                     children: [
                                       Icon(
                                         Icons.info_outline_rounded,

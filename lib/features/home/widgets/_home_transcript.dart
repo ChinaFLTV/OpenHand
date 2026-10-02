@@ -3672,15 +3672,11 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  size: 18,
-                  color: colorScheme.onErrorContainer,
-                ),
+              Icon(
+                Icons.error_outline_rounded,
+                size: 18,
+                color: colorScheme.onErrorContainer,
               ),
               kOpenHandHGap10,
               Expanded(
@@ -4458,7 +4454,6 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
             border: Border.all(color: cs.error.withValues(alpha: 0.35)),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon, size: 22, color: cs.onErrorContainer),
               kOpenHandHGap12,

@@ -6537,7 +6537,6 @@ class _McpOpsHintText extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: cs.onSurfaceVariant),
         kOpenHandHGap8,

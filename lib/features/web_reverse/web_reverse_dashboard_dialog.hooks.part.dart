@@ -216,7 +216,6 @@ class _HooksBodyState extends State<_HooksBody>
                     ),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.info_outline_rounded,

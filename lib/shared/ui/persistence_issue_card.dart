@@ -27,7 +27,6 @@ class PersistenceIssueCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
               Icons.warning_amber_rounded,

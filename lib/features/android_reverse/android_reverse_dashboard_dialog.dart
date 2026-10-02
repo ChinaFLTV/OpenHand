@@ -11654,7 +11654,6 @@ class _InfoCard extends StatelessWidget {
         border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: cs.primary),
           kOpenHandHGap8,

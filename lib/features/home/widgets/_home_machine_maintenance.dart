@@ -5654,7 +5654,6 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _MaintenanceIconBadge(
                 icon: widget.error ? Icons.error_outline : Icons.info_outline,
@@ -6344,7 +6343,6 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
               border: Border.all(color: cs.outlineVariant),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _MaintenanceIconBadge(
                   icon: issue == 'permission'

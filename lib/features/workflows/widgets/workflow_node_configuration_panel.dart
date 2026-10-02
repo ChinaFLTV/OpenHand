@@ -782,7 +782,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                     ),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.alt_route_rounded,
@@ -2275,7 +2274,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       title: '退出当前循环',
       icon: Icons.exit_to_app_rounded,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.info_outline_rounded,

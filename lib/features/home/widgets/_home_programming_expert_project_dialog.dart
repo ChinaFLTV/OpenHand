@@ -988,7 +988,6 @@ class _ProgrammingExpertProjectDialogState
               if (normalizedProjectRoot.isNotEmpty && !projectRootExists) ...[
                 kOpenHandGap10,
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.warning_amber_rounded,
@@ -1326,7 +1325,6 @@ class _ProgrammingExpertProjectDialogState
               if (_selectedLanguage == 'mixed') ...[
                 kOpenHandGap10,
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
@@ -1466,7 +1464,6 @@ class _ProgrammingExpertProjectDialogState
                 ],
                 kOpenHandGap12,
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.auto_awesome_rounded,

@@ -1968,7 +1968,6 @@ class _ContainerTelemetryIssue extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(
                   Icons.info_outline_rounded,

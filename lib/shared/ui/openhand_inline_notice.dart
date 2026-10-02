@@ -104,7 +104,6 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
         borderRadius: BorderRadius.circular(kOpenHandRadius16),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(widget.icon, color: widget.foregroundColor),
           kOpenHandHGap10,

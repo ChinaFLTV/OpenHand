@@ -5875,7 +5875,6 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
         if (truncated) ...[
           kOpenHandGap10,
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.info_outline_rounded,

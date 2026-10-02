@@ -3699,7 +3699,6 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               borderRadius: kOpenHandBorderRadius10,
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
                   Icons.info_outline_rounded,

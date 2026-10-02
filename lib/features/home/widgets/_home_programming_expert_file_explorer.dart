@@ -8550,7 +8550,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildDiagnosticsHint(ColorScheme colorScheme, String text) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.info_outline_rounded, size: 14, color: colorScheme.primary),
         kOpenHandHGap6,

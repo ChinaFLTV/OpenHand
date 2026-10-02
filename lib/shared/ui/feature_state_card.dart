@@ -146,7 +146,6 @@ class FeatureStateCard extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: maxWidth == null ? MainAxisSize.max : MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: colors.iconForeground),
           kOpenHandHGap14,

@@ -7388,7 +7388,6 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.search_rounded, size: 18, color: colorScheme.primary),
           kOpenHandHGap10,

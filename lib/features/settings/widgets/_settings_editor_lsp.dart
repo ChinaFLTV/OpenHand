@@ -1009,7 +1009,6 @@ class _EditorLspInlineNotice extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: color),
           kOpenHandHGap8,

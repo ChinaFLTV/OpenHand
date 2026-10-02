@@ -1248,7 +1248,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(
                                 Icons.info_outline_rounded,

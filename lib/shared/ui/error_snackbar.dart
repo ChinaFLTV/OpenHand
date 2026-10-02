@@ -205,16 +205,8 @@ class _ErrorSummaryBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = theme.colorScheme;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(
-            Icons.report_problem_rounded,
-            size: 20,
-            color: colorScheme.error,
-          ),
-        ),
+        Icon(Icons.report_problem_rounded, size: 20, color: colorScheme.error),
         kOpenHandHGap10,
         Expanded(
           child: SelectableText(
