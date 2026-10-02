@@ -1374,18 +1374,20 @@ class _E2bSandboxConfigEditorState extends State<_E2bSandboxConfigEditor> {
                   'apiKey',
                   _textFor(zh: 'E2B 接口密钥', en: 'E2B API Key'),
                   obscure: !_showSecrets,
-                  suffix: IconButton(
-                    style: _sandboxInputIconButtonStyle,
-                    tooltip: _showSecrets
-                        ? _textFor(zh: '隐藏密钥', en: 'Hide Secret')
-                        : _textFor(zh: '显示密钥', en: 'Show Secret'),
-                    onPressed: () => setState(() {
-                      _showSecrets = !_showSecrets;
-                    }),
-                    icon: Icon(
-                      _showSecrets
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
+                  suffix: OpenHandInputIconAction(
+                    child: IconButton(
+                      style: _sandboxInputIconButtonStyle,
+                      tooltip: _showSecrets
+                          ? _textFor(zh: '隐藏密钥', en: 'Hide Secret')
+                          : _textFor(zh: '显示密钥', en: 'Show Secret'),
+                      onPressed: () => setState(() {
+                        _showSecrets = !_showSecrets;
+                      }),
+                      icon: Icon(
+                        _showSecrets
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
                     ),
                   ),
                 ),
@@ -2425,24 +2427,26 @@ class _E2bKeyValueDialogState extends State<_E2bKeyValueDialog> {
           decoration: InputDecoration(
             labelText: openHandLocalizedText(context, zh: '值', en: 'Value'),
             suffixIcon: widget.secret
-                ? IconButton(
-                    style: _sandboxInputIconButtonStyle,
-                    tooltip: _showValue
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '隐藏内容',
-                            en: 'Hide Value',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '显示内容',
-                            en: 'Show Value',
-                          ),
-                    onPressed: () => setState(() => _showValue = !_showValue),
-                    icon: Icon(
-                      _showValue
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
+                ? OpenHandInputIconAction(
+                    child: IconButton(
+                      style: _sandboxInputIconButtonStyle,
+                      tooltip: _showValue
+                          ? openHandLocalizedText(
+                              context,
+                              zh: '隐藏内容',
+                              en: 'Hide Value',
+                            )
+                          : openHandLocalizedText(
+                              context,
+                              zh: '显示内容',
+                              en: 'Show Value',
+                            ),
+                      onPressed: () => setState(() => _showValue = !_showValue),
+                      icon: Icon(
+                        _showValue
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
                     ),
                   )
                 : null,

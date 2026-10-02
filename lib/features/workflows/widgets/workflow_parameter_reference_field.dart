@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -596,13 +597,15 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
                     prefixIcon: const Icon(Icons.search_rounded, size: 19),
                     suffixIcon: _searchController.text.isEmpty
                         ? null
-                        : IconButton(
-                            tooltip: '清空搜索',
-                            onPressed: () {
-                              _searchController.clear();
-                              widget.searchFocusNode.requestFocus();
-                            },
-                            icon: const Icon(Icons.cancel_rounded, size: 17),
+                        : OpenHandInputIconAction(
+                            child: IconButton(
+                              tooltip: '清空搜索',
+                              onPressed: () {
+                                _searchController.clear();
+                                widget.searchFocusNode.requestFocus();
+                              },
+                              icon: const Icon(Icons.cancel_rounded, size: 17),
+                            ),
                           ),
                     isDense: true,
                     filled: true,

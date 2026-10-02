@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
@@ -272,35 +273,37 @@ class _AnimatedEditableDropdownState extends State<AnimatedEditableDropdown> {
           onChanged: (_) => _open(),
           onTapOutside: (_) => _menu.close(),
           decoration: widget.decoration.copyWith(
-            suffixIcon: IconButton(
-              tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-              style:
-                  IconButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    disabledBackgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    foregroundColor: cs.onSurfaceVariant,
-                    side: BorderSide.none,
-                  ).copyWith(
-                    overlayColor: WidgetStateProperty.resolveWith(
-                      (states) =>
-                          states.contains(WidgetState.pressed) ||
-                              states.contains(WidgetState.focused)
-                          ? cs.primary.withValues(alpha: .1)
-                          : Colors.transparent,
+            suffixIcon: OpenHandInputIconAction(
+              child: IconButton(
+                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                style:
+                    IconButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      disabledBackgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: cs.onSurfaceVariant,
+                      side: BorderSide.none,
+                    ).copyWith(
+                      overlayColor: WidgetStateProperty.resolveWith(
+                        (states) =>
+                            states.contains(WidgetState.pressed) ||
+                                states.contains(WidgetState.focused)
+                            ? cs.primary.withValues(alpha: .1)
+                            : Colors.transparent,
+                      ),
                     ),
-                  ),
-              icon: Icon(
-                _visibility.value
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-                size: 20,
+                icon: Icon(
+                  _visibility.value
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 20,
+                ),
+                onPressed: !widget.enabled
+                    ? null
+                    : _visibility.value
+                    ? _menu.close
+                    : _open,
               ),
-              onPressed: !widget.enabled
-                  ? null
-                  : _visibility.value
-                  ? _menu.close
-                  : _open,
             ),
           ),
         ),

@@ -142,27 +142,29 @@ class _AiModelSearchField extends StatelessWidget {
                 padding: const EdgeInsetsDirectional.only(end: 8),
                 child: MicroPressFeedback(
                   scale: 0.92,
-                  child: IconButton(
-                    tooltip: openHandClearSearchLabel(context),
-                    onPressed: () {
-                      controller.clear();
-                      onChanged('');
-                      focusNode.requestFocus();
-                    },
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: colorScheme.onSurfaceVariant,
-                      minimumSize: const Size.square(
-                        _aiModelSearchClearActionSize,
+                  child: OpenHandInputIconAction(
+                    child: IconButton(
+                      tooltip: openHandClearSearchLabel(context),
+                      onPressed: () {
+                        controller.clear();
+                        onChanged('');
+                        focusNode.requestFocus();
+                      },
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                        minimumSize: const Size.square(
+                          _aiModelSearchClearActionSize,
+                        ),
+                        maximumSize: const Size.square(
+                          _aiModelSearchClearActionSize,
+                        ),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      maximumSize: const Size.square(
-                        _aiModelSearchClearActionSize,
-                      ),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.clear_rounded, size: 20),
                     ),
-                    icon: const Icon(Icons.clear_rounded, size: 20),
                   ),
                 ),
               ),
@@ -6859,39 +6861,41 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
                 suffixIcon: Align(
                   widthFactor: 1,
                   heightFactor: 1,
-                  child: IconButton(
-                    tooltip: _apiKeyVisible
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '隐藏 API Key',
-                            en: 'Hide API Key',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '显示 API Key',
-                            en: 'Show API Key',
-                          ),
-                    visualDensity: VisualDensity.compact,
-                    splashRadius: 18,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 36,
-                      height: 36,
+                  child: OpenHandInputIconAction(
+                    child: IconButton(
+                      tooltip: _apiKeyVisible
+                          ? openHandLocalizedText(
+                              context,
+                              zh: '隐藏 API Key',
+                              en: 'Hide API Key',
+                            )
+                          : openHandLocalizedText(
+                              context,
+                              zh: '显示 API Key',
+                              en: 'Show API Key',
+                            ),
+                      visualDensity: VisualDensity.compact,
+                      splashRadius: 18,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: Icon(
+                        _apiKeyVisible
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          setState(() => _apiKeyVisible = !_apiKeyVisible),
                     ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: Icon(
-                      _apiKeyVisible
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      size: 20,
-                    ),
-                    onPressed: () =>
-                        setState(() => _apiKeyVisible = !_apiKeyVisible),
                   ),
                 ),
               ),

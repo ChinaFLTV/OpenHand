@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -659,10 +660,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                   border: const OutlineInputBorder(),
                   isDense: true,
                   contentPadding: _kToolbarFieldPadding,
-                  suffixIcon: ServiceDialogCompactIconButton(
-                    tooltip: '搜索',
-                    onPressed: _busy ? null : _searchRedis,
-                    icon: const Icon(Icons.search_rounded, size: 19),
+                  suffixIcon: OpenHandInputIconAction(
+                    child: ServiceDialogCompactIconButton(
+                      tooltip: '搜索',
+                      onPressed: _busy ? null : _searchRedis,
+                      icon: const Icon(Icons.search_rounded, size: 19),
+                    ),
                   ),
                   suffixIconConstraints: const BoxConstraints.tightFor(
                     width: 44,

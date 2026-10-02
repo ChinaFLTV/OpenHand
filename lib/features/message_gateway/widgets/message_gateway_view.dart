@@ -10341,10 +10341,12 @@ InputDecoration _gatewaySelectionSearchDecoration(
     ),
     suffixIcon: !showClear
         ? null
-        : IconButton(
-            tooltip: openHandClearSearchLabel(context),
-            onPressed: onClear,
-            icon: Icon(Icons.clear_rounded, size: iconSize),
+        : OpenHandInputIconAction(
+            child: IconButton(
+              tooltip: openHandClearSearchLabel(context),
+              onPressed: onClear,
+              icon: Icon(Icons.clear_rounded, size: iconSize),
+            ),
           ),
   );
 }

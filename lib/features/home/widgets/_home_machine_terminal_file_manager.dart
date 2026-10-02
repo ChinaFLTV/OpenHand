@@ -557,13 +557,15 @@ class _MachineTerminalFileManagerDialogState
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
               suffixIcon: _searchController.text.isEmpty
                   ? null
-                  : IconButton(
-                      tooltip: openHandClearLabel(context),
-                      onPressed: _searchController.clear,
-                      icon: const Icon(Icons.close_rounded, size: 17),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        disabledBackgroundColor: Colors.transparent,
+                  : OpenHandInputIconAction(
+                      child: IconButton(
+                        tooltip: openHandClearLabel(context),
+                        onPressed: _searchController.clear,
+                        icon: const Icon(Icons.close_rounded, size: 17),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          disabledBackgroundColor: Colors.transparent,
+                        ),
                       ),
                     ),
               suffixIconConstraints: const BoxConstraints.tightFor(

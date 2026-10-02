@@ -412,14 +412,16 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                             obscureText: !_showPassword,
                             decoration: InputDecoration(
                               labelText: l10n.proxyPasswordLabel,
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _showPassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                ),
-                                onPressed: () => setState(
-                                  () => _showPassword = !_showPassword,
+                              suffixIcon: OpenHandInputIconAction(
+                                child: IconButton(
+                                  icon: Icon(
+                                    _showPassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _showPassword = !_showPassword,
+                                  ),
                                 ),
                               ),
                             ),

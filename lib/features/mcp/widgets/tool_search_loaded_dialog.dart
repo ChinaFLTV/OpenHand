@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
@@ -679,11 +680,15 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           suffixIcon: query.isEmpty
               ? null
-              : IconButton(
-                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
-                  icon: const Icon(Icons.close_rounded, size: 17),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onClear,
+              : OpenHandInputIconAction(
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).clearButtonTooltip,
+                    icon: const Icon(Icons.close_rounded, size: 17),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onClear,
+                  ),
                 ),
           suffixIconConstraints: const BoxConstraints(minWidth: 42),
           border: OutlineInputBorder(

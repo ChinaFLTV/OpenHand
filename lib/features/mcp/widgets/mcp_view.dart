@@ -2976,16 +2976,20 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   if (hasPath)
                     Tooltip(
                       message: clearLabel,
-                      child: IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: _clearWorkspaceRoot,
+                      child: OpenHandInputIconAction(
+                        child: IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: _clearWorkspaceRoot,
+                        ),
                       ),
                     ),
                   Tooltip(
                     message: browseLabel,
-                    child: IconButton(
-                      icon: const Icon(Icons.drive_folder_upload_rounded),
-                      onPressed: _browseWorkspaceRoot,
+                    child: OpenHandInputIconAction(
+                      child: IconButton(
+                        icon: const Icon(Icons.drive_folder_upload_rounded),
+                        onPressed: _browseWorkspaceRoot,
+                      ),
                     ),
                   ),
                 ],

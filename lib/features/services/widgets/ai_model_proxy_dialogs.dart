@@ -2217,25 +2217,27 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
                                     ),
-                                    child: ServiceDialogCompactIconButton(
-                                      size: 32,
-                                      tooltip: _showApiKey
-                                          ? text(
-                                              zh: '隐藏 API Key',
-                                              en: 'Hide API key',
-                                            )
-                                          : text(
-                                              zh: '显示 API Key',
-                                              en: 'Show API key',
-                                            ),
-                                      onPressed: () => setState(
-                                        () => _showApiKey = !_showApiKey,
-                                      ),
-                                      icon: Icon(
-                                        _showApiKey
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
-                                        size: 18,
+                                    child: OpenHandInputIconAction(
+                                      child: ServiceDialogCompactIconButton(
+                                        size: 32,
+                                        tooltip: _showApiKey
+                                            ? text(
+                                                zh: '隐藏 API Key',
+                                                en: 'Hide API key',
+                                              )
+                                            : text(
+                                                zh: '显示 API Key',
+                                                en: 'Show API key',
+                                              ),
+                                        onPressed: () => setState(
+                                          () => _showApiKey = !_showApiKey,
+                                        ),
+                                        icon: Icon(
+                                          _showApiKey
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 18,
+                                        ),
                                       ),
                                     ),
                                   ),

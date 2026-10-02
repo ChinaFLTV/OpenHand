@@ -1925,29 +1925,32 @@ class _TrajectoryToolbar extends StatelessWidget {
                       valueListenable: searchController,
                       builder: (context, value, _) => value.text.isEmpty
                           ? const SizedBox.shrink()
-                          : IconButton(
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                overlayColor: Colors.transparent,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                padding: EdgeInsets.zero,
+                          : OpenHandInputIconAction(
+                              child: IconButton(
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  overlayColor: Colors.transparent,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  padding: EdgeInsets.zero,
+                                ),
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 28,
+                                  height: 28,
+                                ),
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '清除搜索',
+                                  zhHant: '清除搜尋',
+                                  en: 'Clear search',
+                                  fr: 'Effacer la recherche',
+                                  de: 'Suche löschen',
+                                  ja: '検索をクリア',
+                                ),
+                                onPressed: searchController.clear,
+                                icon: const Icon(Icons.close_rounded, size: 15),
                               ),
-                              constraints: const BoxConstraints.tightFor(
-                                width: 28,
-                                height: 28,
-                              ),
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '清除搜索',
-                                zhHant: '清除搜尋',
-                                en: 'Clear search',
-                                fr: 'Effacer la recherche',
-                                de: 'Suche löschen',
-                                ja: '検索をクリア',
-                              ),
-                              onPressed: searchController.clear,
-                              icon: const Icon(Icons.close_rounded, size: 15),
                             ),
                     ),
                     suffixIconConstraints: const BoxConstraints(

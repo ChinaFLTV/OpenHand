@@ -5226,24 +5226,18 @@ class _ProxyInputSuffixButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox.square(
-        dimension: 48,
-        child: InkResponse(
-          onTap: onPressed,
-          radius: 18,
+    return OpenHandInputIconAction(
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: icon,
+        iconSize: 20,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: colors.onSurfaceVariant,
           hoverColor: colors.onSurfaceVariant.withValues(alpha: 0.07),
           focusColor: colors.primary.withValues(alpha: 0.10),
-          splashColor: colors.primary.withValues(alpha: 0.12),
-          highlightColor: colors.primary.withValues(alpha: 0.07),
-          mouseCursor: SystemMouseCursors.click,
-          child: Center(
-            child: IconTheme.merge(
-              data: IconThemeData(size: 20, color: colors.onSurfaceVariant),
-              child: icon,
-            ),
-          ),
+          highlightColor: colors.primary.withValues(alpha: 0.12),
         ),
       ),
     );

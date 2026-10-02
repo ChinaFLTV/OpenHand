@@ -1354,48 +1354,50 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                                   const EdgeInsetsDirectional.only(
                                                     end: 10,
                                                   ),
-                                              child: IconButton(
-                                                onPressed: _isSaving
-                                                    ? null
-                                                    : () {
-                                                        setState(() {
-                                                          _obscureToken =
-                                                              !_obscureToken;
-                                                        });
-                                                      },
-                                                style: IconButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  foregroundColor: colorScheme
-                                                      .onSurfaceVariant,
-                                                  disabledForegroundColor:
-                                                      colorScheme
-                                                          .onSurfaceVariant
-                                                          .withValues(
-                                                            alpha: 0.38,
-                                                          ),
-                                                  minimumSize: const Size(
-                                                    36,
-                                                    36,
+                                              child: OpenHandInputIconAction(
+                                                child: IconButton(
+                                                  onPressed: _isSaving
+                                                      ? null
+                                                      : () {
+                                                          setState(() {
+                                                            _obscureToken =
+                                                                !_obscureToken;
+                                                          });
+                                                        },
+                                                  style: IconButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.transparent,
+                                                    foregroundColor: colorScheme
+                                                        .onSurfaceVariant,
+                                                    disabledForegroundColor:
+                                                        colorScheme
+                                                            .onSurfaceVariant
+                                                            .withValues(
+                                                              alpha: 0.38,
+                                                            ),
+                                                    minimumSize: const Size(
+                                                      36,
+                                                      36,
+                                                    ),
+                                                    maximumSize: const Size(
+                                                      36,
+                                                      36,
+                                                    ),
+                                                    padding: EdgeInsets.zero,
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    visualDensity:
+                                                        VisualDensity.compact,
                                                   ),
-                                                  maximumSize: const Size(
-                                                    36,
-                                                    36,
+                                                  icon: Icon(
+                                                    _obscureToken
+                                                        ? Icons
+                                                              .visibility_outlined
+                                                        : Icons
+                                                              .visibility_off_outlined,
+                                                    size: 22,
                                                   ),
-                                                  padding: EdgeInsets.zero,
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                ),
-                                                icon: Icon(
-                                                  _obscureToken
-                                                      ? Icons
-                                                            .visibility_outlined
-                                                      : Icons
-                                                            .visibility_off_outlined,
-                                                  size: 22,
                                                 ),
                                               ),
                                             ),

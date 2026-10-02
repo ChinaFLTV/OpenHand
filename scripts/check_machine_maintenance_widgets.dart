@@ -6487,7 +6487,26 @@ void resourceChecks() {
           home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, timeout: const Duration(seconds: 30), onCreated: () => created++))));
         await tester.pumpAndSettle();
         final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
-        registry._query.text = 'nginx'; await registry._search(); await tester.pumpAndSettle();
+        registry._query.text = 'nginx'; await tester.pumpAndSettle();
+        final searchField=find.byType(_ContainerRegistrySearchField);
+        final searchAction=find.descendant(of:searchField,matching:find.byType(IconButton));
+        final frame=tester.getRect(find.descendant(of:searchField,matching:find.byType(TextField)));
+        final surface=find.descendant(of:searchAction,matching:find.byType(Material)).last;
+        final rect=tester.getRect(surface);
+        expect(rect.width,lessThanOrEqualTo(32));expect(rect.height,lessThanOrEqualTo(32));
+        expect(rect.top-frame.top,greaterThanOrEqualTo(4));expect(frame.bottom-rect.bottom,greaterThanOrEqualTo(4));
+        expect(frame.right-rect.right,greaterThanOrEqualTo(4));
+        final press=await tester.startGesture(tester.getCenter(searchAction));
+        await tester.pump(const Duration(milliseconds:100));
+        if(Platform.environment['MAINTENANCE_PREVIEW']!=null&&locale==const Locale('zh')) {
+          await tester.runAsync(()async {
+            final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/openhand-input-search-pressed-'+width.toInt().toString()+'.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+          });
+        }
+        await press.cancel();await tester.pumpAndSettle();
+        await tester.tap(searchAction);await tester.pumpAndSettle();
         expect(registry._busy, isFalse); expect(registry._results.single.official, isTrue);
         final selecting = registry._selectTag(registry._results.single); await tester.pumpAndSettle();
         expect(find.text(l.maintenanceImageSelectTag), findsOneWidget);

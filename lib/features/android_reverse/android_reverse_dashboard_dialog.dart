@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:provider/provider.dart';
 
@@ -8042,28 +8043,17 @@ fi
     required VoidCallback onPressed,
   }) {
     if (!visible) return null;
-    return Tooltip(
-      message: tooltip,
-      child: Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: IconButton(
-            onPressed: onPressed,
-            icon: const Icon(Icons.close_rounded, size: 16),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-            splashRadius: 14,
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: cs.onSurfaceVariant,
-              hoverColor: cs.primary.withValues(alpha: 0.08),
-              focusColor: cs.primary.withValues(alpha: 0.08),
-              highlightColor: cs.primary.withValues(alpha: 0.12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(kOpenHandRadius8),
-              ),
-            ),
-          ),
+    return OpenHandInputIconAction(
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: const Icon(Icons.close_rounded, size: 16),
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: cs.onSurfaceVariant,
+          hoverColor: cs.primary.withValues(alpha: 0.08),
+          focusColor: cs.primary.withValues(alpha: 0.08),
+          highlightColor: cs.primary.withValues(alpha: 0.12),
         ),
       ),
     );

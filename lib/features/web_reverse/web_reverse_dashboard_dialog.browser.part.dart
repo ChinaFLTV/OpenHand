@@ -1832,14 +1832,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                     de: 'URL eingeben und Enter drücken',
                     ja: 'URL を入力して Enter',
                   ),
-                  prefixIcon: _HistoryDropdownIcon(
-                    enabled: alive,
-                    history: ctrl.navigationHistory,
-                    onPick: (url) async {
-                      _addressCtrl.text = url;
-                      await ctrl.navigate(url);
-                      _surfaceFocus.requestFocus();
-                    },
+                  prefixIcon: OpenHandInputIconAction(
+                    child: _HistoryDropdownIcon(
+                      enabled: alive,
+                      history: ctrl.navigationHistory,
+                      onPick: (url) async {
+                        _addressCtrl.text = url;
+                        await ctrl.navigate(url);
+                        _surfaceFocus.requestFocus();
+                      },
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -3354,7 +3356,7 @@ class _HistoryDropdownIcon extends StatelessWidget {
           )
           .toList(growable: false),
       child: Padding(
-        padding: const EdgeInsets.only(left: 12, right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Icon(
           Icons.history_rounded,
           size: 18,

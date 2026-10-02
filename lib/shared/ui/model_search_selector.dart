@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_input_icon_action.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
@@ -221,13 +222,15 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                   borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: _searchController.clear,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
+                    ? OpenHandInputIconAction(
+                        child: IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: _searchController.clear,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
                         ),
                       )
                     : null,

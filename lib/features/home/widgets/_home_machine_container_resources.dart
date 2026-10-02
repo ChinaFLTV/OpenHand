@@ -516,32 +516,34 @@ class _ContainerRegistrySearchField extends StatelessWidget {
           width: searchHeight,
           height: searchHeight,
         ),
-        suffixIcon: IconButton(
-          onPressed: enabled ? onSearch : null,
-          tooltip: searchLabel,
-          style:
-              IconButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.transparent,
-                side: BorderSide.none,
-                foregroundColor: cs.onSurfaceVariant,
-                disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.standard,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+        suffixIcon: OpenHandInputIconAction(
+          child: IconButton(
+            onPressed: enabled ? onSearch : null,
+            tooltip: searchLabel,
+            style:
+                IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  disabledBackgroundColor: Colors.transparent,
+                  side: BorderSide.none,
+                  foregroundColor: cs.onSurfaceVariant,
+                  disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.standard,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ).copyWith(
+                  overlayColor: WidgetStateProperty.resolveWith(
+                    (states) =>
+                        states.contains(WidgetState.pressed) ||
+                            states.contains(WidgetState.focused)
+                        ? cs.primary.withValues(alpha: .1)
+                        : Colors.transparent,
+                  ),
                 ),
-              ).copyWith(
-                overlayColor: WidgetStateProperty.resolveWith(
-                  (states) =>
-                      states.contains(WidgetState.pressed) ||
-                          states.contains(WidgetState.focused)
-                      ? cs.primary.withValues(alpha: .1)
-                      : Colors.transparent,
-                ),
-              ),
-          icon: const Icon(Icons.search_rounded, size: 18),
+            icon: const Icon(Icons.search_rounded, size: 18),
+          ),
         ),
       ),
     );

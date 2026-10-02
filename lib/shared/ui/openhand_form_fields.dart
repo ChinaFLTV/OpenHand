@@ -9,6 +9,8 @@ import 'oh_pill.dart';
 import 'openhand_animated_chip_wrap.dart';
 import 'openhand_dialog_action_button.dart';
 
+export 'openhand_input_icon_action.dart';
+
 /// 隐藏 TextField 的 `maxLength` 计数器。
 ///
 /// 用于既要靠 `maxLength` 做硬性截断、又不想让 "12/200" 计数占位撑高布局的

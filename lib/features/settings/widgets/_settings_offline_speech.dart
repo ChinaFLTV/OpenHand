@@ -1388,14 +1388,19 @@ class _OfflineSpeechSuggestionFieldState
             labelText: widget.label,
             suffixIcon: MicroPressFeedback(
               scale: 0.9,
-              child: IconButton(
-                tooltip: '搜索候选项',
-                onPressed: _toggleMenu,
-                icon: AnimatedRotation(
-                  turns: _overlay.hasEntry ? 0.5 : 0,
-                  duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: kOpenHandEntranceCurve,
-                  child: const Icon(Icons.expand_more_rounded),
+              child: OpenHandInputIconAction(
+                child: IconButton(
+                  tooltip: '搜索候选项',
+                  onPressed: _toggleMenu,
+                  icon: AnimatedRotation(
+                    turns: _overlay.hasEntry ? 0.5 : 0,
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
+                    ),
+                    curve: kOpenHandEntranceCurve,
+                    child: const Icon(Icons.expand_more_rounded),
+                  ),
                 ),
               ),
             ),

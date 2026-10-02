@@ -489,21 +489,23 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                       ),
                       suffixIcon: Padding(
                         padding: const EdgeInsetsDirectional.only(end: 10),
-                        child: IconButton(
-                          onPressed: _isSaving ? null : _addTagsFromInput,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: colorScheme.onSurfaceVariant,
-                            disabledForegroundColor: colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.38),
-                            minimumSize: const Size(36, 36),
-                            maximumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
+                        child: OpenHandInputIconAction(
+                          child: IconButton(
+                            onPressed: _isSaving ? null : _addTagsFromInput,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: colorScheme.onSurfaceVariant,
+                              disabledForegroundColor: colorScheme
+                                  .onSurfaceVariant
+                                  .withValues(alpha: 0.38),
+                              minimumSize: const Size(36, 36),
+                              maximumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 22),
                           ),
-                          icon: const Icon(Icons.add_rounded, size: 22),
                         ),
                       ),
                     ),
