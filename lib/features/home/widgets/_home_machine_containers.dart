@@ -1071,27 +1071,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     SizedBox(
                       height: _maintenanceControlHeight,
                       child: FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, _maintenanceControlHeight),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.standard,
-                          shape: resourceControlShape,
-                          side: BorderSide(
-                            color: (_overlay ? cs.outlineVariant : cs.primary)
-                                .withValues(alpha: .55),
-                          ),
-                          backgroundColor: cs.primaryContainer,
-                          foregroundColor: cs.onPrimaryContainer,
-                          disabledBackgroundColor: cs.surfaceContainerHighest,
-                          disabledForegroundColor: cs.onSurface.withValues(
-                            alpha: .38,
-                          ),
-                          textStyle: theme.textTheme.bodySmall,
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
-                          surfaceTintColor: Colors.transparent,
-                        ),
+                        style: _maintenanceActionButtonStyle(context),
                         onPressed: _overlay ? null : _createContainer,
                         icon: const Icon(Icons.add_rounded, size: 16),
                         label: Text(
@@ -1526,8 +1506,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         : _reports.isNotEmpty && !_cancelled
         ? OpenHandStatusColors.success
         : cs.onSurfaceVariant;
-    final controlHeight = _maintenanceFormControlHeightOf(context);
-    final actionStyle = _maintenanceTonalButtonStyle(context);
+    final controlHeight = _maintenanceActionHeightOf(context);
+    final actionStyle = _maintenanceActionButtonStyle(context);
     final inputBorder = OutlineInputBorder(
       borderRadius: kOpenHandBorderRadius8,
       borderSide: BorderSide(color: cs.outlineVariant),
@@ -1885,7 +1865,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                     children: [
                       if (_outputs.containsKey(item.id))
                         FilledButton.tonalIcon(
-                          style: _maintenanceTonalButtonStyle(context),
+                          style: _maintenanceActionButtonStyle(context),
                           icon: const Icon(Icons.data_object_rounded, size: 16),
                           label: Text(maintenanceLabel(context, '完整元数据')),
                           onPressed: () async {
@@ -1902,7 +1882,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                         ),
                       if (_issues.containsKey(item.id))
                         FilledButton.tonalIcon(
-                          style: _maintenanceTonalButtonStyle(context),
+                          style: _maintenanceActionButtonStyle(context),
                           icon: const Icon(Icons.refresh_rounded, size: 16),
                           label: Text(
                             AppLocalizations.of(

@@ -387,30 +387,8 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final controlHeight = _maintenanceFormControlHeightOf(context);
-    final actionHeight = math.max(
-      _maintenanceControlHeight,
-      MediaQuery.textScalerOf(context).scale(_maintenanceFormFontSize) * 1.4 +
-          12,
-    );
-    final actionStyle = _maintenanceTonalButtonStyle(context).copyWith(
-      backgroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.disabled)
-            ? cs.onSurface.withValues(alpha: .12)
-            : cs.surface.withValues(alpha: .72),
-      ),
-      foregroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.disabled)
-            ? cs.onSurface.withValues(alpha: .38)
-            : cs.onSurfaceVariant,
-      ),
-      minimumSize: WidgetStatePropertyAll(Size(0, actionHeight)),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 10),
-      ),
-      side: WidgetStatePropertyAll(
-        BorderSide(color: cs.outlineVariant.withValues(alpha: .55)),
-      ),
-    );
+    final actionHeight = _maintenanceActionHeightOf(context);
+    final actionStyle = _maintenanceActionButtonStyle(context);
     final blocked = !widget.enabled || _busy || _overlay || _error != null;
     final query = _search.text.trim().toLowerCase();
     final tasks =
@@ -1093,7 +1071,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                             _field(_name, maintenanceLabel(context, '名称')),
                           if (!_cron && task == null && !_native)
                             FilledButton.icon(
-                              style: _maintenanceTonalButtonStyle(context),
+                              style: _maintenanceActionButtonStyle(context),
                               onPressed: _saving
                                   ? null
                                   : () => setState(() {
@@ -1105,7 +1083,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                             ),
                           if (!_cron && task != null && _structured)
                             FilledButton.icon(
-                              style: _maintenanceTonalButtonStyle(context),
+                              style: _maintenanceActionButtonStyle(context),
                               onPressed: _saving
                                   ? null
                                   : () {

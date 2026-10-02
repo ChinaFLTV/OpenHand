@@ -6000,7 +6000,7 @@ void telemetryChecks() {
               greaterThanOrEqualTo(_maintenanceGridGap));
             final button = tester.widget<FilledButton>(metadata);
             final colors = Theme.of(tester.element(metadata)).colorScheme;
-            expect(button.style!.backgroundColor!.resolve({}), colors.secondaryContainer);
+            expect(button.style!.backgroundColor!.resolve({}), colors.surface.withValues(alpha:.72));
             expect((button.style!.shape!.resolve({}) as RoundedRectangleBorder).borderRadius, kOpenHandBorderRadius8);
             expect(button.style!.elevation!.resolve({WidgetState.hovered}), 0);
             expect(tester.takeException(),isNull);
@@ -6296,7 +6296,7 @@ void resourceChecks() {
         final add = find.descendant(of: section, matching: find.widgetWithText(FilledButton, l.maintenanceResourceAddRow));
         await tester.ensureVisible(add); await tester.pumpAndSettle();
         final button = tester.widget<FilledButton>(add);
-        expect(button.style!.backgroundColor!.resolve({}), theme.colorScheme.secondaryContainer);
+        expect(button.style!.backgroundColor!.resolve({}), theme.colorScheme.surface.withValues(alpha:.72));
         await tester.tap(add); await tester.pumpAndSettle();
         expect(form._ports.length, 1);
         expect(tester.takeException(), isNull);

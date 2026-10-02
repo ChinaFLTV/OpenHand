@@ -160,19 +160,29 @@ double _maintenanceFormControlHeightOf(BuildContext context) => math.max(
   MediaQuery.textScalerOf(context).scale(_maintenanceFormFontSize) * 1.4 + 16,
 );
 
-ButtonStyle _maintenanceTonalButtonStyle(BuildContext context) {
-  final cs = Theme.of(context).colorScheme;
+double _maintenanceActionHeightOf(BuildContext context) => math.max(
+  _maintenanceControlHeight,
+  MediaQuery.textScalerOf(context).scale(_maintenanceFormFontSize) * 1.4 + 12,
+);
+
+ButtonStyle _maintenanceActionButtonStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
   return FilledButton.styleFrom(
-    backgroundColor: cs.secondaryContainer,
-    foregroundColor: cs.onSecondaryContainer,
-    minimumSize: Size(0, _maintenanceFormControlHeightOf(context)),
-    padding: const EdgeInsets.symmetric(horizontal: 14),
+    backgroundColor: cs.surface.withValues(alpha: .72),
+    foregroundColor: cs.onSurfaceVariant,
+    disabledBackgroundColor: cs.onSurface.withValues(alpha: .12),
+    disabledForegroundColor: cs.onSurface.withValues(alpha: .38),
+    minimumSize: Size(0, _maintenanceActionHeightOf(context)),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.standard,
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+    textStyle: theme.textTheme.labelLarge?.copyWith(
       fontSize: _maintenanceFormFontSize,
       fontWeight: FontWeight.w600,
     ),
+    iconSize: 18,
+    side: BorderSide(color: cs.outlineVariant.withValues(alpha: .55)),
     shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
     elevation: 0,
     shadowColor: Colors.transparent,
@@ -1232,16 +1242,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     _MaintenanceNotice(message: _error!, error: true),
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                        minimumSize: const Size(0, _maintenanceControlHeight),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 8,
-                        ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
+                      style: _maintenanceActionButtonStyle(context),
                       onPressed: _loading ? null : () => _refresh(manual: true),
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(maintenanceLabel(context, '重新采集')),
@@ -2856,21 +2857,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                   SizedBox(
                     height: height,
                     child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                        backgroundColor: cs.surface.withValues(alpha: .72),
-                        foregroundColor: cs.onSurface,
-                        side: BorderSide(
-                          color: cs.outlineVariant.withValues(alpha: .55),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
-                      ),
+                      style: _maintenanceActionButtonStyle(context),
                       onPressed: () => _showCollected(
                         _maintenanceSectionLabels[name]!,
                         data.text(name),

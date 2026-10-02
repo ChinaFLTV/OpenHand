@@ -607,6 +607,7 @@ class _MachineTerminalFileManagerDialogState
               ),
             ),
             FilledButton.icon(
+              style: _maintenanceActionButtonStyle(context),
               onPressed: _loadDirectory,
               icon: const Icon(Icons.refresh_rounded),
               label: Text(openHandRetryLabel(context)),
@@ -1581,6 +1582,7 @@ class _MachineTerminalDeferredError extends StatelessWidget {
               ),
               kOpenHandGap18,
               FilledButton.icon(
+                style: _maintenanceActionButtonStyle(context),
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
                 label: Text(openHandRetryLabel(context)),
@@ -2450,6 +2452,7 @@ class _MachineTerminalDirectoryPickerDialogState
                               message: _error!,
                             ),
                             FilledButton.icon(
+                              style: _maintenanceActionButtonStyle(context),
                               onPressed: () => _load(_requestedPath),
                               icon: const Icon(Icons.refresh_rounded),
                               label: Text(openHandRetryLabel(context)),

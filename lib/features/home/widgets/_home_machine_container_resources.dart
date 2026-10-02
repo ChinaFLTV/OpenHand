@@ -221,17 +221,7 @@ class _MachineContainerResourcesState
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
     );
-    final actionStyle = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(
-        Size(0, _maintenanceControlHeight),
-      ),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 12),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+    final actionStyle = _maintenanceActionButtonStyle(context);
     final query = _search.text.toLowerCase();
     final rows = _resources
         .where(
@@ -437,35 +427,11 @@ Widget _buildContainerResourceActions({
 ThemeData _containerResourceDialogTheme(BuildContext context) {
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
-  final actionStyle = ButtonStyle(
-    minimumSize: WidgetStatePropertyAll(
-      Size(88, _maintenanceFormControlHeightOf(context)),
-    ),
-    padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14)),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    visualDensity: VisualDensity.standard,
-    textStyle: WidgetStatePropertyAll(
-      theme.textTheme.labelLarge?.copyWith(
-        fontSize: _maintenanceFormFontSize,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-    shape: WidgetStatePropertyAll(
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-    elevation: const WidgetStatePropertyAll(0),
-    shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-    surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-  );
+  final actionStyle = _maintenanceActionButtonStyle(context);
   return theme.copyWith(
     hoverColor: Colors.transparent,
     shadowColor: Colors.transparent,
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-      ).merge(actionStyle),
-    ),
+    filledButtonTheme: FilledButtonThemeData(style: actionStyle),
     outlinedButtonTheme: OutlinedButtonThemeData(style: actionStyle),
     textButtonTheme: TextButtonThemeData(style: actionStyle),
     iconButtonTheme: IconButtonThemeData(
@@ -1185,7 +1151,7 @@ class _ContainerImageTagDialogState extends State<_ContainerImageTagDialog> {
                         kOpenHandGap12,
                         Center(
                           child: FilledButton.tonal(
-                            style: _maintenanceTonalButtonStyle(context),
+                            style: _maintenanceActionButtonStyle(context),
                             onPressed: _load,
                             child: Text(
                               _failed
@@ -1920,7 +1886,7 @@ class _ContainerResourceFormDialogState
                   : () => setState(
                       () => rows.add({if (ports) 'address': '127.0.0.1'}),
                     ),
-              style: _maintenanceTonalButtonStyle(context),
+              style: _maintenanceActionButtonStyle(context),
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(l.maintenanceResourceAddRow),
             ),
