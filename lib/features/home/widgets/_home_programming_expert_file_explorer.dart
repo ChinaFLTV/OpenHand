@@ -4806,26 +4806,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  void _findNext() {
+  void _moveFindMatch({required bool forward}) {
     if (_findMatchOffsets.isEmpty) return;
     final next = moveTextMatchIndex(
       currentIndex: _currentMatchIndex,
       matchCount: _findMatchOffsets.length,
-      forward: true,
+      forward: forward,
     );
     setState(() => _currentMatchIndex = next);
     _selectMatch(next);
-  }
-
-  void _findPrevious() {
-    if (_findMatchOffsets.isEmpty) return;
-    final prev = moveTextMatchIndex(
-      currentIndex: _currentMatchIndex,
-      matchCount: _findMatchOffsets.length,
-      forward: false,
-    );
-    setState(() => _currentMatchIndex = prev);
-    _selectMatch(prev);
   }
 
   void _selectMatch(int index) {
@@ -7415,7 +7404,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       ),
                     ),
                     onChanged: _updateFindMatches,
-                    onSubmitted: (_) => _findNext(),
+                    onSubmitted: (_) => _moveFindMatch(forward: true),
                   ),
                 ),
               ),
@@ -7433,13 +7422,17 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               _FindBarButton(
                 icon: Icons.keyboard_arrow_up_rounded,
                 tooltip: AppLocalizations.of(context)!.progExpFEPreviousMatch,
-                onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
+                onPressed: _findMatchOffsets.isEmpty
+                    ? null
+                    : () => _moveFindMatch(forward: false),
                 colorScheme: colorScheme,
               ),
               _FindBarButton(
                 icon: Icons.keyboard_arrow_down_rounded,
                 tooltip: AppLocalizations.of(context)!.progExpFENextMatch,
-                onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
+                onPressed: _findMatchOffsets.isEmpty
+                    ? null
+                    : () => _moveFindMatch(forward: true),
                 colorScheme: colorScheme,
               ),
               _FindBarButton(

@@ -521,14 +521,6 @@ class MachineContainerClient {
     return result;
   }
 
-  Map<String, double> cpuPercentages(
-    String output,
-    List<MachineContainerEntry> entries,
-  ) => {
-    for (final sample in usageSamples(output, entries).entries)
-      if (sample.value.cpuPercent != null) sample.key: sample.value.cpuPercent!,
-  };
-
   List<MachineContainerEntry> parse(String output, {bool pods = false}) {
     final trimmed = output.trim();
     final structured =

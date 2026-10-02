@@ -4,7 +4,6 @@ import '../../shared/util/platform_shell.dart';
 import 'machine_maintenance_gpu.dart';
 
 const machineMaintenanceMaxWorkers = 8;
-const machineMaintenanceDefaultWorkers = 4;
 
 /// 只拆分总览、诊断与 GPU 的独立采集项；进程与服务保留原有事务边界。
 String parallelMaintenanceCommand(

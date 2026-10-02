@@ -3221,13 +3221,10 @@ fi
         ),
         child: Column(
           children: [
-            // ── Header ──────────────────────────────────────────────────
             _buildHeader(context, cs, device, config),
             Divider(height: 1, color: cs.outlineVariant),
-            // ── Tab bar ─────────────────────────────────────────────────
             _buildTabBar(context, theme, cs),
             Divider(height: 1, color: cs.outlineVariant),
-            // ── Body ────────────────────────────────────────────────────
             Expanded(child: _buildBody(context, cs, theme, isZh)),
           ],
         ),
@@ -3451,8 +3448,6 @@ fi
       _Tab.crypto => _buildCryptoTab(cs),
     };
   }
-
-  // ── Devices tab ─────────────────────────────────────────────────────────
 
   Widget _buildDevicesTab(ColorScheme cs, ThemeData theme) {
     final devices = _ctrl.allDevices;
@@ -5504,8 +5499,6 @@ fi
     }
   }
 
-  // ── Overview tab ────────────────────────────────────────────────────────
-
   Widget _buildOverviewTab(ColorScheme cs, ThemeData theme) {
     final config = _ctrl.config;
     final device = _ctrl.connectedDevice;
@@ -5732,8 +5725,6 @@ fi
           );
   }
 
-  // ── Toolchain tab ───────────────────────────────────────────────────────
-
   Widget _buildToolchainTab(ColorScheme cs, ThemeData theme) {
     final pluginController = context.watch<PluginServiceController>();
     final requiredMissing = _toolchainRows
@@ -5950,8 +5941,6 @@ fi
     );
   }
 
-  // ── MCP tab ─────────────────────────────────────────────────────────────
-
   Widget _buildMcpTab(ColorScheme cs, ThemeData theme) {
     final mcpController = context.watch<McpController>();
     final capabilities =
@@ -6101,8 +6090,6 @@ fi
       ),
     );
   }
-
-  // ── Plugins tab ────────────────────────────────────────────────────────
 
   Widget _buildPluginsTab(ColorScheme cs, ThemeData theme) {
     final pluginController = context.watch<PluginServiceController>();
@@ -7581,8 +7568,6 @@ fi
     );
   }
 
-  // ── Packages tab ─────────────────────────────────────────────────────────
-
   Widget _buildPackagesTab(ColorScheme cs, ThemeData theme) {
     return Column(
       children: [
@@ -7862,8 +7847,6 @@ fi
     );
   }
 
-  // ── Processes tab ───────────────────────────────────────────────────────
-
   Widget _buildProcessesTab(ColorScheme cs, ThemeData theme) {
     return Column(
       children: [
@@ -7985,8 +7968,6 @@ fi
       ],
     );
   }
-
-  // ── Logcat tab ──────────────────────────────────────────────────────────
 
   Widget _buildLogcatPackageFilterChip(ColorScheme cs, ThemeData theme) {
     final packageName = _logcatPackageTarget()?.trim();
@@ -8410,8 +8391,6 @@ fi
     );
   }
 
-  // ── Frida tab ───────────────────────────────────────────────────────────
-
   Widget _buildFridaTab(ColorScheme cs, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -8712,8 +8691,6 @@ fi
     );
   }
 
-  // ── Network tab ─────────────────────────────────────────────────────────
-
   Widget _buildNetworkTab(ColorScheme cs) {
     final addonOutput = _networkAddonOutput?.trim();
     final captureRunning = _ctrl.networkCaptureRunning;
@@ -8929,8 +8906,6 @@ fi
     );
   }
 
-  // ── Static analysis tab ─────────────────────────────────────────────────
-
   Widget _buildStaticTab(ColorScheme cs) {
     final scanOutput = _staticQuickScanOutput?.trim();
     final staticBusy = _runningStaticQuickScan || _runningStaticAction;
@@ -9069,8 +9044,6 @@ fi
     );
   }
 
-  // ── Certs tab ────────────────────────────────────────────────────────────
-
   Widget _buildCertsTab(ColorScheme cs) {
     final artifactOutput = _certificateArtifactOutput?.trim();
     final certificateBusy =
@@ -9185,8 +9158,6 @@ fi
       ),
     );
   }
-
-  // ── Crypto pad tab ────────────────────────────────────────────────────────
 
   Widget _buildCryptoTab(ColorScheme cs) {
     final cryptoOutput = _base64OutCtrl.text.trim();
@@ -9346,8 +9317,6 @@ fi
       ),
     );
   }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
 
   Widget _sectionTitle(ThemeData theme, ColorScheme cs, String label) {
     return Text(

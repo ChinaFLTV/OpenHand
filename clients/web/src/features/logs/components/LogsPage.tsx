@@ -1,11 +1,3 @@
-// LogsPage —— 日志查看 + 整包导出。对应后端 /api/logs & /api/logs/export
-//
-// - 顶部 toolbar：分页 + 日志级别筛选（前端再过滤，因 service 不接受 level 参数）
-// - 列表 virtual-scroll 替代物：CSS max-height + overflow（实测 1k 条 OK；
-//   service 端硬编码 limit≤2000）
-// - 顶部 Tail 模式：只显示最新 N 条，定时拉取最末页
-// - 「导出 JSON」直接下载
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { type LogEntry, exportLogsBundle, listLogs } from '../../../api/logs';

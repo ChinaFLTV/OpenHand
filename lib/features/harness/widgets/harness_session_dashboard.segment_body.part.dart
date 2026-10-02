@@ -104,7 +104,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
               ],
             ),
             kOpenHandGap12,
-            // ── Verdict banner ──────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
@@ -577,8 +576,6 @@ class _HeRenderMeasureSize extends RenderProxyBox {
     WidgetsBinding.instance.addPostFrameCallback((_) => onChange(newSize));
   }
 }
-
-// ── Command strip ─────────────────────────────────────────────────────────
 
 class _HeCommandStrip extends StatefulWidget {
   const _HeCommandStrip({required this.command});

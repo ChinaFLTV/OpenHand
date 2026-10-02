@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -632,7 +631,6 @@ Future<void> _bootstrapRuntime(
       child: OpenHandApp(onShutdown: shutdown),
     ),
   );
-  developer.Timeline.instantSync('openhand.boot.runApp_called');
 
   // 首帧后再清理过期临时文件，避免干扰启动期关键路径。
   WidgetsBinding.instance.addPostFrameCallback((_) {

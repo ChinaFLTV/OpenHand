@@ -2702,15 +2702,11 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   }
 
   bool _shouldCollapse(String value) {
-    if (value.length > _messageMarkdownCollapseCharThreshold) return true;
-    var lineCount = 1;
-    for (final unit in value.codeUnits) {
-      if (unit == 0x0A) {
-        lineCount += 1;
-        if (lineCount > _messageMarkdownCollapseLineThreshold) return true;
-      }
-    }
-    return false;
+    return _messageShouldCollapse(
+      value,
+      charThreshold: _messageMarkdownCollapseCharThreshold,
+      lineThreshold: _messageMarkdownCollapseLineThreshold,
+    );
   }
 
   bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;

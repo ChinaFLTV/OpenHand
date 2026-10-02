@@ -364,7 +364,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Lua ──
   AiLspBackendDescriptor(
     id: 'lua-language-server',
     displayName: 'Lua Language Server',
@@ -375,7 +374,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Zig ──
   AiLspBackendDescriptor(
     id: 'zls',
     displayName: 'ZLS',
@@ -386,7 +384,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Elixir ──
   AiLspBackendDescriptor(
     id: 'elixir-ls',
     displayName: 'ElixirLS',
@@ -397,7 +394,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Terraform ──
   AiLspBackendDescriptor(
     id: 'terraform-ls',
     displayName: 'Terraform LS',
@@ -409,7 +405,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Typst ──
   AiLspBackendDescriptor(
     id: 'tinymist',
     displayName: 'Tinymist',
@@ -420,7 +415,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Clojure ──
   AiLspBackendDescriptor(
     id: 'clojure-lsp',
     displayName: 'Clojure LSP',
@@ -455,7 +449,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Haskell ──
   AiLspBackendDescriptor(
     id: 'haskell-language-server',
     displayName: 'HLS',
@@ -467,7 +460,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── OCaml ──
   AiLspBackendDescriptor(
     id: 'ocamllsp',
     displayName: 'OCaml LSP',
@@ -490,7 +482,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Gleam ──
   AiLspBackendDescriptor(
     id: 'gleam-lsp',
     displayName: 'Gleam LSP',
@@ -502,7 +493,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Markdown ──
   AiLspBackendDescriptor(
     id: 'marksman',
     displayName: 'Marksman',
@@ -514,7 +504,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Erlang ──
   AiLspBackendDescriptor(
     id: 'erlang-ls',
     displayName: 'Erlang LS',
@@ -525,7 +514,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Scala ──
   AiLspBackendDescriptor(
     id: 'metals',
     displayName: 'Metals',
@@ -536,7 +524,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── R ──
   AiLspBackendDescriptor(
     id: 'r-languageserver',
     displayName: 'R Language Server',
@@ -548,7 +535,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Julia ──
   AiLspBackendDescriptor(
     id: 'julia-ls',
     displayName: 'Julia LanguageServer',
@@ -565,7 +551,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Perl ──
   AiLspBackendDescriptor(
     id: 'perlnavigator',
     displayName: 'PerlNavigator',
@@ -578,7 +563,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── TOML ──
   AiLspBackendDescriptor(
     id: 'taplo-lsp',
     displayName: 'Taplo',
@@ -590,7 +574,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── GraphQL ──
   AiLspBackendDescriptor(
     id: 'graphql-language-server',
     displayName: 'GraphQL Language Server',
@@ -604,7 +587,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Prisma ──
   AiLspBackendDescriptor(
     id: 'prisma-language-server',
     displayName: 'Prisma Language Server',
@@ -617,7 +599,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Dockerfile ──
   AiLspBackendDescriptor(
     id: 'docker-langserver',
     displayName: 'Docker Language Server',
@@ -631,7 +612,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── SQL ──
   AiLspBackendDescriptor(
     id: 'sqls',
     displayName: 'sqls',
@@ -643,7 +623,6 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
     ),
   ),
 
-  // ── Tailwind CSS ──
   AiLspBackendDescriptor(
     id: 'tailwindcss-language-server',
     displayName: 'Tailwind CSS IntelliSense',

@@ -645,29 +645,28 @@ Future<void> main() async {
   );
   check(podman.actions(containers.last).contains('复制 run 命令'), '已停止容器缺少复制入口');
 
-  final samples = docker.cpuPercentages(
+  final samples = docker.usageSamples(
     '[{"ID":"abc123","CPUPerc":"234.56%"},{"id":"def456","cpu_percent":0}]',
     containers,
   );
   check(
-    samples['abc123'] == 234.56 && samples['def456'] == 0,
+    samples['abc123']?.cpuPercent == 234.56 &&
+        samples['def456']?.cpuPercent == 0,
     'CPU 标识关联或多核使用率错误',
   );
   check(
-    docker.cpuPercentages('{"Name":"服务","CPU":"4.2%"}', containers)['abc123'] ==
+    docker
+            .usageSamples('{"Name":"服务","CPU":"4.2%"}', containers)['abc123']
+            ?.cpuPercent ==
         4.2,
     'CPU 名称关联错误',
   );
   for (final value in ['--', 'NaN', 'Infinity', '-1', '']) {
-    check(
-      docker
-          .cpuPercentages(
-            jsonEncode({'ID': 'abc123', 'CPUPerc': value}),
-            containers,
-          )
-          .isEmpty,
-      '缺失或无效 CPU 被当作有效值',
-    );
+    final sample = docker.usageSamples(
+      jsonEncode({'ID': 'abc123', 'CPUPerc': value}),
+      containers,
+    )['abc123'];
+    check(sample != null && sample.cpuPercent == null, '缺失或无效 CPU 被当作有效值');
   }
   final fullId = 'a' * 64;
   for (final runtime in [
@@ -743,14 +742,14 @@ Future<void> main() async {
     '元数据标识或零值被改写',
   );
   check(
-    docker.cpuPercentages('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
+    docker.usageSamples('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
           MachineContainerEntry(id: fullId, name: 'full', state: 'running'),
-        ])[fullId] ==
+        ])[fullId]?.cpuPercent ==
         1,
     'CPU 短标识没有关联完整标识',
   );
   check(
-    docker.cpuPercentages('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
+    docker.usageSamples('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
       MachineContainerEntry(id: fullId, name: 'first', state: 'running'),
       MachineContainerEntry(
         id: 'aaaaaaaaaaaa${'b' * 52}',

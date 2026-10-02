@@ -377,26 +377,15 @@ class _KnowledgeSourceContentDialogState
     }
   }
 
-  void _findNext() {
+  void _moveFindMatch({required bool forward}) {
     if (_findMatchOffsets.isEmpty) return;
     final next = moveTextMatchIndex(
       currentIndex: _currentMatchIndex,
       matchCount: _findMatchOffsets.length,
-      forward: true,
+      forward: forward,
     );
     setState(() => _currentMatchIndex = next);
     _selectMatch(next);
-  }
-
-  void _findPrevious() {
-    if (_findMatchOffsets.isEmpty) return;
-    final previous = moveTextMatchIndex(
-      currentIndex: _currentMatchIndex,
-      matchCount: _findMatchOffsets.length,
-      forward: false,
-    );
-    setState(() => _currentMatchIndex = previous);
-    _selectMatch(previous);
   }
 
   void _selectMatch(int index, {bool requestFocus = true}) {
@@ -481,8 +470,8 @@ class _KnowledgeSourceContentDialogState
       onShowReplace: () => _showFind(replace: true),
       onHideFind: _hideFind,
       onFindChanged: _updateFindMatches,
-      onFindNext: _findNext,
-      onFindPrevious: _findPrevious,
+      onFindNext: () => _moveFindMatch(forward: true),
+      onFindPrevious: () => _moveFindMatch(forward: false),
       onToggleCaseSensitive: _toggleFindCaseSensitive,
       onReplaceCurrent: _replaceCurrent,
       onReplaceAll: _replaceAll,

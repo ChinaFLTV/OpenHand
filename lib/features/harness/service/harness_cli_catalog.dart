@@ -132,7 +132,6 @@ typedef CliScanEntry = ({
 const String kHarnessGeminiDefaultModelId = '__gemini_cli_default__';
 
 const List<HarnessCli> kHarnessCliCatalog = [
-  // ── Anthropic ─────────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Claude Code',
     executable: 'claude',
@@ -157,7 +156,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     logoutArgs: ['auth', 'logout'],
   ),
 
-  // ── OpenAI ────────────────────────────────────────────────────────────────
   HarnessCli(
     name: 'OpenAI Codex CLI',
     executable: 'codex',
@@ -209,7 +207,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     logoutArgs: ['logout'],
   ),
 
-  // ── Google ────────────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Gemini CLI',
     executable: 'gemini',
@@ -276,7 +273,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     installDocUrl: 'https://aider.chat/docs/install.html',
   ),
 
-  // ── Codeium Windsurf ──────────────────────────────────────────────────────
   HarnessCli(
     name: 'Windsurf',
     executable: 'windsurf',
@@ -297,7 +293,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     installDocUrl: 'https://windsurf.ai/download',
   ),
 
-  // ── Amazon Kiro ───────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Kiro',
     executable: 'kiro',
@@ -313,7 +308,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     installDocUrl: 'https://kiro.dev',
   ),
 
-  // ── Block Goose ───────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Goose',
     executable: 'goose',
@@ -333,7 +327,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     installDocUrl: 'https://block.github.io/goose/docs/installation',
   ),
 
-  // ── Cursor ────────────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Cursor',
     executable: 'cursor',
@@ -353,7 +346,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     installDocUrl: 'https://www.cursor.com',
   ),
 
-  // ── Amazon Q Developer CLI ────────────────────────────────────────────────
   HarnessCli(
     name: 'Amazon Q',
     executable: 'q',
@@ -370,7 +362,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
     logoutArgs: ['auth', 'logout'],
   ),
 
-  // ── Plandex ───────────────────────────────────────────────────────────────
   HarnessCli(
     name: 'Plandex',
     executable: 'plandex',

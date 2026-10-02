@@ -601,8 +601,6 @@ class AndroidReverseAdbClient {
     ], timeout: _kAdbTransferTimeout);
   }
 
-  // ── Logcat ────────────────────────────────────────────────────────────
-
   Future<AdbCommandResult> logcatDetailed({
     String? tag,
     String? level,

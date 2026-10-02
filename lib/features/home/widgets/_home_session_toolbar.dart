@@ -4568,8 +4568,6 @@ class _ThroughputTooltip extends StatelessWidget {
   }
 }
 
-// ── Android Reverse Debug Pill ────────────────────────────────────────────────
-
 class _AndroidReverseDebugPill extends StatefulWidget {
   const _AndroidReverseDebugPill({required this.session});
 

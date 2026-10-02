@@ -1167,8 +1167,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  // ── Performance / Memory / Application / Security / Recorder API ─────
-
   bool _performanceEnabled = false;
 
   /// 拉取 `Performance.getMetrics`：返回每个指标 (name, value)。失败返回空。
@@ -2216,8 +2214,6 @@ class WebReverseSessionController extends ChangeNotifier {
     if (normalized == null || _tryHttpUri(normalized) == null) return null;
     return normalized;
   }
-
-  // ── Security ─────────────────────────────────────────────────────────
 
   String? _securityState;
   String? get securityState => _securityState;
@@ -7486,7 +7482,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  // ─── DOM Breakpoints ─────────────────────────────────────────────────
   // CDP `DOMDebugger.setDOMBreakpoint({nodeId, type})` —— 监听 DOM 节点的
   // subtree-modified / attribute-modified / node-removed。前端按 (selector,
   // type) 维护；启动时由 selector 先 querySelector 拿 nodeId 再注册。

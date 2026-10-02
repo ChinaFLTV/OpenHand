@@ -3448,7 +3448,6 @@ class AiModelCatalog {
       );
     }
 
-    // ── Turbo ────────────────────────────────────────────────────────────
     if (id.startsWith('qwen-turbo')) {
       return _p(
         name: 'Qwen-Turbo',
@@ -3459,7 +3458,6 @@ class AiModelCatalog {
       );
     }
 
-    // ── Long ─────────────────────────────────────────────────────────────
     if (id.startsWith('qwen-long')) {
       return _p(
         name: 'Qwen-Long',

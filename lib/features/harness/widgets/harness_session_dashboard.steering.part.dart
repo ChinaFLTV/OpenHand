@@ -382,8 +382,6 @@ class _HeSteeringEntry {
   final DateTime? modified;
 }
 
-// ── Breadcrumb ──
-
 class _HeBreadcrumb extends StatelessWidget {
   const _HeBreadcrumb({required this.segments, required this.onNavigate});
 
@@ -449,8 +447,6 @@ class _HeBreadcrumb extends StatelessWidget {
     );
   }
 }
-
-// ── Entry tile ──
 
 class _HeSteeringEntryTile extends StatelessWidget {
   const _HeSteeringEntryTile({
@@ -978,13 +974,11 @@ class _HeSteeringFileEditorDialogState
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Markdown toolbar ──
           if (isMarkdown && !_loading && _error == null) ...[
             _buildToolbar(context, colorScheme),
             kOpenHandGap6,
           ],
 
-          // ── Body ──
           Expanded(
             child: OpenHandContentStateSwitcher(
               animateSize: false,

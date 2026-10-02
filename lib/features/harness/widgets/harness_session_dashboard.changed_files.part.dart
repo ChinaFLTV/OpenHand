@@ -189,7 +189,6 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Title ──
             Row(
               children: [
                 Expanded(
@@ -276,7 +275,6 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
               ),
             ],
             kOpenHandGap16,
-            // ── Diff view ──
             Expanded(
               child: Container(
                 width: double.infinity,
