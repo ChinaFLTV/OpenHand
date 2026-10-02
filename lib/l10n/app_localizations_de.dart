@@ -16286,4 +16286,333 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceKubernetesContextMissingStatus =>
       'Kontext nicht konfiguriert';
+
+  @override
+  String maintenanceRuntimeCapability(String name) {
+    return 'Unterstützung: $name';
+  }
+
+  @override
+  String maintenanceRuntimeComponentBuild(String component) {
+    return '$component-Build';
+  }
+
+  @override
+  String get maintenanceRuntimeCpuSet => 'CPU-Affinität';
+
+  @override
+  String get maintenanceRuntimeDebug => 'Debugmodus';
+
+  @override
+  String get maintenanceRuntimeIpv4Forwarding => 'IPv4-Weiterleitung';
+
+  @override
+  String get maintenanceRuntimeOomKillDisable => 'OOM-Beendigung deaktivieren';
+
+  @override
+  String get maintenanceRuntimeEventListeners => 'Ereignisempfänger';
+
+  @override
+  String get maintenanceRuntimeExperimental => 'Experimentelle Funktionen';
+
+  @override
+  String get maintenanceRuntimeSwarm => 'Swarm-Cluster';
+
+  @override
+  String get maintenanceRuntimeNodeId => 'Knoten-ID';
+
+  @override
+  String get maintenanceRuntimeNodeAddress => 'Knotenadresse';
+
+  @override
+  String get maintenanceRuntimeNodeState => 'Lokaler Knotenstatus';
+
+  @override
+  String get maintenanceRuntimeManagerNode => 'Manager-Knoten';
+
+  @override
+  String get maintenanceRuntimeRemoteManagers => 'Entfernte Manager-Knoten';
+
+  @override
+  String get maintenanceRuntimeFirewallBackend => 'Firewall-Backend';
+
+  @override
+  String get maintenanceRuntimeFirewallDriver => 'Firewall-Treiber';
+
+  @override
+  String get maintenanceRuntimeDiscoveredDevices => 'Erkannte Geräte';
+
+  @override
+  String get maintenanceRuntimeContainerd => 'Containerd-Dienst';
+
+  @override
+  String get maintenanceRuntimeNamespaces => 'Namensräume';
+
+  @override
+  String get maintenanceRuntimeContainerNamespace => 'Container-Namensraum';
+
+  @override
+  String get maintenanceRuntimePluginNamespace => 'Plugin-Namensraum';
+
+  @override
+  String get maintenanceRuntimeClientInfo => 'Clientinformationen';
+
+  @override
+  String get maintenanceRuntimeClient => 'Client';
+
+  @override
+  String get maintenanceRuntimeServer => 'Server';
+
+  @override
+  String get maintenanceRuntimeComponents => 'Komponenten';
+
+  @override
+  String get maintenanceRuntimeDetails => 'Details';
+
+  @override
+  String get maintenanceRuntimeDefaultApiVersion => 'Standard-API-Version';
+
+  @override
+  String get maintenanceRuntimeMinApiVersion => 'Minimale API-Version';
+
+  @override
+  String get maintenanceRuntimeSchemaVersion => 'Schemaversion';
+
+  @override
+  String get maintenanceRuntimeBuildTime => 'Buildzeit';
+
+  @override
+  String get maintenanceRuntimeModule => 'Modul';
+
+  @override
+  String get maintenanceRuntimeModuleVersion => 'Modulversion';
+
+  @override
+  String get maintenanceRuntimeCdiDirectories =>
+      'CDI-Konfigurationsverzeichnisse';
+
+  @override
+  String get maintenanceRuntimeNri => 'Knotenressourcenschnittstelle (NRI)';
+
+  @override
+  String get maintenanceRuntimeRegistryAddress => 'Registry-Indexadresse';
+
+  @override
+  String get maintenanceRuntimeHttpProxy => 'HTTP-Proxy';
+
+  @override
+  String get maintenanceRuntimeHttpsProxy => 'HTTPS-Proxy';
+
+  @override
+  String get maintenanceRuntimeIsolation => 'Container-Isolierung';
+
+  @override
+  String get maintenanceRuntimeInitBinary => 'Init-Programm';
+
+  @override
+  String get maintenanceRuntimeLicense => 'Produktlizenz';
+
+  @override
+  String get maintenanceRuntimeAddressPools => 'Standardadresspools';
+
+  @override
+  String get maintenanceRuntimeSubnetPrefix => 'Subnetz-Präfixlänge';
+
+  @override
+  String get maintenanceRuntimeGenericResources => 'Allgemeine Ressourcen';
+
+  @override
+  String get maintenanceRuntimeSystemStatus => 'Systemstatus';
+
+  @override
+  String get maintenanceRuntimeVolumePlugins => 'Volume-Plugins';
+
+  @override
+  String get maintenanceRuntimeNetworkPlugins => 'Netzwerk-Plugins';
+
+  @override
+  String get maintenanceRuntimeLogPlugins => 'Protokollierungs-Plugins';
+
+  @override
+  String get maintenanceRuntimeAuthorizationPlugins => 'Autorisierungs-Plugins';
+
+  @override
+  String get maintenanceRuntimeInsecureRegistries =>
+      'Unsichere Registry-Subnetze';
+
+  @override
+  String get maintenanceRuntimeRegistryIndexes => 'Registry-Indexkonfiguration';
+
+  @override
+  String get maintenanceRuntimeRegistryMirrors => 'Registry-Spiegel';
+
+  @override
+  String get maintenanceRuntimeSecureRegistry => 'Sichere Registry-Verbindung';
+
+  @override
+  String get maintenanceRuntimeOfficialRegistry => 'Offizielle Registry';
+
+  @override
+  String get maintenanceRuntimeNodes => 'Knotenanzahl';
+
+  @override
+  String get maintenanceRuntimeManagers => 'Manager-Anzahl';
+
+  @override
+  String get maintenanceRuntimeCluster => 'Clusterinformationen';
+
+  @override
+  String get maintenanceRuntimeTlsInfo => 'TLS-Zertifikatsinformationen';
+
+  @override
+  String get maintenanceRuntimeTrustRoot => 'Stammzertifikat';
+
+  @override
+  String get maintenanceRuntimeCertSubject => 'Zertifikatsaussteller';
+
+  @override
+  String get maintenanceRuntimeCertPublicKey =>
+      'Öffentlicher Ausstellerschlüssel';
+
+  @override
+  String get maintenanceRuntimeRootRotation => 'Stammzertifikatsrotation';
+
+  @override
+  String get maintenanceRuntimeDataPathPort => 'Datenpfad-Port';
+
+  @override
+  String get maintenanceRuntimeNodeLocked => 'Gesperrt';
+
+  @override
+  String get maintenanceRuntimeHost => 'Hostinformationen';
+
+  @override
+  String get maintenanceRuntimeStore => 'Speicherinformationen';
+
+  @override
+  String maintenanceRuntimeComponentInfo(String component) {
+    return '$component-Informationen';
+  }
+
+  @override
+  String maintenanceRuntimeSecurityFeature(String name) {
+    return '$name-Schutz';
+  }
+
+  @override
+  String get maintenanceRuntimeDistribution => 'Systemdistribution';
+
+  @override
+  String get maintenanceRuntimeNetworkBackend => 'Netzwerk-Backend';
+
+  @override
+  String get maintenanceRuntimeNetworkBackendInfo =>
+      'Netzwerk-Backendinformationen';
+
+  @override
+  String get maintenanceRuntimeDatabaseBackend => 'Datenbank-Backend';
+
+  @override
+  String get maintenanceRuntimeEventLogger => 'Ereignisprotokollierung';
+
+  @override
+  String get maintenanceRuntimeFreeLocks => 'Verfügbare Sperren';
+
+  @override
+  String get maintenanceRuntimeIdMappings => 'Benutzer- und Gruppenzuordnungen';
+
+  @override
+  String get maintenanceRuntimeUidMappings => 'Benutzer-ID-Zuordnungen';
+
+  @override
+  String get maintenanceRuntimeGidMappings => 'Gruppen-ID-Zuordnungen';
+
+  @override
+  String get maintenanceRuntimeOciRuntime => 'OCI-Laufzeit';
+
+  @override
+  String get maintenanceRuntimeRemoteSocket => 'Dienstendpunkt';
+
+  @override
+  String get maintenanceRuntimeRootlessNetwork => 'Rootless-Netzwerkprogramm';
+
+  @override
+  String get maintenanceRuntimeRootlessPortForwarder =>
+      'Rootless-Portweiterleitung';
+
+  @override
+  String get maintenanceRuntimeRemoteService => 'Remote-Dienst';
+
+  @override
+  String get maintenanceRuntimeRootless => 'Rootless-Modus';
+
+  @override
+  String get maintenanceRuntimeSeccompProfile => 'Seccomp-Profil';
+
+  @override
+  String get maintenanceRuntimeGraphOptions => 'Speichertreiberoptionen';
+
+  @override
+  String get maintenanceRuntimeStorageAllocated =>
+      'Kapazität des Speicherverzeichnisses';
+
+  @override
+  String get maintenanceRuntimeStorageUsed =>
+      'Belegung des Speicherverzeichnisses';
+
+  @override
+  String get maintenanceRuntimeImageCopyTemp =>
+      'Temporäres Verzeichnis für Image-Kopien';
+
+  @override
+  String get maintenanceRuntimeContainerStore => 'Container-Speicherstatistik';
+
+  @override
+  String get maintenanceRuntimeImageStore => 'Image-Speicherstatistik';
+
+  @override
+  String get maintenanceRuntimeRunRoot => 'Laufzeitdatenverzeichnis';
+
+  @override
+  String get maintenanceRuntimeVolumePath => 'Volume-Verzeichnis';
+
+  @override
+  String get maintenanceRuntimeTransientStore => 'Temporärer Speicher';
+
+  @override
+  String get maintenanceRuntimeEmulatedArchitectures =>
+      'Emulierte Architekturen';
+
+  @override
+  String get maintenanceRuntimePackage => 'Softwarepaket';
+
+  @override
+  String get maintenanceRuntimeCodename => 'Distributionscodename';
+
+  @override
+  String get maintenanceRuntimeLinkMode => 'Linkmodus';
+
+  @override
+  String get maintenanceRuntimeCpuUser => 'CPU-Auslastung im Benutzermodus';
+
+  @override
+  String get maintenanceRuntimeCpuSystem => 'CPU-Auslastung im Systemmodus';
+
+  @override
+  String get maintenanceRuntimeCpuIdle => 'CPU-Leerlaufanteil';
+
+  @override
+  String get maintenanceRuntimeExists => 'Endpunkt vorhanden';
+
+  @override
+  String get maintenanceRuntimeMappedContainerId => 'Start-ID im Container';
+
+  @override
+  String get maintenanceRuntimeMappedHostId => 'Start-ID auf dem Host';
+
+  @override
+  String get maintenanceRuntimeMappedIdCount => 'Anzahl zugeordneter IDs';
+
+  @override
+  String get maintenanceRuntimeExpectedBuild => 'Erwarteter Build';
 }

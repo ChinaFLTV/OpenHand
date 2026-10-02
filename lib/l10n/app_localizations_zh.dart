@@ -15584,6 +15584,326 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceKubernetesContextMissingStatus => '未配置上下文';
+
+  @override
+  String maintenanceRuntimeCapability(String name) {
+    return '$name支持';
+  }
+
+  @override
+  String maintenanceRuntimeComponentBuild(String component) {
+    return '$component 构建版本';
+  }
+
+  @override
+  String get maintenanceRuntimeCpuSet => 'CPU 亲和性';
+
+  @override
+  String get maintenanceRuntimeDebug => '调试模式';
+
+  @override
+  String get maintenanceRuntimeIpv4Forwarding => 'IPv4 转发';
+
+  @override
+  String get maintenanceRuntimeOomKillDisable => '禁用 OOM 终止';
+
+  @override
+  String get maintenanceRuntimeEventListeners => '事件监听器数';
+
+  @override
+  String get maintenanceRuntimeExperimental => '实验性功能';
+
+  @override
+  String get maintenanceRuntimeSwarm => 'Swarm 集群';
+
+  @override
+  String get maintenanceRuntimeNodeId => '节点标识';
+
+  @override
+  String get maintenanceRuntimeNodeAddress => '节点地址';
+
+  @override
+  String get maintenanceRuntimeNodeState => '本地节点状态';
+
+  @override
+  String get maintenanceRuntimeManagerNode => '管理节点';
+
+  @override
+  String get maintenanceRuntimeRemoteManagers => '远端管理节点';
+
+  @override
+  String get maintenanceRuntimeFirewallBackend => '防火墙后端';
+
+  @override
+  String get maintenanceRuntimeFirewallDriver => '防火墙驱动';
+
+  @override
+  String get maintenanceRuntimeDiscoveredDevices => '已发现设备';
+
+  @override
+  String get maintenanceRuntimeContainerd => 'Containerd 服务';
+
+  @override
+  String get maintenanceRuntimeNamespaces => '命名空间';
+
+  @override
+  String get maintenanceRuntimeContainerNamespace => '容器命名空间';
+
+  @override
+  String get maintenanceRuntimePluginNamespace => '插件命名空间';
+
+  @override
+  String get maintenanceRuntimeClientInfo => '客户端信息';
+
+  @override
+  String get maintenanceRuntimeClient => '客户端';
+
+  @override
+  String get maintenanceRuntimeServer => '服务端';
+
+  @override
+  String get maintenanceRuntimeComponents => '组件';
+
+  @override
+  String get maintenanceRuntimeDetails => '详细信息';
+
+  @override
+  String get maintenanceRuntimeDefaultApiVersion => '默认 API 版本';
+
+  @override
+  String get maintenanceRuntimeMinApiVersion => '最低 API 版本';
+
+  @override
+  String get maintenanceRuntimeSchemaVersion => '结构版本';
+
+  @override
+  String get maintenanceRuntimeBuildTime => '构建时间';
+
+  @override
+  String get maintenanceRuntimeModule => '模块';
+
+  @override
+  String get maintenanceRuntimeModuleVersion => '模块版本';
+
+  @override
+  String get maintenanceRuntimeCdiDirectories => 'CDI 配置目录';
+
+  @override
+  String get maintenanceRuntimeNri => '节点资源接口（NRI）';
+
+  @override
+  String get maintenanceRuntimeRegistryAddress => '镜像仓库索引地址';
+
+  @override
+  String get maintenanceRuntimeHttpProxy => 'HTTP 代理';
+
+  @override
+  String get maintenanceRuntimeHttpsProxy => 'HTTPS 代理';
+
+  @override
+  String get maintenanceRuntimeIsolation => '容器隔离模式';
+
+  @override
+  String get maintenanceRuntimeInitBinary => '初始化程序';
+
+  @override
+  String get maintenanceRuntimeLicense => '产品许可证';
+
+  @override
+  String get maintenanceRuntimeAddressPools => '默认地址池';
+
+  @override
+  String get maintenanceRuntimeSubnetPrefix => '子网前缀长度';
+
+  @override
+  String get maintenanceRuntimeGenericResources => '通用资源';
+
+  @override
+  String get maintenanceRuntimeSystemStatus => '系统状态';
+
+  @override
+  String get maintenanceRuntimeVolumePlugins => '存储卷插件';
+
+  @override
+  String get maintenanceRuntimeNetworkPlugins => '网络插件';
+
+  @override
+  String get maintenanceRuntimeLogPlugins => '日志插件';
+
+  @override
+  String get maintenanceRuntimeAuthorizationPlugins => '授权插件';
+
+  @override
+  String get maintenanceRuntimeInsecureRegistries => '不安全仓库网段';
+
+  @override
+  String get maintenanceRuntimeRegistryIndexes => '仓库索引配置';
+
+  @override
+  String get maintenanceRuntimeRegistryMirrors => '仓库镜像地址';
+
+  @override
+  String get maintenanceRuntimeSecureRegistry => '安全仓库连接';
+
+  @override
+  String get maintenanceRuntimeOfficialRegistry => '官方仓库';
+
+  @override
+  String get maintenanceRuntimeNodes => '节点数';
+
+  @override
+  String get maintenanceRuntimeManagers => '管理节点数';
+
+  @override
+  String get maintenanceRuntimeCluster => '集群信息';
+
+  @override
+  String get maintenanceRuntimeTlsInfo => 'TLS 证书信息';
+
+  @override
+  String get maintenanceRuntimeTrustRoot => '根证书';
+
+  @override
+  String get maintenanceRuntimeCertSubject => '证书签发者';
+
+  @override
+  String get maintenanceRuntimeCertPublicKey => '签发者公钥';
+
+  @override
+  String get maintenanceRuntimeRootRotation => '根证书轮换中';
+
+  @override
+  String get maintenanceRuntimeDataPathPort => '数据通道端口';
+
+  @override
+  String get maintenanceRuntimeNodeLocked => '已锁定';
+
+  @override
+  String get maintenanceRuntimeHost => '主机信息';
+
+  @override
+  String get maintenanceRuntimeStore => '存储信息';
+
+  @override
+  String maintenanceRuntimeComponentInfo(String component) {
+    return '$component 信息';
+  }
+
+  @override
+  String maintenanceRuntimeSecurityFeature(String name) {
+    return '$name 防护';
+  }
+
+  @override
+  String get maintenanceRuntimeDistribution => '系统发行版';
+
+  @override
+  String get maintenanceRuntimeNetworkBackend => '网络后端';
+
+  @override
+  String get maintenanceRuntimeNetworkBackendInfo => '网络后端信息';
+
+  @override
+  String get maintenanceRuntimeDatabaseBackend => '数据库后端';
+
+  @override
+  String get maintenanceRuntimeEventLogger => '事件日志后端';
+
+  @override
+  String get maintenanceRuntimeFreeLocks => '可用锁数';
+
+  @override
+  String get maintenanceRuntimeIdMappings => '用户与组映射';
+
+  @override
+  String get maintenanceRuntimeUidMappings => '用户 ID 映射';
+
+  @override
+  String get maintenanceRuntimeGidMappings => '组 ID 映射';
+
+  @override
+  String get maintenanceRuntimeOciRuntime => 'OCI 运行时';
+
+  @override
+  String get maintenanceRuntimeRemoteSocket => '服务连接端点';
+
+  @override
+  String get maintenanceRuntimeRootlessNetwork => '无根网络程序';
+
+  @override
+  String get maintenanceRuntimeRootlessPortForwarder => '无根端口转发';
+
+  @override
+  String get maintenanceRuntimeRemoteService => '远程服务';
+
+  @override
+  String get maintenanceRuntimeRootless => '无根模式';
+
+  @override
+  String get maintenanceRuntimeSeccompProfile => 'Seccomp 配置文件';
+
+  @override
+  String get maintenanceRuntimeGraphOptions => '存储驱动选项';
+
+  @override
+  String get maintenanceRuntimeStorageAllocated => '存储目录总容量';
+
+  @override
+  String get maintenanceRuntimeStorageUsed => '存储目录已用容量';
+
+  @override
+  String get maintenanceRuntimeImageCopyTemp => '镜像复制临时目录';
+
+  @override
+  String get maintenanceRuntimeContainerStore => '容器存储统计';
+
+  @override
+  String get maintenanceRuntimeImageStore => '镜像存储统计';
+
+  @override
+  String get maintenanceRuntimeRunRoot => '运行时数据目录';
+
+  @override
+  String get maintenanceRuntimeVolumePath => '数据卷目录';
+
+  @override
+  String get maintenanceRuntimeTransientStore => '临时存储模式';
+
+  @override
+  String get maintenanceRuntimeEmulatedArchitectures => '可模拟架构';
+
+  @override
+  String get maintenanceRuntimePackage => '软件包';
+
+  @override
+  String get maintenanceRuntimeCodename => '发行版代号';
+
+  @override
+  String get maintenanceRuntimeLinkMode => '链接模式';
+
+  @override
+  String get maintenanceRuntimeCpuUser => '用户态 CPU 用量';
+
+  @override
+  String get maintenanceRuntimeCpuSystem => '内核态 CPU 用量';
+
+  @override
+  String get maintenanceRuntimeCpuIdle => 'CPU 空闲比例';
+
+  @override
+  String get maintenanceRuntimeExists => '端点存在';
+
+  @override
+  String get maintenanceRuntimeMappedContainerId => '容器侧起始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedHostId => '主机侧起始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedIdCount => '映射 ID 数量';
+
+  @override
+  String get maintenanceRuntimeExpectedBuild => '预期构建版本';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -31150,4 +31470,324 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceKubernetesContextMissingStatus => '未設定連線環境';
+
+  @override
+  String maintenanceRuntimeCapability(String name) {
+    return '$name支援';
+  }
+
+  @override
+  String maintenanceRuntimeComponentBuild(String component) {
+    return '$component 建置版本';
+  }
+
+  @override
+  String get maintenanceRuntimeCpuSet => 'CPU 親和性';
+
+  @override
+  String get maintenanceRuntimeDebug => '偵錯模式';
+
+  @override
+  String get maintenanceRuntimeIpv4Forwarding => 'IPv4 轉送';
+
+  @override
+  String get maintenanceRuntimeOomKillDisable => '停用 OOM 終止';
+
+  @override
+  String get maintenanceRuntimeEventListeners => '事件監聽器數';
+
+  @override
+  String get maintenanceRuntimeExperimental => '實驗性功能';
+
+  @override
+  String get maintenanceRuntimeSwarm => 'Swarm 叢集';
+
+  @override
+  String get maintenanceRuntimeNodeId => '節點識別碼';
+
+  @override
+  String get maintenanceRuntimeNodeAddress => '節點位址';
+
+  @override
+  String get maintenanceRuntimeNodeState => '本機節點狀態';
+
+  @override
+  String get maintenanceRuntimeManagerNode => '管理節點';
+
+  @override
+  String get maintenanceRuntimeRemoteManagers => '遠端管理節點';
+
+  @override
+  String get maintenanceRuntimeFirewallBackend => '防火牆後端';
+
+  @override
+  String get maintenanceRuntimeFirewallDriver => '防火牆驅動';
+
+  @override
+  String get maintenanceRuntimeDiscoveredDevices => '已探索裝置';
+
+  @override
+  String get maintenanceRuntimeContainerd => 'Containerd 服務';
+
+  @override
+  String get maintenanceRuntimeNamespaces => '命名空間';
+
+  @override
+  String get maintenanceRuntimeContainerNamespace => '容器命名空間';
+
+  @override
+  String get maintenanceRuntimePluginNamespace => '外掛命名空間';
+
+  @override
+  String get maintenanceRuntimeClientInfo => '用戶端資訊';
+
+  @override
+  String get maintenanceRuntimeClient => '用戶端';
+
+  @override
+  String get maintenanceRuntimeServer => '伺服端';
+
+  @override
+  String get maintenanceRuntimeComponents => '元件';
+
+  @override
+  String get maintenanceRuntimeDetails => '詳細資訊';
+
+  @override
+  String get maintenanceRuntimeDefaultApiVersion => '預設 API 版本';
+
+  @override
+  String get maintenanceRuntimeMinApiVersion => '最低 API 版本';
+
+  @override
+  String get maintenanceRuntimeSchemaVersion => '結構版本';
+
+  @override
+  String get maintenanceRuntimeBuildTime => '建置時間';
+
+  @override
+  String get maintenanceRuntimeModule => '模組';
+
+  @override
+  String get maintenanceRuntimeModuleVersion => '模組版本';
+
+  @override
+  String get maintenanceRuntimeCdiDirectories => 'CDI 設定目錄';
+
+  @override
+  String get maintenanceRuntimeNri => '節點資源介面（NRI）';
+
+  @override
+  String get maintenanceRuntimeRegistryAddress => '映像檔倉庫索引位址';
+
+  @override
+  String get maintenanceRuntimeHttpProxy => 'HTTP 代理';
+
+  @override
+  String get maintenanceRuntimeHttpsProxy => 'HTTPS 代理';
+
+  @override
+  String get maintenanceRuntimeIsolation => '容器隔離模式';
+
+  @override
+  String get maintenanceRuntimeInitBinary => '初始化程式';
+
+  @override
+  String get maintenanceRuntimeLicense => '產品授權';
+
+  @override
+  String get maintenanceRuntimeAddressPools => '預設位址集區';
+
+  @override
+  String get maintenanceRuntimeSubnetPrefix => '子網路前綴長度';
+
+  @override
+  String get maintenanceRuntimeGenericResources => '一般資源';
+
+  @override
+  String get maintenanceRuntimeSystemStatus => '系統狀態';
+
+  @override
+  String get maintenanceRuntimeVolumePlugins => '儲存卷外掛';
+
+  @override
+  String get maintenanceRuntimeNetworkPlugins => '網路外掛';
+
+  @override
+  String get maintenanceRuntimeLogPlugins => '日誌外掛';
+
+  @override
+  String get maintenanceRuntimeAuthorizationPlugins => '授權外掛';
+
+  @override
+  String get maintenanceRuntimeInsecureRegistries => '不安全倉庫網段';
+
+  @override
+  String get maintenanceRuntimeRegistryIndexes => '倉庫索引設定';
+
+  @override
+  String get maintenanceRuntimeRegistryMirrors => '倉庫鏡像位址';
+
+  @override
+  String get maintenanceRuntimeSecureRegistry => '安全倉庫連線';
+
+  @override
+  String get maintenanceRuntimeOfficialRegistry => '官方倉庫';
+
+  @override
+  String get maintenanceRuntimeNodes => '節點數';
+
+  @override
+  String get maintenanceRuntimeManagers => '管理節點數';
+
+  @override
+  String get maintenanceRuntimeCluster => '叢集資訊';
+
+  @override
+  String get maintenanceRuntimeTlsInfo => 'TLS 憑證資訊';
+
+  @override
+  String get maintenanceRuntimeTrustRoot => '根憑證';
+
+  @override
+  String get maintenanceRuntimeCertSubject => '憑證簽發者';
+
+  @override
+  String get maintenanceRuntimeCertPublicKey => '簽發者公開金鑰';
+
+  @override
+  String get maintenanceRuntimeRootRotation => '根憑證輪替中';
+
+  @override
+  String get maintenanceRuntimeDataPathPort => '資料通道連接埠';
+
+  @override
+  String get maintenanceRuntimeNodeLocked => '已鎖定';
+
+  @override
+  String get maintenanceRuntimeHost => '主機資訊';
+
+  @override
+  String get maintenanceRuntimeStore => '儲存資訊';
+
+  @override
+  String maintenanceRuntimeComponentInfo(String component) {
+    return '$component 資訊';
+  }
+
+  @override
+  String maintenanceRuntimeSecurityFeature(String name) {
+    return '$name 防護';
+  }
+
+  @override
+  String get maintenanceRuntimeDistribution => '系統發行版';
+
+  @override
+  String get maintenanceRuntimeNetworkBackend => '網路後端';
+
+  @override
+  String get maintenanceRuntimeNetworkBackendInfo => '網路後端資訊';
+
+  @override
+  String get maintenanceRuntimeDatabaseBackend => '資料庫後端';
+
+  @override
+  String get maintenanceRuntimeEventLogger => '事件日誌後端';
+
+  @override
+  String get maintenanceRuntimeFreeLocks => '可用鎖定數';
+
+  @override
+  String get maintenanceRuntimeIdMappings => '使用者與群組對應';
+
+  @override
+  String get maintenanceRuntimeUidMappings => '使用者 ID 對應';
+
+  @override
+  String get maintenanceRuntimeGidMappings => '群組 ID 對應';
+
+  @override
+  String get maintenanceRuntimeOciRuntime => 'OCI 執行環境';
+
+  @override
+  String get maintenanceRuntimeRemoteSocket => '服務連線端點';
+
+  @override
+  String get maintenanceRuntimeRootlessNetwork => '無根網路程式';
+
+  @override
+  String get maintenanceRuntimeRootlessPortForwarder => '無根連接埠轉送';
+
+  @override
+  String get maintenanceRuntimeRemoteService => '遠端服務';
+
+  @override
+  String get maintenanceRuntimeRootless => '無根模式';
+
+  @override
+  String get maintenanceRuntimeSeccompProfile => 'Seccomp 設定檔';
+
+  @override
+  String get maintenanceRuntimeGraphOptions => '儲存驅動選項';
+
+  @override
+  String get maintenanceRuntimeStorageAllocated => '儲存目錄總容量';
+
+  @override
+  String get maintenanceRuntimeStorageUsed => '儲存目錄已用容量';
+
+  @override
+  String get maintenanceRuntimeImageCopyTemp => '映像檔複製暫存目錄';
+
+  @override
+  String get maintenanceRuntimeContainerStore => '容器儲存統計';
+
+  @override
+  String get maintenanceRuntimeImageStore => '映像檔儲存統計';
+
+  @override
+  String get maintenanceRuntimeRunRoot => '執行環境資料目錄';
+
+  @override
+  String get maintenanceRuntimeVolumePath => '資料卷目錄';
+
+  @override
+  String get maintenanceRuntimeTransientStore => '暫存儲存模式';
+
+  @override
+  String get maintenanceRuntimeEmulatedArchitectures => '可模擬架構';
+
+  @override
+  String get maintenanceRuntimePackage => '軟體套件';
+
+  @override
+  String get maintenanceRuntimeCodename => '發行版代號';
+
+  @override
+  String get maintenanceRuntimeLinkMode => '連結模式';
+
+  @override
+  String get maintenanceRuntimeCpuUser => '使用者態 CPU 用量';
+
+  @override
+  String get maintenanceRuntimeCpuSystem => '核心態 CPU 用量';
+
+  @override
+  String get maintenanceRuntimeCpuIdle => 'CPU 閒置比例';
+
+  @override
+  String get maintenanceRuntimeExists => '端點存在';
+
+  @override
+  String get maintenanceRuntimeMappedContainerId => '容器端起始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedHostId => '主機端起始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedIdCount => '映射 ID 數量';
+
+  @override
+  String get maintenanceRuntimeExpectedBuild => '預期建置版本';
 }

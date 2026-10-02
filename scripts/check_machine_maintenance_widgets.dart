@@ -3157,6 +3157,128 @@ void main() {
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('运行时元数据六语言切换覆盖能力、Swarm、驱动、命名空间和客户端信息', (tester) async {
+    final sample=jsonEncode({
+      'MemoryLimit':true,'SwapLimit':false,'CpuCfsPeriod':true,'CpuCfsQuota':true,
+      'CPUSet':true,'IPv4Forwarding':true,'Debug':false,'OomKillDisable':false,
+      'Swarm':{'NodeID':'node-original','NodeAddr':'192.0.2.10','LocalNodeState':'pending','ControlAvailable':false,'RemoteManagers':[]},
+      'FirewallBackend':{'Driver':'iptables'},
+      'DiscoveredDevices':[{'Source':'cdi','ID':'docker.com/gpu=webgpu'}],
+      'Containerd':{'Address':'/run/containerd/containerd.sock','Namespaces':{'Containers':'active','Plugins':'false'}},
+    });
+    for(final width in [380.0,1180.0]) {
+      await tester.binding.setSurfaceSize(Size(width,1200));
+      for(final locale in AppLocalizations.supportedLocales) {
+        final l=await AppLocalizations.delegate.load(locale);
+        final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(MaterialApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.6:1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('运行时字段预览'),child:SingleChildScrollView(padding:const EdgeInsets.all(16),child:_MaintenanceReadout(text:sample,section:'container_metadata'))))));
+        await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceRuntimeCapability(l.maintenanceMemoryLimit)),findsOneWidget);
+        expect(find.text(l.maintenanceRuntimeCapability(l.maintenanceMetricCpuPeriod)),findsOneWidget);
+        expect(find.text(l.maintenanceRuntimeNodeState),findsOneWidget);
+        expect(find.text(l.maintenanceAddress),findsOneWidget);
+        expect(find.text(l.maintenanceRuntimeFirewallDriver),findsOneWidget);
+        expect(find.text(l.maintenanceRuntimeNamespaces+' / '+l.maintenanceRuntimeContainerNamespace),findsOneWidget);
+        expect(find.text(l.maintenanceRuntimeNamespaces+' / '+l.maintenanceRuntimePluginNamespace),findsOneWidget);
+        expect(find.text(l.maintenanceContainerPending),findsOneWidget);
+        for(final text in ['node-original','192.0.2.10','docker.com/gpu=webgpu','/run/containerd/containerd.sock','active','false','iptables'])expect(find.text(text),findsOneWidget);
+        for(final raw in ['MemoryLimit','SwapLimit','CpuCfsPeriod','CpuCfsQuota','CPUSet','IPv4Forwarding','Debug','OomKillDisable','Swarm','NodeID','NodeAddr','LocalNodeState','ControlAvailable','RemoteManagers','DiscoveredDevices','Containerd'])expect(find.text(raw),findsNothing);
+        if(locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          await tester.runAsync(()async{final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('运行时字段预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);await File('/tmp/runtime-metadata-labels-'+width.toInt().toString()+'.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
+        }
+        for(final container in tester.widgetList<Container>(find.byType(Container))) {
+          final decoration=container.decoration;
+          if(decoration is BoxDecoration){expect(decoration.gradient,isNull);expect(decoration.boxShadow,isNull);}
+        }
+        expect(tester.takeException(),isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('元数据同名字段按原始路径区分，用户标签和机器值不被译成状态', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      await tester.pumpWidget(MaterialApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:Builder(builder:(context){
+          expect(maintenanceDetailLabel(context,'Driver'),l.maintenanceContainerDriver);
+          expect(maintenanceDetailLabel(context,'Driver',parent:'FirewallBackend'),l.maintenanceRuntimeFirewallDriver);
+          expect(maintenanceDetailLabel(context,'Containerd / Namespaces / Plugins'),l.maintenanceRuntimeContainerd+' / '+l.maintenanceRuntimeNamespaces+' / '+l.maintenanceRuntimePluginNamespace);
+          expect(maintenanceDetailLabel(context,'[1] / Size',parent:'DefaultAddressPools'),'[1] / '+l.maintenanceRuntimeSubnetPrefix);
+          expect(maintenanceDetailLabel(context,'ID',parent:'ContainerdCommit'),l.maintenanceBuildVersion);
+          expect(maintenanceDetailLabel(context,'Expected',parent:'ContainerdCommit'),l.maintenanceRuntimeExpectedBuild);
+          expect(maintenanceDetailLabel(context,'Version',parent:'ClientInfo'),l.maintenanceContainerGenericVersion);
+          expect(maintenanceDetailLabel(context,'ClientInfo'),l.maintenanceRuntimeClientInfo);
+          expect(maintenanceDetailLabel(context,'DefaultAPIVersion'),l.maintenanceRuntimeDefaultApiVersion);
+          expect(maintenanceDetailLabel(context,'ApiVersion'),l.maintenanceContainerApiVersion);
+          expect(maintenanceDetailLabel(context,'CDISpecDirs'),l.maintenanceRuntimeCdiDirectories);
+          expect(maintenanceDetailLabel(context,'Network',parent:'Plugins'),l.maintenanceRuntimeNetworkPlugins);
+          expect(maintenanceDetailLabel(context,'future_runtime_extension'),'future_runtime_extension');
+          expect(maintenanceDetailValue(context,'pending',field:'Swarm / LocalNodeState'),l.maintenanceContainerPending);
+          expect(maintenanceDetailValue(context,'locked',field:'Swarm / LocalNodeState'),l.maintenanceRuntimeNodeLocked);
+          expect(maintenanceDetailValue(context,'false',field:'MemoryLimit'),l.maintenanceHealthParsedNo);
+          expect(maintenanceDetailValue(context,'0',field:'HostConfig / PidsLimit'),'0');
+          for(final field in ['Name','id','NodeID','Context','Address','Driver','BuildOrigin','Vendor','OsArch','hostname','Namespaces / Plugins','Labels / status','annotations / nested / State']) {
+            expect(maintenanceDetailValue(context,'active',field:field),'active');
+          }
+          for(final field in ['Debug','MemoryLimit','Name','status','Version'])expect(maintenanceDetailLabel(context,field,parent:'Labels'),field);
+          expect(maintenanceDetailLabel(context,'nested / State',parent:'annotations'),'nested / State');
+          expect(_maintenanceReadoutValue(context,'Labels / MemTotal','1024'),'1024');
+          expect(_maintenanceReadoutValue(context,'Labels / status','active'),'active');
+          return const _MaintenanceReadout(text:'{"Labels":{"MemoryLimit":"true","status":"active","MemTotal":"1024"}}',section:'container_metadata');
+        }))));
+      await tester.pumpAndSettle();expect(find.text('MemoryLimit'),findsOneWidget);expect(find.text('true'),findsOneWidget);
+      expect(find.text('active'),findsOneWidget);expect(find.text('1024'),findsOneWidget);expect(tester.takeException(),isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('Podman 主机、存储与插件元数据共用六语言映射并保留资源标识', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      await tester.pumpWidget(MaterialApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+        home:Scaffold(body:SingleChildScrollView(child:Builder(builder:(context){
+          expect(maintenanceDetailLabel(context,'host'),l.maintenanceRuntimeHost);
+          expect(maintenanceDetailLabel(context,'store'),l.maintenanceRuntimeStore);
+          expect(maintenanceDetailLabel(context,'arch'),maintenanceLabel(context,'架构'));
+          expect(maintenanceDetailLabel(context,'ociRuntime'),l.maintenanceRuntimeOciRuntime);
+          expect(maintenanceDetailLabel(context,'memTotal'),l.maintenanceTotalMemory);
+          expect(maintenanceDetailLabel(context,'seccompEnabled'),l.maintenanceRuntimeSecurityFeature('Seccomp'));
+          expect(maintenanceDetailLabel(context,'graphRootUsed'),l.maintenanceRuntimeStorageUsed);
+          expect(maintenanceDetailLabel(context,'network',parent:'plugins'),l.maintenanceRuntimeNetworkPlugins);
+          expect(maintenanceDetailLabel(context,'distribution',parent:'host / distribution'),l.maintenanceName);
+          expect(maintenanceDetailLabel(context,'container_id',parent:'host / idMappings / uidmap [1]'),l.maintenanceRuntimeMappedContainerId);
+          expect(maintenanceDetailLabel(context,'host_id',parent:'host / idMappings / gidmap / [1]'),l.maintenanceRuntimeMappedHostId);
+          expect(maintenanceDetailLabel(context,'size',parent:'host / idMappings / uidmap / [1]'),l.maintenanceRuntimeMappedIdCount);
+          expect(maintenanceDetailLabel(context,'Version',parent:'version'),l.maintenanceContainerGenericVersion);
+          expect(maintenanceDetailLabel(context,'BuiltTime',parent:'version'),l.maintenanceRuntimeBuildTime);
+          expect(maintenanceDetailLabel(context,'Built',parent:'version'),l.maintenanceRuntimeBuildTime);
+          expect(maintenanceDetailLabel(context,'BuildOrigin',parent:'version'),l.maintenanceGpuVendor);
+          expect(maintenanceDetailLabel(context,'backend',parent:'host / networkBackendInfo'),l.maintenanceRuntimeNetworkBackend);
+          expect(maintenanceDetailLabel(context,'dns',parent:'host / networkBackendInfo'),l.maintenanceDns);
+          expect(maintenanceDetailValue(context,'active',field:'host / ociRuntime / name'),'active');
+          expect(_maintenanceReadoutValue(context,'host / memTotal','1048576'),formatByteSize(1048576));
+          expect(_maintenanceReadoutValue(context,'store / graphRootUsed','0'),formatByteSize(0));
+          expect(_maintenanceReadoutValue(context,'host / cpuUtilization / userPercent','12.5'),'12.5%');
+          return _MaintenanceReadout(section:'container_metadata',text:jsonEncode({
+            'host':{'arch':'arm64','cgroupManager':'systemd','memTotal':1048576,'security':{'rootless':true,'seccompEnabled':false}},
+            'store':{'containerStore':{'number':3,'running':1},'graphDriverName':'overlay','graphRoot':'/var/lib/containers/storage'},
+            'plugins':{'network':['bridge'],'volume':['local']},
+            'version':{'Version':'5.0','ApiVersion':'5.0','GoVersion':'go1.24'},
+          }));
+        })))));
+      await tester.pumpAndSettle();expect(find.text(l.maintenanceRuntimeHost),findsOneWidget);
+      expect(find.text(l.maintenanceRuntimeStore),findsOneWidget);expect(find.text('arm64'),findsOneWidget);
+      expect(find.text(l.maintenanceRuntimeNetworkPlugins),findsOneWidget);expect(find.text('/var/lib/containers/storage'),findsOneWidget);
+      expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('大组元数据按需展开，空报告与权限诊断保持紧凑结构', (tester) async {
     await tester.runAsync(() async {
       for (final entry in {'运维预览字体': Platform.environment['MAINTENANCE_FONT'], 'MaterialIcons': Platform.environment['MAINTENANCE_ICONS'], 'monospace': Platform.environment['MAINTENANCE_TERMINAL_FONT']}.entries) {

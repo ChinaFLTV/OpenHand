@@ -9893,5 +9893,141 @@
   "maintenanceContainerUnhealthy": "Unhealthy",
   "maintenanceKubernetesContextMissing": "Kubernetes current context is not configured",
   "maintenanceKubernetesContextMissingHelp": "Configure kubeconfig on the target machine, set the current context with kubectl config use-context <context-name>, then refresh.",
-  "maintenanceKubernetesContextMissingStatus": "Context not configured"
+  "maintenanceKubernetesContextMissingStatus": "Context not configured",
+  "maintenanceRuntimeCapability": "{name} support",
+  "@maintenanceRuntimeCapability": {
+    "description": "运行时字段的本地化标题",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeComponentBuild": "{component} build",
+  "@maintenanceRuntimeComponentBuild": {
+    "description": "运行时字段的本地化标题",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeCpuSet": "CPU affinity",
+  "maintenanceRuntimeDebug": "Debug mode",
+  "maintenanceRuntimeIpv4Forwarding": "IPv4 forwarding",
+  "maintenanceRuntimeOomKillDisable": "Disable OOM termination",
+  "maintenanceRuntimeEventListeners": "Event listeners",
+  "maintenanceRuntimeExperimental": "Experimental features",
+  "maintenanceRuntimeSwarm": "Swarm cluster",
+  "maintenanceRuntimeNodeId": "Node ID",
+  "maintenanceRuntimeNodeAddress": "Node address",
+  "maintenanceRuntimeNodeState": "Local node state",
+  "maintenanceRuntimeManagerNode": "Manager node",
+  "maintenanceRuntimeRemoteManagers": "Remote manager nodes",
+  "maintenanceRuntimeFirewallBackend": "Firewall backend",
+  "maintenanceRuntimeFirewallDriver": "Firewall driver",
+  "maintenanceRuntimeDiscoveredDevices": "Discovered devices",
+  "maintenanceRuntimeContainerd": "Containerd service",
+  "maintenanceRuntimeNamespaces": "Namespaces",
+  "maintenanceRuntimeContainerNamespace": "Container namespace",
+  "maintenanceRuntimePluginNamespace": "Plugin namespace",
+  "maintenanceRuntimeClientInfo": "Client information",
+  "maintenanceRuntimeClient": "Client",
+  "maintenanceRuntimeServer": "Server",
+  "maintenanceRuntimeComponents": "Components",
+  "maintenanceRuntimeDetails": "Details",
+  "maintenanceRuntimeDefaultApiVersion": "Default API version",
+  "maintenanceRuntimeMinApiVersion": "Minimum API version",
+  "maintenanceRuntimeSchemaVersion": "Schema version",
+  "maintenanceRuntimeBuildTime": "Build time",
+  "maintenanceRuntimeModule": "Module",
+  "maintenanceRuntimeModuleVersion": "Module version",
+  "maintenanceRuntimeCdiDirectories": "CDI configuration directories",
+  "maintenanceRuntimeNri": "Node resource interface (NRI)",
+  "maintenanceRuntimeRegistryAddress": "Registry index address",
+  "maintenanceRuntimeHttpProxy": "HTTP proxy",
+  "maintenanceRuntimeHttpsProxy": "HTTPS proxy",
+  "maintenanceRuntimeIsolation": "Container isolation",
+  "maintenanceRuntimeInitBinary": "Init binary",
+  "maintenanceRuntimeLicense": "Product license",
+  "maintenanceRuntimeAddressPools": "Default address pools",
+  "maintenanceRuntimeSubnetPrefix": "Subnet prefix length",
+  "maintenanceRuntimeGenericResources": "Generic resources",
+  "maintenanceRuntimeSystemStatus": "System status",
+  "maintenanceRuntimeVolumePlugins": "Volume plugins",
+  "maintenanceRuntimeNetworkPlugins": "Network plugins",
+  "maintenanceRuntimeLogPlugins": "Logging plugins",
+  "maintenanceRuntimeAuthorizationPlugins": "Authorization plugins",
+  "maintenanceRuntimeInsecureRegistries": "Insecure registry subnets",
+  "maintenanceRuntimeRegistryIndexes": "Registry index configuration",
+  "maintenanceRuntimeRegistryMirrors": "Registry mirrors",
+  "maintenanceRuntimeSecureRegistry": "Secure registry connection",
+  "maintenanceRuntimeOfficialRegistry": "Official registry",
+  "maintenanceRuntimeNodes": "Node count",
+  "maintenanceRuntimeManagers": "Manager count",
+  "maintenanceRuntimeCluster": "Cluster information",
+  "maintenanceRuntimeTlsInfo": "TLS certificate information",
+  "maintenanceRuntimeTrustRoot": "Root certificate",
+  "maintenanceRuntimeCertSubject": "Certificate issuer",
+  "maintenanceRuntimeCertPublicKey": "Issuer public key",
+  "maintenanceRuntimeRootRotation": "Root certificate rotation",
+  "maintenanceRuntimeDataPathPort": "Data path port",
+  "maintenanceRuntimeNodeLocked": "Locked",
+  "maintenanceRuntimeHost": "Host information",
+  "maintenanceRuntimeStore": "Storage information",
+  "maintenanceRuntimeComponentInfo": "{component} information",
+  "@maintenanceRuntimeComponentInfo": {
+    "description": "运行时组件的本地化标题",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeSecurityFeature": "{name} protection",
+  "@maintenanceRuntimeSecurityFeature": {
+    "description": "运行时组件的本地化标题",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeDistribution": "System distribution",
+  "maintenanceRuntimeNetworkBackend": "Network backend",
+  "maintenanceRuntimeNetworkBackendInfo": "Network backend information",
+  "maintenanceRuntimeDatabaseBackend": "Database backend",
+  "maintenanceRuntimeEventLogger": "Event logger",
+  "maintenanceRuntimeFreeLocks": "Available locks",
+  "maintenanceRuntimeIdMappings": "User and group mappings",
+  "maintenanceRuntimeUidMappings": "User ID mappings",
+  "maintenanceRuntimeGidMappings": "Group ID mappings",
+  "maintenanceRuntimeOciRuntime": "OCI runtime",
+  "maintenanceRuntimeRemoteSocket": "Service endpoint",
+  "maintenanceRuntimeRootlessNetwork": "Rootless network program",
+  "maintenanceRuntimeRootlessPortForwarder": "Rootless port forwarding",
+  "maintenanceRuntimeRemoteService": "Remote service",
+  "maintenanceRuntimeRootless": "Rootless mode",
+  "maintenanceRuntimeSeccompProfile": "Seccomp profile",
+  "maintenanceRuntimeGraphOptions": "Storage driver options",
+  "maintenanceRuntimeStorageAllocated": "Storage directory capacity",
+  "maintenanceRuntimeStorageUsed": "Storage directory usage",
+  "maintenanceRuntimeImageCopyTemp": "Image copy temporary directory",
+  "maintenanceRuntimeContainerStore": "Container storage statistics",
+  "maintenanceRuntimeImageStore": "Image storage statistics",
+  "maintenanceRuntimeRunRoot": "Runtime data directory",
+  "maintenanceRuntimeVolumePath": "Volume directory",
+  "maintenanceRuntimeTransientStore": "Transient storage",
+  "maintenanceRuntimeEmulatedArchitectures": "Emulated architectures",
+  "maintenanceRuntimePackage": "Package",
+  "maintenanceRuntimeCodename": "Distribution codename",
+  "maintenanceRuntimeLinkMode": "Link mode",
+  "maintenanceRuntimeCpuUser": "User CPU usage",
+  "maintenanceRuntimeCpuSystem": "System CPU usage",
+  "maintenanceRuntimeCpuIdle": "CPU idle percentage",
+  "maintenanceRuntimeExists": "Endpoint exists",
+  "maintenanceRuntimeMappedContainerId": "Container start ID",
+  "maintenanceRuntimeMappedHostId": "Host start ID",
+  "maintenanceRuntimeMappedIdCount": "Mapped ID count",
+  "maintenanceRuntimeExpectedBuild": "Expected build"
 }

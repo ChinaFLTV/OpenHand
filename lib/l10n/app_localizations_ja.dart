@@ -15744,4 +15744,324 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceKubernetesContextMissingStatus => 'コンテキスト未設定';
+
+  @override
+  String maintenanceRuntimeCapability(String name) {
+    return '$name の対応';
+  }
+
+  @override
+  String maintenanceRuntimeComponentBuild(String component) {
+    return '$component ビルド';
+  }
+
+  @override
+  String get maintenanceRuntimeCpuSet => 'CPU アフィニティ';
+
+  @override
+  String get maintenanceRuntimeDebug => 'デバッグモード';
+
+  @override
+  String get maintenanceRuntimeIpv4Forwarding => 'IPv4 転送';
+
+  @override
+  String get maintenanceRuntimeOomKillDisable => 'OOM 終了の無効化';
+
+  @override
+  String get maintenanceRuntimeEventListeners => 'イベントリスナー数';
+
+  @override
+  String get maintenanceRuntimeExperimental => '実験的な機能';
+
+  @override
+  String get maintenanceRuntimeSwarm => 'Swarm クラスター';
+
+  @override
+  String get maintenanceRuntimeNodeId => 'ノード ID';
+
+  @override
+  String get maintenanceRuntimeNodeAddress => 'ノードアドレス';
+
+  @override
+  String get maintenanceRuntimeNodeState => 'ローカルノードの状態';
+
+  @override
+  String get maintenanceRuntimeManagerNode => 'マネージャーノード';
+
+  @override
+  String get maintenanceRuntimeRemoteManagers => 'リモートマネージャーノード';
+
+  @override
+  String get maintenanceRuntimeFirewallBackend => 'ファイアウォールのバックエンド';
+
+  @override
+  String get maintenanceRuntimeFirewallDriver => 'ファイアウォールドライバー';
+
+  @override
+  String get maintenanceRuntimeDiscoveredDevices => '検出されたデバイス';
+
+  @override
+  String get maintenanceRuntimeContainerd => 'Containerd サービス';
+
+  @override
+  String get maintenanceRuntimeNamespaces => '名前空間';
+
+  @override
+  String get maintenanceRuntimeContainerNamespace => 'コンテナーの名前空間';
+
+  @override
+  String get maintenanceRuntimePluginNamespace => 'プラグインの名前空間';
+
+  @override
+  String get maintenanceRuntimeClientInfo => 'クライアント情報';
+
+  @override
+  String get maintenanceRuntimeClient => 'クライアント';
+
+  @override
+  String get maintenanceRuntimeServer => 'サーバー';
+
+  @override
+  String get maintenanceRuntimeComponents => 'コンポーネント';
+
+  @override
+  String get maintenanceRuntimeDetails => '詳細情報';
+
+  @override
+  String get maintenanceRuntimeDefaultApiVersion => '既定の API バージョン';
+
+  @override
+  String get maintenanceRuntimeMinApiVersion => '最小 API バージョン';
+
+  @override
+  String get maintenanceRuntimeSchemaVersion => 'スキーマのバージョン';
+
+  @override
+  String get maintenanceRuntimeBuildTime => 'ビルド日時';
+
+  @override
+  String get maintenanceRuntimeModule => 'モジュール';
+
+  @override
+  String get maintenanceRuntimeModuleVersion => 'モジュールのバージョン';
+
+  @override
+  String get maintenanceRuntimeCdiDirectories => 'CDI 設定ディレクトリ';
+
+  @override
+  String get maintenanceRuntimeNri => 'ノードリソースインターフェース（NRI）';
+
+  @override
+  String get maintenanceRuntimeRegistryAddress => 'レジストリのインデックスアドレス';
+
+  @override
+  String get maintenanceRuntimeHttpProxy => 'HTTP プロキシ';
+
+  @override
+  String get maintenanceRuntimeHttpsProxy => 'HTTPS プロキシ';
+
+  @override
+  String get maintenanceRuntimeIsolation => 'コンテナーの分離モード';
+
+  @override
+  String get maintenanceRuntimeInitBinary => '初期化プログラム';
+
+  @override
+  String get maintenanceRuntimeLicense => '製品ライセンス';
+
+  @override
+  String get maintenanceRuntimeAddressPools => '既定のアドレスプール';
+
+  @override
+  String get maintenanceRuntimeSubnetPrefix => 'サブネットのプレフィックス長';
+
+  @override
+  String get maintenanceRuntimeGenericResources => '汎用リソース';
+
+  @override
+  String get maintenanceRuntimeSystemStatus => 'システムの状態';
+
+  @override
+  String get maintenanceRuntimeVolumePlugins => 'ボリュームプラグイン';
+
+  @override
+  String get maintenanceRuntimeNetworkPlugins => 'ネットワークプラグイン';
+
+  @override
+  String get maintenanceRuntimeLogPlugins => 'ログプラグイン';
+
+  @override
+  String get maintenanceRuntimeAuthorizationPlugins => '認可プラグイン';
+
+  @override
+  String get maintenanceRuntimeInsecureRegistries => '安全でないレジストリのサブネット';
+
+  @override
+  String get maintenanceRuntimeRegistryIndexes => 'レジストリのインデックス設定';
+
+  @override
+  String get maintenanceRuntimeRegistryMirrors => 'レジストリミラー';
+
+  @override
+  String get maintenanceRuntimeSecureRegistry => '安全なレジストリ接続';
+
+  @override
+  String get maintenanceRuntimeOfficialRegistry => '公式レジストリ';
+
+  @override
+  String get maintenanceRuntimeNodes => 'ノード数';
+
+  @override
+  String get maintenanceRuntimeManagers => 'マネージャー数';
+
+  @override
+  String get maintenanceRuntimeCluster => 'クラスター情報';
+
+  @override
+  String get maintenanceRuntimeTlsInfo => 'TLS 証明書情報';
+
+  @override
+  String get maintenanceRuntimeTrustRoot => 'ルート証明書';
+
+  @override
+  String get maintenanceRuntimeCertSubject => '証明書の発行者';
+
+  @override
+  String get maintenanceRuntimeCertPublicKey => '発行者の公開鍵';
+
+  @override
+  String get maintenanceRuntimeRootRotation => 'ルート証明書のローテーション中';
+
+  @override
+  String get maintenanceRuntimeDataPathPort => 'データパスのポート';
+
+  @override
+  String get maintenanceRuntimeNodeLocked => 'ロック済み';
+
+  @override
+  String get maintenanceRuntimeHost => 'ホスト情報';
+
+  @override
+  String get maintenanceRuntimeStore => 'ストレージ情報';
+
+  @override
+  String maintenanceRuntimeComponentInfo(String component) {
+    return '$component 情報';
+  }
+
+  @override
+  String maintenanceRuntimeSecurityFeature(String name) {
+    return '$name の保護';
+  }
+
+  @override
+  String get maintenanceRuntimeDistribution => 'システムディストリビューション';
+
+  @override
+  String get maintenanceRuntimeNetworkBackend => 'ネットワークバックエンド';
+
+  @override
+  String get maintenanceRuntimeNetworkBackendInfo => 'ネットワークバックエンド情報';
+
+  @override
+  String get maintenanceRuntimeDatabaseBackend => 'データベースバックエンド';
+
+  @override
+  String get maintenanceRuntimeEventLogger => 'イベントログのバックエンド';
+
+  @override
+  String get maintenanceRuntimeFreeLocks => '利用可能なロック数';
+
+  @override
+  String get maintenanceRuntimeIdMappings => 'ユーザーとグループのマッピング';
+
+  @override
+  String get maintenanceRuntimeUidMappings => 'ユーザー ID のマッピング';
+
+  @override
+  String get maintenanceRuntimeGidMappings => 'グループ ID のマッピング';
+
+  @override
+  String get maintenanceRuntimeOciRuntime => 'OCI ランタイム';
+
+  @override
+  String get maintenanceRuntimeRemoteSocket => 'サービスの接続先';
+
+  @override
+  String get maintenanceRuntimeRootlessNetwork => '非 root ネットワークプログラム';
+
+  @override
+  String get maintenanceRuntimeRootlessPortForwarder => '非 root のポート転送';
+
+  @override
+  String get maintenanceRuntimeRemoteService => 'リモートサービス';
+
+  @override
+  String get maintenanceRuntimeRootless => '非 root モード';
+
+  @override
+  String get maintenanceRuntimeSeccompProfile => 'Seccomp プロファイル';
+
+  @override
+  String get maintenanceRuntimeGraphOptions => 'ストレージドライバーの設定';
+
+  @override
+  String get maintenanceRuntimeStorageAllocated => 'ストレージディレクトリの容量';
+
+  @override
+  String get maintenanceRuntimeStorageUsed => 'ストレージディレクトリの使用量';
+
+  @override
+  String get maintenanceRuntimeImageCopyTemp => 'イメージコピーの一時ディレクトリ';
+
+  @override
+  String get maintenanceRuntimeContainerStore => 'コンテナーストレージの統計';
+
+  @override
+  String get maintenanceRuntimeImageStore => 'イメージストレージの統計';
+
+  @override
+  String get maintenanceRuntimeRunRoot => 'ランタイムデータディレクトリ';
+
+  @override
+  String get maintenanceRuntimeVolumePath => 'ボリュームディレクトリ';
+
+  @override
+  String get maintenanceRuntimeTransientStore => '一時ストレージモード';
+
+  @override
+  String get maintenanceRuntimeEmulatedArchitectures => 'エミュレート可能なアーキテクチャ';
+
+  @override
+  String get maintenanceRuntimePackage => 'パッケージ';
+
+  @override
+  String get maintenanceRuntimeCodename => 'ディストリビューションのコードネーム';
+
+  @override
+  String get maintenanceRuntimeLinkMode => 'リンクモード';
+
+  @override
+  String get maintenanceRuntimeCpuUser => 'ユーザーモードの CPU 使用率';
+
+  @override
+  String get maintenanceRuntimeCpuSystem => 'システムモードの CPU 使用率';
+
+  @override
+  String get maintenanceRuntimeCpuIdle => 'CPU のアイドル率';
+
+  @override
+  String get maintenanceRuntimeExists => '接続先が存在';
+
+  @override
+  String get maintenanceRuntimeMappedContainerId => 'コンテナ側の開始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedHostId => 'ホスト側の開始 ID';
+
+  @override
+  String get maintenanceRuntimeMappedIdCount => 'マッピングする ID 数';
+
+  @override
+  String get maintenanceRuntimeExpectedBuild => '想定ビルド';
 }

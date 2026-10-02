@@ -11080,5 +11080,141 @@
   "maintenanceContainerUnhealthy": "不健康",
   "maintenanceKubernetesContextMissing": "未配置 Kubernetes 当前上下文",
   "maintenanceKubernetesContextMissingHelp": "请在目标机器配置 kubeconfig，用 kubectl config use-context <上下文名称> 设置当前上下文，然后刷新。",
-  "maintenanceKubernetesContextMissingStatus": "未配置上下文"
+  "maintenanceKubernetesContextMissingStatus": "未配置上下文",
+  "maintenanceRuntimeCapability": "{name}支持",
+  "maintenanceRuntimeComponentBuild": "{component} 构建版本",
+  "maintenanceRuntimeCpuSet": "CPU 亲和性",
+  "maintenanceRuntimeDebug": "调试模式",
+  "maintenanceRuntimeIpv4Forwarding": "IPv4 转发",
+  "maintenanceRuntimeOomKillDisable": "禁用 OOM 终止",
+  "maintenanceRuntimeEventListeners": "事件监听器数",
+  "maintenanceRuntimeExperimental": "实验性功能",
+  "maintenanceRuntimeSwarm": "Swarm 集群",
+  "maintenanceRuntimeNodeId": "节点标识",
+  "maintenanceRuntimeNodeAddress": "节点地址",
+  "maintenanceRuntimeNodeState": "本地节点状态",
+  "maintenanceRuntimeManagerNode": "管理节点",
+  "maintenanceRuntimeRemoteManagers": "远端管理节点",
+  "maintenanceRuntimeFirewallBackend": "防火墙后端",
+  "maintenanceRuntimeFirewallDriver": "防火墙驱动",
+  "maintenanceRuntimeDiscoveredDevices": "已发现设备",
+  "maintenanceRuntimeContainerd": "Containerd 服务",
+  "maintenanceRuntimeNamespaces": "命名空间",
+  "maintenanceRuntimeContainerNamespace": "容器命名空间",
+  "maintenanceRuntimePluginNamespace": "插件命名空间",
+  "maintenanceRuntimeClientInfo": "客户端信息",
+  "maintenanceRuntimeClient": "客户端",
+  "maintenanceRuntimeServer": "服务端",
+  "maintenanceRuntimeComponents": "组件",
+  "maintenanceRuntimeDetails": "详细信息",
+  "maintenanceRuntimeDefaultApiVersion": "默认 API 版本",
+  "maintenanceRuntimeMinApiVersion": "最低 API 版本",
+  "maintenanceRuntimeSchemaVersion": "结构版本",
+  "maintenanceRuntimeBuildTime": "构建时间",
+  "maintenanceRuntimeModule": "模块",
+  "maintenanceRuntimeModuleVersion": "模块版本",
+  "maintenanceRuntimeCdiDirectories": "CDI 配置目录",
+  "maintenanceRuntimeNri": "节点资源接口（NRI）",
+  "maintenanceRuntimeRegistryAddress": "镜像仓库索引地址",
+  "maintenanceRuntimeHttpProxy": "HTTP 代理",
+  "maintenanceRuntimeHttpsProxy": "HTTPS 代理",
+  "maintenanceRuntimeIsolation": "容器隔离模式",
+  "maintenanceRuntimeInitBinary": "初始化程序",
+  "maintenanceRuntimeLicense": "产品许可证",
+  "maintenanceRuntimeAddressPools": "默认地址池",
+  "maintenanceRuntimeSubnetPrefix": "子网前缀长度",
+  "maintenanceRuntimeGenericResources": "通用资源",
+  "maintenanceRuntimeSystemStatus": "系统状态",
+  "maintenanceRuntimeVolumePlugins": "存储卷插件",
+  "maintenanceRuntimeNetworkPlugins": "网络插件",
+  "maintenanceRuntimeLogPlugins": "日志插件",
+  "maintenanceRuntimeAuthorizationPlugins": "授权插件",
+  "maintenanceRuntimeInsecureRegistries": "不安全仓库网段",
+  "maintenanceRuntimeRegistryIndexes": "仓库索引配置",
+  "maintenanceRuntimeRegistryMirrors": "仓库镜像地址",
+  "maintenanceRuntimeSecureRegistry": "安全仓库连接",
+  "maintenanceRuntimeOfficialRegistry": "官方仓库",
+  "maintenanceRuntimeNodes": "节点数",
+  "maintenanceRuntimeManagers": "管理节点数",
+  "maintenanceRuntimeCluster": "集群信息",
+  "maintenanceRuntimeTlsInfo": "TLS 证书信息",
+  "maintenanceRuntimeTrustRoot": "根证书",
+  "maintenanceRuntimeCertSubject": "证书签发者",
+  "maintenanceRuntimeCertPublicKey": "签发者公钥",
+  "maintenanceRuntimeRootRotation": "根证书轮换中",
+  "maintenanceRuntimeDataPathPort": "数据通道端口",
+  "maintenanceRuntimeNodeLocked": "已锁定",
+  "@maintenanceRuntimeCapability": {
+    "description": "运行时字段的本地化标题",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@maintenanceRuntimeComponentBuild": {
+    "description": "运行时字段的本地化标题",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeHost": "主机信息",
+  "maintenanceRuntimeStore": "存储信息",
+  "maintenanceRuntimeComponentInfo": "{component} 信息",
+  "@maintenanceRuntimeComponentInfo": {
+    "description": "运行时组件的本地化标题",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeSecurityFeature": "{name} 防护",
+  "@maintenanceRuntimeSecurityFeature": {
+    "description": "运行时组件的本地化标题",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceRuntimeDistribution": "系统发行版",
+  "maintenanceRuntimeNetworkBackend": "网络后端",
+  "maintenanceRuntimeNetworkBackendInfo": "网络后端信息",
+  "maintenanceRuntimeDatabaseBackend": "数据库后端",
+  "maintenanceRuntimeEventLogger": "事件日志后端",
+  "maintenanceRuntimeFreeLocks": "可用锁数",
+  "maintenanceRuntimeIdMappings": "用户与组映射",
+  "maintenanceRuntimeUidMappings": "用户 ID 映射",
+  "maintenanceRuntimeGidMappings": "组 ID 映射",
+  "maintenanceRuntimeOciRuntime": "OCI 运行时",
+  "maintenanceRuntimeRemoteSocket": "服务连接端点",
+  "maintenanceRuntimeRootlessNetwork": "无根网络程序",
+  "maintenanceRuntimeRootlessPortForwarder": "无根端口转发",
+  "maintenanceRuntimeRemoteService": "远程服务",
+  "maintenanceRuntimeRootless": "无根模式",
+  "maintenanceRuntimeSeccompProfile": "Seccomp 配置文件",
+  "maintenanceRuntimeGraphOptions": "存储驱动选项",
+  "maintenanceRuntimeStorageAllocated": "存储目录总容量",
+  "maintenanceRuntimeStorageUsed": "存储目录已用容量",
+  "maintenanceRuntimeImageCopyTemp": "镜像复制临时目录",
+  "maintenanceRuntimeContainerStore": "容器存储统计",
+  "maintenanceRuntimeImageStore": "镜像存储统计",
+  "maintenanceRuntimeRunRoot": "运行时数据目录",
+  "maintenanceRuntimeVolumePath": "数据卷目录",
+  "maintenanceRuntimeTransientStore": "临时存储模式",
+  "maintenanceRuntimeEmulatedArchitectures": "可模拟架构",
+  "maintenanceRuntimePackage": "软件包",
+  "maintenanceRuntimeCodename": "发行版代号",
+  "maintenanceRuntimeLinkMode": "链接模式",
+  "maintenanceRuntimeCpuUser": "用户态 CPU 用量",
+  "maintenanceRuntimeCpuSystem": "内核态 CPU 用量",
+  "maintenanceRuntimeCpuIdle": "CPU 空闲比例",
+  "maintenanceRuntimeExists": "端点存在",
+  "maintenanceRuntimeMappedContainerId": "容器侧起始 ID",
+  "maintenanceRuntimeMappedHostId": "主机侧起始 ID",
+  "maintenanceRuntimeMappedIdCount": "映射 ID 数量",
+  "maintenanceRuntimeExpectedBuild": "预期构建版本"
 }

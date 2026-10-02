@@ -1080,22 +1080,238 @@ String? _maintenanceCounterLabel(
   return null;
 }
 
-String maintenanceDetailLabel(BuildContext context, String field) {
+const _maintenanceUserMetadataMaps = {
+  'Labels',
+  'labels',
+  'annotations',
+  'Options',
+  'options',
+  'parameters',
+  'graphOptions',
+  'graphStatus',
+  'registries',
+};
+const _maintenanceNamedMetadataMaps = {
+  ..._maintenanceUserMetadataMaps,
+  'IndexConfigs',
+  'Runtimes',
+  'Networks',
+  'EndpointsConfig',
+};
+final _maintenanceMetadataIndex = RegExp(r'^\[\d+\]$');
+final _maintenanceMetadataIndexedSuffix = RegExp(r' \[\d+\]$');
+
+/// 用户标签和选项属于机器数据，不按通用字段或状态词改写。
+bool maintenanceIsUserMetadataField(String field) {
+  final path = field.split(' / ');
+  return path.take(path.length - 1).any(_maintenanceUserMetadataMaps.contains);
+}
+
+String maintenanceDetailLabel(
+  BuildContext context,
+  String field, {
+  String parent = '',
+}) {
   final l10n = AppLocalizations.of(context)!;
   final record = RegExp(r'^(\d+) · 记录$').firstMatch(field);
   if (record != null) {
     return '${record[1]} · ${l10n.maintenanceContainerRecords}';
   }
   if (field.contains(' / ')) {
+    var path = parent;
     return field
         .split(' / ')
-        .map((part) => maintenanceDetailLabel(context, part))
+        .map((part) {
+          final label = maintenanceDetailLabel(context, part, parent: path);
+          path = path.isEmpty ? part : '$path / $part';
+          return label;
+        })
         .join(' / ');
   }
   final indexed = RegExp(r'^(.*) (\[\d+\])$').firstMatch(field);
   if (indexed != null) {
-    return '${maintenanceDetailLabel(context, indexed[1]!)} ${indexed[2]}';
+    return '${maintenanceDetailLabel(context, indexed[1]!, parent: parent)} ${indexed[2]}';
   }
+  final owner =
+      (parent
+                  .split(' / ')
+                  .where((part) => !_maintenanceMetadataIndex.hasMatch(part))
+                  .lastOrNull ??
+              '')
+          .replaceFirst(_maintenanceMetadataIndexedSuffix, '');
+  if (_maintenanceNamedMetadataMaps.contains(owner) ||
+      maintenanceIsUserMetadataField(parent)) {
+    return field;
+  }
+  // 同名字段按原始分组确定语义，不把防火墙驱动或命名空间当作存储信息。
+  final contextual = switch ((owner, field)) {
+    ('', 'OomKillDisable') => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceRuntimeOomKillDisable,
+    ),
+    ('', 'CPUShares') => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceContainerCpuShares,
+    ),
+    ('', 'PidsLimit') => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceMetricProcessLimit,
+    ),
+    ('FirewallBackend', 'Driver') => l10n.maintenanceRuntimeFirewallDriver,
+    ('Namespaces', 'Containers') => l10n.maintenanceRuntimeContainerNamespace,
+    ('Namespaces', 'Plugins') => l10n.maintenanceRuntimePluginNamespace,
+    ('ContainerdCommit' || 'RuncCommit' || 'InitCommit', 'ID') =>
+      l10n.maintenanceBuildVersion,
+    ('ContainerdCommit' || 'RuncCommit' || 'InitCommit', 'Expected') =>
+      l10n.maintenanceRuntimeExpectedBuild,
+    ('DefaultAddressPools', 'Size') => l10n.maintenanceRuntimeSubnetPrefix,
+    ('Plugins' || 'plugins', 'Volume' || 'volume') =>
+      l10n.maintenanceRuntimeVolumePlugins,
+    ('Plugins' || 'plugins', 'Network' || 'network') =>
+      l10n.maintenanceRuntimeNetworkPlugins,
+    ('Plugins' || 'plugins', 'Log' || 'log') =>
+      l10n.maintenanceRuntimeLogPlugins,
+    ('Plugins' || 'plugins', 'Authorization' || 'authorization') =>
+      l10n.maintenanceRuntimeAuthorizationPlugins,
+    ('distribution', 'distribution') => l10n.maintenanceName,
+    ('uidmap' || 'gidmap', 'container_id') =>
+      l10n.maintenanceRuntimeMappedContainerId,
+    ('uidmap' || 'gidmap', 'host_id') => l10n.maintenanceRuntimeMappedHostId,
+    ('uidmap' || 'gidmap', 'size') => l10n.maintenanceRuntimeMappedIdCount,
+    ('networkBackendInfo', 'backend') => l10n.maintenanceRuntimeNetworkBackend,
+    ('networkBackendInfo', 'dns') => l10n.maintenanceDns,
+    (
+      'Client' ||
+          'Server' ||
+          'ClientInfo' ||
+          'Components' ||
+          'Details' ||
+          'version',
+      'Version',
+    ) =>
+      l10n.maintenanceContainerGenericVersion,
+    _ => null,
+  };
+  if (contextual != null) return contextual;
+  final runtimeLabel = switch (field) {
+    'MemoryLimit' => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceMemoryLimit,
+    ),
+    'SwapLimit' => l10n.maintenanceRuntimeCapability(l10n.maintenanceSwapSpace),
+    'CpuCfsPeriod' || 'CPUCfsPeriod' => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceMetricCpuPeriod,
+    ),
+    'CpuCfsQuota' || 'CPUCfsQuota' => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceMetricCpuQuota,
+    ),
+    'CPUSet' => l10n.maintenanceRuntimeCapability(
+      l10n.maintenanceRuntimeCpuSet,
+    ),
+    'Debug' => l10n.maintenanceRuntimeDebug,
+    'IPv4Forwarding' => l10n.maintenanceRuntimeIpv4Forwarding,
+    'OomKillDisable' => l10n.maintenanceRuntimeOomKillDisable,
+    'NEventsListener' => l10n.maintenanceRuntimeEventListeners,
+    'Experimental' ||
+    'ExperimentalBuild' => l10n.maintenanceRuntimeExperimental,
+    'Swarm' => l10n.maintenanceRuntimeSwarm,
+    'NodeID' => l10n.maintenanceRuntimeNodeId,
+    'NodeAddr' => l10n.maintenanceRuntimeNodeAddress,
+    'LocalNodeState' => l10n.maintenanceRuntimeNodeState,
+    'ControlAvailable' => l10n.maintenanceRuntimeManagerNode,
+    'RemoteManagers' => l10n.maintenanceRuntimeRemoteManagers,
+    'ContainerdCommit' => l10n.maintenanceRuntimeComponentBuild('Containerd'),
+    'RuncCommit' => l10n.maintenanceRuntimeComponentBuild('runc'),
+    'InitCommit' => l10n.maintenanceRuntimeComponentBuild('init'),
+    'FirewallBackend' => l10n.maintenanceRuntimeFirewallBackend,
+    'DiscoveredDevices' ||
+    'discoveredDevices' => l10n.maintenanceRuntimeDiscoveredDevices,
+    'Containerd' => l10n.maintenanceRuntimeContainerd,
+    'Namespaces' => l10n.maintenanceRuntimeNamespaces,
+    'ClientInfo' => l10n.maintenanceRuntimeClientInfo,
+    'Client' => l10n.maintenanceRuntimeClient,
+    'Server' => l10n.maintenanceRuntimeServer,
+    'Components' => l10n.maintenanceRuntimeComponents,
+    'Details' || 'Info' => l10n.maintenanceRuntimeDetails,
+    'DefaultAPIVersion' => l10n.maintenanceRuntimeDefaultApiVersion,
+    'MinAPIVersion' => l10n.maintenanceRuntimeMinApiVersion,
+    'SchemaVersion' => l10n.maintenanceRuntimeSchemaVersion,
+    'BuildTime' || 'BuiltTime' || 'Built' => l10n.maintenanceRuntimeBuildTime,
+    'Module' => l10n.maintenanceRuntimeModule,
+    'ModuleVersion' => l10n.maintenanceRuntimeModuleVersion,
+    'CDISpecDirs' || 'cdiSpecDirs' => l10n.maintenanceRuntimeCdiDirectories,
+    'NRI' => l10n.maintenanceRuntimeNri,
+    'IndexServerAddress' => l10n.maintenanceRuntimeRegistryAddress,
+    'HttpProxy' || 'HTTPProxy' => l10n.maintenanceRuntimeHttpProxy,
+    'HttpsProxy' || 'HTTPSProxy' => l10n.maintenanceRuntimeHttpsProxy,
+    'NoProxy' => l10n.maintenanceNetworkProxyBypass,
+    'Isolation' => l10n.maintenanceRuntimeIsolation,
+    'InitBinary' => l10n.maintenanceRuntimeInitBinary,
+    'ProductLicense' => l10n.maintenanceRuntimeLicense,
+    'DefaultAddressPools' ||
+    'DefaultAddrPool' => l10n.maintenanceRuntimeAddressPools,
+    'GenericResources' => l10n.maintenanceRuntimeGenericResources,
+    'SystemStatus' => l10n.maintenanceRuntimeSystemStatus,
+    'InsecureRegistryCIDRs' => l10n.maintenanceRuntimeInsecureRegistries,
+    'IndexConfigs' => l10n.maintenanceRuntimeRegistryIndexes,
+    'Mirrors' => l10n.maintenanceRuntimeRegistryMirrors,
+    'Secure' => l10n.maintenanceRuntimeSecureRegistry,
+    'Official' => l10n.maintenanceRuntimeOfficialRegistry,
+    'Nodes' => l10n.maintenanceRuntimeNodes,
+    'Managers' => l10n.maintenanceRuntimeManagers,
+    'Cluster' => l10n.maintenanceRuntimeCluster,
+    'TLSInfo' => l10n.maintenanceRuntimeTlsInfo,
+    'TrustRoot' => l10n.maintenanceRuntimeTrustRoot,
+    'CertIssuerSubject' => l10n.maintenanceRuntimeCertSubject,
+    'CertIssuerPublicKey' => l10n.maintenanceRuntimeCertPublicKey,
+    'RootRotationInProgress' => l10n.maintenanceRuntimeRootRotation,
+    'DataPathPort' => l10n.maintenanceRuntimeDataPathPort,
+    'SubnetSize' => l10n.maintenanceRuntimeSubnetPrefix,
+    'host' => l10n.maintenanceRuntimeHost,
+    'store' => l10n.maintenanceRuntimeStore,
+    'registries' => l10n.maintenanceContainerRegistry,
+    'plugins' => l10n.maintenanceContainerPlugins,
+    'version' => l10n.maintenanceContainerGenericVersion,
+    'conmon' => l10n.maintenanceRuntimeComponentInfo('Conmon'),
+    'pasta' => l10n.maintenanceRuntimeComponentInfo('Pasta'),
+    'buildahVersion' => l10n.maintenanceRuntimeComponentInfo('Buildah'),
+    'distribution' => l10n.maintenanceRuntimeDistribution,
+    'networkBackend' => l10n.maintenanceRuntimeNetworkBackend,
+    'networkBackendInfo' => l10n.maintenanceRuntimeNetworkBackendInfo,
+    'databaseBackend' => l10n.maintenanceRuntimeDatabaseBackend,
+    'eventLogger' => l10n.maintenanceRuntimeEventLogger,
+    'freeLocks' => l10n.maintenanceRuntimeFreeLocks,
+    'idMappings' => l10n.maintenanceRuntimeIdMappings,
+    'uidmap' => l10n.maintenanceRuntimeUidMappings,
+    'gidmap' => l10n.maintenanceRuntimeGidMappings,
+    'ociRuntime' => l10n.maintenanceRuntimeOciRuntime,
+    'remoteSocket' => l10n.maintenanceRuntimeRemoteSocket,
+    'rootlessNetworkCmd' => l10n.maintenanceRuntimeRootlessNetwork,
+    'rootlessPortForwarder' => l10n.maintenanceRuntimeRootlessPortForwarder,
+    'runtimeInfo' => l10n.maintenanceRuntimeDetails,
+    'serviceIsRemote' => l10n.maintenanceRuntimeRemoteService,
+    'rootless' => l10n.maintenanceRuntimeRootless,
+    'apparmorEnabled' => l10n.maintenanceRuntimeSecurityFeature('AppArmor'),
+    'seccompEnabled' => l10n.maintenanceRuntimeSecurityFeature('Seccomp'),
+    'selinuxEnabled' => l10n.maintenanceRuntimeSecurityFeature('SELinux'),
+    'seccompProfilePath' => l10n.maintenanceRuntimeSeccompProfile,
+    'graphOptions' => l10n.maintenanceRuntimeGraphOptions,
+    'graphRootAllocated' => l10n.maintenanceRuntimeStorageAllocated,
+    'graphRootUsed' => l10n.maintenanceRuntimeStorageUsed,
+    'imageCopyTmpDir' => l10n.maintenanceRuntimeImageCopyTemp,
+    'containerStore' => l10n.maintenanceRuntimeContainerStore,
+    'imageStore' => l10n.maintenanceRuntimeImageStore,
+    'runRoot' => l10n.maintenanceRuntimeRunRoot,
+    'volumePath' => l10n.maintenanceRuntimeVolumePath,
+    'transientStore' => l10n.maintenanceRuntimeTransientStore,
+    'emulatedArchitectures' => l10n.maintenanceRuntimeEmulatedArchitectures,
+    'package' => l10n.maintenanceRuntimePackage,
+    'codename' => l10n.maintenanceRuntimeCodename,
+    'linkmode' => l10n.maintenanceRuntimeLinkMode,
+    'cpuUtilization' => l10n.maintenanceCpuUsage,
+    'userPercent' => l10n.maintenanceRuntimeCpuUser,
+    'systemPercent' => l10n.maintenanceRuntimeCpuSystem,
+    'idlePercent' => l10n.maintenanceRuntimeCpuIdle,
+    'exists' => l10n.maintenanceRuntimeExists,
+    _ => null,
+  };
+  if (runtimeLabel != null) return runtimeLabel;
   final registryLabel = switch (field) {
     'repository' => l10n.maintenanceImageRepositoryDetails,
     'tag' => l10n.maintenanceImageTag,
@@ -1145,6 +1361,43 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'name': '名称',
     'user': '用户',
     'source': '来源',
+    'path': '路径',
+    'Address': '地址',
+    'Addr': '地址',
+    'Base': '地址',
+    'Context': '连接上下文',
+    'ApiVersion': 'API 版本',
+    'APIVersion': 'API 版本',
+    'GitCommit': '构建版本',
+    'GoVersion': 'Go 版本',
+    'Arch': '架构',
+    'arch': '架构',
+    'cpus': '逻辑处理器',
+    'memFree': '空闲内存',
+    'memAvailable': '可用内存',
+    'memTotal': '内存总量',
+    'swapFree': '空闲交换空间',
+    'swapTotal': '交换空间总量',
+    'kernel': '内核版本',
+    'cgroupManager': '控制组驱动',
+    'cgroupVersion': '控制组版本',
+    'cgroupControllers': '控制组',
+    'graphDriverName': '存储驱动',
+    'graphRoot': '数据目录',
+    'graphStatus': '驱动状态',
+    'logDriver': '日志驱动',
+    'security': '安全选项',
+    'capabilities': '额外授予的能力',
+    'number': '记录',
+    'running': '运行中容器',
+    'paused': '暂停容器',
+    'stopped': '停止容器',
+    'executable': '可执行文件与工作目录',
+    'uptime': '运行时间',
+    'ShortDescription': '描述',
+    'Vendor': '厂商',
+    'BuildOrigin': '厂商',
+    'OsArch': '目标平台',
     'enabled': '启用',
     'permissions': '权限',
     'ID': 'UUID / ID',
@@ -1497,6 +1750,7 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   };
   final name = aliases[field] ?? field;
   final translated = switch (name) {
+    '厂商' => l10n.maintenanceGpuVendor,
     '工作目录' => l10n.cronsWorkingDirectory,
     '组' => l10n.maintenanceAccountGroup,
     '系统代理' => l10n.maintenanceStartupSystemAgent,
@@ -1578,6 +1832,7 @@ bool maintenanceIsTimestampColumn(BuildContext context, String field) {
     l.maintenanceImageRegistered,
     l.maintenanceImageLastPushed,
     l.maintenanceImageLastPulled,
+    l.maintenanceRuntimeBuildTime,
   }.contains(field);
 }
 
@@ -1588,6 +1843,38 @@ String maintenanceDetailValue(
 }) {
   final l10n = AppLocalizations.of(context)!;
   final leaf = field.split(' / ').last;
+  final path = field.split(' / ');
+  if (maintenanceIsUserMetadataField(field)) {
+    return value;
+  }
+  if (const {
+    'ControlAvailable',
+    'Secure',
+    'Official',
+    'MemoryLimit',
+    'SwapLimit',
+    'CpuCfsPeriod',
+    'CPUCfsPeriod',
+    'CpuCfsQuota',
+    'CPUCfsQuota',
+    'CPUSet',
+    'CPUShares',
+    'PidsLimit',
+    'OomKillDisable',
+  }.contains(leaf)) {
+    return switch (value.trim().toLowerCase()) {
+      'true' => l10n.maintenanceHealthParsedYes,
+      'false' => l10n.maintenanceHealthParsedNo,
+      _ => value,
+    };
+  }
+  if (leaf == 'LocalNodeState') {
+    return switch (value.trim().toLowerCase()) {
+      'pending' => l10n.maintenanceContainerPending,
+      'locked' => l10n.maintenanceRuntimeNodeLocked,
+      _ => maintenanceContainerState(context, value),
+    };
+  }
   if (leaf == 'HealthStatus') {
     return switch (value.trim().toLowerCase()) {
       'healthy' => l10n.maintenanceHealthy,
@@ -1628,7 +1915,7 @@ String maintenanceDetailValue(
   }
   if (leaf == 'status_description' ||
       leaf == 'tag_status' ||
-      (leaf == 'status' && field.startsWith('images ['))) {
+      (leaf == 'status' && path.any((part) => part.startsWith('images [')))) {
     return switch (value.trim().toLowerCase()) {
       'active' => l10n.maintenanceCounterActive,
       'inactive' => l10n.maintenanceCounterInactive,
@@ -1637,6 +1924,38 @@ String maintenanceDetailValue(
   }
   // 用户数据不套用状态词翻译，避免改写名为 active 或 false 的标识。
   if (const {
+    'Name',
+    'ID',
+    'Id',
+    'id',
+    'NodeID',
+    'NodeAddr',
+    'Address',
+    'Addr',
+    'Source',
+    'Path',
+    'path',
+    'Context',
+    'BuildOrigin',
+    'Vendor',
+    'OsArch',
+    'hostname',
+    'Driver',
+    'storageDriver',
+    'CgroupDriver',
+    'LoggingDriver',
+    'InitBinary',
+    'Module',
+    'ModuleVersion',
+    'GitCommit',
+    'GoVersion',
+    'Arch',
+    'Architecture',
+    'Version',
+    'ApiVersion',
+    'DefaultAPIVersion',
+    'MinAPIVersion',
+    'SchemaVersion',
     'name',
     'user',
     'namespace',
@@ -1656,6 +1975,7 @@ String maintenanceDetailValue(
   }.contains(leaf)) {
     return value;
   }
+  if (path.length > 1 && path[path.length - 2] == 'Namespaces') return value;
   var trimmed = value.trim();
   if (!trimmed.contains('\n')) {
     if (trimmed.endsWith(';')) {

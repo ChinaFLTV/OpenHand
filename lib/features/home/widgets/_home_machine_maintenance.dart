@@ -4056,9 +4056,14 @@ String _maintenanceReadoutValue(
   String key,
   String value,
 ) {
+  if (maintenanceIsUserMetadataField(key)) return value;
   final normalized = key.trim();
   final plain = value.trim();
   final leaf = normalized.split(' / ').last;
+  if (leaf == 'status' &&
+      normalized.split(' / ').any((part) => part.startsWith('images ['))) {
+    return maintenanceDetailValue(context, value, field: key);
+  }
   if (const {
     'Status',
     'State',
@@ -4078,11 +4083,26 @@ String _maintenanceReadoutValue(
     final bytes = int.tryParse(plain);
     if (bytes != null && bytes >= 0) return formatByteSize(bytes * 1024);
   }
-  if (const {'MemTotal', '内存总量'}.contains(leaf)) {
+  if (const {
+    'MemTotal',
+    '内存总量',
+    'memTotal',
+    'memFree',
+    'memAvailable',
+    'swapFree',
+    'swapTotal',
+    'graphRootAllocated',
+    'graphRootUsed',
+  }.contains(leaf)) {
     final bytes = int.tryParse(plain);
     if (bytes != null && bytes >= 0) return formatByteSize(bytes);
   }
-  if (const {'%CPU', '%MEM', 'CPU / 单核', '内存使用率'}.contains(normalized) &&
+  if ((const {'%CPU', '%MEM', 'CPU / 单核', '内存使用率'}.contains(normalized) ||
+          const {
+            'userPercent',
+            'systemPercent',
+            'idlePercent',
+          }.contains(leaf)) &&
       num.tryParse(plain) != null &&
       !plain.contains('%')) {
     return '$plain%';
@@ -6399,11 +6419,13 @@ class _MaintenanceReadout extends StatefulWidget {
     this.text = '',
     this.section = '',
     this.report,
+    this.fieldParent = '',
     this.logMaxHeight = _maintenanceLogPreviewMaxHeight,
   });
   final MachineMaintenanceReadout? report;
   final String text;
   final String section;
+  final String fieldParent;
   final double logMaxHeight;
   @override
   State<_MaintenanceReadout> createState() => _MaintenanceReadoutState();
@@ -6444,6 +6466,8 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                 _data.rows,
                 fields: _data.fields,
               ),
+              section: widget.section,
+              fieldParent: widget.fieldParent,
             ),
           for (final entry in _data.groups.entries)
             _MaintenanceSection(
@@ -6456,13 +6480,20 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                       entry.key,
                       _data.groups.keys.toList().indexOf(entry.key) + 1,
                     )
-                  : maintenanceDetailLabel(context, entry.key),
+                  : maintenanceDetailLabel(
+                      context,
+                      entry.key,
+                      parent: widget.fieldParent,
+                    ),
               icon: Icons.hub_outlined,
               initiallyExpanded:
                   _data.groups.length <= 4 && entry.value.rows.length <= 12,
               child: _MaintenanceReadout(
                 report: entry.value,
                 section: widget.section,
+                fieldParent: widget.fieldParent.isEmpty
+                    ? entry.key
+                    : '${widget.fieldParent} / ${entry.key}',
               ),
             ),
         ],
@@ -6609,8 +6640,18 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         rows: [
           for (final row in _data.rows)
             [
-              maintenanceDetailLabel(context, row[0]),
-              _maintenanceReadoutValue(context, row[0], row[1]),
+              maintenanceDetailLabel(
+                context,
+                row[0],
+                parent: widget.fieldParent,
+              ),
+              _maintenanceReadoutValue(
+                context,
+                widget.fieldParent.isEmpty
+                    ? row[0]
+                    : '${widget.fieldParent} / ${row[0]}',
+                row[1],
+              ),
             ],
         ],
       );

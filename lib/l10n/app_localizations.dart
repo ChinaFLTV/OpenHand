@@ -29134,6 +29134,630 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未配置上下文'**
   String get maintenanceKubernetesContextMissingStatus;
+
+  /// 运行时字段的本地化标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}支持'**
+  String maintenanceRuntimeCapability(String name);
+
+  /// 运行时字段的本地化标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{component} 构建版本'**
+  String maintenanceRuntimeComponentBuild(String component);
+
+  /// No description provided for @maintenanceRuntimeCpuSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 亲和性'**
+  String get maintenanceRuntimeCpuSet;
+
+  /// No description provided for @maintenanceRuntimeDebug.
+  ///
+  /// In zh, this message translates to:
+  /// **'调试模式'**
+  String get maintenanceRuntimeDebug;
+
+  /// No description provided for @maintenanceRuntimeIpv4Forwarding.
+  ///
+  /// In zh, this message translates to:
+  /// **'IPv4 转发'**
+  String get maintenanceRuntimeIpv4Forwarding;
+
+  /// No description provided for @maintenanceRuntimeOomKillDisable.
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用 OOM 终止'**
+  String get maintenanceRuntimeOomKillDisable;
+
+  /// No description provided for @maintenanceRuntimeEventListeners.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件监听器数'**
+  String get maintenanceRuntimeEventListeners;
+
+  /// No description provided for @maintenanceRuntimeExperimental.
+  ///
+  /// In zh, this message translates to:
+  /// **'实验性功能'**
+  String get maintenanceRuntimeExperimental;
+
+  /// No description provided for @maintenanceRuntimeSwarm.
+  ///
+  /// In zh, this message translates to:
+  /// **'Swarm 集群'**
+  String get maintenanceRuntimeSwarm;
+
+  /// No description provided for @maintenanceRuntimeNodeId.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点标识'**
+  String get maintenanceRuntimeNodeId;
+
+  /// No description provided for @maintenanceRuntimeNodeAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点地址'**
+  String get maintenanceRuntimeNodeAddress;
+
+  /// No description provided for @maintenanceRuntimeNodeState.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地节点状态'**
+  String get maintenanceRuntimeNodeState;
+
+  /// No description provided for @maintenanceRuntimeManagerNode.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理节点'**
+  String get maintenanceRuntimeManagerNode;
+
+  /// No description provided for @maintenanceRuntimeRemoteManagers.
+  ///
+  /// In zh, this message translates to:
+  /// **'远端管理节点'**
+  String get maintenanceRuntimeRemoteManagers;
+
+  /// No description provided for @maintenanceRuntimeFirewallBackend.
+  ///
+  /// In zh, this message translates to:
+  /// **'防火墙后端'**
+  String get maintenanceRuntimeFirewallBackend;
+
+  /// No description provided for @maintenanceRuntimeFirewallDriver.
+  ///
+  /// In zh, this message translates to:
+  /// **'防火墙驱动'**
+  String get maintenanceRuntimeFirewallDriver;
+
+  /// No description provided for @maintenanceRuntimeDiscoveredDevices.
+  ///
+  /// In zh, this message translates to:
+  /// **'已发现设备'**
+  String get maintenanceRuntimeDiscoveredDevices;
+
+  /// No description provided for @maintenanceRuntimeContainerd.
+  ///
+  /// In zh, this message translates to:
+  /// **'Containerd 服务'**
+  String get maintenanceRuntimeContainerd;
+
+  /// No description provided for @maintenanceRuntimeNamespaces.
+  ///
+  /// In zh, this message translates to:
+  /// **'命名空间'**
+  String get maintenanceRuntimeNamespaces;
+
+  /// No description provided for @maintenanceRuntimeContainerNamespace.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器命名空间'**
+  String get maintenanceRuntimeContainerNamespace;
+
+  /// No description provided for @maintenanceRuntimePluginNamespace.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件命名空间'**
+  String get maintenanceRuntimePluginNamespace;
+
+  /// No description provided for @maintenanceRuntimeClientInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'客户端信息'**
+  String get maintenanceRuntimeClientInfo;
+
+  /// No description provided for @maintenanceRuntimeClient.
+  ///
+  /// In zh, this message translates to:
+  /// **'客户端'**
+  String get maintenanceRuntimeClient;
+
+  /// No description provided for @maintenanceRuntimeServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端'**
+  String get maintenanceRuntimeServer;
+
+  /// No description provided for @maintenanceRuntimeComponents.
+  ///
+  /// In zh, this message translates to:
+  /// **'组件'**
+  String get maintenanceRuntimeComponents;
+
+  /// No description provided for @maintenanceRuntimeDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详细信息'**
+  String get maintenanceRuntimeDetails;
+
+  /// No description provided for @maintenanceRuntimeDefaultApiVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认 API 版本'**
+  String get maintenanceRuntimeDefaultApiVersion;
+
+  /// No description provided for @maintenanceRuntimeMinApiVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'最低 API 版本'**
+  String get maintenanceRuntimeMinApiVersion;
+
+  /// No description provided for @maintenanceRuntimeSchemaVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'结构版本'**
+  String get maintenanceRuntimeSchemaVersion;
+
+  /// No description provided for @maintenanceRuntimeBuildTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'构建时间'**
+  String get maintenanceRuntimeBuildTime;
+
+  /// No description provided for @maintenanceRuntimeModule.
+  ///
+  /// In zh, this message translates to:
+  /// **'模块'**
+  String get maintenanceRuntimeModule;
+
+  /// No description provided for @maintenanceRuntimeModuleVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'模块版本'**
+  String get maintenanceRuntimeModuleVersion;
+
+  /// No description provided for @maintenanceRuntimeCdiDirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'CDI 配置目录'**
+  String get maintenanceRuntimeCdiDirectories;
+
+  /// No description provided for @maintenanceRuntimeNri.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点资源接口（NRI）'**
+  String get maintenanceRuntimeNri;
+
+  /// No description provided for @maintenanceRuntimeRegistryAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像仓库索引地址'**
+  String get maintenanceRuntimeRegistryAddress;
+
+  /// No description provided for @maintenanceRuntimeHttpProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'HTTP 代理'**
+  String get maintenanceRuntimeHttpProxy;
+
+  /// No description provided for @maintenanceRuntimeHttpsProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'HTTPS 代理'**
+  String get maintenanceRuntimeHttpsProxy;
+
+  /// No description provided for @maintenanceRuntimeIsolation.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器隔离模式'**
+  String get maintenanceRuntimeIsolation;
+
+  /// No description provided for @maintenanceRuntimeInitBinary.
+  ///
+  /// In zh, this message translates to:
+  /// **'初始化程序'**
+  String get maintenanceRuntimeInitBinary;
+
+  /// No description provided for @maintenanceRuntimeLicense.
+  ///
+  /// In zh, this message translates to:
+  /// **'产品许可证'**
+  String get maintenanceRuntimeLicense;
+
+  /// No description provided for @maintenanceRuntimeAddressPools.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认地址池'**
+  String get maintenanceRuntimeAddressPools;
+
+  /// No description provided for @maintenanceRuntimeSubnetPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'子网前缀长度'**
+  String get maintenanceRuntimeSubnetPrefix;
+
+  /// No description provided for @maintenanceRuntimeGenericResources.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用资源'**
+  String get maintenanceRuntimeGenericResources;
+
+  /// No description provided for @maintenanceRuntimeSystemStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统状态'**
+  String get maintenanceRuntimeSystemStatus;
+
+  /// No description provided for @maintenanceRuntimeVolumePlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储卷插件'**
+  String get maintenanceRuntimeVolumePlugins;
+
+  /// No description provided for @maintenanceRuntimeNetworkPlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络插件'**
+  String get maintenanceRuntimeNetworkPlugins;
+
+  /// No description provided for @maintenanceRuntimeLogPlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'日志插件'**
+  String get maintenanceRuntimeLogPlugins;
+
+  /// No description provided for @maintenanceRuntimeAuthorizationPlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'授权插件'**
+  String get maintenanceRuntimeAuthorizationPlugins;
+
+  /// No description provided for @maintenanceRuntimeInsecureRegistries.
+  ///
+  /// In zh, this message translates to:
+  /// **'不安全仓库网段'**
+  String get maintenanceRuntimeInsecureRegistries;
+
+  /// No description provided for @maintenanceRuntimeRegistryIndexes.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库索引配置'**
+  String get maintenanceRuntimeRegistryIndexes;
+
+  /// No description provided for @maintenanceRuntimeRegistryMirrors.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库镜像地址'**
+  String get maintenanceRuntimeRegistryMirrors;
+
+  /// No description provided for @maintenanceRuntimeSecureRegistry.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全仓库连接'**
+  String get maintenanceRuntimeSecureRegistry;
+
+  /// No description provided for @maintenanceRuntimeOfficialRegistry.
+  ///
+  /// In zh, this message translates to:
+  /// **'官方仓库'**
+  String get maintenanceRuntimeOfficialRegistry;
+
+  /// No description provided for @maintenanceRuntimeNodes.
+  ///
+  /// In zh, this message translates to:
+  /// **'节点数'**
+  String get maintenanceRuntimeNodes;
+
+  /// No description provided for @maintenanceRuntimeManagers.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理节点数'**
+  String get maintenanceRuntimeManagers;
+
+  /// No description provided for @maintenanceRuntimeCluster.
+  ///
+  /// In zh, this message translates to:
+  /// **'集群信息'**
+  String get maintenanceRuntimeCluster;
+
+  /// No description provided for @maintenanceRuntimeTlsInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'TLS 证书信息'**
+  String get maintenanceRuntimeTlsInfo;
+
+  /// No description provided for @maintenanceRuntimeTrustRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'根证书'**
+  String get maintenanceRuntimeTrustRoot;
+
+  /// No description provided for @maintenanceRuntimeCertSubject.
+  ///
+  /// In zh, this message translates to:
+  /// **'证书签发者'**
+  String get maintenanceRuntimeCertSubject;
+
+  /// No description provided for @maintenanceRuntimeCertPublicKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'签发者公钥'**
+  String get maintenanceRuntimeCertPublicKey;
+
+  /// No description provided for @maintenanceRuntimeRootRotation.
+  ///
+  /// In zh, this message translates to:
+  /// **'根证书轮换中'**
+  String get maintenanceRuntimeRootRotation;
+
+  /// No description provided for @maintenanceRuntimeDataPathPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据通道端口'**
+  String get maintenanceRuntimeDataPathPort;
+
+  /// No description provided for @maintenanceRuntimeNodeLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已锁定'**
+  String get maintenanceRuntimeNodeLocked;
+
+  /// No description provided for @maintenanceRuntimeHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机信息'**
+  String get maintenanceRuntimeHost;
+
+  /// No description provided for @maintenanceRuntimeStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储信息'**
+  String get maintenanceRuntimeStore;
+
+  /// 运行时组件的本地化标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{component} 信息'**
+  String maintenanceRuntimeComponentInfo(String component);
+
+  /// 运行时组件的本地化标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 防护'**
+  String maintenanceRuntimeSecurityFeature(String name);
+
+  /// No description provided for @maintenanceRuntimeDistribution.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统发行版'**
+  String get maintenanceRuntimeDistribution;
+
+  /// No description provided for @maintenanceRuntimeNetworkBackend.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络后端'**
+  String get maintenanceRuntimeNetworkBackend;
+
+  /// No description provided for @maintenanceRuntimeNetworkBackendInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络后端信息'**
+  String get maintenanceRuntimeNetworkBackendInfo;
+
+  /// No description provided for @maintenanceRuntimeDatabaseBackend.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库后端'**
+  String get maintenanceRuntimeDatabaseBackend;
+
+  /// No description provided for @maintenanceRuntimeEventLogger.
+  ///
+  /// In zh, this message translates to:
+  /// **'事件日志后端'**
+  String get maintenanceRuntimeEventLogger;
+
+  /// No description provided for @maintenanceRuntimeFreeLocks.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用锁数'**
+  String get maintenanceRuntimeFreeLocks;
+
+  /// No description provided for @maintenanceRuntimeIdMappings.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户与组映射'**
+  String get maintenanceRuntimeIdMappings;
+
+  /// No description provided for @maintenanceRuntimeUidMappings.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户 ID 映射'**
+  String get maintenanceRuntimeUidMappings;
+
+  /// No description provided for @maintenanceRuntimeGidMappings.
+  ///
+  /// In zh, this message translates to:
+  /// **'组 ID 映射'**
+  String get maintenanceRuntimeGidMappings;
+
+  /// No description provided for @maintenanceRuntimeOciRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'OCI 运行时'**
+  String get maintenanceRuntimeOciRuntime;
+
+  /// No description provided for @maintenanceRuntimeRemoteSocket.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务连接端点'**
+  String get maintenanceRuntimeRemoteSocket;
+
+  /// No description provided for @maintenanceRuntimeRootlessNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'无根网络程序'**
+  String get maintenanceRuntimeRootlessNetwork;
+
+  /// No description provided for @maintenanceRuntimeRootlessPortForwarder.
+  ///
+  /// In zh, this message translates to:
+  /// **'无根端口转发'**
+  String get maintenanceRuntimeRootlessPortForwarder;
+
+  /// No description provided for @maintenanceRuntimeRemoteService.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程服务'**
+  String get maintenanceRuntimeRemoteService;
+
+  /// No description provided for @maintenanceRuntimeRootless.
+  ///
+  /// In zh, this message translates to:
+  /// **'无根模式'**
+  String get maintenanceRuntimeRootless;
+
+  /// No description provided for @maintenanceRuntimeSeccompProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'Seccomp 配置文件'**
+  String get maintenanceRuntimeSeccompProfile;
+
+  /// No description provided for @maintenanceRuntimeGraphOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储驱动选项'**
+  String get maintenanceRuntimeGraphOptions;
+
+  /// No description provided for @maintenanceRuntimeStorageAllocated.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储目录总容量'**
+  String get maintenanceRuntimeStorageAllocated;
+
+  /// No description provided for @maintenanceRuntimeStorageUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储目录已用容量'**
+  String get maintenanceRuntimeStorageUsed;
+
+  /// No description provided for @maintenanceRuntimeImageCopyTemp.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像复制临时目录'**
+  String get maintenanceRuntimeImageCopyTemp;
+
+  /// No description provided for @maintenanceRuntimeContainerStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器存储统计'**
+  String get maintenanceRuntimeContainerStore;
+
+  /// No description provided for @maintenanceRuntimeImageStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像存储统计'**
+  String get maintenanceRuntimeImageStore;
+
+  /// No description provided for @maintenanceRuntimeRunRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时数据目录'**
+  String get maintenanceRuntimeRunRoot;
+
+  /// No description provided for @maintenanceRuntimeVolumePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据卷目录'**
+  String get maintenanceRuntimeVolumePath;
+
+  /// No description provided for @maintenanceRuntimeTransientStore.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时存储模式'**
+  String get maintenanceRuntimeTransientStore;
+
+  /// No description provided for @maintenanceRuntimeEmulatedArchitectures.
+  ///
+  /// In zh, this message translates to:
+  /// **'可模拟架构'**
+  String get maintenanceRuntimeEmulatedArchitectures;
+
+  /// No description provided for @maintenanceRuntimePackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'软件包'**
+  String get maintenanceRuntimePackage;
+
+  /// No description provided for @maintenanceRuntimeCodename.
+  ///
+  /// In zh, this message translates to:
+  /// **'发行版代号'**
+  String get maintenanceRuntimeCodename;
+
+  /// No description provided for @maintenanceRuntimeLinkMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'链接模式'**
+  String get maintenanceRuntimeLinkMode;
+
+  /// No description provided for @maintenanceRuntimeCpuUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户态 CPU 用量'**
+  String get maintenanceRuntimeCpuUser;
+
+  /// No description provided for @maintenanceRuntimeCpuSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核态 CPU 用量'**
+  String get maintenanceRuntimeCpuSystem;
+
+  /// No description provided for @maintenanceRuntimeCpuIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 空闲比例'**
+  String get maintenanceRuntimeCpuIdle;
+
+  /// No description provided for @maintenanceRuntimeExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'端点存在'**
+  String get maintenanceRuntimeExists;
+
+  /// No description provided for @maintenanceRuntimeMappedContainerId.
+  ///
+  /// In zh, this message translates to:
+  /// **'容器侧起始 ID'**
+  String get maintenanceRuntimeMappedContainerId;
+
+  /// No description provided for @maintenanceRuntimeMappedHostId.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机侧起始 ID'**
+  String get maintenanceRuntimeMappedHostId;
+
+  /// No description provided for @maintenanceRuntimeMappedIdCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'映射 ID 数量'**
+  String get maintenanceRuntimeMappedIdCount;
+
+  /// No description provided for @maintenanceRuntimeExpectedBuild.
+  ///
+  /// In zh, this message translates to:
+  /// **'预期构建版本'**
+  String get maintenanceRuntimeExpectedBuild;
 }
 
 class _AppLocalizationsDelegate
