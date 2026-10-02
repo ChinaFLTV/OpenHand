@@ -9835,5 +9835,12 @@
   "maintenanceImageFullDescription": "Description complète",
   "maintenanceImageRepositoryUnsupported": "Les détails publics ne sont pas disponibles pour ce registre. Vous pouvez toujours choisir un tag et télécharger l’image.",
   "maintenanceImageRepositoryUnavailable": "Les détails du dépôt sont temporairement indisponibles. Les informations de recherche sont conservées ; veuillez réessayer.",
-  "maintenanceImageTagDetailsUnavailable": "Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag."
+  "maintenanceImageTagDetailsUnavailable": "Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag.",
+  "maintenanceImagePlatforms": "Plateformes",
+  "maintenanceImagePublisherContent": "Documentation originale fournie par l’auteur du dépôt.",
+  "maintenanceImageArchitectureBits": "{bits} bits",
+  "maintenanceImagePlatformSearch": "Rechercher un système, une architecture ou une empreinte",
+  "maintenanceImagePlatformCount": "Plateformes disponibles · {count}",
+  "maintenanceImageDetailsTitle": "Détails de l’image",
+  "maintenanceImagePlatformsMore": "Charger plus de plateformes"
 }

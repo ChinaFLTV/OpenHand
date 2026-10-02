@@ -1091,6 +1091,22 @@ String maintenanceDetailLabel(BuildContext context, String field) {
   if (indexed != null) {
     return '${maintenanceDetailLabel(context, indexed[1]!)} ${indexed[2]}';
   }
+  final registryLabel = switch (field) {
+    'repository' => l10n.maintenanceImageRepositoryDetails,
+    'tag' => l10n.maintenanceImageTag,
+    'full_description' => l10n.maintenanceImageFullDescription,
+    'star_count' => l10n.maintenanceImageStars,
+    'pull_count' => l10n.maintenanceImageDownloads,
+    'is_official' => l10n.maintenanceImageOfficial,
+    'last_updated' => l10n.maintenanceImageLastUpdated,
+    'tag_last_pushed' || 'last_pushed' => l10n.maintenanceImageLastPushed,
+    'digest' => l10n.maintenanceImageDigests,
+    'full_size' => l10n.maintenanceImageSize,
+    'variant' => l10n.maintenanceImageVariant,
+    'images' => l10n.maintenanceImagePlatforms,
+    _ => null,
+  };
+  if (registryLabel != null) return registryLabel;
   const aliases = {
     'name': '名称',
     'ID': 'UUID / ID',
@@ -1100,6 +1116,9 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'state': '状态',
     'phase': '状态',
     'namespace': '命名空间',
+    'description': '描述',
+    'os': '操作系统',
+    'architecture': '架构',
     'Namespace': '命名空间',
     'nodeName': '节点',
     'Node': '节点',

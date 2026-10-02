@@ -28816,6 +28816,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂时无法读取此标签的详情，可重试或选择其他标签。'**
   String get maintenanceImageTagDetailsUnavailable;
+
+  /// No description provided for @maintenanceImagePlatforms.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台'**
+  String get maintenanceImagePlatforms;
+
+  /// No description provided for @maintenanceImagePublisherContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'以下为仓库发布者提供的原始说明。'**
+  String get maintenanceImagePublisherContent;
+
+  /// No description provided for @maintenanceImageArchitectureBits.
+  ///
+  /// In zh, this message translates to:
+  /// **'{bits} 位'**
+  String maintenanceImageArchitectureBits(int bits);
+
+  /// No description provided for @maintenanceImagePlatformSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索操作系统、架构或摘要'**
+  String get maintenanceImagePlatformSearch;
+
+  /// No description provided for @maintenanceImagePlatformCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用平台 · {count}'**
+  String maintenanceImagePlatformCount(int count);
+
+  /// No description provided for @maintenanceImageDetailsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像详情'**
+  String get maintenanceImageDetailsTitle;
+
+  /// No description provided for @maintenanceImagePlatformsMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多平台'**
+  String get maintenanceImagePlatformsMore;
 }
 
 class _AppLocalizationsDelegate

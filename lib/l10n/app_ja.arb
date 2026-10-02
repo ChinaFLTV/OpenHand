@@ -9835,5 +9835,12 @@
   "maintenanceImageFullDescription": "詳細説明",
   "maintenanceImageRepositoryUnsupported": "このレジストリの公開情報は取得できません。タグの選択とイメージの取得は引き続き利用できます。",
   "maintenanceImageRepositoryUnavailable": "リポジトリの詳細を取得できません。検索情報は保持されています。再試行してください。",
-  "maintenanceImageTagDetailsUnavailable": "このタグの詳細を取得できません。再試行するか、別のタグを選択してください。"
+  "maintenanceImageTagDetailsUnavailable": "このタグの詳細を取得できません。再試行するか、別のタグを選択してください。",
+  "maintenanceImagePlatforms": "プラットフォーム",
+  "maintenanceImagePublisherContent": "リポジトリの公開者が提供した説明の原文です。",
+  "maintenanceImageArchitectureBits": "{bits} ビット",
+  "maintenanceImagePlatformSearch": "OS、アーキテクチャ、ダイジェストを検索",
+  "maintenanceImagePlatformCount": "利用可能なプラットフォーム · {count}",
+  "maintenanceImageDetailsTitle": "イメージ詳細",
+  "maintenanceImagePlatformsMore": "さらにプラットフォームを読み込む"
 }

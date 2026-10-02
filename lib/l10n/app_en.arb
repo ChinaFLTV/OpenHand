@@ -9840,5 +9840,12 @@
   "maintenanceImageFullDescription": "Full description",
   "maintenanceImageRepositoryUnsupported": "Public details are unavailable for this registry. You can still select a tag and pull the image.",
   "maintenanceImageRepositoryUnavailable": "Repository details are temporarily unavailable. Search information is retained; please retry.",
-  "maintenanceImageTagDetailsUnavailable": "Details for this tag are temporarily unavailable. Retry or select another tag."
+  "maintenanceImageTagDetailsUnavailable": "Details for this tag are temporarily unavailable. Retry or select another tag.",
+  "maintenanceImagePlatforms": "Platforms",
+  "maintenanceImagePublisherContent": "Original documentation provided by the repository publisher.",
+  "maintenanceImageArchitectureBits": "{bits}-bit",
+  "maintenanceImagePlatformSearch": "Search OS, architecture or digest",
+  "maintenanceImagePlatformCount": "Available platforms · {count}",
+  "maintenanceImageDetailsTitle": "Image details",
+  "maintenanceImagePlatformsMore": "Load more platforms"
 }

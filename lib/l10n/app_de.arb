@@ -9835,5 +9835,12 @@
   "maintenanceImageFullDescription": "Vollständige Beschreibung",
   "maintenanceImageRepositoryUnsupported": "Für diese Registry sind keine öffentlichen Details verfügbar. Sie können weiterhin ein Tag wählen und das Image herunterladen.",
   "maintenanceImageRepositoryUnavailable": "Repository-Details sind vorübergehend nicht verfügbar. Die Suchinformationen bleiben erhalten; bitte erneut versuchen.",
-  "maintenanceImageTagDetailsUnavailable": "Details zu diesem Tag sind vorübergehend nicht verfügbar. Erneut versuchen oder ein anderes Tag wählen."
+  "maintenanceImageTagDetailsUnavailable": "Details zu diesem Tag sind vorübergehend nicht verfügbar. Erneut versuchen oder ein anderes Tag wählen.",
+  "maintenanceImagePlatforms": "Plattformen",
+  "maintenanceImagePublisherContent": "Originaldokumentation des Repository-Herausgebers.",
+  "maintenanceImageArchitectureBits": "{bits} Bit",
+  "maintenanceImagePlatformSearch": "Betriebssystem, Architektur oder Digest suchen",
+  "maintenanceImagePlatformCount": "Verfügbare Plattformen · {count}",
+  "maintenanceImageDetailsTitle": "Image-Details",
+  "maintenanceImagePlatformsMore": "Weitere Plattformen laden"
 }

@@ -15414,6 +15414,31 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get maintenanceImageTagDetailsUnavailable =>
       '暂时无法读取此标签的详情，可重试或选择其他标签。';
+
+  @override
+  String get maintenanceImagePlatforms => '平台';
+
+  @override
+  String get maintenanceImagePublisherContent => '以下为仓库发布者提供的原始说明。';
+
+  @override
+  String maintenanceImageArchitectureBits(int bits) {
+    return '$bits 位';
+  }
+
+  @override
+  String get maintenanceImagePlatformSearch => '搜索操作系统、架构或摘要';
+
+  @override
+  String maintenanceImagePlatformCount(int count) {
+    return '可用平台 · $count';
+  }
+
+  @override
+  String get maintenanceImageDetailsTitle => '镜像详情';
+
+  @override
+  String get maintenanceImagePlatformsMore => '加载更多平台';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30810,4 +30835,29 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get maintenanceImageTagDetailsUnavailable =>
       '暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。';
+
+  @override
+  String get maintenanceImagePlatforms => '平台';
+
+  @override
+  String get maintenanceImagePublisherContent => '以下為儲存庫發布者提供的原始說明。';
+
+  @override
+  String maintenanceImageArchitectureBits(int bits) {
+    return '$bits 位元';
+  }
+
+  @override
+  String get maintenanceImagePlatformSearch => '搜尋作業系統、架構或摘要';
+
+  @override
+  String maintenanceImagePlatformCount(int count) {
+    return '可用平台 · $count';
+  }
+
+  @override
+  String get maintenanceImageDetailsTitle => '映像檔詳情';
+
+  @override
+  String get maintenanceImagePlatformsMore => '載入更多平台';
 }

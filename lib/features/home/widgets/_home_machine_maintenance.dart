@@ -5016,20 +5016,15 @@ class _MaintenanceTable extends StatelessWidget {
 }
 
 class _MaintenanceFacts extends StatelessWidget {
-  const _MaintenanceFacts({
-    required this.values,
-    this.maxColumns = 2,
-    this.minWidth = 380,
-  });
+  const _MaintenanceFacts({required this.values, this.maxColumns = 2});
   final Map<String, String> values;
   final int maxColumns;
-  final double minWidth;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
     return _MaintenanceGrid(
-      minWidth: minWidth,
+      minWidth: 380,
       maxColumns: maxColumns,
       children: [
         for (final entry in values.entries)
@@ -6422,7 +6417,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
                       entry.key,
                       _data.groups.keys.toList().indexOf(entry.key) + 1,
                     )
-                  : entry.key,
+                  : maintenanceDetailLabel(context, entry.key),
               icon: Icons.hub_outlined,
               initiallyExpanded:
                   _data.groups.length <= 4 && entry.value.rows.length <= 12,

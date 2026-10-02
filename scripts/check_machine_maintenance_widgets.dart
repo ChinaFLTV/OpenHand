@@ -6369,6 +6369,77 @@ void telemetryChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('平台卡片按批加载、筛选复位，长摘要可完整复制且没有悬停阴影', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.binding.setSurfaceSize(const Size(960, 1000));
+    final digest='sha256:'+'a'*64;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'), localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales, home:Scaffold(body:SingleChildScrollView(child:_ContainerImagePlatforms(
+        images:[for(var i=0;i<16;i++){'os':'linux','architecture':i==0?'arm64':'amd64','digest':digest,'size':1024,'variant':'v'+i.toString()}])))));
+    await tester.pumpAndSettle();
+    final state=tester.state<_ContainerImagePlatformsState>(find.byType(_ContainerImagePlatforms));
+    expect(find.byType(_MaintenanceCard), findsNWidgets(12));
+    state.setState(()=>state._limit+=_containerImagePlatformPageSize);await tester.pumpAndSettle();
+    expect(find.byType(_MaintenanceCard), findsNWidgets(16));
+    await tester.enterText(find.byType(TextField),'arm64');await tester.pumpAndSettle();
+    expect(state._limit,12);expect(find.byType(_MaintenanceCard),findsOneWidget);
+    final field=find.byKey(const ValueKey(('image-fact','镜像摘要')));
+    await tester.ensureVisible(field);await tester.pumpAndSettle();
+    final mouse=await tester.createGesture(kind:ui.PointerDeviceKind.mouse);await mouse.addPointer(location:Offset.zero);
+    await mouse.moveTo(tester.getCenter(field));await tester.pump(const Duration(milliseconds:400));
+    final decoration=tester.widget<Container>(field).decoration as BoxDecoration;
+    expect(decoration.gradient,isNull);expect(decoration.boxShadow,isNull);
+    await mouse.moveTo(Offset.zero);await mouse.removePointer();await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of:field,matching:find.byType(IconButton)));await tester.pumpAndSettle();
+    expect(copied,digest);expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('镜像详情极窄屏大字号不溢出，分区切换实时遵循动效设置', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 900));
+    await tester.runAsync(() => _testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs: 600, entranceStyle: DialogAnimationStyle.fade, exitStyle: DialogAnimationStyle.fade)));
+    final tag='release-'+'a'*100;
+    MachineImageRegistry factory()=>MachineImageRegistry(clientFactory:HttpClient.new, read:(uri) async =>
+      uri.path.contains('/tags/') ? {'name':tag,'digest':'sha256:'+'f'*64,'images':[{'os':'linux','architecture':'amd64','variant':'v1','size':2048}]}
+      : {'name':'nginx','namespace':'library','description':'Repository description','full_description':'# Documentation\n\nPublisher content'});
+    final theme=OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('fr'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,theme:theme,
+      builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.7)),child:child!),
+      home:Scaffold(body:_ContainerRegistryDetailsDialog(image:MachineContainerImageSearchResult.fromJson({'Name':'nginx'}),
+        selected:tag,registryFactory:factory,onTagChanged:(_){}))));
+    await tester.pumpAndSettle();expect(tester.takeException(),isNull);
+    final transition=find.byKey(const ValueKey('image-detail-transition'));
+    expect(tester.widget<AnimatedSwitcher>(transition).duration,const Duration(milliseconds:600));
+    await tester.runAsync(()=>_testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs:600,entranceStyle:DialogAnimationStyle.none,exitStyle:DialogAnimationStyle.none)));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedSwitcher>(transition).duration,Duration.zero);
+    expect(tester.widget<AnimatedSwitcher>(transition).reverseDuration,Duration.zero);
+    for(var tab=1;tab<4;tab++) {
+      final button=find.byKey(ValueKey(('image-detail-tab',tab)));
+      await Scrollable.ensureVisible(tester.element(button),alignment:.5);await tester.pumpAndSettle();
+      await tester.tap(button);await tester.pumpAndSettle();
+      expect(tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog))._tab,tab);
+      expect(tester.takeException(),isNull,reason:'分区 $tab');
+    }
+    final context=tester.element(find.byType(_ContainerRegistryDetailsDialog));
+    final l=AppLocalizations.of(context)!;
+    expect(tester.widgetList<_MaintenanceSection>(find.byType(_MaintenanceSection)).map((section)=>section.title),
+      containsAll([l.maintenanceImageRepositoryDetails,l.maintenanceImageTag]));
+    expect(maintenanceDetailLabel(context,'images [1] / architecture'),
+      l.maintenanceImagePlatforms+' [1] / '+maintenanceLabel(context,'架构'));
+    expect(maintenanceDetailLabel(context,'star_count'),l.maintenanceImageStars);
+    expect(maintenanceDetailLabel(context,'tag_last_pushed'),l.maintenanceImageLastPushed);
+    await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('镜像详情独立加载、失败重试去重，关闭后丢弃迟到响应', (tester) async {
     await tester.binding.setSurfaceSize(const Size(960, 900));
     final requests = <Uri>[];
@@ -6695,11 +6766,15 @@ void resourceChecks() {
         final detail = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
         expect(detail._tag, '1.28-alpine'); expect(detail._repositoryError, isEmpty); expect(detail._tagError, isEmpty);
         expect(find.text(l.maintenanceImageRepositoryDetails), findsOneWidget);
-        expect(find.text(l.maintenanceImageTagDetails), findsOneWidget);
         expect(find.text('Web server'), findsOneWidget);
-        final platformTable = tester.widget<_MaintenanceTable>(find.descendant(of: find.byType(_ContainerRegistryDetailsDialog), matching: find.byType(_MaintenanceTable)));
-        expect(platformTable.rows.map((row) => row.cells[1]), ['arm64', 'amd64']);
-        expect(platformTable.rows.first.cells[2], 'v8');
+        expect(find.descendant(of:find.byType(_ContainerRegistryDetailsDialog),matching:find.byType(_MaintenanceTable)), findsNothing);
+        await tester.ensureVisible(find.byKey(const ValueKey(('image-detail-tab', 1))));
+        await tester.tap(find.byKey(const ValueKey(('image-detail-tab', 1)))); await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceImageTagDetails), findsOneWidget);
+        expect(find.byType(_ContainerImagePlatforms), findsOneWidget);
+        expect(find.text('Linux · '+_containerImageArchitecture(tester.element(find.byType(_ContainerImagePlatforms)), 'arm64')), findsOneWidget);
+        expect(find.text('v8'), findsOneWidget);
+        expect(tester.takeException(), isNull);
         final select = detail._selectTag(); await tester.pumpAndSettle();
         final selector = tester.state<_ContainerImageTagDialogState>(find.byType(_ContainerImageTagDialog));
         selector._tag.text = 'stable'; selector.setState(() {}); await tester.pumpAndSettle();
@@ -6707,12 +6782,23 @@ void resourceChecks() {
         expect(detail._tagData!['name'], 'stable'); expect(registry._tags['nginx'], 'stable');
         expect(tester.takeException(), isNull);
         if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.ensureVisible(find.byKey(const ValueKey(('image-detail-tab', 0))));
+          await tester.tap(find.byKey(const ValueKey(('image-detail-tab', 0)))); await tester.pumpAndSettle();
           await tester.runAsync(() async {
             final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
             final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
             await File('/tmp/openhand-registry-details-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
           });
-          await tester.ensureVisible(find.byType(MarkdownBody)); await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byKey(const ValueKey(('image-detail-tab', 1))));
+          await tester.tap(find.byKey(const ValueKey(('image-detail-tab', 1)))); await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/openhand-registry-platforms-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+          await tester.ensureVisible(find.byKey(const ValueKey(('image-detail-tab', 2))));
+          await tester.tap(find.byKey(const ValueKey(('image-detail-tab', 2)))); await tester.pumpAndSettle();
+          expect(find.byType(MarkdownBody), findsOneWidget);
           await tester.runAsync(() async {
             final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
             final bytes = await image.toByteData(format: ui.ImageByteFormat.png);

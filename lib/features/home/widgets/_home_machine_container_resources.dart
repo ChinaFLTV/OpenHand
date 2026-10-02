@@ -1059,6 +1059,7 @@ class _ContainerRegistryDetailsDialogState
   Map<String, dynamic>? _repository, _tagData;
   String _repositoryError = '', _tagError = '';
   bool _repositoryLoading = false, _tagLoading = false, _selecting = false;
+  int _tab = 0;
 
   @override
   void initState() {
@@ -1140,9 +1141,14 @@ class _ContainerRegistryDetailsDialogState
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final image = _repository == null
         ? widget.image
         : widget.image.withMetadata(
@@ -1154,298 +1160,426 @@ class _ContainerRegistryDetailsDialogState
     final platforms = (_tagData?['images'] as List? ?? const [])
         .whereType<Map>()
         .toList();
-    String value(Object? raw) => raw == null || '$raw'.isEmpty ? '—' : '$raw';
-    String timestamp(Object? raw) =>
-        machineMaintenanceTimestamp(value(raw), allowEpoch: true) ?? value(raw);
-    String size(Object? raw) {
-      final bytes = num.tryParse('$raw');
-      return bytes == null || !bytes.isFinite || bytes < 0
-          ? '—'
-          : formatLocalizedByteSizeOf(context, bytes);
+    final tabs = [
+      (l.maintenanceImageRepositoryDetails, Icons.dashboard_outlined),
+      (l.maintenanceImagePlatforms, Icons.devices_outlined),
+      (l.maintenanceImageFullDescription, Icons.article_outlined),
+      (l.maintenanceTelemetryFullMetadata, Icons.data_object_rounded),
+    ];
+    final tagButton = FilledButton.tonal(
+      onPressed: _tagLoading || _selecting ? null : _selectTag,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.sell_outlined, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: Text(_tag, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.expand_more_rounded, size: 16),
+        ],
+      ),
+    );
+    final repositoryNotice = _repositoryError.isEmpty
+        ? null
+        : _MaintenanceNotice(
+            message:
+                '${l.maintenanceImageRepositoryUnavailable}\n$_repositoryError',
+            error: true,
+          );
+    final tagNotice = _tagError.isEmpty
+        ? null
+        : _MaintenanceNotice(
+            message: '${l.maintenanceImageTagDetailsUnavailable}\n$_tagError',
+            error: true,
+          );
+    final retryRepository = Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: FilledButton.tonalIcon(
+        onPressed: _repositoryLoading ? null : _loadRepository,
+        icon: const Icon(Icons.refresh_rounded, size: 16),
+        label: Text(l.maintenanceImageTagRetry),
+      ),
+    );
+    Widget content;
+    switch (_tab) {
+      case 0:
+        content = _MaintenanceAnimatedColumn(
+          spacing: 12,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.primary.withValues(alpha: .16)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 8,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MaintenanceStatus(
+                        label:
+                            '${l.maintenanceImageOfficial} · ${image.official == null
+                                ? l.maintenanceUnknown
+                                : image.official!
+                                ? l.maintenanceHealthParsedYes
+                                : l.maintenanceHealthParsedNo}',
+                        color: image.official == true
+                            ? cs.primary
+                            : cs.onSurfaceVariant,
+                      ),
+                      tagButton,
+                    ],
+                  ),
+                  if (summary.isNotEmpty)
+                    SelectableText(
+                      summary,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  if (image.hubRepository == null)
+                    _MaintenanceNotice(
+                      message: l.maintenanceImageRepositoryUnsupported,
+                    ),
+                ],
+              ),
+            ),
+            _MaintenanceGrid(
+              minWidth: 160,
+              balanceColumns: true,
+              children: [
+                for (final metric in [
+                  (
+                    l.maintenanceImageStars,
+                    image.stars,
+                    Icons.star_outline_rounded,
+                    cs.primary,
+                  ),
+                  (
+                    l.maintenanceImageDownloads,
+                    image.pulls,
+                    Icons.cloud_download_outlined,
+                    cs.secondary,
+                  ),
+                  (
+                    l.maintenanceImageSize,
+                    null,
+                    Icons.storage_rounded,
+                    cs.tertiary,
+                  ),
+                ])
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: metric.$4.withValues(alpha: .06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: metric.$4.withValues(alpha: .18),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 6,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(metric.$3, size: 18, color: metric.$4),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                metric.$1,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 12,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (metric.$3 == Icons.storage_rounded)
+                          Text(
+                            _containerImageSize(
+                              context,
+                              _tagData?['full_size'],
+                            ),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        else
+                          _MaintenanceNumber(
+                            key: ValueKey(('registry-detail', metric.$1)),
+                            raw: '${metric.$2 ?? '—'}',
+                            readable: metric.$2 == null
+                                ? '—'
+                                : openHandCompactCountLabel(
+                                    context,
+                                    metric.$2!,
+                                  ),
+                            padding: EdgeInsets.zero,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            _ContainerImageFacts(
+              values: {
+                l.maintenanceImageReference: '${image.name}:$_tag',
+                l.maintenanceImageNamespace:
+                    '${_repository?['namespace'] ?? image.hubRepository?.split('/').first ?? '—'}',
+                l.maintenanceImageLastUpdated: _containerImageTimestamp(
+                  _repository?['last_updated'],
+                ),
+                l.maintenanceImageLastPushed: _containerImageTimestamp(
+                  _tagData?['tag_last_pushed'] ?? _tagData?['last_updated'],
+                ),
+              },
+            ),
+            if (repositoryNotice != null) repositoryNotice,
+            if (_repositoryError.isNotEmpty) retryRepository,
+            if (tagNotice != null) tagNotice,
+          ],
+        );
+      case 1:
+        content = _MaintenanceAnimatedColumn(
+          spacing: 12,
+          children: [
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  l.maintenanceImageTagDetails,
+                  style: theme.textTheme.titleSmall,
+                ),
+                tagButton,
+              ],
+            ),
+            if (tagNotice != null) ...[
+              tagNotice,
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FilledButton.tonalIcon(
+                  onPressed: _tagLoading ? null : _loadTag,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text(l.maintenanceImageTagRetry),
+                ),
+              ),
+            ],
+            if (_tagData != null)
+              _ContainerImagePlatforms(key: ValueKey(_tag), images: platforms),
+          ],
+        );
+      case 2:
+        content = _MaintenanceAnimatedColumn(
+          spacing: 12,
+          children: [
+            if (repositoryNotice != null) ...[
+              repositoryNotice,
+              retryRepository,
+            ],
+            if (_repository != null)
+              _MaintenanceCard(
+                title: l.maintenanceImageFullDescription,
+                icon: Icons.article_outlined,
+                accent: cs.tertiary,
+                scrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 12,
+                  children: [
+                    Text(
+                      l.maintenanceImagePublisherContent,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (description.isEmpty)
+                      _MaintenanceEmptyHint(
+                        message: maintenanceLabel(context, '暂无可用数据'),
+                      )
+                    else
+                      MarkdownBody(
+                        data: description,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet.fromTheme(theme)
+                            .copyWith(
+                              p: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                                height: 1.6,
+                              ),
+                              codeblockDecoration: BoxDecoration(
+                                color: cs.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                        onTapLink: (_, href, _) {
+                          final uri = Uri.tryParse(href ?? '');
+                          if (uri != null &&
+                              (uri.scheme == 'https' || uri.scheme == 'http') &&
+                              uri.host.isNotEmpty) {
+                            unawaited(_openMessageLinkUri(context, uri));
+                          }
+                        },
+                        imageBuilder: (uri, title, alt) =>
+                            FutureBuilder<Uint8List>(
+                              future: _registry.icon(uri.toString()),
+                              builder: (_, snapshot) => snapshot.hasData
+                                  ? Image.memory(
+                                      snapshot.data!,
+                                      height: 160,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, _, _) =>
+                                          Text(alt ?? title ?? ''),
+                                    )
+                                  : Text(alt ?? title ?? ''),
+                            ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      default:
+        content = _MaintenanceAnimatedColumn(
+          spacing: 12,
+          children: [
+            _ContainerImageFacts(
+              maxColumns: 2,
+              values: {
+                l.maintenanceImageDigests: '${_tagData?['digest'] ?? '—'}',
+                l.maintenanceImageLastPushed: _containerImageTimestamp(
+                  _tagData?['tag_last_pushed'] ?? _tagData?['last_updated'],
+                ),
+              },
+            ),
+            _MaintenanceCard(
+              title: l.maintenanceTelemetryFullMetadata,
+              icon: Icons.data_object_rounded,
+              scrollBody: false,
+              trailing: _MachineTerminalIconButton(
+                icon: Icons.copy_rounded,
+                tooltip: l.commonCopy,
+                onPressed: () => copyOpenHandTextToClipboard(
+                  context: context,
+                  text: const JsonEncoder.withIndent(
+                    '  ',
+                  ).convert({'repository': _repository, 'tag': _tagData}),
+                  logTag: '镜像详情',
+                ),
+              ),
+              child: _MaintenanceReadout(
+                text: jsonEncode({'repository': _repository, 'tag': _tagData}),
+                section: 'container_image',
+              ),
+            ),
+          ],
+        );
     }
-
     return Theme(
       data: _containerResourceDialogTheme(context),
       child: buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthExtraWide,
+        maxWidth: kOpenHandDialogWidthWide,
         maxHeight: MediaQuery.sizeOf(context).height * .9,
         backgroundColor: cs.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         child: SizedBox(
-          width: kOpenHandDialogWidthExtraWide,
+          width: kOpenHandDialogWidthWide,
+          height: MediaQuery.sizeOf(context).height * .86,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               _MachineTerminalDialogHeader(
                 icon: Icons.layers_outlined,
-                title: l.maintenanceContainerImageDetails,
+                title: l.maintenanceImageDetailsTitle,
                 subtitle: widget.image.name,
                 onClose: () => Navigator.pop(context),
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: _maintenanceDetailPadding,
-                  child: _MaintenanceAnimatedColumn(
-                    spacing: 12,
-                    children: [
-                      _MaintenanceCard(
-                        title: l.maintenanceImageRepositoryDetails,
-                        icon: Icons.inventory_2_outlined,
-                        scrollBody: false,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          spacing: 12,
-                          children: [
-                            if (_repositoryLoading)
-                              const LinearProgressIndicator(minHeight: 2),
-                            _MaintenanceFacts(
-                              minWidth: 260,
-                              values: {
-                                l.maintenanceImageReference:
-                                    '${image.name}:$_tag',
-                                l.maintenanceImageOfficial:
-                                    image.official == null
-                                    ? '—'
-                                    : image.official!
-                                    ? l.maintenanceHealthParsedYes
-                                    : l.maintenanceHealthParsedNo,
-                                l.maintenanceImageNamespace: value(
-                                  _repository?['namespace'] ??
-                                      image.hubRepository?.split('/').first,
-                                ),
-                                l.maintenanceImageLastUpdated: timestamp(
-                                  _repository?['last_updated'],
-                                ),
-                              },
-                            ),
-                            _MaintenanceGrid(
-                              minWidth: 180,
-                              maxColumns: 2,
-                              children: [
-                                for (final metric in [
-                                  (l.maintenanceImageStars, image.stars),
-                                  (l.maintenanceImageDownloads, image.pulls),
-                                ])
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: _maintenanceTileDecoration(cs),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          metric.$1,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: cs.onSurfaceVariant,
-                                              ),
-                                        ),
-                                        _MaintenanceNumber(
-                                          key: ValueKey((
-                                            'registry-detail',
-                                            metric.$1,
-                                          )),
-                                          raw: value(metric.$2),
-                                          readable: metric.$2 == null
-                                              ? '—'
-                                              : openHandCompactCountLabel(
-                                                  context,
-                                                  metric.$2!,
-                                                ),
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      spacing: 4,
+                      children: [
+                        for (var i = 0; i < tabs.length; i++)
+                          TextButton.icon(
+                            key: ValueKey(('image-detail-tab', i)),
+                            onPressed: () {
+                              if (_tab != i) setState(() => _tab = i);
+                            },
+                            style: _maintenanceActionButtonStyle(context)
+                                .copyWith(
+                                  backgroundColor: WidgetStatePropertyAll(
+                                    _tab == i
+                                        ? cs.primaryContainer
+                                        : Colors.transparent,
                                   ),
-                              ],
-                            ),
-                            if (summary.isNotEmpty)
-                              SelectableText(
-                                summary,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            if (_repositoryError.isNotEmpty) ...[
-                              _MaintenanceNotice(
-                                message:
-                                    '${l.maintenanceImageRepositoryUnavailable}\n$_repositoryError',
-                                error: true,
-                              ),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: FilledButton.tonal(
-                                  onPressed: _repositoryLoading
-                                      ? null
-                                      : _loadRepository,
-                                  child: Text(l.maintenanceImageTagRetry),
+                                  foregroundColor: WidgetStatePropertyAll(
+                                    _tab == i
+                                        ? cs.onPrimaryContainer
+                                        : cs.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                            ],
-                            if (image.hubRepository == null)
-                              _MaintenanceNotice(
-                                message:
-                                    l.maintenanceImageRepositoryUnsupported,
-                              ),
-                          ],
-                        ),
-                      ),
-                      _MaintenanceCard(
-                        title: l.maintenanceImageTagDetails,
-                        icon: Icons.sell_outlined,
-                        scrollBody: false,
-                        wrapHeader: true,
-                        trailing: FilledButton.tonalIcon(
-                          onPressed: _tagLoading || _selecting
-                              ? null
-                              : _selectTag,
-                          icon: const Icon(Icons.expand_more_rounded, size: 16),
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 180),
-                            child: Text(
-                              _tag,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            icon: Icon(tabs[i].$2, size: 16),
+                            label: Text(tabs[i].$1),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          spacing: 12,
-                          children: [
-                            if (_tagLoading)
-                              const LinearProgressIndicator(minHeight: 2),
-                            _MaintenanceFacts(
-                              minWidth: 260,
-                              values: {
-                                l.maintenanceImageTag: _tag,
-                                l.maintenanceImageDigests: value(
-                                  _tagData?['digest'],
-                                ),
-                                l.maintenanceImageLastPushed: timestamp(
-                                  _tagData?['tag_last_pushed'] ??
-                                      _tagData?['last_updated'],
-                                ),
-                                l.maintenanceImageSize: size(
-                                  _tagData?['full_size'],
-                                ),
-                              },
-                            ),
-                            if (_tagError.isNotEmpty) ...[
-                              _MaintenanceNotice(
-                                message:
-                                    '${l.maintenanceImageTagDetailsUnavailable}\n$_tagError',
-                                error: true,
-                              ),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: FilledButton.tonal(
-                                  onPressed: _tagLoading ? null : _loadTag,
-                                  child: Text(l.maintenanceImageTagRetry),
-                                ),
-                              ),
-                            ],
-                            if (platforms.isNotEmpty)
-                              _MaintenanceTable(
-                                headers: [
-                                  l.maintenanceOs,
-                                  l.maintenanceArchitecture,
-                                  l.maintenanceImageVariant,
-                                  l.maintenanceImageSize,
-                                  l.maintenanceImageDigests,
-                                  l.maintenanceImageLastPushed,
-                                ],
-                                maxBodyHeight: 280,
-                                rows: [
-                                  for (var i = 0; i < platforms.length; i++)
-                                    OpenHandOperationalRankRow(
-                                      value: 0,
-                                      rowKey: i,
-                                      cells: [
-                                        value(platforms[i]['os']),
-                                        value(platforms[i]['architecture']),
-                                        value(platforms[i]['variant']),
-                                        size(platforms[i]['size']),
-                                        value(platforms[i]['digest']),
-                                        timestamp(platforms[i]['last_pushed']),
-                                      ],
-                                    ),
-                                ],
-                              )
-                            else if (_tagData != null)
-                              _MaintenanceEmptyHint(
-                                message: maintenanceLabel(context, '暂无可用数据'),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (_repository != null)
-                        _MaintenanceCard(
-                          title: l.maintenanceImageFullDescription,
-                          icon: Icons.article_outlined,
-                          scrollBody: false,
-                          child: description.isEmpty
-                              ? _MaintenanceEmptyHint(
-                                  message: maintenanceLabel(context, '暂无可用数据'),
-                                )
-                              : MarkdownBody(
-                                  data: description,
-                                  selectable: true,
-                                  styleSheet:
-                                      MarkdownStyleSheet.fromTheme(
-                                        theme,
-                                      ).copyWith(
-                                        p: theme.textTheme.bodyMedium?.copyWith(
-                                          height: 1.6,
-                                        ),
-                                        codeblockDecoration: BoxDecoration(
-                                          color: cs.surfaceContainerLow,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                  onTapLink: (_, href, _) {
-                                    final uri = Uri.tryParse(href ?? '');
-                                    if (uri != null &&
-                                        (uri.scheme == 'https' ||
-                                            uri.scheme == 'http') &&
-                                        uri.host.isNotEmpty) {
-                                      unawaited(
-                                        _openMessageLinkUri(context, uri),
-                                      );
-                                    }
-                                  },
-                                  imageBuilder: (uri, title, alt) =>
-                                      FutureBuilder<Uint8List>(
-                                        future: _registry.icon(uri.toString()),
-                                        builder: (_, snapshot) =>
-                                            snapshot.hasData
-                                            ? Image.memory(
-                                                snapshot.data!,
-                                                height: 160,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_, _, _) =>
-                                                    Text(alt ?? title ?? ''),
-                                              )
-                                            : Text(alt ?? title ?? ''),
-                                      ),
-                                ),
-                        ),
-                      if (_repository != null || _tagData != null)
-                        _MaintenanceSection(
-                          title: l.maintenanceTelemetryFullMetadata,
-                          icon: Icons.data_object_rounded,
-                          child: _MaintenanceReadout(
-                            text: jsonEncode({
-                              'repository': _repository,
-                              'tag': _tagData,
-                            }),
-                            section: 'container_image',
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_repositoryLoading || _tagLoading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  key: const ValueKey('image-detail-transition'),
+                  duration: motion.entranceDuration,
+                  reverseDuration: motion.exitDuration,
+                  switchInCurve: kOpenHandSwitchInCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, .025),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    key: PageStorageKey(('image-detail-body', _tab)),
+                    padding: _maintenanceDetailPadding,
+                    child: content,
                   ),
                 ),
               ),
@@ -1470,6 +1604,244 @@ class _ContainerRegistryDetailsDialogState
           ),
         ),
       ),
+    );
+  }
+}
+
+String _containerImageTimestamp(Object? raw) =>
+    machineMaintenanceTimestamp('${raw ?? ''}', allowEpoch: true) ??
+    '${raw ?? '—'}';
+
+String _containerImageSize(BuildContext context, Object? raw) {
+  final bytes = num.tryParse('$raw');
+  return bytes == null || !bytes.isFinite || bytes < 0
+      ? '—'
+      : formatLocalizedByteSizeOf(context, bytes);
+}
+
+String _containerImageOs(BuildContext context, Object? raw) => switch ('$raw'
+    .toLowerCase()) {
+  'linux' => 'Linux',
+  'windows' => 'Windows',
+  'darwin' => 'macOS',
+  '' || 'null' || 'unknown' => AppLocalizations.of(context)!.maintenanceUnknown,
+  _ => '$raw',
+};
+
+String _containerImageArchitecture(BuildContext context, Object? raw) {
+  final l = AppLocalizations.of(context)!;
+  final architecture = '$raw'.toLowerCase();
+  final family = switch (architecture) {
+    'amd64' || 'x86_64' || '386' || 'i386' => 'x86',
+    'arm64' || 'aarch64' || 'arm' => 'ARM',
+    'ppc64le' || 'ppc64' => 'PowerPC',
+    'riscv64' => 'RISC-V',
+    _ => null,
+  };
+  if (family == null) {
+    return architecture == 'null' ||
+            architecture.isEmpty ||
+            architecture == 'unknown'
+        ? l.maintenanceUnknown
+        : '$raw';
+  }
+  final bits = {'386', 'i386', 'arm'}.contains(architecture) ? 32 : 64;
+  return '$family · ${l.maintenanceImageArchitectureBits(bits)} ($raw)';
+}
+
+/// 镜像详情复用统一字段网格，长标识完整保留在浮窗和复制操作中。
+class _ContainerImageFacts extends StatelessWidget {
+  const _ContainerImageFacts({required this.values, this.maxColumns = 3});
+  final Map<String, String> values;
+  final int maxColumns;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l = AppLocalizations.of(context)!;
+    return _MaintenanceGrid(
+      minWidth: 200,
+      maxColumns: maxColumns,
+      balanceColumns: true,
+      fillLastRow: false,
+      children: [
+        for (final field in values.entries)
+          Container(
+            key: ValueKey(('image-fact', field.key)),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: .55),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 6,
+              children: [
+                Text(
+                  maintenanceLabel(context, field.key),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OpenHandChartTooltipTrigger(
+                        accent: cs.primary,
+                        tooltip: OpenHandChartTooltip(
+                          title: maintenanceLabel(context, field.key),
+                          summary: field.value,
+                          badge: maintenanceLabel(context, '完整内容'),
+                        ),
+                        child: _MaintenanceValue(
+                          value: field.value.isEmpty ? '—' : field.value,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (field.value.length > 36) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: l.commonCopy,
+                        icon: const Icon(Icons.copy_rounded, size: 15),
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size(28, 28),
+                          minimumSize: const Size(28, 28),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () => copyOpenHandTextToClipboard(
+                          context: context,
+                          text: field.value,
+                          logTag: '镜像详情',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+const _containerImagePlatformPageSize = 12;
+
+class _ContainerImagePlatforms extends StatefulWidget {
+  const _ContainerImagePlatforms({super.key, required this.images});
+  final List<Map> images;
+  @override
+  State<_ContainerImagePlatforms> createState() =>
+      _ContainerImagePlatformsState();
+}
+
+class _ContainerImagePlatformsState extends State<_ContainerImagePlatforms> {
+  final _query = TextEditingController();
+  int _limit = _containerImagePlatformPageSize;
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final filter = _query.text.trim().toLowerCase();
+    final rows = widget.images
+        .where(
+          (row) => [
+            row['os'],
+            row['architecture'],
+            row['variant'],
+            row['digest'],
+            _containerImageOs(context, row['os']),
+            _containerImageArchitecture(context, row['architecture']),
+          ].join(' ').toLowerCase().contains(filter),
+        )
+        .toList();
+    return _MaintenanceAnimatedColumn(
+      spacing: 12,
+      children: [
+        _ContainerRegistrySearchField(
+          controller: _query,
+          hint: l.maintenanceImagePlatformSearch,
+          searchLabel: l.maintenanceImagePlatformSearch,
+          onSearch: () =>
+              setState(() => _limit = _containerImagePlatformPageSize),
+          onChanged: (_) =>
+              setState(() => _limit = _containerImagePlatformPageSize),
+        ),
+        Text(
+          l.maintenanceImagePlatformCount(rows.length),
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 12,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        if (rows.isEmpty)
+          _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据')),
+        _MaintenanceGrid(
+          minWidth: 290,
+          maxColumns: 2,
+          fillLastRow: false,
+          children: [
+            for (final row in rows.take(_limit))
+              _MaintenanceCard(
+                title:
+                    '${_containerImageOs(context, row['os'])} · ${_containerImageArchitecture(context, row['architecture'])}',
+                icon: Icons.computer_outlined,
+                accent: cs.secondary,
+                scrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 10,
+                  children: [
+                    _MaintenanceFacts(
+                      maxColumns: 1,
+                      values: {
+                        l.maintenanceImageVariant: '${row['variant'] ?? '—'}',
+                        l.maintenanceImageSize: _containerImageSize(
+                          context,
+                          row['size'],
+                        ),
+                        l.maintenanceImageLastPushed: _containerImageTimestamp(
+                          row['last_pushed'],
+                        ),
+                      },
+                    ),
+                    _ContainerImageFacts(
+                      maxColumns: 1,
+                      values: {
+                        l.maintenanceImageDigests: '${row['digest'] ?? '—'}',
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        if (rows.length > _limit)
+          Center(
+            child: FilledButton.tonalIcon(
+              onPressed: () =>
+                  setState(() => _limit += _containerImagePlatformPageSize),
+              icon: const Icon(Icons.expand_more_rounded, size: 16),
+              label: Text(l.maintenanceImagePlatformsMore),
+            ),
+          ),
+      ],
     );
   }
 }

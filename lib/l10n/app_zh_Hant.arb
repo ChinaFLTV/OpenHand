@@ -9835,5 +9835,12 @@
   "maintenanceImageFullDescription": "完整說明",
   "maintenanceImageRepositoryUnsupported": "目前儲存庫不支援公開詳情查詢，仍可選擇標籤並拉取映像。",
   "maintenanceImageRepositoryUnavailable": "暫時無法讀取儲存庫詳情。已保留搜尋資訊，請重試。",
-  "maintenanceImageTagDetailsUnavailable": "暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。"
+  "maintenanceImageTagDetailsUnavailable": "暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。",
+  "maintenanceImagePlatforms": "平台",
+  "maintenanceImagePublisherContent": "以下為儲存庫發布者提供的原始說明。",
+  "maintenanceImageArchitectureBits": "{bits} 位元",
+  "maintenanceImagePlatformSearch": "搜尋作業系統、架構或摘要",
+  "maintenanceImagePlatformCount": "可用平台 · {count}",
+  "maintenanceImageDetailsTitle": "映像檔詳情",
+  "maintenanceImagePlatformsMore": "載入更多平台"
 }

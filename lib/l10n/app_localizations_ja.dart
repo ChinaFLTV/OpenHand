@@ -15571,4 +15571,29 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceImageTagDetailsUnavailable =>
       'このタグの詳細を取得できません。再試行するか、別のタグを選択してください。';
+
+  @override
+  String get maintenanceImagePlatforms => 'プラットフォーム';
+
+  @override
+  String get maintenanceImagePublisherContent => 'リポジトリの公開者が提供した説明の原文です。';
+
+  @override
+  String maintenanceImageArchitectureBits(int bits) {
+    return '$bits ビット';
+  }
+
+  @override
+  String get maintenanceImagePlatformSearch => 'OS、アーキテクチャ、ダイジェストを検索';
+
+  @override
+  String maintenanceImagePlatformCount(int count) {
+    return '利用可能なプラットフォーム · $count';
+  }
+
+  @override
+  String get maintenanceImageDetailsTitle => 'イメージ詳細';
+
+  @override
+  String get maintenanceImagePlatformsMore => 'さらにプラットフォームを読み込む';
 }

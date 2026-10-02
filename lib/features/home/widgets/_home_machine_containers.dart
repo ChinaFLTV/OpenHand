@@ -2319,7 +2319,7 @@ class _ContainerImageReadout extends StatelessWidget {
           title: l.maintenanceImageMetadata,
           icon: Icons.layers_outlined,
           scrollBody: false,
-          child: _MaintenanceFacts(
+          child: _ContainerImageFacts(
             values: {
               '镜像标识': value(
                 details['Id'] ??
@@ -2338,9 +2338,13 @@ class _ContainerImageReadout extends StatelessWidget {
                 '创建时间':
                     machineMaintenanceTimestamp(created, allowEpoch: true) ??
                     created,
-              if (details['Os'] != null) '操作系统': value(details['Os']),
+              if (details['Os'] != null)
+                '操作系统': _containerImageOs(context, details['Os']),
               if (details['Architecture'] != null)
-                '架构': value(details['Architecture']),
+                '架构': _containerImageArchitecture(
+                  context,
+                  details['Architecture'],
+                ),
               if (details['nodeName'] != null) '节点': value(details['nodeName']),
               if (details['imagePullPolicy'] != null)
                 '镜像拉取策略': value(details['imagePullPolicy']),

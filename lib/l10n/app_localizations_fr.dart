@@ -16164,4 +16164,31 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceImageTagDetailsUnavailable =>
       'Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag.';
+
+  @override
+  String get maintenanceImagePlatforms => 'Plateformes';
+
+  @override
+  String get maintenanceImagePublisherContent =>
+      'Documentation originale fournie par l’auteur du dépôt.';
+
+  @override
+  String maintenanceImageArchitectureBits(int bits) {
+    return '$bits bits';
+  }
+
+  @override
+  String get maintenanceImagePlatformSearch =>
+      'Rechercher un système, une architecture ou une empreinte';
+
+  @override
+  String maintenanceImagePlatformCount(int count) {
+    return 'Plateformes disponibles · $count';
+  }
+
+  @override
+  String get maintenanceImageDetailsTitle => 'Détails de l’image';
+
+  @override
+  String get maintenanceImagePlatformsMore => 'Charger plus de plateformes';
 }
