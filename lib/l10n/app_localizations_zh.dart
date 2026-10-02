@@ -15574,6 +15574,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceContainerUnhealthy => '不健康';
+
+  @override
+  String get maintenanceKubernetesContextMissing => '未配置 Kubernetes 当前上下文';
+
+  @override
+  String get maintenanceKubernetesContextMissingHelp =>
+      '请在目标机器配置 kubeconfig，用 kubectl config use-context <上下文名称> 设置当前上下文，然后刷新。';
+
+  @override
+  String get maintenanceKubernetesContextMissingStatus => '未配置上下文';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -31130,4 +31140,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceContainerUnhealthy => '不健康';
+
+  @override
+  String get maintenanceKubernetesContextMissing => '未設定 Kubernetes 目前的連線環境';
+
+  @override
+  String get maintenanceKubernetesContextMissingHelp =>
+      '請在目標機器設定 kubeconfig，以 kubectl config use-context <連線環境名稱> 設定目前的連線環境，再重新整理。';
+
+  @override
+  String get maintenanceKubernetesContextMissingStatus => '未設定連線環境';
 }

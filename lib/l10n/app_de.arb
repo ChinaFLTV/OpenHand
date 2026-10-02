@@ -9885,5 +9885,8 @@
   "maintenanceResourceRootSize": "Dateisystemgröße",
   "maintenanceResourceScope": "Geltungsbereich",
   "maintenanceResourceLayerCount": "Schichten",
-  "maintenanceContainerUnhealthy": "Nicht gesund"
+  "maintenanceContainerUnhealthy": "Nicht gesund",
+  "maintenanceKubernetesContextMissing": "Kein aktueller Kubernetes-Kontext konfiguriert",
+  "maintenanceKubernetesContextMissingHelp": "Konfigurieren Sie kubeconfig auf dem Zielrechner, wählen Sie den Kontext mit kubectl config use-context <kontextname> und aktualisieren Sie anschließend.",
+  "maintenanceKubernetesContextMissingStatus": "Kontext nicht konfiguriert"
 }

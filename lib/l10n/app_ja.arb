@@ -9885,5 +9885,8 @@
   "maintenanceResourceRootSize": "ファイルシステムサイズ",
   "maintenanceResourceScope": "スコープ",
   "maintenanceResourceLayerCount": "レイヤー数",
-  "maintenanceContainerUnhealthy": "異常"
+  "maintenanceContainerUnhealthy": "異常",
+  "maintenanceKubernetesContextMissing": "Kubernetes の現在のコンテキストが未設定です",
+  "maintenanceKubernetesContextMissingHelp": "対象マシンで kubeconfig を設定し、kubectl config use-context <コンテキスト名> で現在のコンテキストを選択してから更新してください。",
+  "maintenanceKubernetesContextMissingStatus": "コンテキスト未設定"
 }

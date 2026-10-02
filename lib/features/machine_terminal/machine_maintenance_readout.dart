@@ -35,6 +35,12 @@ String? machineMaintenanceCollectionIssue(String output, String section) {
         RegExp(r'^(?:Bad state|FormatException|Exception):\s*'),
         '',
       );
+  if (RegExp(
+    r'^(?:(?:kubectl|k3s kubectl):\s*)?(?:error:\s*current-context is not set\b|容器配置读取失败：kubernetesContextMissing\b|未配置 Kubernetes 当前上下文$)',
+    caseSensitive: false,
+  ).hasMatch(first)) {
+    return 'kubernetes_context';
+  }
   final failure = RegExp(
     r'^(?:you need administrator access|not authorised|not authorized|cannot talk to daemon|FATA\[.*?\].*|error:.*(?:failed|cannot|denied|not found|refused)|failed to connect|cannot connect|error during connect|error response from daemon|permission denied|operation not permitted|access is denied|access denied|could not|unable to connect|connection refused|connection timed out|context deadline exceeded|查询超时|查询失败|未安装|缺少|权限不足|无法连接|(?:docker|podman|crictl|nerdctl|ctr|kubectl|cat|ls|sh|bash|zsh|sudo|systemctl|launchctl|journalctl|netstat|pfctl|nft|iptables|ip6tables-save|iptables-save)(?::|\s+error).*?(?:error|failed|cannot|could not|unable|denied|not permitted|not found|no such file|refused|timed out))',
     caseSensitive: false,
@@ -96,6 +102,7 @@ List<List<String>> machineMaintenanceDiagnosticFields(String output) {
         'timeout' => '目标响应超时',
         'connection' => '连接未建立',
         'missing' => '所需工具不可用',
+        'kubernetes_context' => '未配置 Kubernetes 当前上下文',
         _ => '采集未完成',
       },
     ]);

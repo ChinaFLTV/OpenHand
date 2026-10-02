@@ -16097,4 +16097,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceContainerUnhealthy => 'Unhealthy';
+
+  @override
+  String get maintenanceKubernetesContextMissing =>
+      'Kubernetes current context is not configured';
+
+  @override
+  String get maintenanceKubernetesContextMissingHelp =>
+      'Configure kubeconfig on the target machine, set the current context with kubectl config use-context <context-name>, then refresh.';
+
+  @override
+  String get maintenanceKubernetesContextMissingStatus =>
+      'Context not configured';
 }

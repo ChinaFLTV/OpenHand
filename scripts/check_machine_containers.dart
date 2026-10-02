@@ -8,6 +8,116 @@ void check(bool condition, String message) {
 }
 
 Future<void> main() async {
+  if (Platform.environment['OPENHAND_VERIFY_KUBE_CONTEXT'] == '1') {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand-kube-context-',
+    );
+    try {
+      final file = File('${directory.path}/config.json');
+      for (final name in ['', '只读测试集群']) {
+        await file.writeAsString(
+          jsonEncode({
+            'apiVersion': 'v1',
+            'kind': 'Config',
+            'clusters': [],
+            'users': [],
+            'contexts': [],
+            'current-context': name,
+          }),
+        );
+        var calls = 0;
+        final client = MachineContainerClient(
+          runtime: MachineContainerRuntime.kubernetes,
+          launcher: ['kubectl', '--kubeconfig', file.path],
+          run: (command) async {
+            calls++;
+            final result = await Process.run('/bin/sh', [
+              '-c',
+              command,
+            ]).timeout(const Duration(seconds: 10));
+            if (result.exitCode != 0) {
+              throw StateError('${result.stderr}'.trim());
+            }
+            return '${result.stdout}';
+          },
+        );
+        var missing = false;
+        try {
+          check(
+            (await client.resolveContext()).contextName == name,
+            '真实客户端当前上下文解析错误',
+          );
+        } on MachineContainerConfigException catch (error) {
+          missing = error.code == 'kubernetesContextMissing';
+        }
+        check(missing == name.isEmpty && calls == 1, '真实客户端未配置上下文处理错误');
+      }
+      stdout.writeln('真实 kubectl 的空上下文与已配置上下文只读验证通过，未修改用户配置或请求集群。');
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  }
+  for (final missing in [false, true]) {
+    final calls = <String>[];
+    try {
+      await discoverMachineContainers(
+        runtime: MachineContainerRuntime.kubernetes,
+        windows: true,
+        run: (command) async {
+          calls.add(command);
+          if (missing) throw StateError('error: current-context is not set');
+          return '';
+        },
+      );
+      throw StateError('缺少当前上下文不应请求集群');
+    } on MachineContainerDiscoveryException catch (error) {
+      check(
+        calls.length == 1 &&
+            error.issues.values.single.contains('kubernetesContextMissing'),
+        '未配置上下文继续请求集群或丢失配置原因',
+      );
+    }
+  }
+  for (final error in [
+    StateError('permission denied'),
+    StateError('kubectl: command not found'),
+    const FormatException('配置格式错误'),
+  ]) {
+    final client = MachineContainerClient(
+      runtime: MachineContainerRuntime.kubernetes,
+      run: (_) async => throw error,
+    );
+    try {
+      await client.resolveContext();
+      throw StateError('读取配置失败不得忽略');
+    } catch (actual) {
+      check(identical(actual, error), '权限、工具或配置格式错误被吞掉或误报为未配置');
+    }
+  }
+  final invalidContext = MachineContainerClient(
+    runtime: MachineContainerRuntime.kubernetes,
+    run: (_) async => 'first\nsecond',
+  );
+  var invalidRejected = false;
+  try {
+    await invalidContext.resolveContext();
+  } on FormatException {
+    invalidRejected = true;
+  }
+  check(invalidRejected, '多行上下文被当作有效连接');
+  var pinnedQueries = 0;
+  final pinned = MachineContainerClient(
+    runtime: MachineContainerRuntime.kubernetes,
+    contextName: '已选集群',
+    run: (_) async {
+      pinnedQueries++;
+      return '';
+    },
+  );
+  check(
+    identical(await pinned.resolveContext(), pinned) && pinnedQueries == 0,
+    '显式上下文被默认配置覆盖或重复读取',
+  );
   final calls = <String>[];
   final docker = MachineContainerClient(
     runtime: MachineContainerRuntime.docker,

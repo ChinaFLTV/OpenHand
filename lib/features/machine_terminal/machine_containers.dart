@@ -311,7 +311,7 @@ class MachineContainerClient {
     return output;
   }
 
-  /// 上下文查询只是可选能力，旧版客户端不支持时仍以实际列表查询为准。
+  /// Docker 保留旧版客户端兼容；Kubernetes 缺少上下文时不继续请求集群。
   Future<MachineContainerClient> resolveContext() async {
     if (contextName.isNotEmpty ||
         (runtime != MachineContainerRuntime.docker &&
@@ -325,12 +325,29 @@ class MachineContainerClient {
             ? ['context', 'show']
             : ['config', 'current-context'],
       )).trim();
-    } on Exception {
-      return this;
-    } on StateError {
+    } catch (error) {
+      if (runtime == MachineContainerRuntime.kubernetes) {
+        if (machineMaintenanceCollectionIssue('$error', 'containers') ==
+            'kubernetes_context') {
+          throw const MachineContainerConfigException(
+            'kubernetesContextMissing',
+          );
+        }
+        rethrow;
+      }
+      if (error is Exception || error is StateError) return this;
+      rethrow;
+    }
+    if (name.isEmpty) {
+      if (runtime == MachineContainerRuntime.kubernetes) {
+        throw const MachineContainerConfigException('kubernetesContextMissing');
+      }
       return this;
     }
-    if (name.isEmpty || name.contains(RegExp(r'[\r\n\x00-\x1f]'))) {
+    if (name.contains(RegExp(r'[\r\n\x00-\x1f\x7f]'))) {
+      if (runtime == MachineContainerRuntime.kubernetes) {
+        throw const FormatException('Kubernetes 上下文名称包含无效字符。');
+      }
       return this;
     }
     return copyWith(

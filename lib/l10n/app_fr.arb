@@ -9885,5 +9885,8 @@
   "maintenanceResourceRootSize": "Taille du système de fichiers",
   "maintenanceResourceScope": "Portée",
   "maintenanceResourceLayerCount": "Couches",
-  "maintenanceContainerUnhealthy": "Défaillant"
+  "maintenanceContainerUnhealthy": "Défaillant",
+  "maintenanceKubernetesContextMissing": "Le contexte Kubernetes courant n’est pas configuré",
+  "maintenanceKubernetesContextMissingHelp": "Configurez kubeconfig sur la machine cible, sélectionnez le contexte avec kubectl config use-context <nom-du-contexte>, puis actualisez.",
+  "maintenanceKubernetesContextMissingStatus": "Contexte non configuré"
 }

@@ -16274,4 +16274,16 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceContainerUnhealthy => 'Nicht gesund';
+
+  @override
+  String get maintenanceKubernetesContextMissing =>
+      'Kein aktueller Kubernetes-Kontext konfiguriert';
+
+  @override
+  String get maintenanceKubernetesContextMissingHelp =>
+      'Konfigurieren Sie kubeconfig auf dem Zielrechner, wählen Sie den Kontext mit kubectl config use-context <kontextname> und aktualisieren Sie anschließend.';
+
+  @override
+  String get maintenanceKubernetesContextMissingStatus =>
+      'Kontext nicht konfiguriert';
 }

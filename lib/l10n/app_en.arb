@@ -9890,5 +9890,8 @@
   "maintenanceResourceRootSize": "Root filesystem size",
   "maintenanceResourceScope": "Scope",
   "maintenanceResourceLayerCount": "Layers",
-  "maintenanceContainerUnhealthy": "Unhealthy"
+  "maintenanceContainerUnhealthy": "Unhealthy",
+  "maintenanceKubernetesContextMissing": "Kubernetes current context is not configured",
+  "maintenanceKubernetesContextMissingHelp": "Configure kubeconfig on the target machine, set the current context with kubectl config use-context <context-name>, then refresh.",
+  "maintenanceKubernetesContextMissingStatus": "Context not configured"
 }

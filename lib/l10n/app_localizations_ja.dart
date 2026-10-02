@@ -15733,4 +15733,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceContainerUnhealthy => '異常';
+
+  @override
+  String get maintenanceKubernetesContextMissing =>
+      'Kubernetes の現在のコンテキストが未設定です';
+
+  @override
+  String get maintenanceKubernetesContextMissingHelp =>
+      '対象マシンで kubeconfig を設定し、kubectl config use-context <コンテキスト名> で現在のコンテキストを選択してから更新してください。';
+
+  @override
+  String get maintenanceKubernetesContextMissingStatus => 'コンテキスト未設定';
 }

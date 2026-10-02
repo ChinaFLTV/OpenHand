@@ -1600,13 +1600,7 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
       if (client == null) throw StateError('容器运行时尚未连接。');
       if (widget.kubernetes && client.contextName.isEmpty) {
         try {
-          final name = (await client.execute([
-            'config',
-            'current-context',
-          ])).trim();
-          if (name.isNotEmpty && !name.contains(RegExp(r'[\r\n\x00-\x1f]'))) {
-            client = client.copyWith(contextName: name);
-          }
+          client = await client.resolveContext();
         } catch (error) {
           if (stopped() ||
               widget.windows ||
@@ -1670,7 +1664,17 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         }
       }
     } catch (error) {
-      if (!stopped()) setState(() => _error = '$error');
+      if (!stopped()) {
+        setState(() {
+          _error = '$error';
+          if (machineMaintenanceCollectionIssue(_error, 'containers') ==
+              'kubernetes_context') {
+            _clearReports();
+            _client = null;
+            _plan = [];
+          }
+        });
+      }
     } finally {
       watch.stop();
       if (!stopped()) {
@@ -1698,10 +1702,15 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
         ? widget.connectionError
         : _error;
     final warning = error.isNotEmpty || _issues.isNotEmpty;
+    final missingContext =
+        machineMaintenanceCollectionIssue(error, 'containers') ==
+        'kubernetes_context';
     final status = busy
         ? l.maintenanceCollecting
         : _cancelled
         ? l.maintenanceTelemetryCancelled
+        : missingContext
+        ? l.maintenanceKubernetesContextMissingStatus
         : warning
         ? (_reports.isEmpty
               ? l.maintenanceCollectionFailed
@@ -1783,6 +1792,8 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                           l.maintenanceContainerContext,
                           client?.contextName.isNotEmpty == true
                               ? client!.contextName
+                              : missingContext
+                              ? l.maintenanceKubernetesContextMissingStatus
                               : l.maintenanceContainerNotConnected,
                           Icons.link_rounded,
                         ),
@@ -2127,6 +2138,10 @@ class _ContainerTelemetryIssue extends StatelessWidget {
         ? 'timeout'
         : machineMaintenanceCollectionIssue(text, 'containers');
     final (title, help) = switch (issue) {
+      'kubernetes_context' => (
+        l.maintenanceKubernetesContextMissing,
+        l.maintenanceKubernetesContextMissingHelp,
+      ),
       'permission' => (
         l.maintenanceContainerPermissionTitle,
         l.maintenanceContainerPermissionHelp,
@@ -2189,16 +2204,17 @@ class _ContainerTelemetryIssue extends StatelessWidget {
             ),
           ),
         ),
-        _MaintenanceSection(
-          title: l.maintenanceDiagnosticItems,
-          icon: Icons.manage_search_rounded,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: SingleChildScrollView(
-              child: SelectableText(text, style: theme.textTheme.bodySmall),
+        if (issue != 'kubernetes_context')
+          _MaintenanceSection(
+            title: l.maintenanceDiagnosticItems,
+            icon: Icons.manage_search_rounded,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: SingleChildScrollView(
+                child: SelectableText(text, style: theme.textTheme.bodySmall),
+              ),
             ),
           ),
-        ),
       ],
     );
   }

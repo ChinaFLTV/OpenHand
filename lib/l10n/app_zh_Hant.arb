@@ -9885,5 +9885,8 @@
   "maintenanceResourceRootSize": "檔案系統總容量",
   "maintenanceResourceScope": "作用域",
   "maintenanceResourceLayerCount": "映像檔層數",
-  "maintenanceContainerUnhealthy": "不健康"
+  "maintenanceContainerUnhealthy": "不健康",
+  "maintenanceKubernetesContextMissing": "未設定 Kubernetes 目前的連線環境",
+  "maintenanceKubernetesContextMissingHelp": "請在目標機器設定 kubeconfig，以 kubectl config use-context <連線環境名稱> 設定目前的連線環境，再重新整理。",
+  "maintenanceKubernetesContextMissingStatus": "未設定連線環境"
 }

@@ -6472,6 +6472,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
       final issue = _data.issue ?? 'format';
       final cs = Theme.of(context).colorScheme;
       final title = switch (issue) {
+        'kubernetes_context' => '未配置 Kubernetes 当前上下文',
         'permission' => '当前账户无权读取',
         'timeout' => '采集响应超时',
         'connection' =>
@@ -6481,6 +6482,7 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
         _ => '当前数据暂不可用',
       };
       final message = switch (issue) {
+        'kubernetes_context' => '请在目标机器配置 kubeconfig，并设置当前上下文后刷新。',
         'permission' => '请检查当前账户的访问权限后重试。',
         'timeout' => '请检查目标服务的运行状态和连接，稍后重新采集。',
         'connection' =>

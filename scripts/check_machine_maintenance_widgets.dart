@@ -6362,6 +6362,67 @@ void telemetryChecks() {
     expect(state._issues,isEmpty);expect(commands.length,1);expect(commands.single,contains("'top' 'nodes'"));
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('Kubernetes 未配置上下文六语言显示配置提示，刷新可恢复且配置移除不保留旧集群', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      for(final width in [380.0,1180.0]) {
+        var configured=false;final calls=<String>[];
+        Future<String> run(String command)async{calls.add(command);
+          if(command.contains("'current-context'")&&!configured)throw StateError('error: current-context is not set');
+          return telemetryFixture(command);
+        }
+        final key=GlobalKey<_ContainerTelemetryPanelState>();
+        await tester.binding.setSurfaceSize(Size(width,1050));
+        final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width<500?1.6:1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('上下文配置预览'),child:SingleChildScrollView(padding:const EdgeInsets.all(16),child:_ContainerTelemetryPanel(key:key,client:null,kubernetes:true,windows:false,
+            beginQuery:()=>_ContainerQueryScope(fallback:run,timeout:machineContainerTelemetryTimeout)))))));
+        await tester.pumpAndSettle();
+        final state=key.currentState!;
+        expect(calls,hasLength(1));expect(state._reports,isEmpty);expect(state._busy,isFalse);
+        expect(find.text(l.maintenanceKubernetesContextMissing),findsOneWidget);expect(find.text(l.maintenanceKubernetesContextMissingHelp),findsOneWidget);
+        expect(find.text(l.maintenanceKubernetesContextMissingStatus),findsNWidgets(2));
+        expect(find.textContaining('Bad state:'),findsNothing);expect(find.textContaining('kubernetesContextMissing'),findsNothing);
+        if(locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          await tester.runAsync(()async{final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('上下文配置预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);await File('/tmp/kubernetes-context-missing-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
+        }
+        configured=true;calls.clear();await tester.tap(find.byKey(const ValueKey('telemetry-refresh')));await tester.pumpAndSettle();
+        expect(state._reports.length,13);expect(state._error,isEmpty);expect(state._client!.contextName,'测试集群');expect(calls,hasLength(14));
+        expect(calls.skip(1).every((command)=>command.contains("'--context' '测试集群'")),isTrue);
+        expect(calls.any((command)=>command.contains("'use-context'")||command.contains("'--raw'")),isFalse);
+        configured=false;calls.clear();await state.refresh();await tester.pumpAndSettle();
+        expect(calls,hasLength(1));expect(state._reports,isEmpty);expect(state._plan,isEmpty);expect(state._client,isNull);
+        expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('普通运维诊断同样按六语言识别缺少 Kubernetes 上下文', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+        home:const Scaffold(body:_MaintenanceReadout(text:'Bad state: error: current-context is not set',section:'containers'))));
+      await tester.pumpAndSettle();expect(find.text(l.maintenanceKubernetesContextMissingHelp),findsOneWidget);
+      expect(find.textContaining('Bad state:'),findsNothing);expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('Kubernetes 上下文读取取消后忽略迟到的配置错误', (tester) async {
+    final pending=Completer<String>();var queries=0;
+    Future<String> run(String command)async{queries++;return pending.future;}
+    final key=GlobalKey<_ContainerTelemetryPanelState>();
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:SingleChildScrollView(child:_ContainerTelemetryPanel(key:key,client:null,kubernetes:true,windows:false,beginQuery:()=>_ContainerQueryScope(fallback:run,timeout:machineContainerTelemetryTimeout))))));
+    await tester.pump();await tester.tap(find.byKey(const ValueKey('telemetry-cancel')));await tester.pumpAndSettle();
+    pending.completeError(StateError('error: current-context is not set'));await tester.pumpAndSettle();
+    expect(queries,1);expect(key.currentState!._error,isEmpty);expect(key.currentState!._reports,isEmpty);expect(key.currentState!._cancelled,isTrue);
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Kubernetes 缺少独立客户端时仅尝试一次 k3s，不掩盖连接错误', (tester) async {
     for (final missing in [true,false]) {
       final calls=<String>[];

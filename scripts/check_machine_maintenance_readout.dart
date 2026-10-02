@@ -106,6 +106,35 @@ void main() {
   );
   check(parse(dockerError, 'containers').rows.isEmpty, '错误信息不能被拆成指标');
   check(parse(dockerError, 'logs').issue == null, '日志正文不能被错误状态替换');
+  for (final error in [
+    'error: current-context is not set',
+    'Bad state: error: current-context is not set',
+    '容器配置读取失败：kubernetesContextMissing',
+    'kubectl: 容器配置读取失败：kubernetesContextMissing',
+  ]) {
+    check(
+      parse(error, 'containers').issue == 'kubernetes_context',
+      'Kubernetes 缺少配置未被准确归类',
+    );
+    check(
+      machineMaintenanceDiagnosticFields(error).single.last ==
+          '未配置 Kubernetes 当前上下文',
+      '未配置上下文显示了泛化诊断',
+    );
+    check(
+      parse(error, 'logs').issue == null &&
+          parse(error, 'command').issue == null,
+      '日志或命令正文被配置提示替换',
+    );
+  }
+  check(
+    machineMaintenanceCollectionIssue(
+          'error: current-context is not setx',
+          'containers',
+        ) !=
+        'kubernetes_context',
+    '无关错误被误判为缺少上下文',
+  );
   check(
     parse('permission denied: /tmp/socket', 'containers').issue == 'permission',
     '权限错误识别失败',

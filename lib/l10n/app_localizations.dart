@@ -29116,6 +29116,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不健康'**
   String get maintenanceContainerUnhealthy;
+
+  /// No description provided for @maintenanceKubernetesContextMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置 Kubernetes 当前上下文'**
+  String get maintenanceKubernetesContextMissing;
+
+  /// No description provided for @maintenanceKubernetesContextMissingHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在目标机器配置 kubeconfig，用 kubectl config use-context <上下文名称> 设置当前上下文，然后刷新。'**
+  String get maintenanceKubernetesContextMissingHelp;
+
+  /// No description provided for @maintenanceKubernetesContextMissingStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置上下文'**
+  String get maintenanceKubernetesContextMissingStatus;
 }
 
 class _AppLocalizationsDelegate

@@ -11077,5 +11077,8 @@
   "maintenanceResourceRootSize": "文件系统总容量",
   "maintenanceResourceScope": "作用域",
   "maintenanceResourceLayerCount": "镜像层数",
-  "maintenanceContainerUnhealthy": "不健康"
+  "maintenanceContainerUnhealthy": "不健康",
+  "maintenanceKubernetesContextMissing": "未配置 Kubernetes 当前上下文",
+  "maintenanceKubernetesContextMissingHelp": "请在目标机器配置 kubeconfig，用 kubectl config use-context <上下文名称> 设置当前上下文，然后刷新。",
+  "maintenanceKubernetesContextMissingStatus": "未配置上下文"
 }

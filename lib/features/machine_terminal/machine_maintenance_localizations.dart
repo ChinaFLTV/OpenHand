@@ -182,6 +182,9 @@ String maintenanceLabel(BuildContext context, String label) {
     '目标响应超时' => l10n.maintenanceContainerResponseTimeout,
     '响应超时' => l10n.maintenanceContainerResponseTimeoutShort,
     '连接未建立' => l10n.maintenanceContainerNotConnected,
+    '未配置 Kubernetes 当前上下文' => l10n.maintenanceKubernetesContextMissing,
+    '请在目标机器配置 kubeconfig，并设置当前上下文后刷新。' =>
+      l10n.maintenanceKubernetesContextMissingHelp,
     '所需工具不可用' => l10n.maintenanceContainerToolUnavailable,
     '采集未完成' => l10n.maintenanceContainerCollectionIncomplete,
     '连接文件不存在，请检查服务是否运行' => l10n.maintenanceContainerSocketMissing,
@@ -2232,6 +2235,7 @@ String maintenanceContainerOperationError(BuildContext context, Object error) {
   if (error is FormatException) return l.maintenanceContainerConfigInvalid;
   if (error is! MachineContainerConfigException) return '$error';
   return switch (error.code) {
+    'kubernetesContextMissing' => l.maintenanceKubernetesContextMissingHelp,
     'incomplete' => l.maintenanceContainerRunIncomplete(error.details),
     'unsupported' => l.maintenanceContainerRunUnsupported,
     'form' =>
