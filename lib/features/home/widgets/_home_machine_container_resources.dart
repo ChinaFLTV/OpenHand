@@ -1835,20 +1835,22 @@ class _ContainerResourceFormDialogState
                           const SizedBox(height: 8),
                           Material(
                             type: MaterialType.transparency,
-                            child: SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              dense: true,
-                              title: Text(
-                                l.maintenanceReadOnlyMount,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontSize: _formFontSize),
+                            child: OpenHandFormTile(
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                dense: true,
+                                title: Text(
+                                  l.maintenanceReadOnlyMount,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(fontSize: _formFontSize),
+                                ),
+                                value: row['readonly'] == 'true',
+                                onChanged: _editable
+                                    ? (value) => setState(
+                                        () => row['readonly'] = '$value',
+                                      )
+                                    : null,
                               ),
-                              value: row['readonly'] == 'true',
-                              onChanged: _editable
-                                  ? (value) => setState(
-                                      () => row['readonly'] = '$value',
-                                    )
-                                  : null,
                             ),
                           ),
                         ],
@@ -2061,20 +2063,21 @@ class _ContainerResourceFormDialogState
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                SwitchListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
-                                  title: Text(
-                                    l.maintenanceContainerStartAfterCreate,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontSize: _formFontSize,
+                                OpenHandFormTile(
+                                  child: SwitchListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    dense: true,
+                                    title: Text(
+                                      l.maintenanceContainerStartAfterCreate,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(fontSize: _formFontSize),
                                     ),
+                                    value: _start,
+                                    onChanged: _editable
+                                        ? (value) =>
+                                              setState(() => _start = value)
+                                        : null,
                                   ),
-                                  value: _start,
-                                  onChanged: _editable
-                                      ? (value) =>
-                                            setState(() => _start = value)
-                                      : null,
                                 ),
                               ],
                             ),

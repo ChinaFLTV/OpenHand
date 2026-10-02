@@ -43,6 +43,24 @@ void syncTextControllerText(
   );
 }
 
+/// 表单行不绘制整行按压覆盖色；保留焦点和控件自身的状态反馈。
+/// 仅包裹独立表单行，不用于展开／折叠卡片的标题。
+class OpenHandFormTile extends StatelessWidget {
+  const OpenHandFormTile({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
+    ),
+    child: child,
+  );
+}
+
 class OpenHandFormLabel extends StatelessWidget {
   const OpenHandFormLabel(this.text, {super.key, this.required = false});
 
@@ -193,71 +211,73 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled ? () => onChanged(!value) : null,
-        borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        child: AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: kOpenHandSwitchInCurve,
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          decoration: BoxDecoration(
-            color: value
-                ? colorScheme.primaryContainer.withValues(alpha: 0.42)
-                : colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(kOpenHandRadius10),
-            border: Border.all(
+    return OpenHandFormTile(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? () => onChanged(!value) : null,
+          borderRadius: BorderRadius.circular(kOpenHandRadius10),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: kOpenHandSwitchInCurve,
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            decoration: BoxDecoration(
               color: value
-                  ? colorScheme.primary.withValues(alpha: 0.46)
-                  : colorScheme.outlineVariant,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                value ? icon : disabledIcon ?? icon,
-                size: 18,
+                  ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+                  : colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(kOpenHandRadius10),
+              border: Border.all(
                 color: value
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+                    ? colorScheme.primary.withValues(alpha: 0.46)
+                    : colorScheme.outlineVariant,
               ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.onSurface,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  value ? icon : disabledIcon ?? icon,
+                  size: 18,
+                  color: value
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                           ),
-                        ),
-                        if (badge != null) ...[kOpenHandHGap8, badge!],
-                      ],
-                    ),
-                    if (description.trim().isNotEmpty) ...[
-                      kOpenHandGap3,
-                      Text(
-                        description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                          if (badge != null) ...[kOpenHandHGap8, badge!],
+                        ],
                       ),
+                      if (description.trim().isNotEmpty) ...[
+                        kOpenHandGap3,
+                        Text(
+                          description,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Switch(value: value, onChanged: enabled ? onChanged : null),
-            ],
+                Switch(value: value, onChanged: enabled ? onChanged : null),
+              ],
+            ),
           ),
         ),
       ),
@@ -292,81 +312,83 @@ class OpenHandSelectTile extends StatelessWidget {
     final hint = this.hint?.trim();
     return MicroPressFeedback(
       enabled: enabled,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: kOpenHandBorderRadius16,
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: kOpenHandSwitchInCurve,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            decoration: BoxDecoration(
-              color: selected
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.72)
-                  : colorScheme.surface,
-              borderRadius: kOpenHandBorderRadius16,
-              border: Border.all(
+      child: OpenHandFormTile(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: kOpenHandBorderRadius16,
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandSwitchInCurve,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              decoration: BoxDecoration(
                 color: selected
-                    ? colorScheme.primary.withValues(alpha: 0.62)
-                    : colorScheme.outlineVariant,
-                width: selected ? 1.4 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? colorScheme.primary.withValues(alpha: 0.16)
-                        : colorScheme.surfaceContainerHigh,
-                    borderRadius: kOpenHandBorderRadius12,
-                  ),
-                  child: SizedBox(
-                    width: 34,
-                    height: 34,
-                    child: Center(child: Icon(icon, size: 18, color: tone)),
-                  ),
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.72)
+                    : colorScheme.surface,
+                borderRadius: kOpenHandBorderRadius16,
+                border: Border.all(
+                  color: selected
+                      ? colorScheme.primary.withValues(alpha: 0.62)
+                      : colorScheme.outlineVariant,
+                  width: selected ? 1.4 : 1,
                 ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: selected
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurface,
-                        ),
-                      ),
-                      if (hint != null && hint.isNotEmpty) ...[
-                        kOpenHandGap2,
+              ),
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? colorScheme.primary.withValues(alpha: 0.16)
+                          : colorScheme.surfaceContainerHigh,
+                      borderRadius: kOpenHandBorderRadius12,
+                    ),
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Center(child: Icon(icon, size: 18, color: tone)),
+                    ),
+                  ),
+                  kOpenHandHGap10,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          hint,
-                          maxLines: 2,
+                          label,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: selected
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurface,
                           ),
                         ),
+                        if (hint != null && hint.isNotEmpty) ...[
+                          kOpenHandGap2,
+                          Text(
+                            hint,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (selected) ...[
-                  kOpenHandHGap8,
-                  Icon(
-                    Icons.check_circle_rounded,
-                    size: 18,
-                    color: colorScheme.primary,
-                  ),
+                  if (selected) ...[
+                    kOpenHandHGap8,
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

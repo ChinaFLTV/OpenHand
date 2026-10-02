@@ -10134,21 +10134,23 @@ class _MultiSelectDropdownMenuState<T>
                                 )
                               : Colors.transparent,
                           borderRadius: kOpenHandBorderRadius14,
-                          child: CheckboxListTile(
-                            dense: true,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: kOpenHandBorderRadius14,
-                            ),
-                            value: selected,
-                            onChanged: (_) => _toggle(option.value),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(
-                              option.label,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
+                          child: OpenHandFormTile(
+                            child: CheckboxListTile(
+                              dense: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: kOpenHandBorderRadius14,
+                              ),
+                              value: selected,
+                              onChanged: (_) => _toggle(option.value),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text(
+                                option.label,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
@@ -10779,25 +10781,27 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       }
                       final option = row as WebGatewayModelOption;
                       final selected = effectiveSelected.contains(option.key);
-                      return CheckboxListTile(
-                        dense: true,
-                        tileColor: selected
-                            ? colorScheme.primaryContainer.withValues(
-                                alpha: 0.30,
-                              )
-                            : null,
-                        value: selected,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(
-                          option.modelId,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                      return OpenHandFormTile(
+                        child: CheckboxListTile(
+                          dense: true,
+                          tileColor: selected
+                              ? colorScheme.primaryContainer.withValues(
+                                  alpha: 0.30,
+                                )
+                              : null,
+                          value: selected,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            option.modelId,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                           ),
+                          onChanged: (_) => _toggle(option.key),
                         ),
-                        onChanged: (_) => _toggle(option.key),
                       );
                     },
                   ),

@@ -918,23 +918,25 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
               if (isNpxService && npxPackageName != null) ...[
                 kOpenHandGap16,
-                CheckboxListTile(
-                  value: shouldCleanupDeps,
-                  onChanged: (value) {
-                    setDialogState(() {
-                      shouldCleanupDeps = value ?? false;
-                    });
-                  },
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    l10n.mcpDeleteAlsoUninstallPackage(npxPackageName),
-                    style: Theme.of(ctx).textTheme.bodySmall,
-                  ),
-                  subtitle: Text(
-                    l10n.mcpDeleteAlsoUninstallPackageBody,
-                    style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                OpenHandFormTile(
+                  child: CheckboxListTile(
+                    value: shouldCleanupDeps,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        shouldCleanupDeps = value ?? false;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      l10n.mcpDeleteAlsoUninstallPackage(npxPackageName),
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                    subtitle: Text(
+                      l10n.mcpDeleteAlsoUninstallPackageBody,
+                      style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),

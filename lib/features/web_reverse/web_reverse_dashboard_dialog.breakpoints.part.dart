@@ -1084,21 +1084,25 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
             ),
             child: Column(
               children: [
-                CheckboxListTile(
-                  value: cspBps.contains('trustedtype-sink-violation'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  dense: true,
-                  title: const Text('trustedtype-sink-violation'),
-                  onChanged: (_) =>
-                      _toggleCspViolation('trustedtype-sink-violation'),
+                OpenHandFormTile(
+                  child: CheckboxListTile(
+                    value: cspBps.contains('trustedtype-sink-violation'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    title: const Text('trustedtype-sink-violation'),
+                    onChanged: (_) =>
+                        _toggleCspViolation('trustedtype-sink-violation'),
+                  ),
                 ),
-                CheckboxListTile(
-                  value: cspBps.contains('trustedtype-policy-violation'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  dense: true,
-                  title: const Text('trustedtype-policy-violation'),
-                  onChanged: (_) =>
-                      _toggleCspViolation('trustedtype-policy-violation'),
+                OpenHandFormTile(
+                  child: CheckboxListTile(
+                    value: cspBps.contains('trustedtype-policy-violation'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    title: const Text('trustedtype-policy-violation'),
+                    onChanged: (_) =>
+                        _toggleCspViolation('trustedtype-policy-violation'),
+                  ),
                 ),
               ],
             ),

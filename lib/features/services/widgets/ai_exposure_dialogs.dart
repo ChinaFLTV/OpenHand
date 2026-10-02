@@ -485,21 +485,23 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     type: MaterialType.transparency,
                     borderRadius: kOpenHandBorderRadius16,
                     clipBehavior: Clip.antiAlias,
-                    child: CheckboxListTile(
-                      key: const ValueKey<String>(
-                        'hunt-authorization-confirmation',
-                      ),
-                      contentPadding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
-                      value: _confirmed,
-                      onChanged: (value) =>
-                          setState(() => _confirmed = value == true),
-                      title: Text(
-                        text(
-                          zh: '我确认已获得所选数据源候选目标的安全评估授权',
-                          en: 'I confirm authorization to assess candidates returned by the selected sources',
+                    child: OpenHandFormTile(
+                      child: CheckboxListTile(
+                        key: const ValueKey<String>(
+                          'hunt-authorization-confirmation',
                         ),
+                        contentPadding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
+                        value: _confirmed,
+                        onChanged: (value) =>
+                            setState(() => _confirmed = value == true),
+                        title: Text(
+                          text(
+                            zh: '我确认已获得所选数据源候选目标的安全评估授权',
+                            en: 'I confirm authorization to assess candidates returned by the selected sources',
+                          ),
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ),
                 ),
@@ -2411,15 +2413,17 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
     final value = _profile.values[spec.key] ?? '';
     final label = text(zh: spec.zh, en: spec.en);
     if (spec.type == _ToolFieldType.toggle) {
-      return SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(label),
-        subtitle: spec.hintZh == null
-            ? null
-            : Text(text(zh: spec.hintZh!, en: spec.hintEn!)),
-        value: value == 'true' || value == '1',
-        onChanged: (enabled) =>
-            _setValue(spec.key, enabled ? 'true' : '', rebuild: true),
+      return OpenHandFormTile(
+        child: SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(label),
+          subtitle: spec.hintZh == null
+              ? null
+              : Text(text(zh: spec.hintZh!, en: spec.hintEn!)),
+          value: value == 'true' || value == '1',
+          onChanged: (enabled) =>
+              _setValue(spec.key, enabled ? 'true' : '', rebuild: true),
+        ),
       );
     }
     if (spec.type == _ToolFieldType.select) {

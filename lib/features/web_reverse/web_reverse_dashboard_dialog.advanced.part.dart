@@ -1561,22 +1561,24 @@ Future<void> _showCdpPaletteDialog(
                 kOpenHandGap6,
                 ValueListenableBuilder(
                   valueListenable: useSession,
-                  builder: (_, v, _) => SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text(
-                      openHandLocalizedText(
-                        dialogContext,
-                        zh: '在当前 Page 会话内执行（关掉则用 Browser 根 session）',
-                        zhHant: '在目前 Page 會話內執行（關掉則用 Browser 根 session）',
-                        en: 'Use current page session (off = browser root session)',
-                        fr: 'Utiliser la session Page courante (désactivé = session racine Browser)',
-                        de: 'Aktuelle Page-Session nutzen (aus = Browser-Root-Session)',
-                        ja: '現在の Page セッションで実行（オフなら Browser root session）',
+                  builder: (_, v, _) => OpenHandFormTile(
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        openHandLocalizedText(
+                          dialogContext,
+                          zh: '在当前 Page 会话内执行（关掉则用 Browser 根 session）',
+                          zhHant: '在目前 Page 會話內執行（關掉則用 Browser 根 session）',
+                          en: 'Use current page session (off = browser root session)',
+                          fr: 'Utiliser la session Page courante (désactivé = session racine Browser)',
+                          de: 'Aktuelle Page-Session nutzen (aus = Browser-Root-Session)',
+                          ja: '現在の Page セッションで実行（オフなら Browser root session）',
+                        ),
                       ),
+                      value: v,
+                      onChanged: (n) => useSession.value = n,
                     ),
-                    value: v,
-                    onChanged: (n) => useSession.value = n,
                   ),
                 ),
                 kOpenHandGap6,
@@ -4065,35 +4067,39 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                   hintText: '*://api.example.com/v1/*',
                 ),
               ),
-              SwitchListTile(
-                title: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '启用',
-                    zhHant: '啟用',
-                    en: 'Enabled',
-                    fr: 'Active',
-                    de: 'Aktiviert',
-                    ja: '有効',
+              OpenHandFormTile(
+                child: SwitchListTile(
+                  title: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '启用',
+                      zhHant: '啟用',
+                      en: 'Enabled',
+                      fr: 'Active',
+                      de: 'Aktiviert',
+                      ja: '有効',
+                    ),
                   ),
+                  value: _enabled,
+                  onChanged: (v) => setState(() => _enabled = v),
                 ),
-                value: _enabled,
-                onChanged: (v) => setState(() => _enabled = v),
               ),
-              SwitchListTile(
-                title: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '屏蔽请求 (Block)',
-                    zhHant: '屏蔽請求 (Block)',
-                    en: 'Block request',
-                    fr: 'Bloquer la requête',
-                    de: 'Anfrage blockieren',
-                    ja: 'リクエストをブロック',
+              OpenHandFormTile(
+                child: SwitchListTile(
+                  title: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '屏蔽请求 (Block)',
+                      zhHant: '屏蔽請求 (Block)',
+                      en: 'Block request',
+                      fr: 'Bloquer la requête',
+                      de: 'Anfrage blockieren',
+                      ja: 'リクエストをブロック',
+                    ),
                   ),
+                  value: _block,
+                  onChanged: (v) => setState(() => _block = v),
                 ),
-                value: _block,
-                onChanged: (v) => setState(() => _block = v),
               ),
               kOpenHandGap10,
               TextField(

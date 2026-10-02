@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_form_fields.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -543,25 +544,29 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                   Row(
                     children: [
                       Expanded(
-                        child: CheckboxListTile(
-                          value: _httpOnly,
-                          onChanged: (v) =>
-                              setState(() => _httpOnly = v ?? false),
-                          title: const Text('HttpOnly'),
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
+                        child: OpenHandFormTile(
+                          child: CheckboxListTile(
+                            value: _httpOnly,
+                            onChanged: (v) =>
+                                setState(() => _httpOnly = v ?? false),
+                            title: const Text('HttpOnly'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
                         ),
                       ),
                       Expanded(
-                        child: CheckboxListTile(
-                          value: _secure,
-                          onChanged: (v) =>
-                              setState(() => _secure = v ?? false),
-                          title: const Text('Secure'),
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
+                        child: OpenHandFormTile(
+                          child: CheckboxListTile(
+                            value: _secure,
+                            onChanged: (v) =>
+                                setState(() => _secure = v ?? false),
+                            title: const Text('Secure'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
                         ),
                       ),
                     ],

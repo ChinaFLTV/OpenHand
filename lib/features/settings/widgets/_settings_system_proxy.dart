@@ -364,20 +364,22 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   },
                 ),
                 kOpenHandGap16,
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  hoverColor: kOpenHandSettingsItemHoverColor,
-                  title: Text(l10n.proxyAuthLabel),
-                  subtitle: Text(
-                    l10n.proxyAuthBody,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isManual
-                          ? theme.colorScheme.onSurfaceVariant
-                          : disabledColor,
+                OpenHandFormTile(
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    hoverColor: kOpenHandSettingsItemHoverColor,
+                    title: Text(l10n.proxyAuthLabel),
+                    subtitle: Text(
+                      l10n.proxyAuthBody,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isManual
+                            ? theme.colorScheme.onSurfaceVariant
+                            : disabledColor,
+                      ),
                     ),
+                    value: proxy.authEnabled,
+                    onChanged: isManual ? _toggleAuth : null,
                   ),
-                  value: proxy.authEnabled,
-                  onChanged: isManual ? _toggleAuth : null,
                 ),
                 kOpenHandGap8,
                 IgnorePointer(

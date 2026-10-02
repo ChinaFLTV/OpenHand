@@ -1496,13 +1496,16 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                 ),
                               ),
                             ),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l.maintenanceTaskEnabled),
-                              value: _enabled,
-                              onChanged: _saving
-                                  ? null
-                                  : (value) => setState(() => _enabled = value),
+                            OpenHandFormTile(
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(l.maintenanceTaskEnabled),
+                                value: _enabled,
+                                onChanged: _saving
+                                    ? null
+                                    : (value) =>
+                                          setState(() => _enabled = value),
+                              ),
                             ),
                           ] else if (!_native &&
                               task != null &&
@@ -1550,14 +1553,16 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               ],
                             ),
                             if (task == null)
-                              SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(l.maintenanceTaskEnabled),
-                                value: _enabled,
-                                onChanged: _saving
-                                    ? null
-                                    : (value) =>
-                                          setState(() => _enabled = value),
+                              OpenHandFormTile(
+                                child: SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(l.maintenanceTaskEnabled),
+                                  value: _enabled,
+                                  onChanged: _saving
+                                      ? null
+                                      : (value) =>
+                                            setState(() => _enabled = value),
+                                ),
                               ),
                           ] else
                             _field(

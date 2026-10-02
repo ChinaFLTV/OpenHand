@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_form_fields.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -298,14 +299,18 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                     ],
                   ),
                   kOpenHandGap10,
-                  SwitchListTile(
-                    value: _mobile,
-                    onChanged: _busy
-                        ? null
-                        : (v) => setState(() => _mobile = v),
-                    title: Text(loc?.webReverseDeviceEmuMobileMode ?? 'mobile'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                  OpenHandFormTile(
+                    child: SwitchListTile(
+                      value: _mobile,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() => _mobile = v),
+                      title: Text(
+                        loc?.webReverseDeviceEmuMobileMode ?? 'mobile',
+                      ),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
                   kOpenHandGap12,
                   TextField(

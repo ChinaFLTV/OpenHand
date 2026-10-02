@@ -6283,63 +6283,71 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ],
                     ),
                     kOpenHandGap8,
-                    SwitchListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hoverColor: kOpenHandSettingsItemHoverColor,
-                      title: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '支持自定义输出维度',
-                          zhHant: '支援自訂輸出維度',
-                          en: 'Supports Custom Dimensions',
-                          fr: 'Prend en charge les dimensions personnalisées',
-                          de: 'Unterstützt benutzerdefinierte Dimensionen',
-                          ja: '出力次元数の指定に対応',
+                    OpenHandFormTile(
+                      child: SwitchListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hoverColor: kOpenHandSettingsItemHoverColor,
+                        title: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '支持自定义输出维度',
+                            zhHant: '支援自訂輸出維度',
+                            en: 'Supports Custom Dimensions',
+                            fr: 'Prend en charge les dimensions personnalisées',
+                            de: 'Unterstützt benutzerdefinierte Dimensionen',
+                            ja: '出力次元数の指定に対応',
+                          ),
                         ),
-                      ),
-                      value: _embeddingSupportsCustomDimensions,
-                      onChanged: (value) => setState(
-                        () => _embeddingSupportsCustomDimensions = value,
+                        value: _embeddingSupportsCustomDimensions,
+                        onChanged: (value) => setState(
+                          () => _embeddingSupportsCustomDimensions = value,
+                        ),
                       ),
                     ),
-                    SwitchListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hoverColor: kOpenHandSettingsItemHoverColor,
-                      title: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '需要特殊请求正文字段',
-                          zhHant: '需要特殊請求本文欄位',
-                          en: 'Requires Special Request Body',
-                          fr: 'Nécessite un corps de requête spécial',
-                          de: 'Benötigt speziellen Request-Body',
-                          ja: '特別なリクエスト本文フィールドが必要',
+                    OpenHandFormTile(
+                      child: SwitchListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hoverColor: kOpenHandSettingsItemHoverColor,
+                        title: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '需要特殊请求正文字段',
+                            zhHant: '需要特殊請求本文欄位',
+                            en: 'Requires Special Request Body',
+                            fr: 'Nécessite un corps de requête spécial',
+                            de: 'Benötigt speziellen Request-Body',
+                            ja: '特別なリクエスト本文フィールドが必要',
+                          ),
+                        ),
+                        value: _embeddingRequiresSpecialBody,
+                        onChanged: (value) => setState(
+                          () => _embeddingRequiresSpecialBody = value,
                         ),
                       ),
-                      value: _embeddingRequiresSpecialBody,
-                      onChanged: (value) =>
-                          setState(() => _embeddingRequiresSpecialBody = value),
                     ),
-                    SwitchListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hoverColor: kOpenHandSettingsItemHoverColor,
-                      title: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '支持服务端自动截断',
-                          zhHant: '支援服務端自動截斷',
-                          en: 'Supports Server Truncation',
-                          fr: 'Prend en charge la troncature serveur',
-                          de: 'Unterstützt serverseitige Kürzung',
-                          ja: 'サーバー側自動切り詰めに対応',
+                    OpenHandFormTile(
+                      child: SwitchListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hoverColor: kOpenHandSettingsItemHoverColor,
+                        title: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '支持服务端自动截断',
+                            zhHant: '支援服務端自動截斷',
+                            en: 'Supports Server Truncation',
+                            fr: 'Prend en charge la troncature serveur',
+                            de: 'Unterstützt serverseitige Kürzung',
+                            ja: 'サーバー側自動切り詰めに対応',
+                          ),
+                        ),
+                        value: _embeddingSupportsTruncation,
+                        onChanged: (value) => setState(
+                          () => _embeddingSupportsTruncation = value,
                         ),
                       ),
-                      value: _embeddingSupportsTruncation,
-                      onChanged: (value) =>
-                          setState(() => _embeddingSupportsTruncation = value),
                     ),
                     kOpenHandGap4,
                     _buildEmbeddingNormalizedControl(),

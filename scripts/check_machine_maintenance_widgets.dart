@@ -83,6 +83,7 @@ import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/openhand_dialog_action_button.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
 import 'package:openhand/shared/ui/openhand_code_editor.dart';
+import 'package:openhand/shared/ui/openhand_form_fields.dart';
 import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
 import 'package:openhand/shared/ui/motion_durations.dart';
@@ -6427,8 +6428,8 @@ void resourceChecks() {
           await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(
             body: StatefulBuilder(builder: (context, setState) {
               update = setState;
-              return SwitchListTile(title: const Text('开关'), value: value,
-                onChanged: enabled ? (next) => setState(() { value = next; changes++; }) : null);
+              return OpenHandFormTile(child: SwitchListTile(title: const Text('开关'), value: value,
+                onChanged: enabled ? (next) => setState(() { value = next; changes++; }) : null));
             }))));
           await tester.pumpAndSettle();
           expect(find.byType(CupertinoSwitch), findsNothing);

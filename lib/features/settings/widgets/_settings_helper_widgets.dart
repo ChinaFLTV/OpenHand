@@ -6071,30 +6071,32 @@ class _WebEngineDispatchControls extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                hoverColor: kOpenHandSettingsItemHoverColor,
-                title: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '并行调度引擎',
-                    en: 'Parallel Engines',
+              child: OpenHandFormTile(
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  hoverColor: kOpenHandSettingsItemHoverColor,
+                  title: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '并行调度引擎',
+                      en: 'Parallel Engines',
+                    ),
                   ),
+                  subtitle: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '启用后限流并行调用多个引擎；关闭后按顺序串行调用。',
+                      en:
+                          'Calls engines concurrently within the worker limit; '
+                          'off uses strict serial execution.',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: parallel,
+                  onChanged: onParallelChanged,
                 ),
-                subtitle: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '启用后限流并行调用多个引擎；关闭后按顺序串行调用。',
-                    en:
-                        'Calls engines concurrently within the worker limit; '
-                        'off uses strict serial execution.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                value: parallel,
-                onChanged: onParallelChanged,
               ),
             ),
             kOpenHandHGap12,

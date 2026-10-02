@@ -727,18 +727,21 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        hoverColor: kOpenHandSettingsItemHoverColor,
-                        title: Text(l10n.builtinToolEnableTitle),
-                        subtitle: Text(
-                          l10n.builtinToolEnableBody,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                      OpenHandFormTile(
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          hoverColor: kOpenHandSettingsItemHoverColor,
+                          title: Text(l10n.builtinToolEnableTitle),
+                          subtitle: Text(
+                            l10n.builtinToolEnableBody,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
+                          value: _enabled,
+                          onChanged: (value) =>
+                              setState(() => _enabled = value),
                         ),
-                        value: _enabled,
-                        onChanged: (value) => setState(() => _enabled = value),
                       ),
                       kOpenHandGap14,
 
@@ -834,19 +837,21 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        hoverColor: kOpenHandSettingsItemHoverColor,
-                        title: Text(l10n.builtinToolForceLoadTitle),
-                        subtitle: Text(
-                          l10n.builtinToolForceLoadBody,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                      OpenHandFormTile(
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          hoverColor: kOpenHandSettingsItemHoverColor,
+                          title: Text(l10n.builtinToolForceLoadTitle),
+                          subtitle: Text(
+                            l10n.builtinToolForceLoadBody,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
+                          value: _forceLoad,
+                          onChanged: (value) =>
+                              setState(() => _forceLoad = value),
                         ),
-                        value: _forceLoad,
-                        onChanged: (value) =>
-                            setState(() => _forceLoad = value),
                       ),
                       kOpenHandGap14,
 
@@ -892,19 +897,21 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              hoverColor: kOpenHandSettingsItemHoverColor,
-                              title: Text(l10n.builtinToolRetryLabel),
-                              subtitle: Text(
-                                l10n.builtinToolRetryBody,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
+                            child: OpenHandFormTile(
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                hoverColor: kOpenHandSettingsItemHoverColor,
+                                title: Text(l10n.builtinToolRetryLabel),
+                                subtitle: Text(
+                                  l10n.builtinToolRetryBody,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
+                                value: _retryOnFailure,
+                                onChanged: (value) =>
+                                    setState(() => _retryOnFailure = value),
                               ),
-                              value: _retryOnFailure,
-                              onChanged: (value) =>
-                                  setState(() => _retryOnFailure = value),
                             ),
                           ),
                           kOpenHandHGap14,
