@@ -15383,4 +15383,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceTaskMailFrom => '通知の送信元';
+
+  @override
+  String get maintenanceTaskOverview => 'タスクの概要';
+
+  @override
+  String get maintenanceTaskExecution => '実行設定';
+
+  @override
+  String get maintenanceTaskHistory => '実行履歴';
+
+  @override
+  String get maintenanceTaskHistoryUnavailable => 'スケジューラーから実行時刻と結果が提供されていません';
+
+  @override
+  String maintenanceTaskEvery(String duration) {
+    return '$duration ごとに実行';
+  }
+
+  @override
+  String get maintenanceTaskIntervalLabel => '実行間隔';
 }

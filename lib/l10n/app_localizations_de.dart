@@ -15915,4 +15915,25 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceTaskMailFrom => 'Benachrichtigungsabsender';
+
+  @override
+  String get maintenanceTaskOverview => 'Aufgabenübersicht';
+
+  @override
+  String get maintenanceTaskExecution => 'Ausführungseinstellungen';
+
+  @override
+  String get maintenanceTaskHistory => 'Ausführungsverlauf';
+
+  @override
+  String get maintenanceTaskHistoryUnavailable =>
+      'Der Planer meldet keine Ausführungszeiten oder Ergebnisse';
+
+  @override
+  String maintenanceTaskEvery(String duration) {
+    return 'Alle $duration';
+  }
+
+  @override
+  String get maintenanceTaskIntervalLabel => 'Ausführungsintervall';
 }

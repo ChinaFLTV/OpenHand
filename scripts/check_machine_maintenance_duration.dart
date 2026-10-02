@@ -8,11 +8,13 @@ void main() {
     String? expected, {
     String field = '',
     String locale = 'zh',
+    String? script,
   }) {
     final actual = machineMaintenanceReadableDuration(
       raw,
       field: field,
       languageCode: locale,
+      scriptCode: script,
     );
     if (actual != expected) {
       throw StateError('时长转换失败：$raw → $actual，预期 $expected');
@@ -33,6 +35,11 @@ void main() {
   check('120000000000', '2 分', field: 'CPUUsageNSec');
   check('2000000', '2 秒', field: 'RestartUSec');
   check('61.5 s', '1 min 1,5 s', locale: 'fr');
+  check('259200 s', '3 天');
+  check('3600 s', '1 小時', script: 'Hant');
+  check('259200 s', '3 T', locale: 'de');
+  check('259200 s', '3 j', locale: 'fr');
+  check('259200 s', '3 日', locale: 'ja');
   for (final raw in [
     '—',
     'N/A',

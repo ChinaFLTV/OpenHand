@@ -15740,4 +15740,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceTaskMailFrom => 'Notification sender';
+
+  @override
+  String get maintenanceTaskOverview => 'Task overview';
+
+  @override
+  String get maintenanceTaskExecution => 'Execution settings';
+
+  @override
+  String get maintenanceTaskHistory => 'Run history';
+
+  @override
+  String get maintenanceTaskHistoryUnavailable =>
+      'The scheduler has not reported run times or results';
+
+  @override
+  String maintenanceTaskEvery(String duration) {
+    return 'Every $duration';
+  }
+
+  @override
+  String get maintenanceTaskIntervalLabel => 'Run interval';
 }

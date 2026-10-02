@@ -9747,5 +9747,11 @@
   "maintenanceTaskNoMatches": "一致するタスクがありません。検索条件やスケジューラーを変更してください。",
   "maintenanceTaskExecutablePaths": "実行ファイルの検索パス",
   "maintenanceTaskMailTo": "通知の宛先",
-  "maintenanceTaskMailFrom": "通知の送信元"
+  "maintenanceTaskMailFrom": "通知の送信元",
+  "maintenanceTaskOverview": "タスクの概要",
+  "maintenanceTaskExecution": "実行設定",
+  "maintenanceTaskHistory": "実行履歴",
+  "maintenanceTaskHistoryUnavailable": "スケジューラーから実行時刻と結果が提供されていません",
+  "maintenanceTaskEvery": "{duration} ごとに実行",
+  "maintenanceTaskIntervalLabel": "実行間隔"
 }

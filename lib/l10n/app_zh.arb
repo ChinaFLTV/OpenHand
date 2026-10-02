@@ -10916,5 +10916,18 @@
   "maintenanceTaskNoMatches": "没有匹配的任务，请调整关键词或调度器筛选。",
   "maintenanceTaskExecutablePaths": "命令搜索路径",
   "maintenanceTaskMailTo": "通知收件人",
-  "maintenanceTaskMailFrom": "通知发件人"
+  "maintenanceTaskMailFrom": "通知发件人",
+  "maintenanceTaskOverview": "任务概览",
+  "maintenanceTaskExecution": "执行配置",
+  "maintenanceTaskHistory": "执行记录",
+  "maintenanceTaskHistoryUnavailable": "调度器未提供执行时间与结果",
+  "maintenanceTaskEvery": "每 {duration} 执行一次",
+  "@maintenanceTaskEvery": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskIntervalLabel": "执行间隔"
 }

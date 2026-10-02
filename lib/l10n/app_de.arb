@@ -9747,5 +9747,11 @@
   "maintenanceTaskNoMatches": "Keine passenden Aufgaben. Suche oder Planerfilter anpassen.",
   "maintenanceTaskExecutablePaths": "Suchpfade für Programme",
   "maintenanceTaskMailTo": "Benachrichtigungsempfänger",
-  "maintenanceTaskMailFrom": "Benachrichtigungsabsender"
+  "maintenanceTaskMailFrom": "Benachrichtigungsabsender",
+  "maintenanceTaskOverview": "Aufgabenübersicht",
+  "maintenanceTaskExecution": "Ausführungseinstellungen",
+  "maintenanceTaskHistory": "Ausführungsverlauf",
+  "maintenanceTaskHistoryUnavailable": "Der Planer meldet keine Ausführungszeiten oder Ergebnisse",
+  "maintenanceTaskEvery": "Alle {duration}",
+  "maintenanceTaskIntervalLabel": "Ausführungsintervall"
 }

@@ -28474,6 +28474,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知发件人'**
   String get maintenanceTaskMailFrom;
+
+  /// No description provided for @maintenanceTaskOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务概览'**
+  String get maintenanceTaskOverview;
+
+  /// No description provided for @maintenanceTaskExecution.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行配置'**
+  String get maintenanceTaskExecution;
+
+  /// No description provided for @maintenanceTaskHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行记录'**
+  String get maintenanceTaskHistory;
+
+  /// No description provided for @maintenanceTaskHistoryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'调度器未提供执行时间与结果'**
+  String get maintenanceTaskHistoryUnavailable;
+
+  /// No description provided for @maintenanceTaskEvery.
+  ///
+  /// In zh, this message translates to:
+  /// **'每 {duration} 执行一次'**
+  String maintenanceTaskEvery(String duration);
+
+  /// No description provided for @maintenanceTaskIntervalLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行间隔'**
+  String get maintenanceTaskIntervalLabel;
 }
 
 class _AppLocalizationsDelegate

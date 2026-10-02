@@ -9752,5 +9752,11 @@
   "maintenanceTaskNoMatches": "No matching tasks. Adjust the search or scheduler filter.",
   "maintenanceTaskExecutablePaths": "Executable search paths",
   "maintenanceTaskMailTo": "Notification recipient",
-  "maintenanceTaskMailFrom": "Notification sender"
+  "maintenanceTaskMailFrom": "Notification sender",
+  "maintenanceTaskOverview": "Task overview",
+  "maintenanceTaskExecution": "Execution settings",
+  "maintenanceTaskHistory": "Run history",
+  "maintenanceTaskHistoryUnavailable": "The scheduler has not reported run times or results",
+  "maintenanceTaskEvery": "Every {duration}",
+  "maintenanceTaskIntervalLabel": "Run interval"
 }

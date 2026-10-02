@@ -9747,5 +9747,11 @@
   "maintenanceTaskNoMatches": "Aucune tâche correspondante. Modifiez la recherche ou le filtre.",
   "maintenanceTaskExecutablePaths": "Chemins de recherche des exécutables",
   "maintenanceTaskMailTo": "Destinataire des notifications",
-  "maintenanceTaskMailFrom": "Expéditeur des notifications"
+  "maintenanceTaskMailFrom": "Expéditeur des notifications",
+  "maintenanceTaskOverview": "Aperçu de la tâche",
+  "maintenanceTaskExecution": "Configuration d’exécution",
+  "maintenanceTaskHistory": "Historique d’exécution",
+  "maintenanceTaskHistoryUnavailable": "Le planificateur ne fournit ni horaires ni résultats d’exécution",
+  "maintenanceTaskEvery": "Toutes les {duration}",
+  "maintenanceTaskIntervalLabel": "Intervalle d’exécution"
 }

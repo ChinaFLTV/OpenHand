@@ -15230,6 +15230,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceTaskMailFrom => '通知发件人';
+
+  @override
+  String get maintenanceTaskOverview => '任务概览';
+
+  @override
+  String get maintenanceTaskExecution => '执行配置';
+
+  @override
+  String get maintenanceTaskHistory => '执行记录';
+
+  @override
+  String get maintenanceTaskHistoryUnavailable => '调度器未提供执行时间与结果';
+
+  @override
+  String maintenanceTaskEvery(String duration) {
+    return '每 $duration 执行一次';
+  }
+
+  @override
+  String get maintenanceTaskIntervalLabel => '执行间隔';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30441,4 +30461,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceTaskMailFrom => '通知寄件者';
+
+  @override
+  String get maintenanceTaskOverview => '工作概覽';
+
+  @override
+  String get maintenanceTaskExecution => '執行設定';
+
+  @override
+  String get maintenanceTaskHistory => '執行記錄';
+
+  @override
+  String get maintenanceTaskHistoryUnavailable => '排程器未提供執行時間與結果';
+
+  @override
+  String maintenanceTaskEvery(String duration) {
+    return '每 $duration 執行一次';
+  }
+
+  @override
+  String get maintenanceTaskIntervalLabel => '執行間隔';
 }

@@ -113,7 +113,7 @@ String _taskFieldLabel(BuildContext context, String key) {
     'missedRuns' || 'NumberOfMissedRuns' => l.maintenanceTaskMissed,
     'logonType' => l.maintenanceTaskLogon,
     'RunLevel' => l.maintenanceTaskRunLevel,
-    'StartInterval' => l.maintenanceTaskInterval,
+    'StartInterval' => l.maintenanceTaskIntervalLabel,
     'Program' => maintenanceLabel(context, '启动命令'),
     'ProgramArguments' => l.maintenanceTaskArguments,
     'WorkingDirectory' => l.maintenanceTaskWorkingDirectory,
@@ -140,6 +140,28 @@ String _taskFieldLabel(BuildContext context, String key) {
   };
 }
 
+String _taskFieldValue(BuildContext context, String key, String raw) {
+  if (raw.isEmpty) return AppLocalizations.of(context)!.maintenanceUnavailable;
+  if (machineMaintenanceIsTimestampField(key)) {
+    return maintenanceDetailValue(context, raw, field: key);
+  }
+  final locale = Localizations.localeOf(context);
+  final duration =
+      const {
+        'StartInterval',
+        'AccuracyUSec',
+        'RandomizedDelayUSec',
+      }.contains(key)
+      ? machineMaintenanceReadableDuration(
+          key == 'StartInterval' ? '$raw s' : raw,
+          field: key,
+          languageCode: locale.languageCode,
+          scriptCode: locale.scriptCode,
+        )
+      : null;
+  return duration ?? _taskStateLabel(context, raw);
+}
+
 String _taskScheduleLabel(BuildContext context, MachineScheduledTask task) {
   final l = AppLocalizations.of(context)!;
   var value = task.schedule;
@@ -159,7 +181,16 @@ String _taskScheduleLabel(BuildContext context, MachineScheduledTask task) {
   }
   if (task.scheduler == MachineTaskScheduler.launchd &&
       task.metadata.containsKey('StartInterval')) {
-    return '${l.maintenanceTaskInterval}: $value';
+    final interval = task.metadata['StartInterval']!;
+    final seconds = double.tryParse(interval);
+    if (task.metadata['StartCalendarInterval']?.isNotEmpty != true &&
+        seconds != null &&
+        seconds.isFinite &&
+        seconds > 0) {
+      return l.maintenanceTaskEvery(
+        _taskFieldValue(context, 'StartInterval', interval),
+      );
+    }
   }
   if (task.scheduler == MachineTaskScheduler.systemd) {
     value = value.replaceAllMapped(
@@ -984,10 +1015,12 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
     final task = _detail?.task ?? widget.task;
     return PopScope(
       canPop: !_saving,
       child: buildOpenHandDialog(
+        backgroundColor: cs.surfaceContainerLow,
         maxHeight: MediaQuery.sizeOf(context).height * .88,
         child: SizedBox(
           width: math.min(960, MediaQuery.sizeOf(context).width * .92),
@@ -1013,20 +1046,17 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
               ),
               Flexible(
                 child: SingleChildScrollView(
-                  padding: _maintenanceDetailPadding,
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 16),
                   child: Form(
                     key: _form,
                     child: _MaintenanceAnimatedColumn(
                       spacing: 12,
                       children: [
                         if (_busy && _detail == null)
-                          SizedBox(
-                            height: 180,
-                            child: Center(
-                              child: _MaintenanceEmptyHint(
-                                message: l.maintenanceLoadingDetails,
-                              ),
-                            ),
+                          _MaintenanceEmptyHint(
+                            compact: true,
+                            icon: Icons.downloading_rounded,
+                            message: l.maintenanceLoadingDetails,
                           ),
                         if (_busy && _detail != null || _saving)
                           const LinearProgressIndicator(minHeight: 2),
@@ -1161,136 +1191,217 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               lines: 14,
                             ),
                         ],
-                        if (!_busy && !_editing && task != null) ...[
-                          _MaintenanceFields(
-                            rows: [
-                              [
-                                l.maintenanceTaskScheduler,
-                                _taskSchedulerLabel(context, task.scheduler),
-                              ],
-                              [
-                                maintenanceLabel(context, '状态'),
-                                _taskStateLabel(context, task.state),
-                              ],
-                              [
-                                l.maintenanceTaskSchedule,
-                                _taskScheduleLabel(context, task),
-                              ],
-                              [
-                                maintenanceLabel(context, '用户'),
-                                task.owner == 'user'
-                                    ? widget.snapshot.user
-                                    : task.owner,
-                              ],
-                              [maintenanceLabel(context, '配置文件'), task.source],
-                              [
-                                maintenanceLabel(context, '启动命令'),
-                                task.command.isEmpty ? '—' : task.command,
-                              ],
-                              [
-                                l.maintenanceTaskLast,
-                                task.lastRun.isEmpty
-                                    ? '—'
-                                    : maintenanceDetailValue(
-                                        context,
-                                        task.lastRun,
-                                        field: 'lastRun',
-                                      ),
-                              ],
-                              [
-                                l.maintenanceTaskNext,
-                                task.nextRun.isEmpty
-                                    ? '—'
-                                    : maintenanceDetailValue(
-                                        context,
-                                        task.nextRun,
-                                        field: 'nextRun',
-                                      ),
-                              ],
-                              [
-                                maintenanceLabel(context, '执行结果'),
-                                task.result.isEmpty
-                                    ? '—'
-                                    : _taskStateLabel(context, task.result),
-                              ],
-                            ],
-                          ),
-                          if (!task.writable)
-                            _MaintenanceNotice(
-                              message: l.maintenanceTaskReadOnly,
+                        if (!_editing && task != null) ...[
+                          _MaintenanceCard(
+                            key: const ValueKey('task-overview'),
+                            title: l.maintenanceTaskOverview,
+                            icon: Icons.event_repeat_rounded,
+                            scrollBody: false,
+                            wrapHeader: true,
+                            trailing: _MaintenanceStatus(
+                              label: _taskStateLabel(context, task.state),
+                              color: task.state == 'failed'
+                                  ? OpenHandStatusColors.error
+                                  : task.enabled
+                                  ? OpenHandStatusColors.success
+                                  : cs.onSurfaceVariant,
                             ),
+                            child: _MaintenanceFacts(
+                              maxColumns: 1,
+                              values: {
+                                maintenanceLabel(context, '名称'): task.name,
+                                l.maintenanceTaskScheduler: _taskSchedulerLabel(
+                                  context,
+                                  task.scheduler,
+                                ),
+                                l.maintenanceTaskSchedule: _taskScheduleLabel(
+                                  context,
+                                  task,
+                                ),
+                              },
+                            ),
+                          ),
+                          _MaintenanceCard(
+                            key: const ValueKey('task-execution'),
+                            title: l.maintenanceTaskExecution,
+                            icon: Icons.terminal_rounded,
+                            accent: cs.tertiary,
+                            scrollBody: false,
+                            wrapHeader: true,
+                            trailing: !task.writable
+                                ? Tooltip(
+                                    message: l.maintenanceTaskReadOnly,
+                                    child: Icon(
+                                      Icons.lock_outline_rounded,
+                                      size: 18,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  )
+                                : null,
+                            child: _MaintenanceAnimatedColumn(
+                              spacing: 12,
+                              children: [
+                                _MaintenanceFacts(
+                                  maxColumns: 1,
+                                  values: {
+                                    maintenanceLabel(
+                                      context,
+                                      '用户',
+                                    ): task.owner == 'user'
+                                        ? widget.snapshot.user
+                                        : task.owner == 'system'
+                                        ? maintenanceLabel(context, '系统')
+                                        : task.owner,
+                                    maintenanceLabel(context, '配置文件'):
+                                        task.source,
+                                    maintenanceLabel(context, '启动命令'):
+                                        task.command,
+                                  },
+                                ),
+                                if (!task.writable)
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        size: 16,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          l.maintenanceTaskReadOnly,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                          _MaintenanceSection(
+                            key: const ValueKey('task-history'),
+                            title: l.maintenanceTaskHistory,
+                            icon: Icons.history_rounded,
+                            accent: OpenHandStatusColors.info,
+                            initiallyExpanded:
+                                task.lastRun.isNotEmpty ||
+                                task.nextRun.isNotEmpty ||
+                                task.result.isNotEmpty,
+                            subtitle:
+                                task.lastRun.isEmpty &&
+                                    task.nextRun.isEmpty &&
+                                    task.result.isEmpty
+                                ? l.maintenanceTaskHistoryUnavailable
+                                : null,
+                            child: _MaintenanceFacts(
+                              values: {
+                                l.maintenanceTaskLast: _taskFieldValue(
+                                  context,
+                                  'lastRun',
+                                  task.lastRun,
+                                ),
+                                l.maintenanceTaskNext: _taskFieldValue(
+                                  context,
+                                  'nextRun',
+                                  task.nextRun,
+                                ),
+                                maintenanceLabel(
+                                  context,
+                                  '执行结果',
+                                ): _taskFieldValue(
+                                  context,
+                                  'Result',
+                                  task.result,
+                                ),
+                              },
+                            ),
+                          ),
                           if (task.metadata.isNotEmpty)
                             _MaintenanceSection(
                               title: l.maintenanceTaskEnvironment,
-                              child: _MaintenanceFields(
-                                rows: [
+                              icon: Icons.tune_rounded,
+                              accent: cs.tertiary,
+                              child: _MaintenanceFacts(
+                                maxColumns: 1,
+                                values: {
                                   for (final field in task.metadata.entries)
                                     if (field.value.isNotEmpty)
-                                      [
-                                        _taskFieldLabel(context, field.key),
-                                        task.scheduler ==
-                                                MachineTaskScheduler.cron
-                                            ? field.value
-                                            : machineMaintenanceIsTimestampField(
-                                                field.key,
-                                              )
-                                            ? maintenanceDetailValue(
-                                                context,
-                                                field.value,
-                                                field: field.key,
-                                              )
-                                            : _taskStateLabel(
-                                                context,
-                                                field.value,
-                                              ),
-                                      ],
-                                ],
+                                      _taskFieldLabel(context, field.key):
+                                          task.scheduler ==
+                                              MachineTaskScheduler.cron
+                                          ? field.value
+                                          : _taskFieldValue(
+                                              context,
+                                              field.key,
+                                              field.value,
+                                            ),
+                                },
                               ),
                             ),
                           if (_detail?.status.isNotEmpty == true)
                             _MaintenanceSection(
                               title: maintenanceLabel(context, '状态详情'),
+                              icon: Icons.monitor_heart_outlined,
+                              accent: OpenHandStatusColors.info,
                               child: _MaintenanceReadout(
                                 text: _detail!.status,
                                 section: 'status',
                               ),
                             ),
-                          _MaintenanceCard(
+                          _MaintenanceSection(
                             title: l.maintenanceTaskLogs,
                             icon: Icons.article_outlined,
-                            scrollBody: false,
+                            subtitle: _detail?.logs.isNotEmpty == true
+                                ? null
+                                : _busy && _detail == null
+                                ? l.maintenanceLoadingDetails
+                                : l.maintenanceTaskNoLogs,
                             child: _detail?.logs.isNotEmpty == true
                                 ? OpenHandConsoleText(
                                     title: l.maintenanceTaskLogs,
                                     text: _detail!.logs,
                                   )
                                 : _MaintenanceEmptyHint(
+                                    compact: true,
                                     message: l.maintenanceTaskNoLogs,
                                   ),
                           ),
                           if (_detail?.issues.isNotEmpty == true)
                             _MaintenanceSection(
                               title: l.maintenanceCollectionError,
-                              child: _MaintenanceFields(
-                                rows: [
+                              icon: Icons.warning_amber_rounded,
+                              accent: cs.error,
+                              initiallyExpanded: true,
+                              child: _MaintenanceFacts(
+                                maxColumns: 1,
+                                values: {
                                   for (final issue in _detail!.issues.entries)
-                                    [
-                                      issue.key == 'logs'
-                                          ? l.maintenanceTaskLogs
-                                          : issue.key == 'definition'
-                                          ? l.maintenanceTaskNative
-                                          : maintenanceLabel(context, '状态详情'),
-                                      _taskError(
-                                        context,
-                                        MachineTaskException(issue.value),
-                                      ),
-                                    ],
-                                ],
+                                    issue.key == 'logs'
+                                        ? l.maintenanceTaskLogs
+                                        : issue.key == 'definition'
+                                        ? l.maintenanceTaskNative
+                                        : maintenanceLabel(
+                                            context,
+                                            '状态详情',
+                                          ): _taskError(
+                                      context,
+                                      MachineTaskException(issue.value),
+                                    ),
+                                },
                               ),
                             ),
                           if (task.definition.isNotEmpty)
                             _MaintenanceSection(
                               title: l.maintenanceTaskNative,
+                              icon: Icons.code_rounded,
+                              accent: cs.secondary,
                               child: SelectableText(
                                 task.definition,
                                 style: const TextStyle(
@@ -1313,21 +1424,25 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                       task?.writable == true &&
                       !_busy &&
                       _error == null) ...[
-                    TextButton(
-                      onPressed: _saving ? null : () => _save(delete: true),
-                      child: Text(l.commonDelete),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => setState(() => _editing = true),
-                      child: Text(l.commonEdit),
+                    if (task!.scheduler != MachineTaskScheduler.systemd)
+                      OpenHandDialogActionButton.destructive(
+                        onPressed: _saving ? null : () => _save(delete: true),
+                        label: l.commonDelete,
+                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _saving
+                          ? null
+                          : () => setState(() => _editing = true),
+                      label: l.commonEdit,
                     ),
                   ],
-                  TextButton(
+                  OpenHandDialogActionButton.secondary(
                     onPressed: _saving ? null : () => Navigator.pop(context),
-                    child: Text(l.commonClose),
+                    label: l.commonClose,
                   ),
                   if (_editing)
-                    FilledButton(
+                    OpenHandDialogActionButton.primary(
+                      busy: _saving,
                       onPressed:
                           _busy ||
                               _saving ||
@@ -1341,7 +1456,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                   ))
                           ? null
                           : _save,
-                      child: Text(l.commonSave),
+                      label: l.commonSave,
                     ),
                 ],
               ),

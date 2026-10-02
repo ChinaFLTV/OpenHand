@@ -24,6 +24,7 @@ String? machineMaintenanceReadableDuration(
   String raw, {
   String field = '',
   String languageCode = 'en',
+  String? scriptCode,
 }) {
   final text = raw.trim();
   final key = field.toLowerCase();
@@ -97,9 +98,15 @@ String? machineMaintenanceReadableDuration(
   final zh = languageCode == 'zh';
   final ja = languageCode == 'ja';
   final labels = zh
-      ? ['天', '小时', '分', '秒', '毫秒', '微秒', '纳秒']
+      ? (scriptCode == 'Hant'
+            ? ['天', '小時', '分', '秒', '毫秒', '微秒', '奈秒']
+            : ['天', '小时', '分', '秒', '毫秒', '微秒', '纳秒'])
       : ja
       ? ['日', '時間', '分', '秒', 'ms', 'µs', 'ns']
+      : languageCode == 'de'
+      ? ['T', 'Std.', 'Min.', 's', 'ms', 'µs', 'ns']
+      : languageCode == 'fr'
+      ? ['j', 'h', 'min', 's', 'ms', 'µs', 'ns']
       : ['d', 'h', 'min', 's', 'ms', 'µs', 'ns'];
   var remaining = seconds.abs();
   final parts = <String>[];

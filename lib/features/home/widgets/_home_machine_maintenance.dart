@@ -4915,15 +4915,16 @@ class _MaintenanceTable extends StatelessWidget {
 }
 
 class _MaintenanceFacts extends StatelessWidget {
-  const _MaintenanceFacts({required this.values});
+  const _MaintenanceFacts({required this.values, this.maxColumns = 2});
   final Map<String, String> values;
+  final int maxColumns;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
     return _MaintenanceGrid(
       minWidth: 380,
-      maxColumns: 2,
+      maxColumns: maxColumns,
       children: [
         for (final entry in values.entries)
           LayoutBuilder(
