@@ -16077,4 +16077,37 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get codeEditorImportFailed =>
       'Codedatei konnte nicht gelesen werden. Prüfen Sie den Zugriff.';
+
+  @override
+  String get maintenanceImageRepositoryDetails => 'Repository-Übersicht';
+
+  @override
+  String get maintenanceImageNamespace => 'Namensraum';
+
+  @override
+  String get maintenanceImageLastUpdated => 'Zuletzt aktualisiert';
+
+  @override
+  String get maintenanceImageTagDetails => 'Tag und Plattformen';
+
+  @override
+  String get maintenanceImageLastPushed => 'Zuletzt übertragen';
+
+  @override
+  String get maintenanceImageVariant => 'Architekturvariante';
+
+  @override
+  String get maintenanceImageFullDescription => 'Vollständige Beschreibung';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      'Für diese Registry sind keine öffentlichen Details verfügbar. Sie können weiterhin ein Tag wählen und das Image herunterladen.';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable =>
+      'Repository-Details sind vorübergehend nicht verfügbar. Die Suchinformationen bleiben erhalten; bitte erneut versuchen.';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      'Details zu diesem Tag sind vorübergehend nicht verfügbar. Erneut versuchen oder ein anderes Tag wählen.';
 }

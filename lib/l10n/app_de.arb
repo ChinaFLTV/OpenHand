@@ -9825,5 +9825,15 @@
   },
   "codeEditorImportTooLarge": "Codedateien dürfen 512 KiB nicht überschreiten.",
   "codeEditorImportInvalid": "Die Codedatei enthält keinen gültigen UTF-8-Text.",
-  "codeEditorImportFailed": "Codedatei konnte nicht gelesen werden. Prüfen Sie den Zugriff."
+  "codeEditorImportFailed": "Codedatei konnte nicht gelesen werden. Prüfen Sie den Zugriff.",
+  "maintenanceImageRepositoryDetails": "Repository-Übersicht",
+  "maintenanceImageNamespace": "Namensraum",
+  "maintenanceImageLastUpdated": "Zuletzt aktualisiert",
+  "maintenanceImageTagDetails": "Tag und Plattformen",
+  "maintenanceImageLastPushed": "Zuletzt übertragen",
+  "maintenanceImageVariant": "Architekturvariante",
+  "maintenanceImageFullDescription": "Vollständige Beschreibung",
+  "maintenanceImageRepositoryUnsupported": "Für diese Registry sind keine öffentlichen Details verfügbar. Sie können weiterhin ein Tag wählen und das Image herunterladen.",
+  "maintenanceImageRepositoryUnavailable": "Repository-Details sind vorübergehend nicht verfügbar. Die Suchinformationen bleiben erhalten; bitte erneut versuchen.",
+  "maintenanceImageTagDetailsUnavailable": "Details zu diesem Tag sind vorübergehend nicht verfügbar. Erneut versuchen oder ein anderes Tag wählen."
 }

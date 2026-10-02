@@ -9825,5 +9825,15 @@
   },
   "codeEditorImportTooLarge": "程式碼檔案不能超過 512 KiB。",
   "codeEditorImportInvalid": "程式碼檔案不是有效的 UTF-8 文字。",
-  "codeEditorImportFailed": "讀取程式碼檔案失敗，請確認檔案是否可存取。"
+  "codeEditorImportFailed": "讀取程式碼檔案失敗，請確認檔案是否可存取。",
+  "maintenanceImageRepositoryDetails": "儲存庫概覽",
+  "maintenanceImageNamespace": "命名空間",
+  "maintenanceImageLastUpdated": "最近更新",
+  "maintenanceImageTagDetails": "標籤與平台",
+  "maintenanceImageLastPushed": "最近推送",
+  "maintenanceImageVariant": "架構變體",
+  "maintenanceImageFullDescription": "完整說明",
+  "maintenanceImageRepositoryUnsupported": "目前儲存庫不支援公開詳情查詢，仍可選擇標籤並拉取映像。",
+  "maintenanceImageRepositoryUnavailable": "暫時無法讀取儲存庫詳情。已保留搜尋資訊，請重試。",
+  "maintenanceImageTagDetailsUnavailable": "暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。"
 }

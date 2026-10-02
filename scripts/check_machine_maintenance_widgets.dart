@@ -56,6 +56,7 @@ import 'package:openhand/app/support/system_proxy.dart';
 import 'package:openhand/shared/util/async_concurrency.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:xml/xml.dart' as xml;
 import 'package:intl/intl.dart' show DateFormat;
@@ -110,6 +111,7 @@ class _MachineTerminalFileManagerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const SizedBox();
 }
+Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {}
 $header
 $button
 $terminalConstants
@@ -6367,6 +6369,42 @@ void telemetryChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('镜像详情独立加载、失败重试去重，关闭后丢弃迟到响应', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(960, 900));
+    final requests = <Uri>[];
+    final repository = Completer<Map<String, dynamic>>();
+    final retry = Completer<Map<String, dynamic>>();
+    var failTag = true;
+    final registry = MachineImageRegistry(clientFactory: HttpClient.new, read: (uri) async {
+      requests.add(uri);
+      if (uri.path.contains('/tags/')) {
+        if (failTag) throw const FormatException('模拟标签不可用');
+        return retry.future;
+      }
+      return repository.future;
+    });
+    await tester.pumpWidget(_SettingsApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _ContainerRegistryDetailsDialog(
+        image: MachineContainerImageSearchResult.fromJson({'Name':'nginx','Description':'保留搜索说明','StarCount':42}),
+        selected:'missing',registryFactory:()=>registry,onTagChanged:(_){}))));
+    await tester.pump(); await tester.pump(const Duration(seconds: 1));
+    final state = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+    expect(state._repositoryLoading, isTrue); expect(state._tagError, isNotEmpty);
+    expect(find.text('保留搜索说明'), findsOneWidget);
+    await state._loadRepository(); expect(requests.length, 2);
+    repository.complete({'name':'nginx','namespace':'library','full_description':'# 已载入仓库'});
+    await tester.pumpAndSettle();
+    expect(state._repository, isNotNull); expect(state._tagError, isNotEmpty);
+    failTag=false;
+    final loading=state._loadTag(); await tester.pump();
+    await state._loadTag(); expect(requests.length, 3);
+    await tester.pumpWidget(const SizedBox());
+    retry.complete({'name':'missing','images':[]}); await loading; await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await expectLater(registry.repositoryDetails('library/nginx'), throwsStateError);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('可编辑候选遵循菜单进退场、减少动画和禁用状态', (tester) async {
     final controller = TextEditingController();
     for (final reduced in [false, true]) {
@@ -6571,6 +6609,14 @@ void resourceChecks() {
         var created = 0;
         MachineImageRegistry registryFactory() => MachineImageRegistry(clientFactory: HttpClient.new, read: (uri) async {
           if (uri.path.endsWith('/tags')) return {'results': [{'name': 'latest'}, {'name': 'stable'}, {'name': '1.28-alpine'}], 'next': null};
+          if (uri.path.contains('/tags/')) return {'name': uri.pathSegments.last, 'digest': 'sha256:' + 'a' * 64, 'full_size': 2048,
+            'tag_last_pushed': '2026-10-02T01:00:00Z', 'images': [
+              {'os': 'linux', 'architecture': 'arm64', 'variant': 'v8', 'size': 2048, 'digest': 'sha256:' + 'b' * 64},
+              {'os': 'linux', 'architecture': 'amd64', 'size': 4096},
+            ]};
+          if (uri.path.endsWith('/repositories/nginx')) return {'name': 'nginx', 'namespace': 'library', 'description': 'Web server',
+            'full_description': '# Nginx\n\nRepository documentation\n\n- **Linux** containers\n- Shell configuration\n\n~~~bash\nnginx -t\n~~~',
+            'last_updated': '2026-10-02T01:00:00Z', 'star_count': 21396, 'pull_count': 13413760258};
           if (uri.path.contains('/catalog/')) return {'results': [{'slug': 'nginx', 'logo_url': {'small': 'https://example.invalid/nginx.png'}}]};
           return stats.future;
         });
@@ -6643,10 +6689,39 @@ void resourceChecks() {
         var table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
         expect(table.headers, contains(l.maintenanceImageDownloads));
         final actions = table.rowActions!(table.rows.single);
-        expect(actions.keys, [l.maintenanceImageSelectTag, l.maintenanceImagePullOnly, l.maintenanceContainerCreate]);
-        actions[l.maintenanceImagePullOnly]!(); await tester.pumpAndSettle();
+        expect(actions.keys, [l.maintenanceContainerImageDetails, l.maintenanceImageSelectTag, l.maintenanceImagePullOnly, l.maintenanceContainerCreate]);
+        expect(table.onRowTap, isNotNull);
+        actions[l.maintenanceContainerImageDetails]!(); await tester.pumpAndSettle();
+        final detail = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+        expect(detail._tag, '1.28-alpine'); expect(detail._repositoryError, isEmpty); expect(detail._tagError, isEmpty);
+        expect(find.text(l.maintenanceImageRepositoryDetails), findsOneWidget);
+        expect(find.text(l.maintenanceImageTagDetails), findsOneWidget);
+        expect(find.text('Web server'), findsOneWidget);
+        final platformTable = tester.widget<_MaintenanceTable>(find.descendant(of: find.byType(_ContainerRegistryDetailsDialog), matching: find.byType(_MaintenanceTable)));
+        expect(platformTable.rows.map((row) => row.cells[1]), ['arm64', 'amd64']);
+        expect(platformTable.rows.first.cells[2], 'v8');
+        final select = detail._selectTag(); await tester.pumpAndSettle();
+        final selector = tester.state<_ContainerImageTagDialogState>(find.byType(_ContainerImageTagDialog));
+        selector._tag.text = 'stable'; selector.setState(() {}); await tester.pumpAndSettle();
+        await tester.tap(find.text(l.commonConfirm)); await tester.pumpAndSettle(); await select;
+        expect(detail._tagData!['name'], 'stable'); expect(registry._tags['nginx'], 'stable');
+        expect(tester.takeException(), isNull);
+        if (Platform.environment['MAINTENANCE_PREVIEW'] != null && locale == const Locale('zh')) {
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/openhand-registry-details-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+          await tester.ensureVisible(find.byType(MarkdownBody)); await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('/tmp/openhand-registry-readme-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await tester.tap(find.widgetWithText(OpenHandDialogActionButton, l.maintenanceImagePullOnly)); await tester.pumpAndSettle();
         var form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
-        expect(form._value('image'), 'nginx:1.28-alpine');
+        expect(form._value('image'), 'nginx:stable');
         await form._submit(); await tester.pumpAndSettle();
         expect(form._completed,isTrue);expect(commands.any((command)=>command.contains("'pull'")||command.contains("'search'")),isFalse);
         expect(commands.any((command) => command.contains("'run'")), isFalse);
@@ -6654,9 +6729,9 @@ void resourceChecks() {
         table = tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
         table.rowActions!(table.rows.single)[l.maintenanceContainerCreate]!(); await tester.pumpAndSettle();
         form = tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
-        expect(form._value('image'), 'nginx:1.28-alpine');
+        expect(form._value('image'), 'nginx:stable');
         await form._submit(); await tester.pumpAndSettle();
-        expect(commands.last, contains("'--context' 'desktop-linux' 'run'")); expect(commands.last, contains("'nginx:1.28-alpine'"));
+        expect(commands.last, contains("'--context' 'desktop-linux' 'run'")); expect(commands.last, contains("'nginx:stable'"));
         await tester.ensureVisible(find.text(l.maintenanceResourceCloseRefresh)); await tester.tap(find.text(l.maintenanceResourceCloseRefresh)); await tester.pumpAndSettle();
         expect(created, 1); expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

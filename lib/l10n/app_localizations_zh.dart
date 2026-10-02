@@ -15382,6 +15382,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get codeEditorImportFailed => '读取代码文件失败，请检查文件是否可访问。';
+
+  @override
+  String get maintenanceImageRepositoryDetails => '仓库概览';
+
+  @override
+  String get maintenanceImageNamespace => '命名空间';
+
+  @override
+  String get maintenanceImageLastUpdated => '最近更新';
+
+  @override
+  String get maintenanceImageTagDetails => '标签与平台';
+
+  @override
+  String get maintenanceImageLastPushed => '最近推送';
+
+  @override
+  String get maintenanceImageVariant => '架构变体';
+
+  @override
+  String get maintenanceImageFullDescription => '完整说明';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      '当前仓库不支持公开详情查询，仍可选择标签并拉取镜像。';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable => '暂时无法读取仓库详情。已保留搜索信息，请重试。';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      '暂时无法读取此标签的详情，可重试或选择其他标签。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30745,4 +30777,37 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get codeEditorImportFailed => '讀取程式碼檔案失敗，請確認檔案是否可存取。';
+
+  @override
+  String get maintenanceImageRepositoryDetails => '儲存庫概覽';
+
+  @override
+  String get maintenanceImageNamespace => '命名空間';
+
+  @override
+  String get maintenanceImageLastUpdated => '最近更新';
+
+  @override
+  String get maintenanceImageTagDetails => '標籤與平台';
+
+  @override
+  String get maintenanceImageLastPushed => '最近推送';
+
+  @override
+  String get maintenanceImageVariant => '架構變體';
+
+  @override
+  String get maintenanceImageFullDescription => '完整說明';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      '目前儲存庫不支援公開詳情查詢，仍可選擇標籤並拉取映像。';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable =>
+      '暫時無法讀取儲存庫詳情。已保留搜尋資訊，請重試。';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      '暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。';
 }

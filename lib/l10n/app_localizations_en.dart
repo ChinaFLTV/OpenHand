@@ -15900,4 +15900,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get codeEditorImportFailed =>
       'Could not read the code file. Check that it is accessible.';
+
+  @override
+  String get maintenanceImageRepositoryDetails => 'Repository overview';
+
+  @override
+  String get maintenanceImageNamespace => 'Namespace';
+
+  @override
+  String get maintenanceImageLastUpdated => 'Last updated';
+
+  @override
+  String get maintenanceImageTagDetails => 'Tag and platforms';
+
+  @override
+  String get maintenanceImageLastPushed => 'Last pushed';
+
+  @override
+  String get maintenanceImageVariant => 'Architecture variant';
+
+  @override
+  String get maintenanceImageFullDescription => 'Full description';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      'Public details are unavailable for this registry. You can still select a tag and pull the image.';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable =>
+      'Repository details are temporarily unavailable. Search information is retained; please retry.';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      'Details for this tag are temporarily unavailable. Retry or select another tag.';
 }

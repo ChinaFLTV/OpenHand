@@ -11001,5 +11001,15 @@
   },
   "codeEditorImportTooLarge": "代码文件不能超过 512 KiB。",
   "codeEditorImportInvalid": "代码文件不是有效的 UTF-8 文本。",
-  "codeEditorImportFailed": "读取代码文件失败，请检查文件是否可访问。"
+  "codeEditorImportFailed": "读取代码文件失败，请检查文件是否可访问。",
+  "maintenanceImageRepositoryDetails": "仓库概览",
+  "maintenanceImageNamespace": "命名空间",
+  "maintenanceImageLastUpdated": "最近更新",
+  "maintenanceImageTagDetails": "标签与平台",
+  "maintenanceImageLastPushed": "最近推送",
+  "maintenanceImageVariant": "架构变体",
+  "maintenanceImageFullDescription": "完整说明",
+  "maintenanceImageRepositoryUnsupported": "当前仓库不支持公开详情查询，仍可选择标签并拉取镜像。",
+  "maintenanceImageRepositoryUnavailable": "暂时无法读取仓库详情。已保留搜索信息，请重试。",
+  "maintenanceImageTagDetailsUnavailable": "暂时无法读取此标签的详情，可重试或选择其他标签。"
 }

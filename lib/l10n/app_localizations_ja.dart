@@ -15538,4 +15538,37 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get codeEditorImportFailed => 'コードファイルを読み込めません。アクセス可能か確認してください。';
+
+  @override
+  String get maintenanceImageRepositoryDetails => 'リポジトリ概要';
+
+  @override
+  String get maintenanceImageNamespace => '名前空間';
+
+  @override
+  String get maintenanceImageLastUpdated => '最終更新';
+
+  @override
+  String get maintenanceImageTagDetails => 'タグとプラットフォーム';
+
+  @override
+  String get maintenanceImageLastPushed => '最終プッシュ';
+
+  @override
+  String get maintenanceImageVariant => 'アーキテクチャのバリアント';
+
+  @override
+  String get maintenanceImageFullDescription => '詳細説明';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      'このレジストリの公開情報は取得できません。タグの選択とイメージの取得は引き続き利用できます。';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable =>
+      'リポジトリの詳細を取得できません。検索情報は保持されています。再試行してください。';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      'このタグの詳細を取得できません。再試行するか、別のタグを選択してください。';
 }

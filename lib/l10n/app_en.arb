@@ -9830,5 +9830,15 @@
   },
   "codeEditorImportTooLarge": "Code files must not exceed 512 KiB.",
   "codeEditorImportInvalid": "The code file is not valid UTF-8 text.",
-  "codeEditorImportFailed": "Could not read the code file. Check that it is accessible."
+  "codeEditorImportFailed": "Could not read the code file. Check that it is accessible.",
+  "maintenanceImageRepositoryDetails": "Repository overview",
+  "maintenanceImageNamespace": "Namespace",
+  "maintenanceImageLastUpdated": "Last updated",
+  "maintenanceImageTagDetails": "Tag and platforms",
+  "maintenanceImageLastPushed": "Last pushed",
+  "maintenanceImageVariant": "Architecture variant",
+  "maintenanceImageFullDescription": "Full description",
+  "maintenanceImageRepositoryUnsupported": "Public details are unavailable for this registry. You can still select a tag and pull the image.",
+  "maintenanceImageRepositoryUnavailable": "Repository details are temporarily unavailable. Search information is retained; please retry.",
+  "maintenanceImageTagDetailsUnavailable": "Details for this tag are temporarily unavailable. Retry or select another tag."
 }

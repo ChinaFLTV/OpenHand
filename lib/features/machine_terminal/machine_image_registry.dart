@@ -177,4 +177,35 @@ class MachineImageRegistry {
           page < machineImageTagPageLimit && '${data['next'] ?? ''}'.isNotEmpty,
     );
   }
+
+  /// 仓库详情独立于目标运行时，本地尚未拉取的镜像也能查看。
+  Future<Map<String, dynamic>> repositoryDetails(String repository) async {
+    final data = await _read(_detailsUri(repository));
+    if (data['name'] != repository.split('/').last) {
+      throw const FormatException('镜像仓库缺少详情。');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> tagDetails(String repository, String tag) async {
+    if (!machineContainerValidImageTag(tag)) {
+      throw const FormatException('镜像标签无效。');
+    }
+    final data = await _read(_detailsUri(repository, tag: tag));
+    if (data['name'] != tag || data['images'] is! List) {
+      throw const FormatException('镜像仓库缺少标签详情。');
+    }
+    return data;
+  }
+
+  Uri _detailsUri(String repository, {String? tag}) {
+    if (machineDockerHubRepository(repository) != repository) {
+      throw const FormatException('镜像仓库无效。');
+    }
+    final parts = repository.split('/');
+    return Uri.https(
+      'hub.docker.com',
+      '/v2/namespaces/${parts[0]}/repositories/${parts[1]}${tag == null ? '' : '/tags/$tag'}',
+    );
+  }
 }

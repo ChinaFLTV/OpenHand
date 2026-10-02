@@ -659,6 +659,25 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
   String _reference(MachineContainerImageSearchResult row) =>
       '${row.name}:${_tags[row.name] ?? 'latest'}';
 
+  Future<void> _details(MachineContainerImageSearchResult row) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final action = await showAnimatedDialog<_ContainerResourceAction>(
+      context: context,
+      builder: (_) => _ContainerRegistryDetailsDialog(
+        image: row,
+        selected: _tags[row.name] ?? 'latest',
+        registryFactory: widget.registryFactory,
+        onTagChanged: (tag) {
+          if (mounted) setState(() => _tags[row.name] = tag);
+        },
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (action != null) await _openImage(_reference(row), action: action);
+  }
+
   Future<void> _selectTag(MachineContainerImageSearchResult row) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -969,8 +988,19 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                                   ],
                                 ),
                             ],
+                            onRowTap: _busy
+                                ? null
+                                : (row) => _details(
+                                    row.data
+                                        as MachineContainerImageSearchResult,
+                                  ),
                             rowActions: (row) => {
                               if (!_busy) ...{
+                                l.maintenanceContainerImageDetails: () =>
+                                    _details(
+                                      row.data
+                                          as MachineContainerImageSearchResult,
+                                    ),
                                 l.maintenanceImageSelectTag: () => _selectTag(
                                   row.data as MachineContainerImageSearchResult,
                                 ),
@@ -998,6 +1028,445 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContainerRegistryDetailsDialog extends StatefulWidget {
+  const _ContainerRegistryDetailsDialog({
+    required this.image,
+    required this.selected,
+    required this.registryFactory,
+    required this.onTagChanged,
+  });
+  final MachineContainerImageSearchResult image;
+  final String selected;
+  final MachineImageRegistry Function() registryFactory;
+  final ValueChanged<String> onTagChanged;
+
+  @override
+  State<_ContainerRegistryDetailsDialog> createState() =>
+      _ContainerRegistryDetailsDialogState();
+}
+
+class _ContainerRegistryDetailsDialogState
+    extends State<_ContainerRegistryDetailsDialog> {
+  late final _registry = widget.registryFactory();
+  late String _tag = widget.selected;
+  Map<String, dynamic>? _repository, _tagData;
+  String _repositoryError = '', _tagError = '';
+  bool _repositoryLoading = false, _tagLoading = false, _selecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.image.hubRepository != null) {
+      unawaited(_loadRepository());
+      unawaited(_loadTag());
+    }
+  }
+
+  @override
+  void dispose() {
+    _registry.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRepository() async {
+    if (_repositoryLoading) return;
+    setState(() {
+      _repositoryLoading = true;
+      _repositoryError = '';
+    });
+    try {
+      final data = await _registry.repositoryDetails(
+        widget.image.hubRepository!,
+      );
+      if (mounted) setState(() => _repository = data);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _repositoryError = '$error');
+      }
+    } finally {
+      if (mounted) setState(() => _repositoryLoading = false);
+    }
+  }
+
+  Future<void> _loadTag() async {
+    if (_tagLoading) return;
+    setState(() {
+      _tagLoading = true;
+      _tagError = '';
+    });
+    try {
+      final data = await _registry.tagDetails(
+        widget.image.hubRepository!,
+        _tag,
+      );
+      if (mounted) setState(() => _tagData = data);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _tagError = '$error');
+      }
+    } finally {
+      if (mounted) setState(() => _tagLoading = false);
+    }
+  }
+
+  Future<void> _selectTag() async {
+    if (_tagLoading || _selecting) return;
+    setState(() => _selecting = true);
+    final tag = await showAnimatedDialog<String>(
+      context: context,
+      builder: (_) => _ContainerImageTagDialog(
+        image: widget.image,
+        selected: _tag,
+        registryFactory: widget.registryFactory,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _selecting = false);
+    if (tag == null || tag == _tag) return;
+    setState(() {
+      _tag = tag;
+      _tagData = null;
+    });
+    widget.onTagChanged(tag);
+    if (widget.image.hubRepository != null) await _loadTag();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final image = _repository == null
+        ? widget.image
+        : widget.image.withMetadata(
+            MachineContainerImageSearchResult.fromJson(_repository!),
+          );
+    final description = '${_repository?['full_description'] ?? ''}'.trim();
+    final summary = '${_repository?['description'] ?? image.description}'
+        .trim();
+    final platforms = (_tagData?['images'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+    String value(Object? raw) => raw == null || '$raw'.isEmpty ? '—' : '$raw';
+    String timestamp(Object? raw) =>
+        machineMaintenanceTimestamp(value(raw), allowEpoch: true) ?? value(raw);
+    String size(Object? raw) {
+      final bytes = num.tryParse('$raw');
+      return bytes == null || !bytes.isFinite || bytes < 0
+          ? '—'
+          : formatLocalizedByteSizeOf(context, bytes);
+    }
+
+    return Theme(
+      data: _containerResourceDialogTheme(context),
+      child: buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthExtraWide,
+        maxHeight: MediaQuery.sizeOf(context).height * .9,
+        backgroundColor: cs.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        child: SizedBox(
+          width: kOpenHandDialogWidthExtraWide,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _MachineTerminalDialogHeader(
+                icon: Icons.layers_outlined,
+                title: l.maintenanceContainerImageDetails,
+                subtitle: widget.image.name,
+                onClose: () => Navigator.pop(context),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: _maintenanceDetailPadding,
+                  child: _MaintenanceAnimatedColumn(
+                    spacing: 12,
+                    children: [
+                      _MaintenanceCard(
+                        title: l.maintenanceImageRepositoryDetails,
+                        icon: Icons.inventory_2_outlined,
+                        scrollBody: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 12,
+                          children: [
+                            if (_repositoryLoading)
+                              const LinearProgressIndicator(minHeight: 2),
+                            _MaintenanceFacts(
+                              minWidth: 260,
+                              values: {
+                                l.maintenanceImageReference:
+                                    '${image.name}:$_tag',
+                                l.maintenanceImageOfficial:
+                                    image.official == null
+                                    ? '—'
+                                    : image.official!
+                                    ? l.maintenanceHealthParsedYes
+                                    : l.maintenanceHealthParsedNo,
+                                l.maintenanceImageNamespace: value(
+                                  _repository?['namespace'] ??
+                                      image.hubRepository?.split('/').first,
+                                ),
+                                l.maintenanceImageLastUpdated: timestamp(
+                                  _repository?['last_updated'],
+                                ),
+                              },
+                            ),
+                            _MaintenanceGrid(
+                              minWidth: 180,
+                              maxColumns: 2,
+                              children: [
+                                for (final metric in [
+                                  (l.maintenanceImageStars, image.stars),
+                                  (l.maintenanceImageDownloads, image.pulls),
+                                ])
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: _maintenanceTileDecoration(cs),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          metric.$1,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                        _MaintenanceNumber(
+                                          key: ValueKey((
+                                            'registry-detail',
+                                            metric.$1,
+                                          )),
+                                          raw: value(metric.$2),
+                                          readable: metric.$2 == null
+                                              ? '—'
+                                              : openHandCompactCountLabel(
+                                                  context,
+                                                  metric.$2!,
+                                                ),
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (summary.isNotEmpty)
+                              SelectableText(
+                                summary,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            if (_repositoryError.isNotEmpty) ...[
+                              _MaintenanceNotice(
+                                message:
+                                    '${l.maintenanceImageRepositoryUnavailable}\n$_repositoryError',
+                                error: true,
+                              ),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: FilledButton.tonal(
+                                  onPressed: _repositoryLoading
+                                      ? null
+                                      : _loadRepository,
+                                  child: Text(l.maintenanceImageTagRetry),
+                                ),
+                              ),
+                            ],
+                            if (image.hubRepository == null)
+                              _MaintenanceNotice(
+                                message:
+                                    l.maintenanceImageRepositoryUnsupported,
+                              ),
+                          ],
+                        ),
+                      ),
+                      _MaintenanceCard(
+                        title: l.maintenanceImageTagDetails,
+                        icon: Icons.sell_outlined,
+                        scrollBody: false,
+                        wrapHeader: true,
+                        trailing: FilledButton.tonalIcon(
+                          onPressed: _tagLoading || _selecting
+                              ? null
+                              : _selectTag,
+                          icon: const Icon(Icons.expand_more_rounded, size: 16),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 180),
+                            child: Text(
+                              _tag,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 12,
+                          children: [
+                            if (_tagLoading)
+                              const LinearProgressIndicator(minHeight: 2),
+                            _MaintenanceFacts(
+                              minWidth: 260,
+                              values: {
+                                l.maintenanceImageTag: _tag,
+                                l.maintenanceImageDigests: value(
+                                  _tagData?['digest'],
+                                ),
+                                l.maintenanceImageLastPushed: timestamp(
+                                  _tagData?['tag_last_pushed'] ??
+                                      _tagData?['last_updated'],
+                                ),
+                                l.maintenanceImageSize: size(
+                                  _tagData?['full_size'],
+                                ),
+                              },
+                            ),
+                            if (_tagError.isNotEmpty) ...[
+                              _MaintenanceNotice(
+                                message:
+                                    '${l.maintenanceImageTagDetailsUnavailable}\n$_tagError',
+                                error: true,
+                              ),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: FilledButton.tonal(
+                                  onPressed: _tagLoading ? null : _loadTag,
+                                  child: Text(l.maintenanceImageTagRetry),
+                                ),
+                              ),
+                            ],
+                            if (platforms.isNotEmpty)
+                              _MaintenanceTable(
+                                headers: [
+                                  l.maintenanceOs,
+                                  l.maintenanceArchitecture,
+                                  l.maintenanceImageVariant,
+                                  l.maintenanceImageSize,
+                                  l.maintenanceImageDigests,
+                                  l.maintenanceImageLastPushed,
+                                ],
+                                maxBodyHeight: 280,
+                                rows: [
+                                  for (var i = 0; i < platforms.length; i++)
+                                    OpenHandOperationalRankRow(
+                                      value: 0,
+                                      rowKey: i,
+                                      cells: [
+                                        value(platforms[i]['os']),
+                                        value(platforms[i]['architecture']),
+                                        value(platforms[i]['variant']),
+                                        size(platforms[i]['size']),
+                                        value(platforms[i]['digest']),
+                                        timestamp(platforms[i]['last_pushed']),
+                                      ],
+                                    ),
+                                ],
+                              )
+                            else if (_tagData != null)
+                              _MaintenanceEmptyHint(
+                                message: maintenanceLabel(context, '暂无可用数据'),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (_repository != null)
+                        _MaintenanceCard(
+                          title: l.maintenanceImageFullDescription,
+                          icon: Icons.article_outlined,
+                          scrollBody: false,
+                          child: description.isEmpty
+                              ? _MaintenanceEmptyHint(
+                                  message: maintenanceLabel(context, '暂无可用数据'),
+                                )
+                              : MarkdownBody(
+                                  data: description,
+                                  selectable: true,
+                                  styleSheet:
+                                      MarkdownStyleSheet.fromTheme(
+                                        theme,
+                                      ).copyWith(
+                                        p: theme.textTheme.bodyMedium?.copyWith(
+                                          height: 1.6,
+                                        ),
+                                        codeblockDecoration: BoxDecoration(
+                                          color: cs.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                  onTapLink: (_, href, _) {
+                                    final uri = Uri.tryParse(href ?? '');
+                                    if (uri != null &&
+                                        (uri.scheme == 'https' ||
+                                            uri.scheme == 'http') &&
+                                        uri.host.isNotEmpty) {
+                                      unawaited(
+                                        _openMessageLinkUri(context, uri),
+                                      );
+                                    }
+                                  },
+                                  imageBuilder: (uri, title, alt) =>
+                                      FutureBuilder<Uint8List>(
+                                        future: _registry.icon(uri.toString()),
+                                        builder: (_, snapshot) =>
+                                            snapshot.hasData
+                                            ? Image.memory(
+                                                snapshot.data!,
+                                                height: 160,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (_, _, _) =>
+                                                    Text(alt ?? title ?? ''),
+                                              )
+                                            : Text(alt ?? title ?? ''),
+                                      ),
+                                ),
+                        ),
+                      if (_repository != null || _tagData != null)
+                        _MaintenanceSection(
+                          title: l.maintenanceTelemetryFullMetadata,
+                          icon: Icons.data_object_rounded,
+                          child: _MaintenanceReadout(
+                            text: jsonEncode({
+                              'repository': _repository,
+                              'tag': _tagData,
+                            }),
+                            section: 'container_image',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              _buildContainerResourceActions(
+                context: context,
+                actions: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () =>
+                        Navigator.pop(context, _ContainerResourceAction.pull),
+                    label: l.maintenanceImagePullOnly,
+                  ),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _ContainerResourceAction.createContainer,
+                    ),
+                    label: l.maintenanceContainerCreate,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

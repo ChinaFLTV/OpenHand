@@ -118,6 +118,8 @@ class Fixture {
         } else {response.statusCode=404;}
       } else if(path=='/layer') {response.add(layer);}
       else if(path.endsWith('/tags')) {response.write('{"results":[{"name":"stable"}],"next":null}');}
+      else if(path.endsWith('/tags/stable')) {response.write('{"name":"stable","images":[{"os":"linux","architecture":"arm64"}]}');}
+      else if(path.endsWith('/repositories/nginx')) {response.write('{"name":"nginx","full_description":"说明"}');}
       else if(path=='/icon') {response.headers.contentType=ContentType('image','png');response.add([137,80,78,71]);}
       else {response.write('{"results":[{"repo_name":"nginx","star_count":42,"pull_count":1234,"is_official":true}]}');}
       try {await response.close();}catch(_) {}
@@ -173,11 +175,13 @@ void main() {
   setUp(()async{fixture=Fixture();await fixture.start();});
   tearDown(()async{await fixture.close();});
 
-  test('搜索、标签、图标经过带鉴权的全局代理，例外和无代理立即生效',()async {
+  test('搜索、详情、标签、图标经过带鉴权的全局代理，例外和无代理立即生效',()async {
     final registry=MachineImageRegistry(clientFactory:routedClient);
     try {
       expect((await registry.searchMetadata('nginx'))['library/nginx']!.pulls,1234);
       expect((await registry.tags('library/nginx')).tags,['stable']);
+      expect((await registry.repositoryDetails('library/nginx'))['full_description'],'说明');
+      expect((await registry.tagDetails('library/nginx','stable'))['images'],isNotEmpty);
       expect(await registry.icon('https://registry.test:${fixture.origin.port}/icon'),[137,80,78,71]);
       expect(fixture.tunnels,isNotEmpty);
       resolver.applyConfig(AppProxySettings.defaults().copyWith(mode:AppProxyMode.manual,host:'127.0.0.1',port:fixture.proxy.port,exceptions:['*.test']));

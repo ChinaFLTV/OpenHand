@@ -16131,4 +16131,37 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get codeEditorImportFailed =>
       'Impossible de lire le fichier de code. Vérifiez son accessibilité.';
+
+  @override
+  String get maintenanceImageRepositoryDetails => 'Aperçu du dépôt';
+
+  @override
+  String get maintenanceImageNamespace => 'Espace de noms';
+
+  @override
+  String get maintenanceImageLastUpdated => 'Dernière mise à jour';
+
+  @override
+  String get maintenanceImageTagDetails => 'Tag et plateformes';
+
+  @override
+  String get maintenanceImageLastPushed => 'Dernière publication';
+
+  @override
+  String get maintenanceImageVariant => 'Variante d’architecture';
+
+  @override
+  String get maintenanceImageFullDescription => 'Description complète';
+
+  @override
+  String get maintenanceImageRepositoryUnsupported =>
+      'Les détails publics ne sont pas disponibles pour ce registre. Vous pouvez toujours choisir un tag et télécharger l’image.';
+
+  @override
+  String get maintenanceImageRepositoryUnavailable =>
+      'Les détails du dépôt sont temporairement indisponibles. Les informations de recherche sont conservées ; veuillez réessayer.';
+
+  @override
+  String get maintenanceImageTagDetailsUnavailable =>
+      'Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag.';
 }

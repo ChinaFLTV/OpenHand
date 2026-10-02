@@ -342,6 +342,29 @@ Future<void> checkRegistry() async {
           'next': 'https://untrusted.example/path',
         };
       }
+      if (uri.path.endsWith('/tags/stable')) {
+        return {
+          'name': 'stable',
+          'digest': 'sha256:tag',
+          'images': [
+            {
+              'architecture': 'arm64',
+              'os': 'linux',
+              'variant': 'v8',
+              'size': 2048,
+              'digest': 'sha256:platform',
+            },
+          ],
+        };
+      }
+      if (uri.path.endsWith('/repositories/nginx')) {
+        return {
+          'name': 'nginx',
+          'namespace': 'library',
+          'full_description': '# Nginx\n完整说明',
+          'pull_count': 13413760258,
+        };
+      }
       if (uri.path.contains('/catalog/')) {
         return {
           'results': [
@@ -411,6 +434,45 @@ Future<void> checkRegistry() async {
     }
   }
   check(requests.length == count, '无效仓库触发了网络请求');
+  final repository = await registry.repositoryDetails('library/nginx');
+  final tagDetails = await registry.tagDetails('library/nginx', 'stable');
+  check(
+    repository['full_description'] == '# Nginx\n完整说明' &&
+        repository['pull_count'] == 13413760258,
+    '仓库完整说明或统计丢失',
+  );
+  check(
+    (tagDetails['images'] as List).single['variant'] == 'v8' &&
+        tagDetails['digest'] == 'sha256:tag',
+    '标签摘要或平台详情丢失',
+  );
+  final beforeDetails = requests.length;
+  for (final repository in ['nginx', '../nginx', 'quay.io/user/app']) {
+    try {
+      await registry.repositoryDetails(repository);
+      throw StateError('无效详情仓库未被拒绝');
+    } on FormatException {
+      check(requests.length == beforeDetails, '无效详情仓库触发了网络请求');
+    }
+  }
+  for (final tag in ['v1/../../other', '-bad', 'a' * 129]) {
+    try {
+      await registry.tagDetails('library/nginx', tag);
+      throw StateError('无效详情标签未被拒绝');
+    } on FormatException {
+      check(requests.length == beforeDetails, '无效详情标签触发了网络请求');
+    }
+  }
+  final malformed = MachineImageRegistry(
+    clientFactory: HttpClient.new,
+    read: (_) async => {'name': 'other'},
+  );
+  try {
+    await malformed.tagDetails('library/nginx', 'stable');
+    throw StateError('无效标签详情被接受');
+  } on FormatException {
+    malformed.dispose();
+  }
   registry.dispose();
   try {
     await registry.searchMetadata('nginx');
@@ -423,10 +485,14 @@ Future<void> checkRegistry() async {
     try {
       final metadata = await live.searchMetadata('nginx');
       final tags = await live.tags('library/nginx', filter: 'stable');
+      final repository = await live.repositoryDetails('library/nginx');
+      final tag = await live.tagDetails('library/nginx', tags.tags.first);
       check(
         metadata['library/nginx']?.official == true &&
             (metadata['library/nginx']?.pulls ?? 0) > 0 &&
-            tags.tags.isNotEmpty,
+            tags.tags.isNotEmpty &&
+            repository['full_description'] is String &&
+            tag['images'] is List,
         'Docker Hub 只读接口验证失败',
       );
       stdout.writeln('Docker Hub 官方标识、精确下载数与标签只读验证通过。');

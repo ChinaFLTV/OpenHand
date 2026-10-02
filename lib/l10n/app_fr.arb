@@ -9825,5 +9825,15 @@
   },
   "codeEditorImportTooLarge": "Les fichiers de code ne doivent pas dépasser 512 Kio.",
   "codeEditorImportInvalid": "Le fichier de code n’est pas un texte UTF-8 valide.",
-  "codeEditorImportFailed": "Impossible de lire le fichier de code. Vérifiez son accessibilité."
+  "codeEditorImportFailed": "Impossible de lire le fichier de code. Vérifiez son accessibilité.",
+  "maintenanceImageRepositoryDetails": "Aperçu du dépôt",
+  "maintenanceImageNamespace": "Espace de noms",
+  "maintenanceImageLastUpdated": "Dernière mise à jour",
+  "maintenanceImageTagDetails": "Tag et plateformes",
+  "maintenanceImageLastPushed": "Dernière publication",
+  "maintenanceImageVariant": "Variante d’architecture",
+  "maintenanceImageFullDescription": "Description complète",
+  "maintenanceImageRepositoryUnsupported": "Les détails publics ne sont pas disponibles pour ce registre. Vous pouvez toujours choisir un tag et télécharger l’image.",
+  "maintenanceImageRepositoryUnavailable": "Les détails du dépôt sont temporairement indisponibles. Les informations de recherche sont conservées ; veuillez réessayer.",
+  "maintenanceImageTagDetailsUnavailable": "Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag."
 }

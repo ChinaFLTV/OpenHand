@@ -28756,6 +28756,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'读取代码文件失败，请检查文件是否可访问。'**
   String get codeEditorImportFailed;
+
+  /// No description provided for @maintenanceImageRepositoryDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库概览'**
+  String get maintenanceImageRepositoryDetails;
+
+  /// No description provided for @maintenanceImageNamespace.
+  ///
+  /// In zh, this message translates to:
+  /// **'命名空间'**
+  String get maintenanceImageNamespace;
+
+  /// No description provided for @maintenanceImageLastUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近更新'**
+  String get maintenanceImageLastUpdated;
+
+  /// No description provided for @maintenanceImageTagDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签与平台'**
+  String get maintenanceImageTagDetails;
+
+  /// No description provided for @maintenanceImageLastPushed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近推送'**
+  String get maintenanceImageLastPushed;
+
+  /// No description provided for @maintenanceImageVariant.
+  ///
+  /// In zh, this message translates to:
+  /// **'架构变体'**
+  String get maintenanceImageVariant;
+
+  /// No description provided for @maintenanceImageFullDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整说明'**
+  String get maintenanceImageFullDescription;
+
+  /// No description provided for @maintenanceImageRepositoryUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前仓库不支持公开详情查询，仍可选择标签并拉取镜像。'**
+  String get maintenanceImageRepositoryUnsupported;
+
+  /// No description provided for @maintenanceImageRepositoryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法读取仓库详情。已保留搜索信息，请重试。'**
+  String get maintenanceImageRepositoryUnavailable;
+
+  /// No description provided for @maintenanceImageTagDetailsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法读取此标签的详情，可重试或选择其他标签。'**
+  String get maintenanceImageTagDetailsUnavailable;
 }
 
 class _AppLocalizationsDelegate
