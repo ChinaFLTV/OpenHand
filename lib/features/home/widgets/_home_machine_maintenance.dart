@@ -5623,6 +5623,15 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
         final textMax = constraints.maxWidth.isFinite
             ? math.max(0.0, constraints.maxWidth - _chromeWidth - leading)
             : double.infinity;
+        final caption = Text(
+          maintenanceLabel(context, label),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+          ),
+        );
         return PopupMenuTheme(
           data: PopupMenuTheme.of(context).copyWith(
             color: cs.surfaceContainerLowest,
@@ -5705,18 +5714,13 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
                       Icon(icon, size: 16, color: cs.onSurfaceVariant),
                       const SizedBox(width: 6),
                     ],
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: textMax),
-                      child: Text(
-                        maintenanceLabel(context, label),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: enabled ? cs.onSurface : cs.onSurfaceVariant,
-                        ),
+                    if (constraints.hasTightWidth)
+                      Expanded(child: caption)
+                    else
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: textMax),
+                        child: caption,
                       ),
-                    ),
                     const SizedBox(width: 6),
                     Icon(
                       Icons.expand_more_rounded,

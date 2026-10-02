@@ -4930,6 +4930,8 @@ void scheduledTaskChecks() {
           final field = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == l.maintenanceTaskSearch);
           final menu = find.byType(_MaintenanceToolbarMenu<String>);
           expect(tester.getSize(field).height, closeTo(tester.getSize(menu).height,.1));
+          final arrow=find.descendant(of:menu,matching:find.byIcon(Icons.expand_more_rounded));
+          expect(tester.getRect(menu).right-tester.getRect(arrow).right,closeTo(11,1));
           final add = find.widgetWithText(FilledButton,l.maintenanceTaskAdd);
           final style = tester.widget<FilledButton>(add).style!;
           expect(style.backgroundColor!.resolve({}), theme.colorScheme.surface.withValues(alpha:.72));
