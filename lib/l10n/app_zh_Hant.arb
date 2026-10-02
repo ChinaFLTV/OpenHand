@@ -1,4 +1,7 @@
 {
+  "maintenanceProcessId": "程序 ID",
+  "maintenanceEgressAddress": "出口位址",
+  "maintenanceEgressCopyAddress": "複製出口位址",
   "maintenanceEgressSource": "資料來源",
   "maintenanceEgressExtraField": "擴充欄位",
   "maintenanceEgressTitle": "網際網路出口",

@@ -1,4 +1,7 @@
 {
+  "maintenanceProcessId": "Process ID",
+  "maintenanceEgressAddress": "Public address",
+  "maintenanceEgressCopyAddress": "Copy public address",
   "maintenanceEgressSource": "Data source",
   "maintenanceEgressExtraField": "Additional field",
   "maintenanceEgressTitle": "Internet egress",

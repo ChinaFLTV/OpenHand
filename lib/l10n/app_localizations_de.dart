@@ -9,6 +9,15 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get maintenanceProcessId => 'Prozess-ID';
+
+  @override
+  String get maintenanceEgressAddress => 'Öffentliche Adresse';
+
+  @override
+  String get maintenanceEgressCopyAddress => 'Öffentliche Adresse kopieren';
+
+  @override
   String get maintenanceEgressSource => 'Datenquelle';
 
   @override

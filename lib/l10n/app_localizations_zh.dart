@@ -9,6 +9,15 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get maintenanceProcessId => '进程 ID';
+
+  @override
+  String get maintenanceEgressAddress => '出口地址';
+
+  @override
+  String get maintenanceEgressCopyAddress => '复制出口地址';
+
+  @override
   String get maintenanceEgressSource => '数据来源';
 
   @override
@@ -15909,6 +15918,15 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get maintenanceProcessId => '程序 ID';
+
+  @override
+  String get maintenanceEgressAddress => '出口位址';
+
+  @override
+  String get maintenanceEgressCopyAddress => '複製出口位址';
 
   @override
   String get maintenanceEgressSource => '資料來源';

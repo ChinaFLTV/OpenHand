@@ -1463,8 +1463,11 @@ void main() {
           expect(find.text(label), findsOneWidget);
         }
         expect(find.byTooltip(l.maintenanceEgressCountry), findsOneWidget);
-        expect(find.textContaining(l.maintenanceEgressSource + ' · ' + report.source), findsOneWidget);
-        final copy = find.byTooltip(l.commonCopy + ' IP');
+        expect(find.text(l.maintenanceEgressSource), findsOneWidget);
+        expect(find.text(report.source), findsOneWidget);
+        expect(find.text(l.maintenanceEgressAddress), findsOneWidget);
+        expect(find.text(l.maintenanceTelemetrySampleTime), findsOneWidget);
+        final copy = find.byTooltip(l.maintenanceEgressCopyAddress);
         final refresh = find.byTooltip(l.maintenanceEgressRefresh);
         expect(tester.getSize(copy), tester.getSize(refresh));
         expect(tester.getRect(refresh).left - tester.getRect(copy).right, greaterThanOrEqualTo(8));
@@ -4251,6 +4254,15 @@ void main() {
       expect(size.height, 32);
     }
     expect(tester.getTopLeft(find.text('后台工作进程')).dx, greaterThan(tester.getTopLeft(find.text('应用进程')).dx));
+    expect(find.text('launchd'), findsOneWidget);
+    final treeContext = tester.element(find.byType(_MaintenanceBrowser));
+    expect(find.text(AppLocalizations.of(treeContext)!.maintenanceProcessId), findsOneWidget);
+    for (final column in [0, 2, 3, 4]) {
+      final rects = [for (final id in ['1', '2', '3']) tester.getRect(find.byKey(ValueKey(('tree-metric', id, column))))];
+      expect(rects.map((rect) => rect.left).toSet().length, 1);
+      expect(rects.map((rect) => rect.width).toSet().length, 1);
+      expect(rects.first.height, greaterThanOrEqualTo(_maintenanceBadgeHeight));
+    }
     final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('树预览')));
     await tester.runAsync(() async {
       final image = await boundary.toImage();
@@ -4264,18 +4276,19 @@ void main() {
   });
 
   testWidgets('服务视图切换位于标题行右端，六种语言窄屏可用且保留展开状态', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(900, 700));
+    await tester.binding.setSurfaceSize(const Size(1440, 760));
     for (final locale in [const Locale('zh'), const Locale('zh', 'Hant'), const Locale('en'), const Locale('de'), const Locale('fr'), const Locale('ja')]) {
-      await tester.binding.setSurfaceSize(const Size(900, 700));
+      await tester.binding.setSurfaceSize(const Size(1440, 760));
       await tester.pumpWidget(MaterialApp(
         locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体'),
-        home: Scaffold(body: _MaintenanceBrowser(title: '服务列表', query: '', parents: const {}, groupNames: true,
-          table: _MaintenanceTable(headers: const ['名称', '状态', 'PID'], rows: [
-            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.test', 'running', '123']),
-            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.worker', 'stopped', '—']),
-          ])))));
+        builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(MediaQuery.sizeOf(context).width < 400 ? 1.4 : 1)), child: child!),
+        home: Scaffold(body: RepaintBoundary(key: const ValueKey('服务树预览'), child: _MaintenanceBrowser(title: '服务列表', query: '', parents: const {}, groupNames: true,
+          table: _MaintenanceTable(headers: const ['名称', '状态', 'PID', '退出代码', '用户', 'CPU / 单核', '驻留内存'], rows: [
+            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.SafariHistoryServiceAgent', 'running', '123', '0', 'liguanda', '2.5%', '41.9 MB']),
+            OpenHandOperationalRankRow(value: 0, cells: ['com.apple.worker', 'stopped', '—', '-9', '—', '—', '—']),
+          ]))))));
       await tester.pumpAndSettle();
       final context = tester.element(find.byType(_MaintenanceBrowser));
       final l10n = AppLocalizations.of(context)!;
@@ -4292,16 +4305,53 @@ void main() {
       await tester.tap(find.text(l10n.maintenanceNameTree));
       await tester.pumpAndSettle();
       expect(find.text('com.apple'), findsOneWidget);
-      expect(find.text('com.apple.test'), findsOneWidget);
+      expect(find.text('com.apple.SafariHistoryServiceAgent'), findsOneWidget);
+      for (final column in [1, 2, 3, 4, 5, 6]) {
+        final first = tester.getRect(find.byKey(ValueKey(('tree-metric', 'com.apple.SafariHistoryServiceAgent', column))));
+        final second = tester.getRect(find.byKey(ValueKey(('tree-metric', 'com.apple.worker', column))));
+        expect(first.left, closeTo(second.left, .01));
+        expect(first.width, closeTo(second.width, .01));
+      }
+      if (locale == const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+        await tester.runAsync(() async {
+          final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('服务树预览'))).toImage(pixelRatio: 1.5);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/openhand-service-tree-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
       await tester.tap(find.byTooltip(l10n.maintenanceTreeCollapse));
       await tester.pumpAndSettle();
-      expect(find.text('com.apple.test'), findsNothing);
+      expect(find.text('com.apple.SafariHistoryServiceAgent'), findsNothing);
       await tester.binding.setSurfaceSize(const Size(380, 700));
       await tester.pumpAndSettle();
       expect(tester.getRect(modes).right, closeTo(tester.getRect(card).right - 11, .01));
       expect(tester.getRect(modes).overlaps(tester.getRect(title)), isFalse);
       expect(tester.widget<SegmentedButton<bool>>(modes).selected, {true});
-      expect(find.text('com.apple.test'), findsNothing);
+      expect(find.text('com.apple.SafariHistoryServiceAgent'), findsNothing);
+      await tester.tap(find.byTooltip(l10n.maintenanceTreeExpand));
+      await tester.pumpAndSettle();
+      expect(find.text('com.apple.SafariHistoryServiceAgent'), findsOneWidget);
+      expect(find.text(l10n.maintenanceProcessId), findsWidgets);
+      expect(find.text(l10n.maintenanceRunning), findsOneWidget);
+      expect(find.text('PID'), findsNothing);
+      for (final status in tester.widgetList<_MaintenanceStatus>(find.byType(_MaintenanceStatus))) {
+        expect(status.color, status.label == l10n.maintenanceRunning ? OpenHandStatusColors.success : Theme.of(context).colorScheme.onSurfaceVariant);
+      }
+      if (locale == const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
+        await tester.runAsync(() async {
+          final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('服务树预览'))).toImage(pixelRatio: 1.5);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('/tmp/openhand-service-tree-narrow-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+      await tester.scrollUntilVisible(find.text('com.apple.worker'), 120,
+        scrollable: find.descendant(of: find.byType(_MaintenanceBrowser), matching: find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.maintenanceStopped), findsOneWidget);
+      expect(find.text(l10n.maintenanceProcessId), findsWidgets);
+      expect(find.text('PID'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }

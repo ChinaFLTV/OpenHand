@@ -1298,9 +1298,6 @@ class _ContainerRegistryDetailsDialogState
       child: FilledButton.tonal(
         onPressed: _tagLoading || _selecting ? null : _selectTag,
         style: _maintenanceActionButtonStyle(context).copyWith(
-          minimumSize: WidgetStatePropertyAll(
-            Size(0, _maintenanceFormControlHeightOf(context)),
-          ),
           backgroundColor: WidgetStatePropertyAll(cs.surfaceContainerLowest),
         ),
         child: Row(
@@ -1367,24 +1364,27 @@ class _ContainerRegistryDetailsDialogState
               wrapHeader: true,
               headerOverflowAlignment: OverflowBarAlignment.start,
               scrollBody: false,
+              contentPadding:
+                  summary.isNotEmpty ||
+                      _defaultTagChanged ||
+                      image.hubRepository == null
+                  ? const EdgeInsets.all(12)
+                  : EdgeInsets.zero,
+              titleBadge: _MaintenanceStatus(
+                label:
+                    '${l.maintenanceImageOfficial} · ${image.official == null
+                        ? l.maintenanceUnknown
+                        : image.official!
+                        ? l.maintenanceHealthParsedYes
+                        : l.maintenanceHealthParsedNo}',
+                color: image.official == true
+                    ? cs.primary
+                    : cs.onSurfaceVariant,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 8,
                 children: [
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: _MaintenanceStatus(
-                      label:
-                          '${l.maintenanceImageOfficial} · ${image.official == null
-                              ? l.maintenanceUnknown
-                              : image.official!
-                              ? l.maintenanceHealthParsedYes
-                              : l.maintenanceHealthParsedNo}',
-                      color: image.official == true
-                          ? cs.primary
-                          : cs.onSurfaceVariant,
-                    ),
-                  ),
                   if (summary.isNotEmpty)
                     SelectableText(
                       summary,
@@ -1396,10 +1396,12 @@ class _ContainerRegistryDetailsDialogState
                   if (_defaultTagChanged)
                     _MaintenanceNotice(
                       message: l.maintenanceImageDefaultTagChanged(_tag),
+                      compact: true,
                     ),
                   if (image.hubRepository == null)
                     _MaintenanceNotice(
                       message: l.maintenanceImageRepositoryUnsupported,
+                      compact: true,
                     ),
                 ],
               ),

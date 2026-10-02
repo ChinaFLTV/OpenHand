@@ -1,4 +1,7 @@
 {
+  "maintenanceProcessId": "进程 ID",
+  "maintenanceEgressAddress": "出口地址",
+  "maintenanceEgressCopyAddress": "复制出口地址",
   "maintenanceEgressSource": "数据来源",
   "maintenanceEgressExtraField": "扩展字段",
   "maintenanceEgressTitle": "互联网出口",

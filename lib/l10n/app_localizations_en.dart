@@ -9,6 +9,15 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get maintenanceProcessId => 'Process ID';
+
+  @override
+  String get maintenanceEgressAddress => 'Public address';
+
+  @override
+  String get maintenanceEgressCopyAddress => 'Copy public address';
+
+  @override
   String get maintenanceEgressSource => 'Data source';
 
   @override

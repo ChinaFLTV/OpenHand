@@ -105,6 +105,24 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// No description provided for @maintenanceProcessId.
+  ///
+  /// In zh, this message translates to:
+  /// **'进程 ID'**
+  String get maintenanceProcessId;
+
+  /// No description provided for @maintenanceEgressAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'出口地址'**
+  String get maintenanceEgressAddress;
+
+  /// No description provided for @maintenanceEgressCopyAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制出口地址'**
+  String get maintenanceEgressCopyAddress;
+
   /// No description provided for @maintenanceEgressSource.
   ///
   /// In zh, this message translates to:

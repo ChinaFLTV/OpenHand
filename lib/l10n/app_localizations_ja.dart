@@ -9,6 +9,15 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get maintenanceProcessId => 'プロセス ID';
+
+  @override
+  String get maintenanceEgressAddress => '外部アドレス';
+
+  @override
+  String get maintenanceEgressCopyAddress => '外部アドレスをコピー';
+
+  @override
   String get maintenanceEgressSource => 'データソース';
 
   @override

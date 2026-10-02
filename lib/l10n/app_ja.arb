@@ -1,4 +1,7 @@
 {
+  "maintenanceProcessId": "プロセス ID",
+  "maintenanceEgressAddress": "外部アドレス",
+  "maintenanceEgressCopyAddress": "外部アドレスをコピー",
   "maintenanceEgressSource": "データソース",
   "maintenanceEgressExtraField": "追加フィールド",
   "maintenanceEgressTitle": "インターネット出口",

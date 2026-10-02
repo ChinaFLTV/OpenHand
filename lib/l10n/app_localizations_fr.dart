@@ -9,6 +9,15 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get maintenanceProcessId => 'ID du processus';
+
+  @override
+  String get maintenanceEgressAddress => 'Adresse publique';
+
+  @override
+  String get maintenanceEgressCopyAddress => 'Copier l’adresse publique';
+
+  @override
   String get maintenanceEgressSource => 'Source des données';
 
   @override

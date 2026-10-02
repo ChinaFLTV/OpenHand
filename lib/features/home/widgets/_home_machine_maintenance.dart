@@ -6,6 +6,7 @@ const _maintenanceSearchWidth = 280.0;
 const _maintenanceCpuTimeColumnMinWidth = 220.0;
 const _maintenanceTimestampColumnMinWidth = 200.0;
 const _maintenanceGridGap = 12.0;
+const _maintenanceBadgeHeight = 28.0;
 const _maintenanceFieldMinWidth = 240.0;
 const _maintenanceFieldHeight = 104.0;
 const _maintenanceFieldMaxColumns = 4;
@@ -107,11 +108,37 @@ Color _maintenanceUsageColor(ColorScheme cs, double? ratio) {
   return OpenHandStatusColors.success;
 }
 
-Color _maintenanceStateColor(ColorScheme cs, String label) {
-  return switch (label) {
+Color _maintenanceStateColor(
+  ColorScheme cs,
+  String label, {
+  BuildContext? context,
+}) {
+  if (context != null) {
+    for (final state in const [
+      '运行中',
+      '运行',
+      '休眠',
+      '空闲',
+      '未运行',
+      '异常',
+      '僵尸',
+      '暂停',
+      'IO 等待',
+    ]) {
+      if (label == maintenanceLabel(context, state)) {
+        label = state;
+        break;
+      }
+    }
+  }
+  return switch (label.toLowerCase()) {
+    'running' || 'active' => OpenHandStatusColors.success,
+    'stopped' || 'exited' || 'sleeping' || 'idle' => cs.onSurfaceVariant,
+    'failed' || 'zombie' => OpenHandStatusColors.error,
+    'paused' => OpenHandStatusColors.warning,
     '运行中' || '运行' || '采集成功' || '健康' || '已连接' => OpenHandStatusColors.success,
     '异常' || '僵尸' || '数据可能过期' => OpenHandStatusColors.error,
-    '待检查' || '暂停' || 'IO 等待' || '部分不可用 · 查看原因' => OpenHandStatusColors.warning,
+    '待检查' || '暂停' || 'io 等待' || '部分不可用 · 查看原因' => OpenHandStatusColors.warning,
     '未运行' || '休眠' || '空闲' || '暂无阈值提醒' => cs.onSurfaceVariant,
     _ => OpenHandStatusColors.info,
   };
@@ -3598,7 +3625,7 @@ class _MaintenanceEgressCard extends StatelessWidget {
           if (data != null) ...[
             _MachineTerminalIconButton(
               icon: Icons.copy_rounded,
-              tooltip: '${l10n.commonCopy} IP',
+              tooltip: l10n.maintenanceEgressCopyAddress,
               onPressed: () => copyOpenHandTextToClipboard(
                 context: context,
                 text: data.ip,
@@ -3650,105 +3677,95 @@ class _MaintenanceEgressCard extends StatelessWidget {
           if (data == null && !busy && error == null)
             _MaintenanceEmptyHint(message: l10n.maintenanceEgressPending),
           if (data != null) ...[
-            Container(
+            _MaintenanceGrid(
               key: const ValueKey('egress-summary'),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  cs.primary.withValues(alpha: .08),
-                  cs.surfaceContainerLowest,
-                ),
-                borderRadius: BorderRadius.circular(_maintenanceCardRadius),
-                border: Border.all(color: cs.primary.withValues(alpha: .18)),
-              ),
-              child: LayoutBuilder(
-                builder: (context, bounds) {
-                  final address = Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _MaintenanceValue(
-                        value: data.ip,
-                        selectable: true,
-                        maxLines: null,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface,
-                        ),
+              minWidth: 240,
+              children: [
+                for (final item in [
+                  (
+                    l10n.maintenanceEgressAddress,
+                    data.ip,
+                    Icons.public_rounded,
+                    cs.primary,
+                  ),
+                  (
+                    l10n.maintenanceEgressSource,
+                    data.source,
+                    Icons.dns_outlined,
+                    cs.secondary,
+                  ),
+                  (
+                    l10n.maintenanceTelemetrySampleTime,
+                    '${MaterialLocalizations.of(context).formatCompactDate(data.collectedAt)} ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(data.collectedAt))}',
+                    Icons.schedule_rounded,
+                    cs.tertiary,
+                  ),
+                ])
+                  Container(
+                    key: ValueKey(('egress-summary', item.$3)),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color.alphaBlend(
+                        item.$4.withValues(alpha: .06),
+                        cs.surfaceContainerLowest,
                       ),
-                      _MaintenanceStatus(
-                        label: data.version,
-                        color: cs.primary,
+                      borderRadius: BorderRadius.circular(
+                        _maintenanceCardRadius,
                       ),
-                    ],
-                  );
-                  final source = Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 6,
-                    children: [
-                      for (final item in [
-                        (
-                          Icons.dns_outlined,
-                          '${l10n.maintenanceEgressSource} · ${data.source}',
-                        ),
-                        (
-                          Icons.schedule_rounded,
-                          l10n.maintenanceUpdated(
-                            MaterialLocalizations.of(context).formatTimeOfDay(
-                              TimeOfDay.fromDateTime(data.collectedAt),
-                            ),
-                          ),
-                        ),
-                      ])
+                      border: Border.all(color: item.$4.withValues(alpha: .18)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 10,
+                      children: [
                         Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (busy && item.$1 == Icons.schedule_rounded)
+                            _MaintenanceIconBadge(
+                              icon: item.$3,
+                              color: item.$4,
+                              size: 28,
+                              iconSize: 15,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                item.$1,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (item.$3 == Icons.public_rounded)
+                              _MaintenanceStatus(
+                                label: data.version,
+                                color: item.$4,
+                              ),
+                            if (busy && item.$3 == Icons.schedule_rounded)
                               const SizedBox.square(
                                 dimension: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
-                              )
-                            else
-                              Icon(
-                                item.$1,
-                                size: 14,
-                                color: cs.onSurfaceVariant,
                               ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: _MaintenanceValue(
-                                value: item.$2,
-                                maxLines: null,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
-                    ],
-                  );
-                  if (bounds.maxWidth <
-                      MediaQuery.textScalerOf(context).scale(640)) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [address, const SizedBox(height: 12), source],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: address),
-                      const SizedBox(width: 20),
-                      Flexible(child: source),
-                    ],
-                  );
-                },
-              ),
+                        _MaintenanceValue(
+                          value: item.$2,
+                          selectable: true,
+                          maxLines: null,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: item.$3 == Icons.public_rounded ? 22 : 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
             if (data.groups.containsKey('地理位置') ||
                 data.groups.containsKey('网络归属'))
@@ -4548,250 +4565,461 @@ class _MaintenanceBrowserState extends State<_MaintenanceBrowser> {
       onRowTap: widget.table.onRowTap,
       rowActions: widget.table.rowActions,
     );
+    final metricHeaders = widget.nameColumn == 1
+        ? const ['PID', '状态', 'CPU / 单核', 'CPU', '驻留内存', '内存', '父进程 ID']
+        : const ['状态', 'PID', '退出代码', '用户', 'CPU / 单核', '驻留内存', '内存'];
+    final metricColumns = [
+      for (final header in metricHeaders)
+        if (widget.table.headers.indexOf(header) case final int i when i >= 0)
+          i,
+    ].take(6).toList();
+    final scaler = MediaQuery.textScalerOf(context);
+    final scale = scaler.scale(12) / 12;
+    final menuWidth = widget.table.onRowTap == null ? 0.0 : 40.0;
     final tree = ConstrainedBox(
       key: const ValueKey(true),
       constraints: BoxConstraints(maxHeight: widget.table.maxBodyHeight),
-      child: entries.isEmpty
-          ? Padding(
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          final metricWidths = <int, double>{};
+          for (final i in metricColumns) {
+            final header = widget.table.headers[i];
+            final painter = TextPainter(
+              text: TextSpan(
+                text: maintenanceLabel(context, header),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              textDirection: Directionality.of(context),
+              textScaler: scaler,
+              maxLines: 1,
+            )..layout();
+            metricWidths[i] = math
+                .max(
+                  header == 'PID' ? 78 * scale : 108 * scale,
+                  painter.width + 12,
+                )
+                .clamp(0, 180 * scale);
+            painter.dispose();
+          }
+          final metricsWidth = metricWidths.values.fold<double>(
+            0,
+            (sum, width) => sum + width + 12,
+          );
+          final aligned =
+              bounds.maxWidth >= metricsWidth + menuWidth + 320 * scale;
+          final nameWidth =
+              bounds.maxWidth - 24 - menuWidth - (aligned ? metricsWidth : 0);
+          Widget metricCell(
+            OpenHandOperationalRankRow row,
+            int i, {
+            bool compact = false,
+          }) {
+            final header = widget.table.headers[i];
+            final raw = i < row.cells.length ? row.cells[i] : '—';
+            final color = switch (header) {
+              'CPU / 单核' || 'CPU' => cs.primary,
+              '驻留内存' || '内存' => cs.secondary,
+              _ => cs.onSurface,
+            };
+            final value = header == '状态'
+                ? _MaintenanceStatus(
+                    label: maintenanceDetailValue(context, raw, field: '状态'),
+                    color: _maintenanceStateColor(cs, raw, context: context),
+                  )
+                : Tooltip(
+                    message: raw,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: _maintenanceBadgeHeight,
+                      ),
+                      child: _MaintenanceValue(
+                        value: raw,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  );
+            return compact
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        maintenanceLabel(context, header),
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.2,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      value,
+                    ],
+                  )
+                : value;
+          }
+
+          if (entries.isEmpty) {
+            return Padding(
               padding: const EdgeInsets.all(18),
               child: _MaintenanceEmptyHint(
                 message: maintenanceLabel(context, '暂无可用数据'),
               ),
-            )
-          : ListView.builder(
-              primary: false,
-              shrinkWrap: true,
-              itemCount: entries.length,
-              findChildIndexCallback: (key) =>
-                  key is ValueKey<String> ? entryIndexes[key.value] : null,
-              itemBuilder: (context, index) {
-                final (id, depth) = entries[index];
-                final row = rows[id];
-                final branches = children[id] ?? const <String>[];
-                final collapsed = query.isEmpty && _collapsed.contains(id);
-                return TweenAnimationBuilder<double>(
-                  key: ValueKey(id),
-                  tween: Tween(begin: 0, end: 1),
-                  duration: motion.entranceDuration,
-                  builder: (_, value, child) =>
-                      Opacity(opacity: value.clamp(0, 1), child: child),
-                  child: CustomPaint(
-                    foregroundPainter: _MaintenanceTreeGuide(
-                      depth: math.min(depth, 8),
-                      color: cs.outlineVariant,
-                      rtl: Directionality.of(context) == TextDirection.rtl,
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: index.isEven
-                            ? cs.surface
-                            : cs.surfaceContainerLow,
-                        border: Border(
-                          bottom: BorderSide(
-                            color: cs.outlineVariant.withValues(alpha: .35),
+            );
+          }
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (aligned)
+                Container(
+                  key: const ValueKey('maintenance-tree-header'),
+                  padding: EdgeInsetsDirectional.only(
+                    start: 52,
+                    end: 12 + menuWidth,
+                    top: 10,
+                    bottom: 10,
+                  ),
+                  color: cs.surfaceContainerHigh,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          maintenanceLabel(
+                            context,
+                            widget.table.headers[widget.nameColumn],
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ),
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.only(
-                          start: 12 + math.min(depth, 8) * 20.0,
-                          end: 12,
-                          top: 6,
-                          bottom: 6,
-                        ),
-                        child: Row(
-                          spacing: 8,
-                          children: [
-                            SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: branches.isEmpty
-                                  ? Icon(
-                                      Icons.subdirectory_arrow_right_rounded,
-                                      size: 16,
-                                      color: cs.outline,
-                                    )
-                                  : IconButton(
-                                      style: IconButton.styleFrom(
-                                        minimumSize: const Size.square(32),
-                                        maximumSize: const Size.square(32),
-                                        padding: EdgeInsets.zero,
-                                        backgroundColor: Colors.transparent,
-                                        hoverColor: Colors.transparent,
-                                        highlightColor: Colors.transparent,
-                                        overlayColor: Colors.transparent,
-                                        shadowColor: Colors.transparent,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                      ),
-                                      tooltip: collapsed
-                                          ? l10n.maintenanceTreeExpand
-                                          : l10n.maintenanceTreeCollapse,
-                                      onPressed: query.isNotEmpty
-                                          ? null
-                                          : () => setState(() {
-                                              if (!_collapsed.add(id)) {
-                                                _collapsed.remove(id);
-                                              }
-                                            }),
-                                      icon: AnimatedRotation(
-                                        turns: collapsed ? 0 : .25,
-                                        duration: openHandMotionDuration(
-                                          context,
-                                          motion.duration,
-                                        ),
-                                        curve: motion.curve.curve,
-                                        child: const Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 18,
-                                        ),
-                                      ),
-                                    ),
+                      for (final i in metricColumns)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 12),
+                          child: SizedBox(
+                            width: metricWidths[i],
+                            child: Tooltip(
+                              message: maintenanceLabel(
+                                context,
+                                widget.table.headers[i],
+                              ),
+                              child: Text(
+                                maintenanceLabel(
+                                  context,
+                                  widget.table.headers[i],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
                             ),
-                            Expanded(
-                              child: InkWell(
-                                hoverColor: Colors.transparent,
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                overlayColor: _maintenanceNoOverlay,
-                                onTap: row == null
-                                    ? null
-                                    : () => widget.table.onRowTap?.call(row),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: 4,
-                                  children: [
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 6,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      children: [
-                                        _MaintenanceValue(
-                                          value: maintenanceDetailValue(
-                                            context,
-                                            row == null
-                                                ? id.substring(6)
-                                                : row.cells[widget.nameColumn],
-                                          ),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: row == null
-                                                ? cs.primary
-                                                : cs.onSurface,
-                                          ),
-                                        ),
-                                        if (row != null)
-                                          for (final i
-                                              in widget.nameColumn == 1
-                                                  ? const [0, 2, 3, 4, 6]
-                                                  : const [1, 2, 3, 4])
-                                            if (i < row.cells.length &&
-                                                i < widget.table.headers.length)
-                                              widget.table.headers[i] == '状态'
-                                                  ? _MaintenanceStatus(
-                                                      label: row.cells[i],
-                                                      color:
-                                                          _maintenanceStateColor(
-                                                            cs,
-                                                            row.cells[i],
-                                                          ),
-                                                    )
-                                                  : Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 1,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: cs
-                                                            .surfaceContainerHighest
-                                                            .withValues(
-                                                              alpha: .5,
-                                                            ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                        border: Border.all(
-                                                          color: cs
-                                                              .outlineVariant
-                                                              .withValues(
-                                                                alpha: .45,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      child: _MaintenanceValue(
-                                                        value:
-                                                            '${maintenanceLabel(context, widget.table.headers[i])} ${row.cells[i]}',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: cs
-                                                              .onSurfaceVariant,
-                                                        ),
-                                                      ),
-                                                    ),
-                                      ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              Flexible(
+                child: ListView.builder(
+                  primary: false,
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  findChildIndexCallback: (key) =>
+                      key is ValueKey<String> ? entryIndexes[key.value] : null,
+                  itemBuilder: (context, index) {
+                    final (id, depth) = entries[index];
+                    final row = rows[id];
+                    final branches = children[id] ?? const <String>[];
+                    final collapsed = query.isEmpty && _collapsed.contains(id);
+                    // 缩进仅占名称栏，指标列保持对齐；深层树在窄屏保留可读宽度。
+                    final visibleDepth = math.min(
+                      math.min(depth, 8),
+                      (math.max(0, nameWidth) * .3 / 20).floor(),
+                    );
+                    final name = row == null
+                        ? id.substring(6)
+                        : row.cells.length > widget.nameColumn
+                        ? row.cells[widget.nameColumn]
+                        : id;
+                    final heading = Row(
+                      spacing: 8,
+                      children: [
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            start: visibleDepth * 20.0,
+                          ),
+                          child: SizedBox.square(
+                            dimension: 32,
+                            child: branches.isEmpty
+                                ? Icon(
+                                    Icons.subdirectory_arrow_right_rounded,
+                                    size: 16,
+                                    color: cs.outline,
+                                  )
+                                : IconButton(
+                                    style: IconButton.styleFrom(
+                                      minimumSize: const Size.square(32),
+                                      maximumSize: const Size.square(32),
+                                      padding: EdgeInsets.zero,
+                                      backgroundColor: Colors.transparent,
+                                      hoverColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                      overlayColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
                                     ),
-                                    if (row != null &&
-                                        widget.nameColumn == 0 &&
-                                        !widget.groupNames &&
-                                        (widget.parents[id]?.isNotEmpty ??
-                                            false))
-                                      _MaintenanceValue(
-                                        value:
-                                            '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
-                                        maxLines: null,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: cs.onSurfaceVariant,
+                                    tooltip: collapsed
+                                        ? l10n.maintenanceTreeExpand
+                                        : l10n.maintenanceTreeCollapse,
+                                    onPressed: query.isNotEmpty
+                                        ? null
+                                        : () => setState(() {
+                                            if (!_collapsed.add(id)) {
+                                              _collapsed.remove(id);
+                                            }
+                                          }),
+                                    icon: AnimatedRotation(
+                                      turns: collapsed ? 0 : .25,
+                                      duration: openHandMotionDuration(
+                                        context,
+                                        motion.duration,
+                                      ),
+                                      curve: motion.curve.curve,
+                                      child: const Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Tooltip(
+                            message: name,
+                            child: _MaintenanceValue(
+                              value: name,
+                              maxLines: aligned ? 1 : 2,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700,
+                                color: row == null ? cs.primary : cs.onSurface,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (branches.isNotEmpty)
+                          Container(
+                            constraints: const BoxConstraints(
+                              minWidth: _maintenanceBadgeHeight,
+                              minHeight: _maintenanceBadgeHeight,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: .08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: cs.primary.withValues(alpha: .16),
+                              ),
+                            ),
+                            child: Text(
+                              '${branches.length}',
+                              style: TextStyle(
+                                color: cs.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                    return TweenAnimationBuilder<double>(
+                      key: ValueKey(id),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: motion.entranceDuration,
+                      builder: (_, value, child) =>
+                          Opacity(opacity: value.clamp(0, 1), child: child),
+                      child: CustomPaint(
+                        foregroundPainter: _MaintenanceTreeGuide(
+                          depth: visibleDepth,
+                          color: cs.outlineVariant.withValues(alpha: .6),
+                          rtl: Directionality.of(context) == TextDirection.rtl,
+                          branchY:
+                              8 + math.max(32, scaler.scale(13) * 1.35) / 2,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: row == null
+                                ? Color.alphaBlend(
+                                    cs.primary.withValues(alpha: .05),
+                                    cs.surfaceContainerLowest,
+                                  )
+                                : index.isEven
+                                ? cs.surfaceContainerLowest
+                                : cs.surfaceContainerLow,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: cs.outlineVariant.withValues(alpha: .3),
+                              ),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: InkWell(
+                            hoverColor: Colors.transparent,
+                            splashColor: Colors.transparent,
+                            highlightColor: Colors.transparent,
+                            overlayColor: _maintenanceNoOverlay,
+                            onTap: row == null
+                                ? null
+                                : () => widget.table.onRowTap?.call(row),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              spacing: 8,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: heading),
+                                    if (aligned && row != null)
+                                      for (final i in metricColumns)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsetsDirectional.only(
+                                                start: 12,
+                                              ),
+                                          child: SizedBox(
+                                            key: ValueKey((
+                                              'tree-metric',
+                                              id,
+                                              i,
+                                            )),
+                                            width: metricWidths[i],
+                                            child: metricCell(row, i),
+                                          ),
                                         ),
+                                    if (menuWidth > 0)
+                                      SizedBox(
+                                        width: menuWidth,
+                                        child: row == null
+                                            ? null
+                                            : Align(
+                                                alignment: AlignmentDirectional
+                                                    .centerEnd,
+                                                child:
+                                                    OpenHandOperationalRowMenu(
+                                                      onDetails: () => widget
+                                                          .table
+                                                          .onRowTap!(row),
+                                                      actions:
+                                                          widget
+                                                              .table
+                                                              .rowActions
+                                                              ?.call(row) ??
+                                                          const {},
+                                                    ),
+                                              ),
                                       ),
                                   ],
                                 ),
-                              ),
-                            ),
-                            if (row != null && widget.table.onRowTap != null)
-                              OpenHandOperationalRowMenu(
-                                onDetails: () => widget.table.onRowTap!(row),
-                                actions:
-                                    widget.table.rowActions?.call(row) ??
-                                    const {},
-                              ),
-                            if (branches.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cs.primary.withValues(alpha: .1),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: _MaintenanceValue(
-                                  value: '${branches.length}',
-                                  style: TextStyle(
-                                    color: cs.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
+                                if (!aligned &&
+                                    row != null &&
+                                    metricColumns.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                      start: 40,
+                                    ),
+                                    child: LayoutBuilder(
+                                      builder: (context, metricsBounds) {
+                                        final columns =
+                                            ((metricsBounds.maxWidth + 12) /
+                                                    (96 * scale + 12))
+                                                .floor()
+                                                .clamp(
+                                                  1,
+                                                  math.min(
+                                                    3,
+                                                    metricColumns.length,
+                                                  ),
+                                                );
+                                        final width =
+                                            (metricsBounds.maxWidth -
+                                                (columns - 1) * 12) /
+                                            columns;
+                                        return Wrap(
+                                          spacing: 12,
+                                          runSpacing: 8,
+                                          children: [
+                                            for (final i in metricColumns)
+                                              SizedBox(
+                                                key: ValueKey((
+                                                  'tree-metric',
+                                                  id,
+                                                  i,
+                                                )),
+                                                width: width,
+                                                child: metricCell(
+                                                  row,
+                                                  i,
+                                                  compact: true,
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ),
-                          ],
+                                if (row != null &&
+                                    widget.nameColumn == 0 &&
+                                    !widget.groupNames &&
+                                    (widget.parents[id]?.isNotEmpty ?? false))
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                      start: 40,
+                                    ),
+                                    child: _MaintenanceValue(
+                                      value:
+                                          '${l10n.maintenanceTreeDependencies}: ${widget.parents[id]!.join(', ')}',
+                                      maxLines: null,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
     final viewToggle = SizedBox(
       height: _maintenanceControlHeight,
@@ -4898,10 +5126,12 @@ class _MaintenanceTreeGuide extends CustomPainter {
     required this.depth,
     required this.color,
     required this.rtl,
+    required this.branchY,
   });
   final int depth;
   final Color color;
   final bool rtl;
+  final double branchY;
   @override
   void paint(Canvas canvas, Size size) {
     if (rtl) {
@@ -4915,11 +5145,7 @@ class _MaintenanceTreeGuide extends CustomPainter {
       final x = 28.0 + level * 20;
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), pen);
       if (level == depth - 1) {
-        canvas.drawLine(
-          Offset(x, size.height / 2),
-          Offset(x + 10, size.height / 2),
-          pen,
-        );
+        canvas.drawLine(Offset(x, branchY), Offset(x + 10, branchY), pen);
       }
     }
   }
@@ -4928,7 +5154,8 @@ class _MaintenanceTreeGuide extends CustomPainter {
   bool shouldRepaint(_MaintenanceTreeGuide oldDelegate) =>
       depth != oldDelegate.depth ||
       color != oldDelegate.color ||
-      rtl != oldDelegate.rtl;
+      rtl != oldDelegate.rtl ||
+      branchY != oldDelegate.branchY;
 }
 
 class _MaintenanceTable extends StatelessWidget {
@@ -5138,7 +5365,8 @@ class _MaintenanceStatus extends StatelessWidget {
         OpenHandMotionSettingsScope.dialog,
       ).entranceDuration,
       curve: kOpenHandSwitchInCurve,
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      constraints: const BoxConstraints(minHeight: _maintenanceBadgeHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(20),
@@ -5155,6 +5383,7 @@ class _MaintenanceStatus extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 11,
+                height: 1.2,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -5794,9 +6023,14 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
 }
 
 class _MaintenanceNotice extends StatefulWidget {
-  const _MaintenanceNotice({required this.message, this.error = false});
+  const _MaintenanceNotice({
+    required this.message,
+    this.error = false,
+    this.compact = false,
+  });
   final String message;
   final bool error;
+  final bool compact;
   @override
   State<_MaintenanceNotice> createState() => _MaintenanceNoticeState();
 }
@@ -5817,24 +6051,38 @@ class _MaintenanceNoticeState extends State<_MaintenanceNotice> {
     return Align(
       widthFactor: 1,
       heightFactor: 1,
+      alignment: widget.compact
+          ? AlignmentDirectional.centerStart
+          : Alignment.center,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _maintenanceNoticeMaxWidth),
+        constraints: BoxConstraints(
+          maxWidth: widget.compact
+              ? double.infinity
+              : _maintenanceNoticeMaxWidth,
+        ),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(widget.compact ? 10 : 12),
           decoration: BoxDecoration(
             color: color.withValues(alpha: .07),
             border: Border.all(color: color.withValues(alpha: .18)),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: widget.compact ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              _MaintenanceIconBadge(
-                icon: widget.error ? Icons.error_outline : Icons.info_outline,
-                color: color,
-                size: 28,
-                iconSize: 15,
-              ),
+              if (widget.compact)
+                Icon(
+                  widget.error ? Icons.error_outline : Icons.info_outline,
+                  size: 18,
+                  color: color,
+                )
+              else
+                _MaintenanceIconBadge(
+                  icon: widget.error ? Icons.error_outline : Icons.info_outline,
+                  color: color,
+                  size: 28,
+                  iconSize: 15,
+                ),
               const SizedBox(width: 10),
               Flexible(
                 child: ConstrainedBox(
@@ -6794,6 +7042,7 @@ class _MaintenanceCard extends StatelessWidget {
     this.headerOverflowAlignment = OverflowBarAlignment.end,
     this.accent,
     this.fillWidth = false,
+    this.titleBadge,
   });
   final String title;
   final Widget child;
@@ -6807,6 +7056,7 @@ class _MaintenanceCard extends StatelessWidget {
   final OverflowBarAlignment headerOverflowAlignment;
   final Color? accent;
   final bool fillWidth;
+  final Widget? titleBadge;
 
   double preferredWidth(BuildContext context) {
     if (fillWidth || child is! _MaintenanceVisual) return double.infinity;
@@ -6877,20 +7127,28 @@ class _MaintenanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tone = accent ?? cs.primary;
+    final titleText = _MaintenanceValue(
+      value: maintenanceLabel(context, title),
+      maxLines: null,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+      ),
+    );
     final heading = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _MaintenanceIconBadge(icon: icon, color: tone, size: 32, iconSize: 16),
         const SizedBox(width: 10),
         Flexible(
-          child: _MaintenanceValue(
-            value: maintenanceLabel(context, title),
-            maxLines: null,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
+          child: titleBadge == null
+              ? titleText
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [titleText, titleBadge!],
+                ),
         ),
       ],
     );

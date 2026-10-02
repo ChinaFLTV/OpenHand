@@ -28,6 +28,7 @@ String maintenanceLabel(BuildContext context, String label) {
     _ => label,
   };
   return switch (label) {
+    'PID' => l10n.maintenanceProcessId,
     '存储目录' => l10n.maintenanceTelemetryStorageRoot,
     '外部地址' => l10n.maintenanceTelemetryExternalAddress,
     '卷绑定模式' => l10n.maintenanceTelemetryVolumeBinding,
@@ -2210,7 +2211,7 @@ String maintenanceGpuFieldLabel(BuildContext context, String path) {
           'state' ||
           'status' ||
           'ActiveState' => maintenanceLabel(context, '状态'),
-          'pid' || 'MainPID' => 'PID',
+          'pid' || 'MainPID' => l10n.maintenanceProcessId,
           'MemoryCurrent' => '${maintenanceLabel(context, '内存')} (B)',
           'CPUUsageNSec' => l10n.maintenanceGpuDetailCpuTime,
           _ => l10n.maintenanceExtendedMetric(key),
@@ -2273,7 +2274,8 @@ String maintenanceHealthLabel(BuildContext context, String field) {
   return switch (field) {
     '实时同步状态' => l.maintenanceHealthSyncStatus,
     '测量说明' => l.maintenanceHealthMeasurementNotes,
-    'GID' || 'ID' || 'UTC' || 'PID' => field,
+    'PID' => l.maintenanceProcessId,
+    'GID' || 'ID' || 'UTC' => field,
     'Name' => maintenanceLabel(context, '名称'),
 
     "Architecture" => l.maintenanceHealthParsedArchitectureField,

@@ -1,4 +1,7 @@
 {
+  "maintenanceProcessId": "ID du processus",
+  "maintenanceEgressAddress": "Adresse publique",
+  "maintenanceEgressCopyAddress": "Copier l’adresse publique",
   "maintenanceEgressSource": "Source des données",
   "maintenanceEgressExtraField": "Champ supplémentaire",
   "maintenanceEgressTitle": "Sortie Internet",
