@@ -4174,6 +4174,12 @@ class _OpenHandOperationalRankTableState
                                               ? row
                                               : null,
                                         ),
+                                        transitionKey: (
+                                          i < row.cells.length
+                                              ? row.cells[i]
+                                              : '--',
+                                          subtitleFor(row, i),
+                                        ),
                                         builder: () => cellBody(
                                           header: false,
                                           index: i,
@@ -5395,11 +5401,15 @@ class OpenHandOperationalLiveContent extends StatefulWidget {
     super.key,
     required this.value,
     required this.builder,
+    this.transitionKey,
     this.preserveState = false,
     this.alignment = Alignment.centerLeft,
   });
   final bool preserveState;
   final Object value;
+
+  /// 布局变化只重建内容；仅此标识变化时播放内容切换，避免列宽刷新叠字。
+  final Object? transitionKey;
   final Alignment alignment;
   final Widget Function() builder;
 
@@ -5419,21 +5429,31 @@ class _OperationalLiveCellState extends State<OpenHandOperationalLiveContent> {
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    final identity = (
-      widget.value,
-      widget.preserveState,
+    final environment = (
       Theme.of(context),
       Localizations.localeOf(context),
       Directionality.of(context),
       MediaQuery.textScalerOf(context),
       DefaultTextStyle.of(context).style,
     );
+    final identity = (
+      widget.value,
+      widget.transitionKey,
+      widget.preserveState,
+      environment,
+    );
     if (_identity != identity) {
       _identity = identity;
       final child = widget.builder();
       _child = widget.preserveState
           ? child
-          : KeyedSubtree(key: ValueKey(identity), child: child);
+          : KeyedSubtree(
+              key: ValueKey((
+                widget.transitionKey ?? widget.value,
+                environment,
+              )),
+              child: child,
+            );
     }
     if (widget.preserveState || motion.disablesAnimation) return _child!;
     return AnimatedSwitcher(

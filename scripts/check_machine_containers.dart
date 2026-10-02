@@ -560,6 +560,78 @@ Future<void> main() async {
     );
   }
   final fullId = 'a' * 64;
+  for (final runtime in [
+    MachineContainerRuntime.docker,
+    MachineContainerRuntime.podman,
+    MachineContainerRuntime.containerd,
+  ]) {
+    final client = MachineContainerClient(
+      runtime: runtime,
+      run: (_) async => '',
+    );
+    final usage = client.usageSamples(
+      jsonEncode({
+        'ID': 'aaaaaaaaaaaa',
+        'CPUPerc': '234.56%',
+        'MemPercent': '2.5%',
+        'MemUsage': '10MiB / 1GiB',
+        'NetIO': '1kB / 0B',
+        'BlockIO': '0B / 2MB',
+        'PIDs': '6',
+      }),
+      [MachineContainerEntry(id: fullId, name: 'full', state: 'running')],
+    )[fullId]!;
+    check(
+      usage.cpuPercent == 234.56 &&
+          usage.memoryPercent == 2.5 &&
+          usage.memoryUsage == '10MiB / 1GiB' &&
+          usage.networkIO == '1kB / 0B' &&
+          usage.blockIO == '0B / 2MB' &&
+          usage.processes == 6,
+      '运行时资源采样字段丢失',
+    );
+    final invalid = client.usageSamples(
+      '{"ID":"abc123","MemPerc":"NaN","PIDs":"-1","NetIO":"N/A"}',
+      containers,
+    )['abc123']!;
+    check(
+      invalid.cpuPercent == null &&
+          invalid.memoryPercent == null &&
+          invalid.processes == null &&
+          invalid.networkIO.isEmpty,
+      '无效采样伪装为零值',
+    );
+  }
+  for (final item in {
+    '20MB': 20000000.0,
+    '10MiB': 10485760.0,
+    '1GiB': 1073741824.0,
+    '0B': 0.0,
+    '123': 123.0,
+    '1.5 kB': 1500.0,
+  }.entries) {
+    check(
+      machineContainerByteCount(item.key) == item.value,
+      '容量单位解析错误：${item.key}',
+    );
+  }
+  for (final item in [
+    'N/A',
+    '<none>',
+    '-1B',
+    'NaN',
+    'Infinity',
+    '12MB垃圾',
+    '20 MB / 30 MB',
+  ]) {
+    check(machineContainerByteCount(item) == null, '未知或无效容量被当作有效值');
+  }
+  check(
+    machineContainerMetadataText({'app': 'worker', 'enabled': false}) ==
+            'app=worker, enabled=false' &&
+        machineContainerMetadataText(0) == '0',
+    '元数据标识或零值被改写',
+  );
   check(
     docker.cpuPercentages('{"ID":"aaaaaaaaaaaa","CPUPerc":"1%"}', [
           MachineContainerEntry(id: fullId, name: 'full', state: 'running'),
@@ -676,16 +748,23 @@ Future<void> main() async {
     await for (final batch in live.listDetails(listed)) {
       details.addAll(batch);
     }
-    final cpu = live.cpuPercentages(
+    final usage = live.usageSamples(
       await live.execute(live.metricsArguments),
       listed,
     );
     check(
       details.length == listed.length &&
-          cpu.keys.every((id) => listed.any((e) => e.id == id)),
+          usage.keys.every((id) => listed.any((e) => e.id == id)) &&
+          usage.values.every(
+            (sample) =>
+                sample.memoryUsage.isNotEmpty &&
+                sample.networkIO.isNotEmpty &&
+                sample.blockIO.isNotEmpty &&
+                sample.processes != null,
+          ),
       '本机列表补充数据验证失败',
     );
-    stdout.writeln('本机容器 ID、CPU、最近启动时间和已停止容器端口读取验证通过。');
+    stdout.writeln('本机容器身份、容量、内存、网络、磁盘读写、进程数及时间字段验证通过。');
     check(
       command.contains("'run' '--detach'") && report['image']['Id'] != null,
       '本机容器只读验证失败',

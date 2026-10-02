@@ -9878,5 +9878,12 @@
   "maintenanceImagePreparing": "Image-Download wird vorbereitet",
   "resourcePreparing": "Ressourcen werden vorbereitet",
   "resourceDownloading": "Ressourcen werden heruntergeladen",
-  "resourceDownloadFiles": "{completed} / {total} Dateien"
+  "resourceDownloadFiles": "{completed} / {total} Dateien",
+  "maintenanceResourceSharedSize": "Gemeinsame Größe",
+  "maintenanceResourceUniqueSize": "Exklusive Größe",
+  "maintenanceResourceWritableSize": "Beschreibbare Schicht",
+  "maintenanceResourceRootSize": "Dateisystemgröße",
+  "maintenanceResourceScope": "Geltungsbereich",
+  "maintenanceResourceLayerCount": "Schichten",
+  "maintenanceContainerUnhealthy": "Nicht gesund"
 }

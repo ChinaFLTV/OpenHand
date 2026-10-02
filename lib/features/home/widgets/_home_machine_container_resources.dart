@@ -4,6 +4,17 @@ MachineImageRegistry _machineImageRegistry() => MachineImageRegistry(
   clientFactory: SystemProxyResolver.instance.createRawHttpClient,
 );
 
+String _containerCapacityText(BuildContext context, Object? value) =>
+    machineContainerMetadataText(value)
+        .split('/')
+        .map((part) {
+          final bytes = machineContainerByteCount(part);
+          return bytes == null
+              ? '—'
+              : formatLocalizedByteSizeOf(context, bytes);
+        })
+        .join(' / ');
+
 enum _ContainerResourceAction {
   pull,
   createContainer,
@@ -235,9 +246,10 @@ class _MachineContainerResourcesState
     final query = _search.text.toLowerCase();
     final rows = _resources
         .where(
-          (row) => '${row.reference} ${row.id} ${row.driver}'
-              .toLowerCase()
-              .contains(query),
+          (row) =>
+              '${row.reference} ${row.id} ${row.driver} ${row.platform} ${row.digest} ${row.mountpoint} ${row.scope} ${row.labels} ${row.options}'
+                  .toLowerCase()
+                  .contains(query),
         )
         .toList();
     return _MaintenanceAnimatedColumn(
@@ -350,6 +362,11 @@ class _MachineContainerResourcesState
                           '创建时间',
                           '大小',
                           l.maintenanceResourceReferences,
+                          l.maintenanceResourceSharedSize,
+                          l.maintenanceResourceUniqueSize,
+                          l.maintenanceImagePlatforms,
+                          l.maintenanceImageDigests,
+                          l.maintenanceResourceLayerCount,
                         ]
                       : [
                           '名称',
@@ -357,8 +374,27 @@ class _MachineContainerResourcesState
                           '大小',
                           l.maintenanceVolumeDriver,
                           l.maintenanceResourceReferences,
+                          l.maintenanceMetricMountPoint,
+                          l.maintenanceResourceScope,
+                          l.maintenanceContainerLabels,
+                          l.maintenanceVolumeOptions,
                         ],
                   maxBodyHeight: 420,
+                  columnAlignments: _images
+                      ? const {
+                          4: Alignment.centerRight,
+                          5: Alignment.centerRight,
+                          6: Alignment.centerRight,
+                          7: Alignment.centerRight,
+                          10: Alignment.centerRight,
+                        }
+                      : const {
+                          2: Alignment.centerRight,
+                          4: Alignment.centerRight,
+                        },
+                  minimumColumnWidths: _images
+                      ? const {4: 120, 6: 120, 7: 120, 8: 140, 9: 240}
+                      : const {2: 120, 5: 260, 7: 260, 8: 240},
                   rows: [
                     for (final row in rows)
                       OpenHandOperationalRankRow(
@@ -384,9 +420,59 @@ class _MachineContainerResourcesState
                                 allowEpoch: true,
                               ) ??
                               (row.created.isEmpty ? '—' : row.created),
-                          row.size.isEmpty ? '—' : row.size,
+                          _containerCapacityText(context, row.size),
                           if (!_images) row.driver.isEmpty ? '—' : row.driver,
                           row.references?.toString() ?? '—',
+                          if (_images) ...[
+                            _containerCapacityText(context, row.sharedSize),
+                            _containerCapacityText(context, row.uniqueSize),
+                            row.platform.isEmpty ? '—' : row.platform,
+                            row.digest.isEmpty ? '—' : row.digest,
+                            row.layers?.toString() ?? '—',
+                          ] else ...[
+                            row.mountpoint.isEmpty ? '—' : row.mountpoint,
+                            row.scope.isEmpty ? '—' : row.scope,
+                            row.labels.isEmpty ? '—' : row.labels,
+                            row.options.isEmpty ? '—' : row.options,
+                          ],
+                        ],
+                        cellWidgets: [
+                          null,
+                          if (_images) ...[null, null],
+                          null,
+                          _MaintenanceNumber(
+                            raw: row.size.isEmpty ? '—' : row.size,
+                            readable: _containerCapacityText(context, row.size),
+                          ),
+                          if (!_images) null,
+                          _MaintenanceNumber(
+                            raw: row.references?.toString() ?? '—',
+                          ),
+                          if (_images) ...[
+                            _MaintenanceNumber(
+                              raw: row.sharedSize.isEmpty
+                                  ? '—'
+                                  : row.sharedSize,
+                              readable: _containerCapacityText(
+                                context,
+                                row.sharedSize,
+                              ),
+                            ),
+                            _MaintenanceNumber(
+                              raw: row.uniqueSize.isEmpty
+                                  ? '—'
+                                  : row.uniqueSize,
+                              readable: _containerCapacityText(
+                                context,
+                                row.uniqueSize,
+                              ),
+                            ),
+                            null,
+                            null,
+                            _MaintenanceNumber(
+                              raw: row.layers?.toString() ?? '—',
+                            ),
+                          ],
                         ],
                       ),
                   ],

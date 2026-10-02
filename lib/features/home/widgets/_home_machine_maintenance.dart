@@ -5233,10 +5233,12 @@ class _MaintenanceNumberState extends State<_MaintenanceNumber> {
         }
       }
     }
-    final value = _MaintenanceValue(
-      value: _exact ? raw : readable,
+    // 数值复用单元格状态，避免嵌套切换动画让新旧数值重叠。
+    final value = Text(
+      _exact ? raw : readable,
       style: widget.style,
       maxLines: widget.maxLines,
+      overflow: TextOverflow.ellipsis,
     );
     if (readable == raw) return value;
     final l10n = AppLocalizations.of(context)!;

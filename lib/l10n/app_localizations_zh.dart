@@ -15553,6 +15553,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String resourceDownloadFiles(int completed, int total) {
     return '$completed / $total 个文件';
   }
+
+  @override
+  String get maintenanceResourceSharedSize => '共享容量';
+
+  @override
+  String get maintenanceResourceUniqueSize => '独占容量';
+
+  @override
+  String get maintenanceResourceWritableSize => '可写层容量';
+
+  @override
+  String get maintenanceResourceRootSize => '文件系统总容量';
+
+  @override
+  String get maintenanceResourceScope => '作用域';
+
+  @override
+  String get maintenanceResourceLayerCount => '镜像层数';
+
+  @override
+  String get maintenanceContainerUnhealthy => '不健康';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -31088,4 +31109,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String resourceDownloadFiles(int completed, int total) {
     return '$completed / $total 個檔案';
   }
+
+  @override
+  String get maintenanceResourceSharedSize => '共用容量';
+
+  @override
+  String get maintenanceResourceUniqueSize => '獨占容量';
+
+  @override
+  String get maintenanceResourceWritableSize => '可寫層容量';
+
+  @override
+  String get maintenanceResourceRootSize => '檔案系統總容量';
+
+  @override
+  String get maintenanceResourceScope => '作用域';
+
+  @override
+  String get maintenanceResourceLayerCount => '映像檔層數';
+
+  @override
+  String get maintenanceContainerUnhealthy => '不健康';
 }

@@ -528,7 +528,7 @@ void main() {
         expect(find.text(l.maintenanceContainerRuntime), findsOneWidget);
         expect(find.text(l.maintenanceContainerContext + ' · desktop-linux'), findsOneWidget);
         expect(find.text(l.maintenanceContainerList + ' · 2'), findsOneWidget);
-        expect(find.text('2026-09-30 08:00:00'), findsNWidgets(2));
+        expect(find.text('2026-09-30 08:00:00'), findsNWidgets(3));
         expect(find.text('2026-09-30 08:00:00 +0000 UTC'), findsNothing);
         expect(find.text(l.maintenanceContainerReady), findsNothing);
         expect(find.text(l.maintenanceRestartCount), findsNothing);
@@ -683,12 +683,12 @@ void main() {
     Future<String> run(String command) async {
       if (command.contains("'context' 'show'")) return 'default';
       if (command.contains("'ps'")) return empty ? '' : [
-        {'ID':id,'Names':'openhand-redis','State':'running','Image':'redis:7-alpine','CreatedAt':'2020-01-01T00:00:00Z','Ports':'0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp'},
+        {'ID':id,'Names':'openhand-redis','State':'running','Image':'redis:7-alpine','CreatedAt':'2020-01-01T00:00:00Z','Ports':'0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp','Size':'20MB (virtual 100MB)','HealthStatus':'unhealthy','Networks':'app_default','Mounts':'/data','Command':'redis-server','Labels':'app=worker'},
         {'ID':stoppedId,'Names':'openhand-postgresql','State':'exited','Image':'postgres:16-alpine'},
       ].map(jsonEncode).join(String.fromCharCode(10));
       if (command.contains("'stats'")) {
         if (failMetrics) throw StateError('模拟 CPU 采样失败');
-        return metrics?.future ?? '{"ID":"aaaaaaaaaaaa","CPUPerc":"234.56%"}';
+        return metrics?.future ?? '{"ID":"aaaaaaaaaaaa","CPUPerc":"234.56%","MemPerc":"2.50%","MemUsage":"10MiB / 1GiB","NetIO":"1MiB / 2MiB","BlockIO":"0B / 1MiB","PIDs":"6"}';
       }
       if (command.contains('.State.StartedAt')) {
         if (failDetails) throw StateError('模拟补充字段失败');
@@ -707,11 +707,14 @@ void main() {
     await tester.pumpAndSettle();
     final state = tester.state<_MachineContainerPanelState>(find.byType(_MachineContainerPanel));
     _MaintenanceTable table() => tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable).first);
-    expect(table().headers, ['名称','容器标识','镜像','端口','CPU (%)','最近启动时间']);
-    expect(table().rows.first.cells, ['openhand-redis','aaaaaaaaaaaa','redis:7-alpine','6379:6379','234.56%','2026-10-01 08:09:10']);
-    expect(table().rows.last.cells.sublist(3), ['15432:5432','0%','—']);
+    expect(table().headers.take(6), ['名称','容器标识','镜像','端口','CPU (%)','最近启动时间']);
+    expect(table().headers.length, 20);
+    expect(table().rows.first.cells.take(6), ['openhand-redis','aaaaaaaaaaaa','redis:7-alpine','6379:6379','234.56%','2026-10-01 08:09:10']);
+    expect(table().rows.last.cells.sublist(3,6), ['15432:5432','0%','—']);
+    final context = tester.element(find.byType(_MaintenanceTable).first);
+    expect(table().rows.first.cells.sublist(7,14), ['10 MB / 1 GB','2.50%',_containerCapacityText(context,'20MB'),_containerCapacityText(context,'100MB'),'1 MB / 2 MB','0 字节 / 1 MB','6']);
+    expect(table().rows.first.cells.sublist(14), ['不健康','app_default','/data','2020-01-01 00:00:00','redis-server','app=worker']);
     expect(table().rows.first.cellSubtitles![1], id);
-    expect(find.text('2020-01-01 00:00:00'), findsNothing);
     expect(tester.takeException(), isNull);
     details = Completer<String>(); metrics = Completer<String>();
     final refreshing = state.refresh(); await tester.pump();
@@ -720,16 +723,17 @@ void main() {
     expect(table().rows.first.cells[4], '0.44%'); expect(state._busy, isTrue);
     details!.complete([id,stoppedId].map((id) => [jsonEncode(id),'"2026-10-01T10:11:12Z"','{}'].join(String.fromCharCode(9))).join(String.fromCharCode(10)));
     await refreshing; await tester.pumpAndSettle();
-    expect(table().rows.first.cells.last, '2026-10-01 10:11:12');
+    expect(table().rows.first.cells[5], '2026-10-01 10:11:12');
+    expect(table().rows.first.cells[7], '—');
     failMetrics = true; failDetails = true;
     await state.refresh(); await tester.pumpAndSettle();
     expect(table().rows.first.cells[4], '—'); expect(table().rows.last.cells[4], '0%');
-    expect(table().rows.first.cells.last, '—'); expect(state._collectionIssues.length, 2);
+    expect(table().rows.first.cells[5], '—'); expect(table().rows.first.cells[8], '—'); expect(state._collectionIssues.length, 2);
     failMetrics = false; failDetails = false; metrics = null; details = null;
     await state.refresh(); await tester.pumpAndSettle();
     expect(table().rows.first.cells[4], '234.56%'); expect(state._collectionIssues, isEmpty);
     empty = true; await state.refresh(); await tester.pumpAndSettle();
-    expect(state._listDetails, isEmpty); expect(state._cpuPercentages, isEmpty);
+    expect(state._listDetails, isEmpty); expect(state._usageSamples, isEmpty);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox()); await tester.binding.setSurfaceSize(null);
   });
@@ -4619,6 +4623,25 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('列宽变化不交叉绘制旧文字，容量更新保留精确值开关', (tester) async {
+    var width=180.0, raw='20MB';late StateSetter update;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:StatefulBuilder(builder:(context,setState){update=setState;
+        return _MaintenanceTable(headers:const ['名称','容量'],minimumColumnWidths:{0:width},rows:[
+          OpenHandOperationalRankRow(rowKey:'data',value:0,cells:['data',raw],cellWidgets:[null,_MaintenanceNumber(raw:raw,readable:_containerCapacityText(context,raw))]),
+        ]);
+      }))));
+    await tester.pumpAndSettle();
+    final before=tester.state<_MaintenanceNumberState>(find.byType(_MaintenanceNumber));
+    before.setState(()=>before._exact=true);await tester.pumpAndSettle();expect(find.text('20MB'),findsOneWidget);
+    update(()=>width=420);await tester.pump();await tester.pump(const Duration(milliseconds:80));
+    expect(find.text('data'),findsOneWidget);expect(find.text('20MB'),findsOneWidget);
+    update(()=>raw='30MB');await tester.pump();await tester.pump(const Duration(milliseconds:80));
+    expect(tester.state<_MaintenanceNumberState>(find.byType(_MaintenanceNumber)),same(before));
+    expect(find.text('20MB'),findsNothing);expect(find.text('30MB'),findsOneWidget);
+    expect(tester.takeException(),isNull);await tester.pumpAndSettle();await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('浅深主题卡片四角描边不被内容背景覆盖', (tester) async {
     for (final brightness in [Brightness.light, Brightness.dark]) {
       final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness)
@@ -7511,9 +7534,10 @@ void resourceChecks() {
           if(command.contains("'ps'"))return '';
           if(command.contains("'search'"))return '{"Name":"nginx","Description":"Web server","StarCount":10,"IsOfficial":true}';
           if(command.contains("'image' 'ls'"))return '{"Repository":"nginx","Tag":"alpine","ID":"sha256:123456789abcdef","Size":"20MB","CreatedAt":"2026-10-01T08:00:00Z","Containers":"0"}';
+          if(command.contains("'image' 'inspect' '--format'"))return ['sha256:123456789abcdef','linux','arm64',['nginx@sha256:abc'],['sha256:layer']].map(jsonEncode).join(String.fromCharCode(9));
           if(command.contains("'volume' 'ls'"))return jsonEncode({'Name':created?'new-data':'data','Driver':'local'});
-          if(command.contains("'volume' 'inspect'"))return jsonEncode([{'Name':created?'new-data':'data','Driver':'local','CreatedAt':'2026-10-01T08:00:00Z'}]);
-        if(command.contains("'system' 'df'"))return command.contains('.Images')?jsonEncode([{'ID':'sha256:123456789abcdef','Containers':'0'}]):jsonEncode([{'Name':created?'new-data':'data','Size':'128MB','Links':'1'}]);
+          if(command.contains("'volume' 'inspect'"))return jsonEncode([{'Name':created?'new-data':'data','Driver':'local','CreatedAt':'2026-10-01T08:00:00Z','Mountpoint':'/var/lib/docker/volumes/data/_data','Scope':'local','Labels':{'app':'worker'},'Options':{'type':'tmpfs'}}]);
+        if(command.contains("'system' 'df'"))return command.contains('.Images')?jsonEncode([{'ID':'sha256:123456789abcdef','Containers':'0','SharedSize':'0B','UniqueSize':'20MB'}]):jsonEncode([{'Name':created?'new-data':'data','Size':'128MB','Links':'1'}]);
           return '{}';
         }
         Future<String> operate(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled}) async {
@@ -7532,6 +7556,13 @@ void resourceChecks() {
         await tester.tap(find.widgetWithText(ChoiceChip,l.maintenanceImages));await tester.pumpAndSettle();
         var state=tester.state<_MachineContainerResourcesState>(find.byType(_MachineContainerResources));
         expect(state._resources.single.name,'nginx');expect(state._error,isEmpty);
+        var table=tester.widget<_MaintenanceTable>(find.descendant(of:find.byType(_MachineContainerResources),matching:find.byType(_MaintenanceTable)));
+        expect(table.headers.length,11);expect(table.headers,containsAll([l.maintenanceResourceSharedSize,l.maintenanceResourceUniqueSize,l.maintenanceImagePlatforms,l.maintenanceImageDigests,l.maintenanceResourceLayerCount]));
+        expect(table.rows.single.cells.sublist(8),['linux/arm64','nginx@sha256:abc','1']);expect(table.rows.single.cells[6],_containerCapacityText(state.context,'0B'));
+        if(Platform.environment['MAINTENANCE_PREVIEW']!=null && locale==const Locale('zh')) {
+          await tester.runAsync(()async{final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('资源预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);await File('/tmp/container-images-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();});
+        }
         state._search.text='absent';state.setState((){});await tester.pumpAndSettle();expect(find.text('nginx'),findsNothing);
         state._search.clear();state.setState((){});await tester.pumpAndSettle();
         final searching=state._open(search:true);await tester.pumpAndSettle();
@@ -7543,6 +7574,9 @@ void resourceChecks() {
         await tester.tap(find.widgetWithText(ChoiceChip,l.maintenanceVolumes));await tester.pumpAndSettle();
         state=tester.state<_MachineContainerResourcesState>(find.byType(_MachineContainerResources));
         expect(state._resources.single.size,'128MB');expect(state._resources.single.references,1);
+        table=tester.widget<_MaintenanceTable>(find.descendant(of:find.byType(_MachineContainerResources),matching:find.byType(_MaintenanceTable)));
+        expect(table.headers.length,9);expect(table.headers,containsAll([l.maintenanceMetricMountPoint,l.maintenanceResourceScope,l.maintenanceContainerLabels,l.maintenanceVolumeOptions]));
+        expect(table.rows.single.cells.sublist(5),['/var/lib/docker/volumes/data/_data','local','app=worker','type=tmpfs']);
         expect(find.text('2026-10-01 08:00:00'),findsOneWidget);expect(state._error,isEmpty);
         if(Platform.environment['MAINTENANCE_PREVIEW']!=null && locale==const Locale('zh')) {
           await tester.runAsync(()async{final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('资源预览')));
@@ -7838,6 +7872,7 @@ void containerInteractionChecks() {
       if(command.contains("'context' 'show'"))return 'default';
       if(command.contains("'ps'"))return '';
       if(command.contains("'image' 'ls'"))return '{"Repository":"nginx","Tag":"latest","ID":"sha256:123","Size":"20MB"}';
+      if(command.contains("'image' 'inspect' '--format'"))return ['sha256:123','linux','arm64',null,[]].map(jsonEncode).join(String.fromCharCode(9));
       if(command.contains("'system' 'df'")) {if(usage!=null){cancelled=isCancelled;return usage!.future;}return '[{"ID":"sha256:123","Containers":"1"}]';}
       if(command.contains("'image' 'inspect'"))return '[{"Id":"sha256:123","RepoTags":["nginx:latest"]}]';
       if(command.contains("'image' 'history'"))return '';

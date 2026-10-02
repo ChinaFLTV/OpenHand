@@ -96,7 +96,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
   MachineContainerClient? _client;
   List<MachineContainerEntry> _entries = [];
   Map<String, MachineContainerListDetails> _listDetails = {};
-  Map<String, double> _cpuPercentages = {};
+  Map<String, MachineContainerUsage> _usageSamples = {};
   String _metadata = '', _metrics = '', _error = '', _contextName = '';
   String _appliedScope = '';
   final _kubernetesMetadata = <String, Object?>{};
@@ -248,7 +248,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       if (reset || scopeChanged) {
         _entries = [];
         _listDetails = {};
-        _cpuPercentages = {};
+        _usageSamples = {};
         _client = null;
         _metadata = '';
         _kubernetesMetadata.clear();
@@ -283,7 +283,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       setState(() {
         if (!sameTarget) {
           _listDetails = {};
-          _cpuPercentages = {};
+          _usageSamples = {};
           _metadata = '';
           _kubernetesMetadata.clear();
           _metrics = '';
@@ -295,7 +295,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
         ];
         final ids = entries.map((entry) => entry.id).toSet();
         _listDetails.removeWhere((id, _) => !ids.contains(id));
-        _cpuPercentages.removeWhere((id, _) => !ids.contains(id));
+        _usageSamples.removeWhere((id, _) => !ids.contains(id));
         _client = client.copyWith(run: widget.run);
         _runtime = client.runtime;
         _appliedScope = client.scope;
@@ -347,18 +347,18 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       try {
         final metrics = await client.execute(client.metricsArguments);
         if (!mounted || query.cancelled) return;
-        final cpu = client.cpuPercentages(metrics, entries);
-        if (_metrics != metrics || !mapEquals(_cpuPercentages, cpu)) {
+        final usage = client.usageSamples(metrics, entries);
+        if (_metrics != metrics || !mapEquals(_usageSamples, usage)) {
           setState(() {
             _metrics = metrics;
-            _cpuPercentages = cpu;
+            _usageSamples = usage;
           });
         }
       } catch (error) {
         if (!mounted || query.cancelled) return;
         errors['实时资源采样'] = '$error';
         setState(() {
-          _cpuPercentages = {};
+          _usageSamples = {};
           _collectionIssues = Map.of(errors);
         });
       }
@@ -701,7 +701,8 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
           'configured',
           'paused',
         }.contains(entry.state.toLowerCase());
-        final cpu = idle ? 0.0 : _cpuPercentages[entry.id];
+        final sample = _usageSamples[entry.id];
+        final cpu = idle ? 0.0 : sample?.cpuPercent;
         final ports = entry.running && entry.ports.isNotEmpty
             ? entry.ports
             : detail?.ports.isNotEmpty == true
@@ -719,6 +720,20 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             .toSet()
             .join(', ');
         final id = entry.id.length > 12 ? entry.id.substring(0, 12) : entry.id;
+        final size = entry.metadata['Size'];
+        final writable = size is Map
+            ? size['rwSize'] ?? size['RwSize']
+            : '$size'.split(' (').first;
+        final rootSize = size is Map
+            ? size['rootFsSize'] ?? size['RootFsSize']
+            : RegExp(
+                r'\(virtual\s+([^)]*)\)',
+                caseSensitive: false,
+              ).firstMatch('$size')?.group(1);
+        final memoryPercent = sample?.memoryPercent;
+        final health = machineContainerMetadataText(
+          entry.metadata['HealthStatus'],
+        );
         return OpenHandOperationalRankRow(
           rowKey: '${entry.id}/${entry.name}',
           value: 0,
@@ -735,6 +750,32 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     allowEpoch: true,
                   ) ??
                   '—',
+              status,
+              _containerCapacityText(context, sample?.memoryUsage),
+              memoryPercent == null
+                  ? '—'
+                  : '${memoryPercent.toStringAsFixed(2)}%',
+              _containerCapacityText(context, writable),
+              _containerCapacityText(context, rootSize),
+              _containerCapacityText(context, sample?.networkIO),
+              _containerCapacityText(context, sample?.blockIO),
+              sample?.processes?.toString() ?? '—',
+              health.isEmpty
+                  ? '—'
+                  : maintenanceDetailValue(
+                      context,
+                      health,
+                      field: 'HealthStatus',
+                    ),
+              machineContainerMetadataText(entry.metadata['Networks']),
+              machineContainerMetadataText(entry.metadata['Mounts']),
+              maintenanceDetailValue(
+                context,
+                entry.created,
+                field: 'createdAt',
+              ),
+              machineContainerMetadataText(entry.metadata['Command']),
+              machineContainerMetadataText(entry.metadata['Labels']),
             ] else ...[
               status,
               if (hasNamespace) '${entry.namespace} ${entry.pod}'.trim(),
@@ -799,6 +840,47 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium,
                   ),
+                  _MaintenanceNumber(
+                    raw: cpu == null ? '—' : '$cpu%',
+                    readable: cpu == null
+                        ? '—'
+                        : '${cpu.toStringAsFixed(cpu == 0 ? 0 : 2)}%',
+                  ),
+                  null,
+                  _MaintenanceStatus(label: status, color: color),
+                  _MaintenanceNumber(
+                    raw: sample?.memoryUsage ?? '—',
+                    readable: _containerCapacityText(
+                      context,
+                      sample?.memoryUsage,
+                    ),
+                  ),
+                  _MaintenanceNumber(
+                    raw: memoryPercent == null ? '—' : '$memoryPercent%',
+                    readable: memoryPercent == null
+                        ? '—'
+                        : '${memoryPercent.toStringAsFixed(2)}%',
+                  ),
+                  _MaintenanceNumber(
+                    raw: machineContainerMetadataText(writable),
+                    readable: _containerCapacityText(context, writable),
+                  ),
+                  _MaintenanceNumber(
+                    raw: machineContainerMetadataText(rootSize),
+                    readable: _containerCapacityText(context, rootSize),
+                  ),
+                  _MaintenanceNumber(
+                    raw: sample?.networkIO ?? '—',
+                    readable: _containerCapacityText(
+                      context,
+                      sample?.networkIO,
+                    ),
+                  ),
+                  _MaintenanceNumber(
+                    raw: sample?.blockIO ?? '—',
+                    readable: _containerCapacityText(context, sample?.blockIO),
+                  ),
+                  _MaintenanceNumber(raw: sample?.processes?.toString() ?? '—'),
                 ]
               : [
                   null,
@@ -827,7 +909,32 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
             : _MaintenanceTable(
                 headers:
                     (desktop
-                            ? ['名称', '容器标识', '镜像', '端口', 'CPU (%)', '最近启动时间']
+                            ? [
+                                '名称',
+                                '容器标识',
+                                '镜像',
+                                '端口',
+                                'CPU (%)',
+                                '最近启动时间',
+                                '状态',
+                                '内存用量 / 上限',
+                                '内存使用率',
+                                AppLocalizations.of(
+                                  context,
+                                )!.maintenanceResourceWritableSize,
+                                AppLocalizations.of(
+                                  context,
+                                )!.maintenanceResourceRootSize,
+                                '网络接收 / 发送',
+                                '块 IO 读取 / 写入',
+                                '进程数',
+                                '健康检查',
+                                '网络列表',
+                                '挂载点',
+                                '创建时间',
+                                '命令',
+                                '标签',
+                              ]
                             : [
                                 '名称',
                                 '状态',
@@ -841,7 +948,28 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                         .toList(),
                 maxBodyHeight: 360,
                 columnAlignments: desktop
-                    ? const {4: Alignment.centerRight}
+                    ? const {
+                        4: Alignment.centerRight,
+                        7: Alignment.centerRight,
+                        8: Alignment.centerRight,
+                        9: Alignment.centerRight,
+                        10: Alignment.centerRight,
+                        11: Alignment.centerRight,
+                        12: Alignment.centerRight,
+                        13: Alignment.centerRight,
+                      }
+                    : const {},
+                minimumColumnWidths: desktop
+                    ? const {
+                        7: 180,
+                        9: 130,
+                        10: 130,
+                        11: 180,
+                        12: 180,
+                        16: 220,
+                        18: 260,
+                        19: 260,
+                      }
                     : const {},
                 rowActions: (row) => {
                   if (enabled)

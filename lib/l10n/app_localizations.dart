@@ -29074,6 +29074,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{completed} / {total} 个文件'**
   String resourceDownloadFiles(int completed, int total);
+
+  /// No description provided for @maintenanceResourceSharedSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享容量'**
+  String get maintenanceResourceSharedSize;
+
+  /// No description provided for @maintenanceResourceUniqueSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'独占容量'**
+  String get maintenanceResourceUniqueSize;
+
+  /// No description provided for @maintenanceResourceWritableSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'可写层容量'**
+  String get maintenanceResourceWritableSize;
+
+  /// No description provided for @maintenanceResourceRootSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件系统总容量'**
+  String get maintenanceResourceRootSize;
+
+  /// No description provided for @maintenanceResourceScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'作用域'**
+  String get maintenanceResourceScope;
+
+  /// No description provided for @maintenanceResourceLayerCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像层数'**
+  String get maintenanceResourceLayerCount;
+
+  /// No description provided for @maintenanceContainerUnhealthy.
+  ///
+  /// In zh, this message translates to:
+  /// **'不健康'**
+  String get maintenanceContainerUnhealthy;
 }
 
 class _AppLocalizationsDelegate

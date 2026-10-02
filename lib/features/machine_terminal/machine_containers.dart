@@ -13,8 +13,58 @@ const machineContainerProbeTimeout = Duration(seconds: 6);
 const machineContainerDiscoveryTimeout = Duration(seconds: 40);
 const _machineContainerNamespaceLimit = 8;
 const _machineContainerInspectBatchSize = 64;
+final _machineContainerBytePattern = RegExp(
+  r'^(\d+(?:\.\d+)?)\s*((?:[kmgtpe]i?)?b)?$',
+  caseSensitive: false,
+);
 
 typedef MachineContainerListDetails = ({String startedAt, String ports});
+typedef MachineContainerUsage = ({
+  double? cpuPercent,
+  double? memoryPercent,
+  String memoryUsage,
+  String networkIO,
+  String blockIO,
+  int? processes,
+});
+
+/// 运行时占位值统一为空；保留用户标签、列表和实际零值。
+String machineContainerMetadataText(Object? value) {
+  if (value == null) return '';
+  if (value is Map) {
+    return value.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+  }
+  if (value is List) return value.join(', ');
+  final text = '$value'.trim();
+  return const {
+        'n/a',
+        'null',
+        '<none>',
+        '<no value>',
+        '--',
+        '—',
+      }.contains(text.toLowerCase())
+      ? ''
+      : text;
+}
+
+/// 区分运行时报告的十进制与二进制容量，不将未知或负值当作零。
+double? machineContainerByteCount(Object? value) {
+  final text = machineContainerMetadataText(value);
+  final match = _machineContainerBytePattern.firstMatch(text);
+  if (match == null) return null;
+  final amount = double.tryParse(match[1]!);
+  final unit = (match[2] ?? 'b').toLowerCase();
+  final exponent = 'bkmgtpe'.indexOf(unit[0]);
+  var factor = 1.0;
+  for (var index = 0; index < exponent; index++) {
+    factor *= unit.contains('i') ? 1024 : 1000;
+  }
+  final bytes = (amount ?? double.nan) * factor;
+  return bytes.isFinite && bytes >= 0 ? bytes : null;
+}
 
 enum MachineContainerRuntime {
   docker('Docker', 'docker'),
@@ -382,7 +432,7 @@ class MachineContainerClient {
   }
 
   /// 将同一轮资源采样按完整标识、短标识或唯一名称关联，缺失值不伪装为零。
-  Map<String, double> cpuPercentages(
+  Map<String, MachineContainerUsage> usageSamples(
     String output,
     List<MachineContainerEntry> entries,
   ) {
@@ -407,7 +457,7 @@ class MachineContainerClient {
             : entry.id;
       }
     }
-    final result = <String, double>{};
+    final result = <String, MachineContainerUsage>{};
     for (final row in decoded) {
       if (row is! Map) throw const FormatException('容器资源采样格式无效。');
       final rawId =
@@ -425,15 +475,42 @@ class MachineContainerClient {
           row['CPUPercent'] ??
           row['cpu_percent'] ??
           row['cpu'];
-      final percent = double.tryParse(
-        '${raw ?? ''}'.replaceAll('%', '').trim(),
-      );
-      if (id != null && percent != null && percent.isFinite && percent >= 0) {
-        result[id] = percent;
+      if (id == null) continue;
+      double? percent(Object? value) {
+        final parsed = double.tryParse(
+          '${value ?? ''}'.replaceAll('%', '').trim(),
+        );
+        return parsed != null && parsed.isFinite && parsed >= 0 ? parsed : null;
       }
+
+      final processes = int.tryParse(
+        '${row['PIDs'] ?? row['Pids'] ?? row['pids'] ?? ''}',
+      );
+      result[id] = (
+        cpuPercent: percent(raw),
+        memoryPercent: percent(
+          row['MemPerc'] ?? row['MemPercent'] ?? row['MemoryPercent'],
+        ),
+        memoryUsage: machineContainerMetadataText(
+          row['MemUsage'] ?? row['MemoryUsage'],
+        ),
+        networkIO: machineContainerMetadataText(
+          row['NetIO'] ?? row['NetworkIO'],
+        ),
+        blockIO: machineContainerMetadataText(row['BlockIO']),
+        processes: processes != null && processes >= 0 ? processes : null,
+      );
     }
     return result;
   }
+
+  Map<String, double> cpuPercentages(
+    String output,
+    List<MachineContainerEntry> entries,
+  ) => {
+    for (final sample in usageSamples(output, entries).entries)
+      if (sample.value.cpuPercent != null) sample.key: sample.value.cpuPercent!,
+  };
 
   List<MachineContainerEntry> parse(String output, {bool pods = false}) {
     final trimmed = output.trim();

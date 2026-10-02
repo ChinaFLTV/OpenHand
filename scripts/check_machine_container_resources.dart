@@ -11,6 +11,7 @@ void check(bool value, String message) {
 
 Future<void> main() async {
   await checkRegistry();
+  await checkResourceMetadata();
   final calls = <String>[];
   var usageFails = false, cancel = false;
   final client = MachineContainerClient(
@@ -25,16 +26,34 @@ Future<void> main() async {
         return '{"Name":"data","Driver":"local"}';
       }
       if (command.contains("'volume' 'inspect'")) {
-        return '[{"Name":"data","CreatedAt":"2026-10-01T01:02:03Z","Mountpoint":"/volumes/data"}]';
+        return jsonEncode([
+          {
+            'Name': 'data',
+            'CreatedAt': '2026-10-01T01:02:03Z',
+            'Mountpoint': '/volumes/data',
+            'Scope': 'local',
+            'Labels': {'app': 'worker'},
+            'Options': {'type': 'tmpfs'},
+          },
+        ]);
       }
       if (command.contains("'system' 'df'")) {
         if (command.contains('.Images')) {
-          return '[{"ID":"sha256:fixed","Repository":"other-tag","Containers":"2"}]';
+          return '[{"ID":"sha256:fixed","Repository":"other-tag","Containers":"2","SharedSize":"0B","UniqueSize":"20MB"}]';
         }
         if (usageFails) throw StateError('模拟容量统计失败');
-        return '[{"Name":"data","Size":"123MB","Links":"1"}]';
+        return '[{"Name":"data","Size":"123MB","Links":"1","CreatedAt":"N/A","Mountpoint":"N/A"}]';
       }
       if (command.contains("'image' 'inspect'")) {
+        if (command.contains("'--format'")) {
+          return [
+            'fixed',
+            'linux',
+            'arm64',
+            ['registry.local:5000/app@sha256:abc'],
+            ['sha256:layer'],
+          ].map(jsonEncode).join('\t');
+        }
         return '[{"Id":"sha256:fixed","Size":20000000}]';
       }
       if (command.contains("'image' 'history'")) return '';
@@ -46,7 +65,12 @@ Future<void> main() async {
           .last;
   check(
     images.single.reference == 'registry.local:5000/app:v1' &&
-        images.single.references == 2,
+        images.single.references == 2 &&
+        images.single.platform == 'linux/arm64' &&
+        images.single.layers == 1 &&
+        images.single.digest == 'registry.local:5000/app@sha256:abc' &&
+        images.single.sharedSize == '0B' &&
+        images.single.uniqueSize == '20MB',
     '镜像标签、仓库端口或引用数错误',
   );
   final stages = await client
@@ -61,7 +85,11 @@ Future<void> main() async {
   );
   check(
     stages.last.single.raw['Mountpoint'] == '/volumes/data' &&
-        stages.last.single.references == 1,
+        stages.last.single.references == 1 &&
+        stages.last.single.created == '2026-10-01T01:02:03Z' &&
+        stages.last.single.scope == 'local' &&
+        stages.last.single.labels == 'app=worker' &&
+        stages.last.single.options == 'type=tmpfs',
     '容量合并覆盖了卷元数据',
   );
   usageFails = true;
@@ -253,12 +281,129 @@ Future<void> main() async {
             .last;
     check(
       images.every((row) => row.id.isNotEmpty) &&
-          volumes.every((row) => row.name.isNotEmpty),
+          images.every(
+            (row) =>
+                row.platform.isNotEmpty &&
+                row.layers != null &&
+                row.uniqueSize.isNotEmpty &&
+                row.sharedSize.isNotEmpty,
+          ) &&
+          volumes.every(
+            (row) =>
+                row.name.isNotEmpty &&
+                row.mountpoint.isNotEmpty &&
+                row.scope.isNotEmpty,
+          ),
       '本机资源标识缺失',
     );
     stdout.writeln('本机镜像列表、数据卷元数据与容量验证通过，未执行下载或任何变更。');
   }
   stdout.writeln('镜像、数据卷、分批更新、取消、搜索限制、创建参数、转义及兼容性检查通过。');
+}
+
+Future<void> checkResourceMetadata() async {
+  final rows = List.generate(
+    130,
+    (i) => {
+      'ID': 'sha256:batch-$i',
+      'Repository': 'app-$i',
+      'Tag': 'v1',
+      'Containers': '-1',
+      'Size': 'N/A',
+    },
+  );
+  var queries = 0;
+  final client = MachineContainerClient(
+    runtime: MachineContainerRuntime.podman,
+    run: (command) async {
+      if (command.contains("'image' 'ls'")) {
+        return [
+          ...rows,
+          {...rows.first, 'Tag': 'v2'},
+        ].map(jsonEncode).join('\n');
+      }
+      queries++;
+      final ids = RegExp(
+        "'sha256:batch-([0-9]+)'",
+      ).allMatches(command).map((m) => 'batch-${m[1]}').toList();
+      check(ids.isNotEmpty && ids.length <= 64, '镜像元数据未限制批量大小');
+      return ids
+          .map(
+            (id) => [id, 'linux', 'arm64', null, []].map(jsonEncode).join('\t'),
+          )
+          .join('\n');
+    },
+  );
+  final stages = await client
+      .resources(MachineContainerResourceKind.images)
+      .toList();
+  check(
+    queries == 3 && stages.length == 4 && stages.last.length == 131,
+    '镜像多标签重复采集或批量记录丢失',
+  );
+  check(
+    stages.last.every(
+      (row) =>
+          row.platform == 'linux/arm64' &&
+          row.layers == 0 &&
+          row.references == null &&
+          row.size.isEmpty &&
+          row.digest.isEmpty,
+    ),
+    '未知值、空镜像层或跨运行时标识前缀处理错误',
+  );
+  var cancelled = false;
+  queries = 0;
+  await for (final _ in client.resources(
+    MachineContainerResourceKind.images,
+    isCancelled: () => cancelled,
+  )) {
+    cancelled = true;
+  }
+  check(queries == 0, '关闭镜像列表后继续采集补充字段');
+  for (final invalid in ['', '"batch-0"\t"linux"\t1\tnull\t[]']) {
+    final failing = client.copyWith(
+      run: (command) async =>
+          command.contains("'image' 'ls'") ? jsonEncode(rows.first) : invalid,
+    );
+    final retained = <List<MachineContainerResource>>[];
+    var rejected = false;
+    try {
+      await for (final rows in failing.resources(
+        MachineContainerResourceKind.images,
+      )) {
+        retained.add(rows);
+      }
+    } on FormatException {
+      rejected = true;
+    }
+    check(
+      rejected && retained.length == 1 && retained.single.single.tag == 'v1',
+      '补充元数据错误未报告或丢失已加载标签',
+    );
+  }
+  final volume = MachineContainerClient(
+    runtime: MachineContainerRuntime.podman,
+    run: (command) async => jsonEncode(
+      command.contains("'volume' 'ls'")
+          ? {'Name': 'zero', 'Size': 'N/A', 'Links': 'N/A'}
+          : [
+              {
+                'Name': 'zero',
+                'UsageData': {'Size': 0, 'RefCount': 0},
+                'Labels': {'enabled': 'false'},
+              },
+            ],
+    ),
+  );
+  final zero =
+      (await volume.resources(MachineContainerResourceKind.volumes).toList())
+          .last
+          .single;
+  check(
+    zero.size == '0' && zero.references == 0 && zero.labels == 'enabled=false',
+    '卷容量结构字段或真实零值丢失',
+  );
 }
 
 Future<void> checkRegistry() async {

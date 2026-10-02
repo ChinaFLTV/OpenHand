@@ -9878,5 +9878,12 @@
   "maintenanceImagePreparing": "Préparation du téléchargement de l’image",
   "resourcePreparing": "Préparation des ressources",
   "resourceDownloading": "Téléchargement des ressources",
-  "resourceDownloadFiles": "{completed} / {total} fichiers"
+  "resourceDownloadFiles": "{completed} / {total} fichiers",
+  "maintenanceResourceSharedSize": "Taille partagée",
+  "maintenanceResourceUniqueSize": "Taille exclusive",
+  "maintenanceResourceWritableSize": "Taille de la couche modifiable",
+  "maintenanceResourceRootSize": "Taille du système de fichiers",
+  "maintenanceResourceScope": "Portée",
+  "maintenanceResourceLayerCount": "Couches",
+  "maintenanceContainerUnhealthy": "Défaillant"
 }

@@ -39,11 +39,33 @@ class MachineContainerResource {
     this.created = '',
     this.size = '',
     this.driver = '',
+    this.sharedSize = '',
+    this.uniqueSize = '',
+    this.platform = '',
+    this.digest = '',
+    this.mountpoint = '',
+    this.scope = '',
+    this.labels = '',
+    this.options = '',
+    this.layers,
     this.references,
     this.raw = const {},
   });
-  final String id, name, tag, created, size, driver;
-  final int? references;
+  final String id,
+      name,
+      tag,
+      created,
+      size,
+      driver,
+      sharedSize,
+      uniqueSize,
+      platform,
+      digest,
+      mountpoint,
+      scope,
+      labels,
+      options;
+  final int? references, layers;
   final Map<String, dynamic> raw;
   String get reference => name.isEmpty || name == '<none>'
       ? id
@@ -201,7 +223,7 @@ extension MachineContainerResources on MachineContainerClient {
     );
     if (isCancelled?.call() ?? false) return;
     List<MachineContainerResource> parse() => rows.expand((row) {
-      String value(String key) => '${row[key] ?? ''}';
+      String value(String key) => machineContainerMetadataText(row[key]);
       final id = images
           ? value('ID').isNotEmpty
                 ? value('ID')
@@ -219,6 +241,23 @@ extension MachineContainerResources on MachineContainerClient {
       return refs.map((ref) {
         final colon = ref.lastIndexOf(':');
         final tagged = colon > ref.lastIndexOf('/');
+        final usage = row['UsageData'];
+        final referenceText = value(images ? 'Containers' : 'Links');
+        final references = int.tryParse(
+          referenceText.isNotEmpty
+              ? referenceText
+              : !images && usage is Map
+              ? '${usage['RefCount'] ?? ''}'
+              : '',
+        );
+        final platform = row['Platform'];
+        final os = machineContainerMetadataText(
+          row['Os'] ?? row['OS'] ?? (platform is Map ? platform['os'] : null),
+        );
+        final arch = machineContainerMetadataText(
+          row['Architecture'] ??
+              (platform is Map ? platform['architecture'] : null),
+        );
         return MachineContainerResource(
           id: id,
           name: images
@@ -236,17 +275,96 @@ extension MachineContainerResources on MachineContainerClient {
           created: value('CreatedAt').isNotEmpty
               ? value('CreatedAt')
               : value('Created'),
-          size: value('Size'),
+          size: value('Size').isNotEmpty
+              ? value('Size')
+              : !images && usage is Map
+              ? machineContainerMetadataText(usage['Size'])
+              : '',
           driver: value('Driver'),
-          references: int.tryParse(
-            '${row[images ? 'Containers' : 'Links'] ?? ''}',
-          ),
+          sharedSize: value('SharedSize'),
+          uniqueSize: value('UniqueSize'),
+          platform: [
+            os,
+            arch,
+            value('Variant'),
+          ].where((part) => part.isNotEmpty).join('/'),
+          digest: value('Digest').isNotEmpty
+              ? value('Digest')
+              : value('RepoDigests'),
+          mountpoint: value('Mountpoint'),
+          scope: value('Scope'),
+          labels: value('Labels'),
+          options: value('Options'),
+          layers: row['Layers'] is List ? (row['Layers'] as List).length : null,
+          references: references != null && references >= 0 ? references : null,
           raw: row,
         );
       });
     }).toList();
     yield parse();
     if (rows.isEmpty) return;
+    if (images) {
+      // 多个标签共用镜像标识，只按唯一标识批量读取列表所需字段。
+      final ids = rows
+          .map((row) => _containerImageReference('${row['ID'] ?? row['Id']}'))
+          .toSet()
+          .toList();
+      for (
+        var offset = 0;
+        offset < ids.length;
+        offset += _machineContainerInspectBatchSize
+      ) {
+        if (isCancelled?.call() ?? false) return;
+        final batch = ids
+            .skip(offset)
+            .take(_machineContainerInspectBatchSize)
+            .toList();
+        final output = await execute([
+          'image',
+          'inspect',
+          '--format',
+          '{{json .Id}}\t{{json .Os}}\t{{json .Architecture}}\t{{json .RepoDigests}}\t{{json .RootFS.Layers}}',
+          ...batch,
+        ]);
+        if (isCancelled?.call() ?? false) return;
+        final details = <String, Map<String, dynamic>>{};
+        for (final line
+            in output.split('\n').where((line) => line.trim().isNotEmpty)) {
+          final fields = line.split('\t');
+          if (fields.length != 5) throw const FormatException('镜像列表补充字段格式无效。');
+          final values = fields.map(jsonDecode).toList();
+          if (values[0] is! String ||
+              values[1] is! String ||
+              values[2] is! String ||
+              values[3] != null && values[3] is! List ||
+              values[4] != null && values[4] is! List) {
+            throw const FormatException('镜像列表补充字段类型无效。');
+          }
+          details[(values[0] as String).replaceFirst('sha256:', '')] = {
+            'Os': values[1],
+            'Architecture': values[2],
+            'RepoDigests': values[3],
+            'Layers': values[4],
+          };
+        }
+        if (batch.any(
+          (id) => !details.containsKey(id.replaceFirst('sha256:', '')),
+        )) {
+          throw const FormatException('镜像列表补充字段缺少对应镜像。');
+        }
+        rows = [
+          for (final row in rows)
+            {
+              ...row,
+              ...?details['${row['ID'] ?? row['Id']}'.replaceFirst(
+                'sha256:',
+                '',
+              )],
+            },
+        ];
+        yield parse();
+      }
+    }
     // 分批补充卷元数据，容量统计失败时保留已加载的列表与元数据。
     for (
       var offset = 0;
@@ -289,9 +407,13 @@ extension MachineContainerResources on MachineContainerClient {
         for (final row in rows)
           {
             ...row,
-            if (images && byName.containsKey(row[key]))
-              'Containers': byName[row[key]]!['Containers'],
-            if (!images) ...?byName[row[key]],
+            if (byName.containsKey(row[key]))
+              for (final field
+                  in images
+                      ? ['Containers', 'SharedSize', 'UniqueSize']
+                      : ['Size', 'Links'])
+                if (byName[row[key]]!.containsKey(field))
+                  field: byName[row[key]]![field],
           },
       ];
       yield parse();

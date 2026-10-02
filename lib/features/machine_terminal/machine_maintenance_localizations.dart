@@ -278,7 +278,7 @@ String maintenanceLabel(BuildContext context, String label) {
     '容器标识' => l10n.maintenanceContainerContainerId,
     '数据卷' => l10n.maintenanceVolumes,
     '选项' => l10n.maintenanceDetailOptions,
-    '作用域' => l10n.maintenanceContainerScope,
+    '作用域' => l10n.maintenanceResourceScope,
     '容器引用数' => l10n.maintenanceResourceReferences,
     '参数' => l10n.maintenanceResourceParameters,
     '搜索' => l10n.maintenanceImageSearch,
@@ -1585,6 +1585,15 @@ String maintenanceDetailValue(
 }) {
   final l10n = AppLocalizations.of(context)!;
   final leaf = field.split(' / ').last;
+  if (leaf == 'HealthStatus') {
+    return switch (value.trim().toLowerCase()) {
+      'healthy' => l10n.maintenanceHealthy,
+      'unhealthy' => l10n.maintenanceContainerUnhealthy,
+      'starting' => l10n.maintenanceReadoutActivating,
+      'none' => maintenanceLabel(context, '无'),
+      _ => value,
+    };
+  }
   // 仓库属性和权限表示“是/否”；服务开关仍按启用状态展示。
   if (const {
     'is_private',

@@ -16308,4 +16308,26 @@ class AppLocalizationsFr extends AppLocalizations {
   String resourceDownloadFiles(int completed, int total) {
     return '$completed / $total fichiers';
   }
+
+  @override
+  String get maintenanceResourceSharedSize => 'Taille partagée';
+
+  @override
+  String get maintenanceResourceUniqueSize => 'Taille exclusive';
+
+  @override
+  String get maintenanceResourceWritableSize =>
+      'Taille de la couche modifiable';
+
+  @override
+  String get maintenanceResourceRootSize => 'Taille du système de fichiers';
+
+  @override
+  String get maintenanceResourceScope => 'Portée';
+
+  @override
+  String get maintenanceResourceLayerCount => 'Couches';
+
+  @override
+  String get maintenanceContainerUnhealthy => 'Défaillant';
 }

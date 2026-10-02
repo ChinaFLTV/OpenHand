@@ -11070,5 +11070,12 @@
         "type": "int"
       }
     }
-  }
+  },
+  "maintenanceResourceSharedSize": "共享容量",
+  "maintenanceResourceUniqueSize": "独占容量",
+  "maintenanceResourceWritableSize": "可写层容量",
+  "maintenanceResourceRootSize": "文件系统总容量",
+  "maintenanceResourceScope": "作用域",
+  "maintenanceResourceLayerCount": "镜像层数",
+  "maintenanceContainerUnhealthy": "不健康"
 }

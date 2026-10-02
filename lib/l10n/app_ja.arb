@@ -9878,5 +9878,12 @@
   "maintenanceImagePreparing": "イメージのダウンロードを準備中",
   "resourcePreparing": "リソースを準備中",
   "resourceDownloading": "リソースをダウンロード中",
-  "resourceDownloadFiles": "{completed} / {total} ファイル"
+  "resourceDownloadFiles": "{completed} / {total} ファイル",
+  "maintenanceResourceSharedSize": "共有サイズ",
+  "maintenanceResourceUniqueSize": "固有サイズ",
+  "maintenanceResourceWritableSize": "書き込み層サイズ",
+  "maintenanceResourceRootSize": "ファイルシステムサイズ",
+  "maintenanceResourceScope": "スコープ",
+  "maintenanceResourceLayerCount": "レイヤー数",
+  "maintenanceContainerUnhealthy": "異常"
 }

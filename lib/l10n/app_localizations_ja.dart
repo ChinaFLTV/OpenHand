@@ -15712,4 +15712,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String resourceDownloadFiles(int completed, int total) {
     return '$completed / $total ファイル';
   }
+
+  @override
+  String get maintenanceResourceSharedSize => '共有サイズ';
+
+  @override
+  String get maintenanceResourceUniqueSize => '固有サイズ';
+
+  @override
+  String get maintenanceResourceWritableSize => '書き込み層サイズ';
+
+  @override
+  String get maintenanceResourceRootSize => 'ファイルシステムサイズ';
+
+  @override
+  String get maintenanceResourceScope => 'スコープ';
+
+  @override
+  String get maintenanceResourceLayerCount => 'レイヤー数';
+
+  @override
+  String get maintenanceContainerUnhealthy => '異常';
 }

@@ -9878,5 +9878,12 @@
   "maintenanceImagePreparing": "正在準備鏡像下載",
   "resourcePreparing": "正在準備資源",
   "resourceDownloading": "正在下載資源",
-  "resourceDownloadFiles": "{completed} / {total} 個檔案"
+  "resourceDownloadFiles": "{completed} / {total} 個檔案",
+  "maintenanceResourceSharedSize": "共用容量",
+  "maintenanceResourceUniqueSize": "獨占容量",
+  "maintenanceResourceWritableSize": "可寫層容量",
+  "maintenanceResourceRootSize": "檔案系統總容量",
+  "maintenanceResourceScope": "作用域",
+  "maintenanceResourceLayerCount": "映像檔層數",
+  "maintenanceContainerUnhealthy": "不健康"
 }
