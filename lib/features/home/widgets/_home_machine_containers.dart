@@ -2208,11 +2208,11 @@ class _ContainerTelemetryIssue extends StatelessWidget {
           _MaintenanceSection(
             title: l.maintenanceDiagnosticItems,
             icon: Icons.manage_search_rounded,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: SingleChildScrollView(
-                child: SelectableText(text, style: theme.textTheme.bodySmall),
-              ),
+            child: OpenHandJsonTreeView(
+              text: text,
+              parseStructuredText: true,
+              bodyMaxHeight: 180,
+              logTag: 'machine_containers',
             ),
           ),
       ],
@@ -2554,9 +2554,10 @@ class _ContainerImageReadout extends StatelessWidget {
         _MaintenanceSection(
           title: maintenanceLabel(context, '原始输出'),
           icon: Icons.data_object_rounded,
-          child: _MaintenanceReadout(
+          child: OpenHandJsonTreeView(
             text: jsonEncode(image),
-            section: 'container_image',
+            parseStructuredText: true,
+            logTag: 'machine_containers',
           ),
         ),
         if (report['historyError'] != null)

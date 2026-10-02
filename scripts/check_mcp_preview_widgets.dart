@@ -382,5 +382,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('MCP 原生响应复用高亮树，格式失败回退且完整原文绑定当前响应', (tester) async {
+    for(final raw in ['  <root id="1"><item>A</item><item>B</item></root>  ', 'service:\n  enabled: true\n  ports: [80,443]', 'a: &loop [*loop]', '<broken><root>']) {
+      Future<void> show(String text) async {
+        await tester.pumpWidget(MaterialApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:SingleChildScrollView(
+            child:_McpFormattedResultPanel(result:McpToolCallResult(outputText:text))))));
+        await tester.pumpAndSettle();
+      }
+      await show(raw);
+      final tree=tester.widget<OpenHandJsonTreeView>(find.byType(OpenHandJsonTreeView));
+      expect(tree.parseStructuredText,isTrue);
+      expect((await tree.loadFullText!()).text,raw);
+      await show('{"changed":true}');
+      expect((await tree.loadFullText!()).text,raw,reason:'完整视图保留所选响应，不被后续结果替换');
+      expect(tester.takeException(),isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
 }
 ''';

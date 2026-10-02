@@ -17,8 +17,8 @@ import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_json_tree.dart';
 import '../../shared/ui/openhand_spacing.dart';
-import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -488,19 +488,12 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   ),
                                 ),
                               if (expanded)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 8),
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: cs.surfaceContainerLowest,
-                                    borderRadius: kOpenHandBorderRadius8,
-                                  ),
-                                  child: SelectableText(
-                                    e.rawJson,
-                                    style: tt.bodySmall?.copyWith(
-                                      fontFamily: kOpenHandMonospaceFontFamily,
-                                      fontSize: 11.5,
-                                    ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: OpenHandJsonTreeView(
+                                    text: e.rawJson,
+                                    parseStructuredText: true,
+                                    logTag: 'web_reverse_issues_dialog',
                                   ),
                                 ),
                             ],

@@ -11,13 +11,13 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_message_action_chip.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -648,44 +648,14 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
   }
 
   Widget _buildContent(BuildContext context) {
-    if (_showRawContent) {
-      final theme = Theme.of(context);
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.62,
-          ),
-          borderRadius: kOpenHandBorderRadius8,
-        ),
-        child: SelectableText(
-          widget.message.content,
-          style: openHandCodeBodyTextStyle(
-            theme,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-      );
-    }
     final kind = widget.message.kind;
-    if (kind == WorkflowLlmMessageKind.toolCall ||
+    if (_showRawContent ||
+        kind == WorkflowLlmMessageKind.toolCall ||
         kind == WorkflowLlmMessageKind.toolResult) {
-      final theme = Theme.of(context);
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.62,
-          ),
-          borderRadius: kOpenHandBorderRadius8,
-        ),
-        child: SelectableText(
-          widget.message.content,
-          style: openHandCodeBodyTextStyle(
-            theme,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
+      return OpenHandJsonTreeView(
+        text: widget.message.content,
+        parseStructuredText: true,
+        logTag: 'workflow_llm_conversation',
       );
     }
     return _MarkdownMessageBody(
@@ -877,19 +847,10 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
                 ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               kOpenHandGap6,
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: kOpenHandBorderRadius10,
-                ),
-                child: SelectableText(
-                  message.content,
-                  style: openHandCodeBodyTextStyle(
-                    Theme.of(context),
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
+              OpenHandJsonTreeView(
+                text: message.content,
+                parseStructuredText: true,
+                logTag: 'workflow_llm_conversation',
               ),
             ],
           ),

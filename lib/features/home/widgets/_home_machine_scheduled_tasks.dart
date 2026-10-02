@@ -2123,13 +2123,15 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               title: l.maintenanceTaskNative,
                               icon: Icons.code_rounded,
                               accent: cs.secondary,
-                              child: SelectableText(
-                                task.definition,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                  height: 1.5,
-                                ),
+                              child: OpenHandJsonTreeView(
+                                text: task.definition,
+                                parseStructuredText: true,
+                                language: switch (task.scheduler) {
+                                  MachineTaskScheduler.systemd => 'ini',
+                                  MachineTaskScheduler.cron => 'bash',
+                                  _ => 'xml',
+                                },
+                                logTag: 'machine_scheduled_tasks',
                               ),
                             ),
                         ],

@@ -2268,6 +2268,16 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                             text: report.raw,
                             section: 'gpu_report',
                           ),
+                        if (report.raw.isNotEmpty)
+                          _MaintenanceSection(
+                            title: maintenanceLabel(context, '当前采样 · 完整原始内容'),
+                            icon: Icons.code_rounded,
+                            child: OpenHandJsonTreeView(
+                              text: report.raw,
+                              parseStructuredText: true,
+                              logTag: 'machine_maintenance_gpu',
+                            ),
+                          ),
                         if (report.rows.isNotEmpty)
                           report.rows.length > 24 && report.groups.length > 1
                               ? _MaintenanceAnimatedColumn(
@@ -6301,6 +6311,16 @@ class _MaintenanceHealthContent extends StatelessWidget {
                   _MaintenanceFields(
                     rows: machineMaintenanceDiagnosticFields(raw),
                   ),
+                if (raw.isNotEmpty)
+                  _MaintenanceSection(
+                    title: maintenanceLabel(context, '当前采样 · 完整原始内容'),
+                    icon: Icons.code_rounded,
+                    child: OpenHandJsonTreeView(
+                      text: raw,
+                      parseStructuredText: true,
+                      logTag: 'machine_maintenance',
+                    ),
+                  ),
               ],
             ),
           ),
@@ -6814,18 +6834,27 @@ class _MaintenanceReadoutState extends State<_MaintenanceReadout> {
           ),
           if (widget.text.isNotEmpty || _data.rows.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _MaintenanceFields(
-              rows: [
-                for (final row
-                    in _data.rows.isNotEmpty
-                        ? _data.rows
-                        : machineMaintenanceDiagnosticFields(widget.text))
-                  [
-                    maintenanceDetailLabel(context, row[0]),
-                    maintenanceDetailValue(context, row[1]),
-                  ],
-              ],
-            ),
+            if (_data.issue == null)
+              OpenHandJsonTreeView(
+                text: widget.text.isNotEmpty
+                    ? widget.text
+                    : _data.rows.map((row) => row.join(' · ')).join('\n'),
+                parseStructuredText: true,
+                logTag: 'machine_maintenance',
+              )
+            else
+              _MaintenanceFields(
+                rows: [
+                  for (final row
+                      in _data.rows.isNotEmpty
+                          ? _data.rows
+                          : machineMaintenanceDiagnosticFields(widget.text))
+                    [
+                      maintenanceDetailLabel(context, row[0]),
+                      maintenanceDetailValue(context, row[1]),
+                    ],
+                ],
+              ),
           ],
         ],
       );

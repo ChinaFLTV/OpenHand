@@ -1,11 +1,9 @@
 import 'dart:convert';
 
-import 'package:xml/xml.dart';
-import 'package:yaml/yaml.dart';
-
 import 'bounded_json_conversion.dart';
 import 'byte_size_format.dart';
 import 'input_value_parsing.dart';
+import 'structured_content.dart';
 
 enum StructuredTextFormat { json, xml, yaml }
 
@@ -110,7 +108,8 @@ final class _XmlTextFormatterStrategy
   StructuredTextFormatResult? tryFormat(String trimmed) {
     if (!trimmed.startsWith('<')) return null;
     try {
-      final document = XmlDocument.parse(trimmed);
+      final document = tryParseBoundedOpenHandXml(trimmed);
+      if (document == null) return null;
       return StructuredTextFormatResult(
         text: document.toXmlString(pretty: true, indent: '  '),
         format: StructuredTextFormat.xml,
@@ -130,15 +129,13 @@ final class _YamlTextFormatterStrategy
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) return null;
     if (!_looksLikeYaml(trimmed)) return null;
     try {
-      final loaded = loadYaml(trimmed);
-      if (loaded is! Map && loaded is! List) return null;
+      final loaded = parseOpenHandStructuredContent(
+        trimmed,
+        language: 'yaml',
+      ).value;
+      if (loaded == null) return null;
       return StructuredTextFormatResult(
-        text: prettyPrintJson(
-          convertToJsonSafeValue(
-            loaded,
-            config: _structuredTextConversionConfig,
-          ),
-        ),
+        text: prettyPrintJson(loaded),
         format: StructuredTextFormat.yaml,
       );
     } catch (_) {

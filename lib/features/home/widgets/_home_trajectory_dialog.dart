@@ -3561,6 +3561,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
       ),
       'raw' => OpenHandJsonTreeView(
         text: _trajectoryRecordRawText(record),
+        parseStructuredText: true,
         logTag: 'trajectory',
         emptyText: openHandLocalizedText(
           context,

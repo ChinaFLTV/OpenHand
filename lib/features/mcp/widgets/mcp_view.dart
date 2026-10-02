@@ -15497,6 +15497,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final result = widget.result;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -15550,6 +15551,11 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
         else if (_displayText != null)
           OpenHandJsonTreeView(
             text: _displayText!,
+            parseStructuredText: true,
+            language: _formatBadge == 'XML' ? 'xml' : null,
+            loadFullText: () async => OpenHandJsonFullText(
+              text: _extractMcpContentForDisplay(result),
+            ),
             label:
                 _formatBadge ??
                 _localizedText(context, zh: '响应内容', en: 'Response'),

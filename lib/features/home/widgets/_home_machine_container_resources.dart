@@ -1630,20 +1630,10 @@ class _ContainerRegistryDetailsDialogState
               title: l.maintenanceTelemetryFullMetadata,
               icon: Icons.data_object_rounded,
               scrollBody: false,
-              trailing: _MachineTerminalIconButton(
-                icon: Icons.copy_rounded,
-                tooltip: l.commonCopy,
-                onPressed: () => copyOpenHandTextToClipboard(
-                  context: context,
-                  text: const JsonEncoder.withIndent(
-                    '  ',
-                  ).convert({'repository': _repository, 'tag': _tagData}),
-                  logTag: '镜像详情',
-                ),
-              ),
-              child: _MaintenanceReadout(
+              child: OpenHandJsonTreeView(
                 text: jsonEncode({'repository': _repository, 'tag': _tagData}),
-                section: 'container_image',
+                parseStructuredText: true,
+                logTag: 'machine_image_registry',
               ),
             ),
           ],

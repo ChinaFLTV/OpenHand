@@ -92,6 +92,7 @@ import 'package:openhand/shared/ui/openhand_transfer_progress.dart';
 import 'package:openhand/shared/ui/openhand_reveal_switcher.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
 import 'package:openhand/shared/ui/openhand_code_editor.dart';
+import 'package:openhand/shared/ui/openhand_json_tree.dart';
 import 'package:openhand/shared/ui/openhand_document_markdown_preview.dart';
 import 'package:openhand/shared/ui/openhand_safe_markdown_body.dart';
 import 'package:openhand/shared/ui/openhand_message_markdown_theme.dart';
@@ -5597,6 +5598,31 @@ void scheduledTaskChecks() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('原生配置复用高亮树，切换原文不改写配置且全局动效即时生效', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(760,900));
+    await tester.runAsync(()=>_testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs:600,entranceStyle:DialogAnimationStyle.springScale,exitStyle:DialogAnimationStyle.springScale)));
+    final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
+    const definition='<plist version="1.0"><dict><key>Label</key><string>示例任务</string><key>StartInterval</key><integer>7200</integer></dict></plist>';
+    final task=MachineScheduledTask(scheduler:MachineTaskScheduler.launchd,id:'example',name:'示例任务',
+      source:'/Library/LaunchAgents/example.plist',definition:definition,command:'/usr/bin/true');
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_MachineTaskDialog(platform:'Darwin',snapshot:snapshot,
+        task:task,edit:false,client:MachineScheduledTaskClient(platform:'Darwin',run:(_)async=>'__OH_TASK_END__')))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('原生配置'));await tester.tap(find.text('原生配置'));await tester.pumpAndSettle();
+    final view=find.byType(OpenHandJsonTreeView);expect(view,findsOneWidget);
+    final tree=tester.widget<OpenHandJsonTreeView>(view);expect(tree.text,definition);expect(tree.parseStructuredText,isTrue);expect(tree.language,'xml');
+    final sizes=find.descendant(of:view,matching:find.byType(AnimatedSize));
+    expect(sizes,findsWidgets);
+    for(final animation in tester.widgetList<AnimatedSize>(sizes)) expect(animation.duration,const Duration(milliseconds:600));
+    await tester.runAsync(()=>_testSettings.updateDialogAnimationSettings(OpenHandMotionDefaults.disabled));await tester.pumpAndSettle();
+    expect(find.descendant(of:view,matching:find.byType(AnimatedSize)),findsNothing);
+    final source=find.descendant(of:view,matching:find.byIcon(Icons.code_rounded));await tester.ensureVisible(source);await tester.tap(source);await tester.pump();
+    expect(tester.widget<SelectableText>(find.descendant(of:view,matching:find.byType(SelectableText))).textSpan!.toPlainText(),definition);
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('任务详情刷新保留内容和折叠状态，失败可恢复且不重复读取', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1000,1000));
     final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
@@ -6606,7 +6632,7 @@ void telemetryChecks() {
         await preview('error');
         final diagnostics = find.text(l.maintenanceDiagnosticItems);
         await tester.ensureVisible(diagnostics); await tester.tap(diagnostics); await tester.pumpAndSettle();
-        expect(find.text('Bad state: permission denied'), findsOneWidget);
+        expect(find.byWidgetPredicate((widget)=>widget is OpenHandJsonTreeView && widget.text=='Bad state: permission denied'), findsOneWidget);
         failed=false; pending=Completer<String>();
         await tester.ensureVisible(refresh); await tester.tap(refresh); await tester.pump(); await tester.pump(const Duration(milliseconds:700));
         expect(tester.widget<FilledButton>(refresh).onPressed, isNull);
@@ -7107,7 +7133,7 @@ void resourceChecks() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('仓库完整元数据六语言即时刷新，属性、权限、时间按语义展示并原样复制', (tester) async {
+  testWidgets('仓库完整元数据六语言即时刷新，复用高亮树并原样复制', (tester) async {
     const timestamp = '2026-10-02T01:02:03.123456Z';
     const fixture = {
       'repository': {
@@ -7134,7 +7160,6 @@ void resourceChecks() {
       },
     };
     final raw = jsonEncode(fixture);
-    final parsed = MachineMaintenanceReadout.parse(raw, 'container_image');
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
@@ -7162,11 +7187,6 @@ void resourceChecks() {
           final tab = find.byKey(const ValueKey(('image-detail-tab',3)));
           await Scrollable.ensureVisible(tester.element(tab),alignment:.5);await tester.pumpAndSettle();
           await tester.tap(tab);await tester.pumpAndSettle();
-          for (final group in fixture.keys) {
-            final expansion = find.descendant(of:find.byKey(ValueKey(group)),matching:find.byType(ExpansionTile)).first;
-            await Scrollable.ensureVisible(tester.element(expansion),alignment:.1);await tester.pumpAndSettle();
-            await tester.tap(find.descendant(of:expansion,matching:find.byType(ListTile)).first);await tester.pumpAndSettle();
-          }
         } else {
           expect(identical(previous,dialog),isTrue);
           expect(dialog._tab,3);
@@ -7174,50 +7194,16 @@ void resourceChecks() {
         previous = dialog;
         final context = tester.element(find.byType(_ContainerRegistryDetailsDialog));
         final l = AppLocalizations.of(context)!;
-        for (final group in fixture.keys) {
-          final section = find.byKey(ValueKey(group));
-          expect(tester.widget<_MaintenanceSection>(section).title,
-            group=='repository'?l.maintenanceImageRepositoryDetails:l.maintenanceImageTag);
-          final fields = tester.widget<_MaintenanceFields>(find.descendant(of:section,matching:find.byType(_MaintenanceFields)));
-          final source = parsed.groups[group]!.rows;
-          expect(fields.rows.length,source.length);
-          for (var i=0;i<source.length;i++) {
-            expect(fields.fieldKeys![i],source[i][0]);
-            for (final part in source[i][0].split(' / ')) {
-              final label = maintenanceDetailLabel(context,part);
-              expect(label,isNot(part),reason:'$locale 未翻译 $part');
-              expect(fields.rows[i][0],contains(label));
-            }
-          }
-          final values = {for(var i=0;i<source.length;i++) source[i][0]:fields.rows[i][1]};
-          final expected = group=='repository' ? {
-            'name':'active','description':'false','repository_type':l.maintenanceDetailImage,
-            'status':'1','status_description':l.maintenanceCounterActive,
-            'is_private':l.maintenanceHealthParsedNo,'is_automated':l.maintenanceHealthParsedYes,
-            'has_starred':l.maintenanceHealthParsedNo,'is_official':l.maintenanceHealthParsedYes,
-            'permissions / admin':l.maintenanceHealthParsedNo,'permissions / read':l.maintenanceHealthParsedYes,
-            'permissions / write':l.maintenanceHealthParsedNo,
-            'immutable_tags_settings / enabled':l.maintenanceDetailDisabled,'immutable_tags_settings / rules':'active · false',
-            'content_types':l.maintenanceDetailImage,'categories [1] / name':'inactive',
-            'categories [1] / slug':'unknown','pull_count':'3364966144','storage_size':'1024',
-          } : {
-            'last_updater_username':'active','v2':l.maintenanceHealthParsedYes,'tag_status':l.maintenanceCounterActive,
-            'content_type':l.maintenanceDetailImage,'images [1] / status':l.maintenanceCounterInactive,
-            'images [1] / features':'active','images [1] / os_features':'false','digest':'sha256:abc',
-          };
-          for (final entry in expected.entries) {
-            expect(values[entry.key],entry.value,reason:'$locale ${entry.key}');
-          }
-          for (final row in source.where((row)=>row[1]==timestamp)) {
-            expect(values[row[0]],'2026-10-02 01:02:03');
-          }
-        }
+        final tree = tester.widget<OpenHandJsonTreeView>(find.byType(OpenHandJsonTreeView));
+        expect(tree.parseStructuredText,isTrue);
+        expect(jsonDecode(tree.text),fixture);
+        expect(find.byType(_MaintenanceFields),findsNothing);
         expect(maintenanceDetailValue(context,'artifact',field:'repository_type'),'artifact');
         expect(maintenanceDetailValue(context,'new-state',field:'tag_status'),'new-state');
         expect(maintenanceDetailValue(context,'unknown',field:'is_private'),'unknown');
         expect(maintenanceDetailLabel(context,'future_extension'),'future_extension');
         final metadata = find.byWidgetPredicate((widget)=>widget is _MaintenanceCard && widget.title==l.maintenanceTelemetryFullMetadata);
-        final copy = find.descendant(of:metadata,matching:find.byWidgetPredicate((widget)=>widget is _MachineTerminalIconButton && widget.tooltip==l.commonCopy)).first;
+        final copy = find.descendant(of:metadata,matching:find.byIcon(Icons.copy_rounded)).first;
         await Scrollable.ensureVisible(tester.element(copy),alignment:.1);await tester.pumpAndSettle();
         await tester.tap(copy);await tester.pumpAndSettle();
         expect(jsonDecode(copied!),fixture);
@@ -7228,10 +7214,10 @@ void resourceChecks() {
             await Scrollable.ensureVisible(tester.element(tab),alignment:.5);await tester.pumpAndSettle();
             await tester.tap(tab);await tester.pumpAndSettle();
           }
-          expect(find.byType(_MaintenanceFields),findsNWidgets(2));
+          expect(find.byType(OpenHandJsonTreeView),findsOneWidget);
         }
         if (locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
-          final card = find.byKey(const ValueKey('maintenance-field-is_private'));
+          final card = find.byType(OpenHandJsonTreeView);
           await Scrollable.ensureVisible(tester.element(card),alignment:.4);await tester.pumpAndSettle();
           await tester.runAsync(() async {
             final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('元数据翻译预览'))).toImage(pixelRatio:1.5);
@@ -7308,8 +7294,9 @@ void resourceChecks() {
     }
     final context=tester.element(find.byType(_ContainerRegistryDetailsDialog));
     final l=AppLocalizations.of(context)!;
-    expect(tester.widgetList<_MaintenanceSection>(find.byType(_MaintenanceSection)).map((section)=>section.title),
-      containsAll([l.maintenanceImageRepositoryDetails,l.maintenanceImageTag]));
+    final rawTree = tester.widget<OpenHandJsonTreeView>(find.byType(OpenHandJsonTreeView));
+    expect(rawTree.parseStructuredText,isTrue);
+    expect((jsonDecode(rawTree.text) as Map).keys,containsAll(['repository','tag']));
     expect(maintenanceDetailLabel(context,'images [1] / architecture'),
       l.maintenanceImagePlatforms+' [1] / '+maintenanceLabel(context,'架构'));
     expect(maintenanceDetailLabel(context,'star_count'),l.maintenanceImageStars);

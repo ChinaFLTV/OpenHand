@@ -3,41 +3,38 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../util/bounded_json_conversion.dart';
-import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
+import '../util/structured_content.dart';
+import '../util/text_clip.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'animated_expandable.dart';
-import 'motion_durations.dart';
+import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_clipboard.dart';
+import 'openhand_code_editor.dart';
 import 'openhand_inline_empty_state.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
 
-const int kOpenHandJsonTreeMaxCharacters = 512 * kBytesPerKiB;
-const int kOpenHandJsonTreeMaxNodes = 4096;
-const int kOpenHandJsonTreeMaxDepth = 32;
-const BoundedJsonConversionConfig _openHandJsonTreeConversionConfig =
-    BoundedJsonConversionConfig(
-      maxDepth: kOpenHandJsonTreeMaxDepth,
-      maxContainerItems: kOpenHandJsonTreeMaxNodes,
-      maxTotalNodes: kOpenHandJsonTreeMaxNodes + 1,
-      maxStringCodeUnits: kOpenHandJsonTreeMaxCharacters,
-      maxTotalStringCodeUnits: kOpenHandJsonTreeMaxCharacters,
-    );
+export '../util/structured_content.dart'
+    show
+        kOpenHandJsonTreeMaxCharacters,
+        kOpenHandJsonTreeMaxDepth,
+        kOpenHandJsonTreeMaxNodes;
+
+const _openHandJsonTreeConversionConfig = openHandContentConversionConfig;
 const int kOpenHandJsonTreeFullViewMinCharacters = 360;
 const double kOpenHandJsonTreePreviewMaxHeight = 260;
 const Duration kOpenHandJsonTreeCopyFeedbackDuration = Duration(seconds: 2);
 const Duration kOpenHandJsonTreeFullLoadTimeout = Duration(seconds: 12);
-const Duration kOpenHandJsonTreeExpandDuration = kOpenHandMotion280;
-const Duration kOpenHandJsonTreeCollapseDuration = kOpenHandMotion220;
-const Curve kOpenHandJsonTreeMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 
 const _JsonTreePalette _kJsonTreeLightColors = (
   key: Color(0xFF0B6E75),
@@ -121,6 +118,9 @@ Future<void> showOpenHandJsonFullViewDialog({
   bool error = false,
   String logTag = 'json_tree',
   OpenHandJsonFullTextLoader? loadFullText,
+  bool parseStructuredText = false,
+  String? language,
+  bool showSource = false,
 }) {
   return showAnimatedDialog<void>(
     context: context,
@@ -142,6 +142,9 @@ Future<void> showOpenHandJsonFullViewDialog({
           error: error,
           logTag: logTag,
           loadFullText: loadFullText,
+          parseStructuredText: parseStructuredText,
+          language: language,
+          showSource: showSource,
         ),
       );
     },
@@ -168,7 +171,10 @@ OpenHandJsonTreeDocument? tryParseOpenHandJsonTreeDocument(String text) {
   }
   if (decoded is! Map && decoded is! List) return null;
   final root = decoded as Object;
+  return _jsonTreeDocumentFromValue(root);
+}
 
+OpenHandJsonTreeDocument _jsonTreeDocumentFromValue(Object root) {
   final paths = <String>{r'$'};
   final pending = <(Object?, String)>[(root, r'$')];
   while (pending.isNotEmpty) {
@@ -219,7 +225,7 @@ String openHandJsonTreeTextFromValue(Object? value) {
   }
 }
 
-/// 结构化 JSON 树：语法高亮、按节点展开、复制，超限或非法 JSON 回退为文本。
+/// 结构化阅读视图：语法高亮、按节点展开、复制，超限或非法内容回退为原文。
 class OpenHandJsonTreeView extends StatefulWidget {
   const OpenHandJsonTreeView({
     super.key,
@@ -232,6 +238,9 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.bodyMaxHeight,
     this.logTag = 'json_tree',
     this.loadFullText,
+    this.parseStructuredText = false,
+    this.language,
+    this.showSource = false,
   }) : assert(bodyMaxHeight == null || bodyMaxHeight > 0);
 
   OpenHandJsonTreeView.fromValue({
@@ -245,10 +254,16 @@ class OpenHandJsonTreeView extends StatefulWidget {
     this.bodyMaxHeight,
     this.logTag = 'json_tree',
     this.loadFullText,
+    this.parseStructuredText = false,
+    this.language,
+    this.showSource = false,
   }) : text = openHandJsonTreeTextFromValue(value),
        assert(bodyMaxHeight == null || bodyMaxHeight > 0);
 
   final String text;
+  final bool parseStructuredText;
+  final String? language;
+  final bool showSource;
   final String emptyText;
   final String? label;
   final bool error;
@@ -267,6 +282,11 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
   Set<String> _expandedPaths = <String>{r'$'};
   Timer? _copiedResetTimer;
   bool _copied = false;
+  bool _showSource = false;
+  String? _language;
+  TextSpan? _sourceSpan;
+  TextStyle? _sourceStyle;
+  String? _sourceText;
 
   @override
   void initState() {
@@ -277,7 +297,10 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
   @override
   void didUpdateWidget(covariant OpenHandJsonTreeView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) {
+    if (oldWidget.text != widget.text ||
+        oldWidget.parseStructuredText != widget.parseStructuredText ||
+        oldWidget.language != widget.language ||
+        oldWidget.showSource != widget.showSource) {
       _copiedResetTimer?.cancel();
       _copied = false;
       _parse();
@@ -291,7 +314,17 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
   }
 
   void _parse() {
-    _document = tryParseOpenHandJsonTreeDocument(widget.text);
+    final parsed = widget.parseStructuredText
+        ? parseOpenHandStructuredContent(widget.text, language: widget.language)
+        : null;
+    _language = parsed?.language ?? widget.language;
+    _document = widget.parseStructuredText
+        ? parsed?.value == null
+              ? null
+              : _jsonTreeDocumentFromValue(parsed!.value!)
+        : tryParseOpenHandJsonTreeDocument(widget.text);
+    _showSource = widget.showSource;
+    _sourceSpan = null;
     _expandedPaths = <String>{
       r'$',
       ...?_document?.containerPaths.where(
@@ -313,19 +346,23 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
         error: widget.error,
         logTag: widget.logTag,
         loadFullText: widget.loadFullText,
+        parseStructuredText: widget.parseStructuredText,
+        language: _language,
+        showSource: _showSource,
       );
     });
   }
 
   Future<void> _copy() async {
+    final source = widget.text;
     final copied = await copyOpenHandTextToClipboard(
       context: context,
-      text: widget.text,
+      text: source,
       logTag: widget.logTag,
       logAction: '复制结构化载荷',
       showSuccess: false,
     );
-    if (!copied || !mounted) return;
+    if (!copied || !mounted || source != widget.text) return;
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
     _copiedResetTimer = startSafeTimer(
@@ -336,8 +373,39 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
     );
   }
 
+  Widget _buildSource(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = (theme.textTheme.bodySmall ?? const TextStyle()).copyWith(
+      fontFamily: kOpenHandMonospaceFontFamily,
+      color: widget.error
+          ? theme.colorScheme.error
+          : theme.colorScheme.onSurface,
+      height: 1.5,
+    );
+    final text =
+        widget.enableFullView &&
+            widget.text.length > kOpenHandNativeContentMaxCharacters
+        ? '${widget.text.substring(0, safeUtf16PrefixCodeUnits(widget.text, kOpenHandNativeContentMaxCharacters))}\n…'
+        : widget.text;
+    if (_sourceSpan == null || _sourceStyle != style || _sourceText != text) {
+      _sourceText = text;
+      _sourceStyle = style;
+      _sourceSpan = text.length <= kOpenHandNativeContentMaxCharacters
+          ? OpenHandCodeSyntaxHighlighter(
+              baseStyle: style,
+              darkSurface: theme.brightness == Brightness.dark,
+            ).build(text, language: _language)
+          : TextSpan(text: text, style: style);
+      if (_sourceSpan!.toPlainText() != text) {
+        _sourceSpan = TextSpan(text: text, style: style);
+      }
+    }
+    return SelectableText.rich(_sourceSpan!);
+  }
+
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsController?>();
     final trimmed = widget.text.trim();
     if (trimmed.isEmpty) {
       if (widget.emptyText.trim().isEmpty) return const SizedBox.shrink();
@@ -347,28 +415,237 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
     final colorScheme = theme.colorScheme;
     final document = _document;
     final labeled = (widget.label ?? '').trim().isNotEmpty;
-    final description = _descriptionFor(context, document, trimmed.length);
+    final description = _descriptionFor(
+      context,
+      _showSource ? null : document,
+      widget.text.length,
+    );
     final allExpanded =
         document != null &&
         document.containerPaths.every(_expandedPaths.contains);
     final radius = labeled ? kOpenHandBorderRadius12 : kOpenHandBorderRadius7;
     final body = Padding(
       padding: const EdgeInsets.all(10),
-      child: document == null
-          ? SelectableText(
-              widget.text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: kOpenHandMonospaceFontFamily,
-                color: widget.error ? colorScheme.error : null,
-                height: 1.5,
-              ),
-            )
+      child: document == null || _showSource
+          ? _buildSource(context)
           : _buildJsonRoot(context, document.value),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
         final fillHeight =
             !widget.enableFullView && constraints.hasBoundedHeight;
+        final heading = Row(
+          children: [
+            Icon(
+              document == null
+                  ? Icons.notes_rounded
+                  : Icons.data_object_rounded,
+              size: 16,
+              color: widget.error
+                  ? colorScheme.error
+                  : document == null
+                  ? colorScheme.onSurfaceVariant
+                  : colorScheme.primary,
+            ),
+            kOpenHandHGap8,
+            if (labeled) ...[
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.error
+                        ? colorScheme.error.withValues(alpha: 0.14)
+                        : colorScheme.primary.withValues(alpha: 0.14),
+                    borderRadius: kOpenHandPillBorderRadius,
+                  ),
+                  child: Text(
+                    widget.label!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: widget.error
+                          ? colorScheme.error
+                          : colorScheme.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              kOpenHandHGap8,
+            ],
+            Expanded(
+              child: Text(
+                description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+        final actions = IconButtonTheme(
+          data: const IconButtonThemeData(
+            style: ButtonStyle(
+              minimumSize: WidgetStatePropertyAll(Size(30, 30)),
+              maximumSize: WidgetStatePropertyAll(Size(30, 30)),
+              fixedSize: WidgetStatePropertyAll(Size(30, 30)),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          child: Wrap(
+            spacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (widget.parseStructuredText && document != null) ...[
+                IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: _showSource
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '查看结构',
+                          zhHant: '查看結構',
+                          en: 'Show structure',
+                          fr: 'Afficher la structure',
+                          de: 'Struktur anzeigen',
+                          ja: '構造を表示',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '查看原文',
+                          zhHant: '查看原文',
+                          en: 'Show source',
+                          fr: 'Afficher la source',
+                          de: 'Quelltext anzeigen',
+                          ja: '原文を表示',
+                        ),
+                  onPressed: () => setState(() => _showSource = !_showSource),
+                  icon: Icon(
+                    _showSource
+                        ? Icons.account_tree_outlined
+                        : Icons.code_rounded,
+                    size: 16,
+                  ),
+                ),
+              ],
+              if (document != null &&
+                  !_showSource &&
+                  document.containerPaths.length > 1) ...[
+                IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: allExpanded
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '全部收起',
+                          zhHant: '全部收合',
+                          en: 'Collapse all',
+                          fr: 'Tout réduire',
+                          de: 'Alle einklappen',
+                          ja: 'すべて折りたたむ',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '全部展开',
+                          zhHant: '全部展開',
+                          en: 'Expand all',
+                          fr: 'Tout développer',
+                          de: 'Alle ausklappen',
+                          ja: 'すべて展開',
+                        ),
+                  onPressed: () => setState(() {
+                    _expandedPaths = allExpanded
+                        ? <String>{r'$'}
+                        : document.containerPaths.toSet();
+                  }),
+                  icon: Icon(
+                    allExpanded
+                        ? Icons.unfold_less_rounded
+                        : Icons.unfold_more_rounded,
+                    size: 17,
+                  ),
+                ),
+              ],
+              if (_offersFullView) ...[
+                IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '显示全部内容',
+                    zhHant: '顯示全部內容',
+                    en: 'Show full content',
+                    fr: 'Afficher tout le contenu',
+                    de: 'Vollständigen Inhalt anzeigen',
+                    ja: 'すべての内容を表示',
+                  ),
+                  onPressed: _openFullView,
+                  icon: const Icon(Icons.open_in_full_rounded, size: 16),
+                ),
+              ],
+              if (widget.showCopyButton)
+                IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: _copied
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '已复制',
+                          zhHant: '已複製',
+                          en: 'Copied',
+                          fr: 'Copié',
+                          de: 'Kopiert',
+                          ja: 'コピー済み',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: document == null || widget.parseStructuredText
+                              ? '复制文本'
+                              : '复制 JSON',
+                          zhHant: document == null || widget.parseStructuredText
+                              ? '複製文字'
+                              : '複製 JSON',
+                          en: document == null || widget.parseStructuredText
+                              ? 'Copy text'
+                              : 'Copy JSON',
+                          fr: document == null || widget.parseStructuredText
+                              ? 'Copier le texte'
+                              : 'Copier le JSON',
+                          de: document == null || widget.parseStructuredText
+                              ? 'Text kopieren'
+                              : 'JSON kopieren',
+                          ja: document == null || widget.parseStructuredText
+                              ? 'テキストをコピー'
+                              : 'JSON をコピー',
+                        ),
+                  onPressed: _copy,
+                  icon: Icon(
+                    _copied ? Icons.check_rounded : Icons.copy_rounded,
+                    size: 16,
+                    color: _copied ? colorScheme.primary : null,
+                  ),
+                ),
+            ],
+          ),
+        );
         return Container(
           width: double.infinity,
           height: fillHeight ? constraints.maxHeight : null,
@@ -408,173 +685,46 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
                     ),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      document == null
-                          ? Icons.notes_rounded
-                          : Icons.data_object_rounded,
-                      size: 16,
-                      color: widget.error
-                          ? colorScheme.error
-                          : document == null
-                          ? colorScheme.onSurfaceVariant
-                          : colorScheme.primary,
-                    ),
-                    kOpenHandHGap8,
-                    if (labeled) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: widget.error
-                              ? colorScheme.error.withValues(alpha: 0.14)
-                              : colorScheme.primary.withValues(alpha: 0.14),
-                          borderRadius: kOpenHandPillBorderRadius,
-                        ),
-                        child: Text(
-                          widget.label!.trim(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: widget.error
-                                ? colorScheme.error
-                                : colorScheme.primary,
-                            fontWeight: FontWeight.w800,
+                child: constraints.maxWidth < 320
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          heading,
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: actions,
                           ),
-                        ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: heading),
+                          actions,
+                        ],
                       ),
-                      kOpenHandHGap8,
-                    ],
-                    Expanded(
-                      child: Text(
-                        description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (document != null &&
-                        document.containerPaths.length > 1) ...[
-                      IconButton(
-                        constraints: const BoxConstraints.tightFor(
-                          width: 30,
-                          height: 30,
-                        ),
-                        padding: EdgeInsets.zero,
-                        tooltip: allExpanded
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '全部收起',
-                                zhHant: '全部收合',
-                                en: 'Collapse all',
-                                fr: 'Tout réduire',
-                                de: 'Alle einklappen',
-                                ja: 'すべて折りたたむ',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '全部展开',
-                                zhHant: '全部展開',
-                                en: 'Expand all',
-                                fr: 'Tout développer',
-                                de: 'Alle ausklappen',
-                                ja: 'すべて展開',
-                              ),
-                        onPressed: () => setState(() {
-                          _expandedPaths = allExpanded
-                              ? <String>{r'$'}
-                              : document.containerPaths.toSet();
-                        }),
-                        icon: Icon(
-                          allExpanded
-                              ? Icons.unfold_less_rounded
-                              : Icons.unfold_more_rounded,
-                          size: 17,
-                        ),
-                      ),
-                      kOpenHandHGap4,
-                    ],
-                    if (_offersFullView) ...[
-                      IconButton(
-                        constraints: const BoxConstraints.tightFor(
-                          width: 30,
-                          height: 30,
-                        ),
-                        padding: EdgeInsets.zero,
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '显示全部内容',
-                          zhHant: '顯示全部內容',
-                          en: 'Show full content',
-                          fr: 'Afficher tout le contenu',
-                          de: 'Vollständigen Inhalt anzeigen',
-                          ja: 'すべての内容を表示',
-                        ),
-                        onPressed: _openFullView,
-                        icon: const Icon(Icons.open_in_full_rounded, size: 16),
-                      ),
-                      kOpenHandHGap4,
-                    ],
-                    if (widget.showCopyButton)
-                      IconButton(
-                        constraints: const BoxConstraints.tightFor(
-                          width: 30,
-                          height: 30,
-                        ),
-                        padding: EdgeInsets.zero,
-                        tooltip: _copied
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '已复制',
-                                zhHant: '已複製',
-                                en: 'Copied',
-                                fr: 'Copié',
-                                de: 'Kopiert',
-                                ja: 'コピー済み',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: document == null ? '复制文本' : '复制 JSON',
-                                zhHant: document == null ? '複製文字' : '複製 JSON',
-                                en: document == null
-                                    ? 'Copy text'
-                                    : 'Copy JSON',
-                                fr: document == null
-                                    ? 'Copier le texte'
-                                    : 'Copier le JSON',
-                                de: document == null
-                                    ? 'Text kopieren'
-                                    : 'JSON kopieren',
-                                ja: document == null ? 'テキストをコピー' : 'JSON をコピー',
-                              ),
-                        onPressed: _copy,
-                        icon: Icon(
-                          _copied ? Icons.check_rounded : Icons.copy_rounded,
-                          size: 16,
-                          color: _copied ? colorScheme.primary : null,
-                        ),
-                      ),
-                  ],
-                ),
               ),
               if (fillHeight)
                 Expanded(
                   child: _jsonTreeScrollableBody(context: context, child: body),
                 )
               else if (_offersFullView || widget.bodyMaxHeight != null)
-                _jsonTreePreviewBody(
+                _jsonTreeAnimatedSize(
                   context: context,
-                  clipped: _offersFullView,
-                  maxHeight:
-                      widget.bodyMaxHeight ?? kOpenHandJsonTreePreviewMaxHeight,
-                  child: body,
+                  expanding: !_showSource,
+                  child: _jsonTreePreviewBody(
+                    context: context,
+                    maxHeight:
+                        widget.bodyMaxHeight ??
+                        kOpenHandJsonTreePreviewMaxHeight,
+                    child: body,
+                  ),
                 )
               else
-                body,
+                _jsonTreeAnimatedSize(
+                  context: context,
+                  expanding: !_showSource,
+                  child: body,
+                ),
             ],
           ),
         );
@@ -725,9 +875,7 @@ class _OpenHandJsonTreeViewState extends State<OpenHandJsonTreeView> {
                     expanded: expanded,
                     size: 17,
                     color: colorScheme.onSurfaceVariant,
-                    duration: expanded
-                        ? kOpenHandJsonTreeExpandDuration
-                        : kOpenHandJsonTreeCollapseDuration,
+                    duration: _jsonTreeMotionDuration(context, expanded),
                   )
                 : Icon(Icons.circle, size: 4, color: colorScheme.outline),
           ),
@@ -850,19 +998,31 @@ Widget _jsonTreeAnimatedSize({
   required bool expanding,
   required Widget child,
 }) {
-  final duration = openHandMotionDuration(
+  final motion = openHandMotionSettingsOf(
     context,
-    expanding
-        ? kOpenHandJsonTreeExpandDuration
-        : kOpenHandJsonTreeCollapseDuration,
+    OpenHandMotionSettingsScope.dialog,
   );
-  if (duration <= Duration.zero) return child;
+  if (motion.disablesAnimation) return child;
   return AnimatedSize(
-    duration: duration,
-    curve: kOpenHandJsonTreeMotionCurve,
+    duration: expanding ? motion.entranceDuration : motion.exitDuration,
+    curve: OpenHandBoundedCurve(
+      expanding ? motion.curve.curve : motion.curve.reverseCurve,
+    ),
     alignment: Alignment.topCenter,
     child: child,
   );
+}
+
+Duration _jsonTreeMotionDuration(BuildContext context, bool expanding) {
+  final motion = openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.dialog,
+  );
+  return motion.disablesAnimation
+      ? Duration.zero
+      : expanding
+      ? motion.entranceDuration
+      : motion.exitDuration;
 }
 
 Widget _jsonTreeScrollableBody({
@@ -878,7 +1038,6 @@ Widget _jsonTreeScrollableBody({
 
 Widget _jsonTreePreviewBody({
   required BuildContext context,
-  required bool clipped,
   required double maxHeight,
   required Widget child,
 }) {
@@ -886,35 +1045,7 @@ Widget _jsonTreePreviewBody({
     constraints: BoxConstraints(maxHeight: maxHeight),
     child: _jsonTreeScrollableBody(context: context, child: child),
   );
-  if (!clipped) return constrainedBody;
-  final fade = Theme.of(context).colorScheme.surfaceContainer;
-  return ClipRRect(
-    child: Stack(
-      children: [
-        constrainedBody,
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 36,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    fade.withValues(alpha: 0),
-                    fade.withValues(alpha: 0.94),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+  return constrainedBody;
 }
 
 class _OpenHandJsonFullViewDialog extends StatefulWidget {
@@ -924,8 +1055,14 @@ class _OpenHandJsonFullViewDialog extends StatefulWidget {
     required this.logTag,
     this.label,
     this.loadFullText,
+    this.parseStructuredText = false,
+    this.language,
+    this.showSource = false,
   });
 
+  final bool parseStructuredText;
+  final String? language;
+  final bool showSource;
   final String initialText;
   final String? label;
   final bool error;
@@ -986,7 +1123,9 @@ class _OpenHandJsonFullViewDialogState
             ja: '完全な内容',
           )
         : widget.label!.trim();
-    final displayText = tryPrettyOpenHandJsonText(_text) ?? _text;
+    final displayText = widget.parseStructuredText
+        ? _text
+        : tryPrettyOpenHandJsonText(_text) ?? _text;
     final count = _text.trim().length;
     final subtitle = _loading
         ? openHandLocalizedText(
@@ -1077,6 +1216,9 @@ class _OpenHandJsonFullViewDialogState
               label: widget.label,
               error: widget.error,
               enableFullView: false,
+              parseStructuredText: widget.parseStructuredText,
+              language: widget.language,
+              showSource: widget.showSource,
               logTag: widget.logTag,
             ),
           ),
