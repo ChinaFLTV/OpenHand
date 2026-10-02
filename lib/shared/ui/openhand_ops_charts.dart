@@ -23,6 +23,7 @@ import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_anchored_popup_layout.dart';
 import 'openhand_animated_sliver_list.dart';
+import 'openhand_fixed_action_cell.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
@@ -3578,7 +3579,7 @@ class OpenHandOperationalRankRow {
 }
 
 /// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
-/// 列宽按列类型适配：时间列完整展示，数值列紧凑，原因等文本列限宽省略；表头可拖拽调宽，省略内容悬停看全文。
+/// 数据列可拖拽调宽，省略内容悬停看全文；操作列始终固定在视口右侧。
 class OpenHandOperationalRankTable extends StatefulWidget {
   const OpenHandOperationalRankTable({
     super.key,
@@ -3587,6 +3588,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
     this.rowActions,
+    this.rowActionBuilder,
     this.sortByValue = true,
     this.compact = false,
     this.maxBodyHeight = _kRankBodyMaxHeight,
@@ -3606,6 +3608,9 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final Map<String, VoidCallback> Function(OpenHandOperationalRankRow)?
   rowActions;
+
+  /// 自定义行内操作；可用 minimumColumnWidths[headers.length] 设置操作列最小宽度。
+  final Widget Function(OpenHandOperationalRankRow)? rowActionBuilder;
   final bool sortByValue;
   final bool compact;
   final double maxBodyHeight;
@@ -3818,7 +3823,10 @@ class _OpenHandOperationalRankTableState
   @override
   Widget build(BuildContext context) {
     context.watch<SettingsController?>();
-    final hasActions = widget.onRowTap != null || widget.rowActions != null;
+    final hasActions =
+        widget.onRowTap != null ||
+        widget.rowActions != null ||
+        widget.rowActionBuilder != null;
     final headers = [
       ...widget.headers,
       if (hasActions)
@@ -3944,11 +3952,15 @@ class _OpenHandOperationalRankTableState
         content + _kRankCellPadding * 2,
       );
       natural[i] = hasActions && i == columnCount - 1
-          ? math.max(OpenHandOperationalRowMenu.extent, content) +
-                _kRankCellPadding * 2
+          ? math.max(
+              math.max(OpenHandOperationalRowMenu.extent, content) +
+                  _kRankCellPadding * 2,
+              widget.minimumColumnWidths[i] ?? 0,
+            )
           : math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
     }
     final widths = _syncWidths(natural);
+    if (hasActions) widths.last = natural.last;
     return OverlayPortal(
       controller: _portal,
       overlayChildBuilder: _buildOverlay,
@@ -3979,11 +3991,18 @@ class _OpenHandOperationalRankTableState
                             : widths[i] * widthScale,
                     ];
               final tableWidth = math.max(contentWidth, viewportWidth);
-              final bodyCap =
-                  widget.maxBodyHeight.isFinite &&
-                      widget.maxBodyHeight > rowHeight
+              var bodyCap =
+                  widget.maxBodyHeight.isFinite && widget.maxBodyHeight >= 0
                   ? widget.maxBodyHeight
                   : defaultBodyMax;
+              if (constraints.hasBoundedHeight &&
+                  !widget.paginate &&
+                  widget.footer == null) {
+                bodyCap = math.min(
+                  bodyCap,
+                  math.max(0, constraints.maxHeight - headerHeight),
+                );
+              }
               final bodyHeight = math.min(
                 bodyCap,
                 math.max(pageRows.length, 1) * rowHeight,
@@ -4057,12 +4076,14 @@ class _OpenHandOperationalRankTableState
                 }
                 if (hasActions && index == headers.length - 1 && row != null) {
                   return Center(
-                    child: OpenHandOperationalRowMenu(
-                      onDetails: widget.onRowTap == null
-                          ? null
-                          : () => widget.onRowTap!(row),
-                      actions: widget.rowActions?.call(row) ?? const {},
-                    ),
+                    child:
+                        widget.rowActionBuilder?.call(row) ??
+                        OpenHandOperationalRowMenu(
+                          onDetails: widget.onRowTap == null
+                              ? null
+                              : () => widget.onRowTap!(row),
+                          actions: widget.rowActions?.call(row) ?? const {},
+                        ),
                   );
                 }
                 final widgets = row?.cellWidgets;
@@ -4127,10 +4148,136 @@ class _OpenHandOperationalRankTableState
                 );
               }
 
-              Widget rowFor(
+              Widget cellFor(
+                int i,
                 OpenHandOperationalRankRow? row, {
                 required bool header,
               }) {
+                return SizedBox(
+                  width: displayWidths[i],
+                  height: header ? headerHeight : rowHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _kRankCellPadding,
+                        ),
+                        child: widget.animateCellChanges && !header
+                            ? OpenHandOperationalLiveContent(
+                                preserveState:
+                                    hasActions && i == headers.length - 1 ||
+                                    row!.cellWidgets != null &&
+                                        i < row.cellWidgets!.length &&
+                                        row.cellWidgets![i] is StatefulWidget,
+                                value: (
+                                  i < row!.cells.length ? row.cells[i] : '--',
+                                  subtitleFor(row, i),
+                                  displayWidths[i],
+                                  headers[i],
+                                  widget.columnAlignments[i],
+                                  hasActions && i == headers.length - 1
+                                      ? row
+                                      : null,
+                                ),
+                                transitionKey: (
+                                  i < row.cells.length ? row.cells[i] : '--',
+                                  subtitleFor(row, i),
+                                ),
+                                builder: () =>
+                                    cellBody(header: false, index: i, row: row),
+                              )
+                            : cellBody(header: header, index: i, row: row),
+                      ),
+                      if (header && i < widget.headers.length)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.resizeColumn,
+                            onEnter: (_) => setState(() => _hoverHandle = i),
+                            onExit: (_) {
+                              if (_hoverHandle == i) {
+                                setState(() => _hoverHandle = null);
+                              }
+                            },
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onHorizontalDragStart: (details) {
+                                _scheduleHideTip();
+                                _userResized = true;
+                                _dragColumn = i;
+                                _dragOriginWidth = widths[i];
+                                _dragStartX = details.globalPosition.dx;
+                              },
+                              onHorizontalDragUpdate: (details) {
+                                final current = _userWidths;
+                                if (current == null ||
+                                    current.length != columnCount) {
+                                  return;
+                                }
+                                final next =
+                                    (_dragOriginWidth +
+                                            details.globalPosition.dx -
+                                            _dragStartX)
+                                        .clamp(
+                                          _kRankUserMinWidth,
+                                          _kRankUserMaxWidth,
+                                        );
+                                if ((current[i] - next).abs() < 0.5) {
+                                  return;
+                                }
+                                setState(() => current[i] = next);
+                              },
+                              onHorizontalDragEnd: (_) {
+                                setState(() => _dragColumn = null);
+                              },
+                              onHorizontalDragCancel: () {
+                                setState(() => _dragColumn = null);
+                              },
+                              child: SizedBox(
+                                width: _kRankResizeHandleWidth,
+                                child: Center(
+                                  child: AnimatedContainer(
+                                    duration: openHandMotionDuration(
+                                      context,
+                                      kOpenHandMotion180,
+                                    ),
+                                    curve: kOpenHandSwitchInCurve,
+                                    width: 2,
+                                    height: headerHeight - 12,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          _dragColumn == i || _hoverHandle == i
+                                          ? colors.primary
+                                          : colors.outlineVariant.withValues(
+                                              alpha: 0.0,
+                                            ),
+                                      borderRadius: BorderRadius.circular(
+                                        kOpenHandRadius2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }
+
+              Widget rowFor(
+                OpenHandOperationalRankRow? row, {
+                required bool header,
+                required Color background,
+              }) {
+                final data = Row(
+                  children: [
+                    for (var i = 0; i < widget.headers.length; i++)
+                      cellFor(i, row, header: header),
+                  ],
+                );
                 return DecoratedBox(
                   decoration: BoxDecoration(
                     border: Border(
@@ -4140,154 +4287,51 @@ class _OpenHandOperationalRankTableState
                       ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < columnCount; i++)
-                        SizedBox(
-                          width: displayWidths[i],
+                  child: !hasActions
+                      ? data
+                      : SizedBox(
                           height: header ? headerHeight : rowHeight,
                           child: Stack(
-                            fit: StackFit.expand,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: _kRankCellPadding,
-                                ),
-                                child: widget.animateCellChanges && !header
-                                    ? OpenHandOperationalLiveContent(
-                                        preserveState:
-                                            hasActions &&
-                                                i == headers.length - 1 ||
-                                            row!.cellWidgets != null &&
-                                                i < row.cellWidgets!.length &&
-                                                row.cellWidgets![i]
-                                                    is StatefulWidget,
-                                        value: (
-                                          i < row!.cells.length
-                                              ? row.cells[i]
-                                              : '--',
-                                          subtitleFor(row, i),
-                                          displayWidths[i],
-                                          headers[i],
-                                          widget.columnAlignments[i],
-                                          hasActions && i == headers.length - 1
-                                              ? row
-                                              : null,
-                                        ),
-                                        transitionKey: (
-                                          i < row.cells.length
-                                              ? row.cells[i]
-                                              : '--',
-                                          subtitleFor(row, i),
-                                        ),
-                                        builder: () => cellBody(
-                                          header: false,
-                                          index: i,
-                                          row: row,
-                                        ),
-                                      )
-                                    : cellBody(
-                                        header: header,
-                                        index: i,
-                                        row: row,
-                                      ),
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: tableWidth - actionWidth,
+                                child: data,
                               ),
-                              if (header)
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.resizeColumn,
-                                    onEnter: (_) =>
-                                        setState(() => _hoverHandle = i),
-                                    onExit: (_) {
-                                      if (_hoverHandle == i) {
-                                        setState(() => _hoverHandle = null);
-                                      }
-                                    },
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onHorizontalDragStart: (details) {
-                                        _scheduleHideTip();
-                                        _userResized = true;
-                                        _dragColumn = i;
-                                        _dragOriginWidth = widths[i];
-                                        _dragStartX = details.globalPosition.dx;
-                                      },
-                                      onHorizontalDragUpdate: (details) {
-                                        final current = _userWidths;
-                                        if (current == null ||
-                                            current.length != columnCount) {
-                                          return;
-                                        }
-                                        final next =
-                                            (_dragOriginWidth +
-                                                    details.globalPosition.dx -
-                                                    _dragStartX)
-                                                .clamp(
-                                                  hasActions &&
-                                                          i == columnCount - 1
-                                                      ? OpenHandOperationalRowMenu
-                                                                .extent +
-                                                            _kRankCellPadding *
-                                                                2
-                                                      : _kRankUserMinWidth,
-                                                  _kRankUserMaxWidth,
-                                                );
-                                        if ((current[i] - next).abs() < 0.5) {
-                                          return;
-                                        }
-                                        setState(() => current[i] = next);
-                                      },
-                                      onHorizontalDragEnd: (_) {
-                                        setState(() => _dragColumn = null);
-                                      },
-                                      onHorizontalDragCancel: () {
-                                        setState(() => _dragColumn = null);
-                                      },
-                                      child: SizedBox(
-                                        width: _kRankResizeHandleWidth,
-                                        child: Center(
-                                          child: AnimatedContainer(
-                                            duration: openHandMotionDuration(
-                                              context,
-                                              kOpenHandMotion180,
-                                            ),
-                                            curve: kOpenHandSwitchInCurve,
-                                            width: 2,
-                                            height: headerHeight - 12,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  _dragColumn == i ||
-                                                      _hoverHandle == i
-                                                  ? colors.primary
-                                                  : colors.outlineVariant
-                                                        .withValues(alpha: 0.0),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    kOpenHandRadius2,
-                                                  ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: actionWidth,
+                                child: OpenHandFixedActionCell(
+                                  controller: _horizontal,
+                                  viewportWidth: viewportWidth,
+                                  contentWidth: tableWidth,
+                                  backgroundColor: background,
+                                  borderColor: colors.outlineVariant,
+                                  child: cellFor(
+                                    columnCount - 1,
+                                    row,
+                                    header: header,
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                         ),
-                    ],
-                  ),
                 );
               }
 
               Widget buildRow(BuildContext context, int index) {
                 final row = pageRows[index];
+                final background = index.isEven
+                    ? colors.surfaceContainerLowest
+                    : colors.surfaceContainerLow;
                 Widget child = ColoredBox(
-                  color: index.isEven
-                      ? colors.surfaceContainerLowest
-                      : colors.surfaceContainerLow,
-                  child: rowFor(row, header: false),
+                  color: background,
+                  child: rowFor(row, header: false, background: background),
                 );
                 if (widget.onRowTap != null) {
                   child = MouseRegion(
@@ -4344,7 +4388,11 @@ class _OpenHandOperationalRankTableState
                               children: [
                                 ColoredBox(
                                   color: colors.surfaceContainerHighest,
-                                  child: rowFor(null, header: true),
+                                  child: rowFor(
+                                    null,
+                                    header: true,
+                                    background: colors.surfaceContainerHighest,
+                                  ),
                                 ),
                                 SizedBox(
                                   height: bodyHeight,

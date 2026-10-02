@@ -2929,14 +2929,6 @@ class _CookiesTable extends StatefulWidget {
 }
 
 class _CookiesTableState extends State<_CookiesTable> {
-  final ScrollController _hCtrl = ScrollController();
-
-  @override
-  void dispose() {
-    _hCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _addCookie() =>
       _upsertCookie(initial: const <String, Object?>{});
 
@@ -3031,6 +3023,13 @@ class _CookiesTableState extends State<_CookiesTable> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final cookies = widget.cookies;
+    final actionStyle = IconButton.styleFrom(
+      fixedSize: const Size.square(OpenHandOperationalRowMenu.extent),
+      minimumSize: const Size.square(OpenHandOperationalRowMenu.extent),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+      padding: EdgeInsets.zero,
+    );
     return Column(
       children: [
         Row(
@@ -3061,113 +3060,115 @@ class _CookiesTableState extends State<_CookiesTable> {
                   message: _webReverseDashEmptyLabel(context),
                   dense: true,
                 )
-              : OpenHandSafeScrollbar(
-                  controller: _hCtrl,
-                  child: SingleChildScrollView(
-                    controller: _hCtrl,
-                    scrollDirection: Axis.horizontal,
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowHeight: 30,
-                        dataRowMinHeight: 24,
-                        dataRowMaxHeight: 36,
-                        columns: const [
-                          DataColumn(label: Text('Name')),
-                          DataColumn(label: Text('Value')),
-                          DataColumn(label: Text('Domain')),
-                          DataColumn(label: Text('Path')),
-                          DataColumn(label: Text('Expires')),
-                          DataColumn(label: Text('HttpOnly')),
-                          DataColumn(label: Text('Secure')),
-                          DataColumn(label: Text('SameSite')),
-                          DataColumn(label: Text('')),
+              : LayoutBuilder(
+                  builder: (context, constraints) =>
+                      OpenHandOperationalRankTable(
+                        compact: true,
+                        paginate: false,
+                        sortByValue: false,
+                        maxBodyHeight: constraints.maxHeight,
+                        minimumColumnWidths: const {8: 84},
+                        headers: [
+                          openHandNameLabel(context),
+                          openHandLocalizedText(
+                            context,
+                            zh: '值',
+                            zhHant: '值',
+                            en: 'Value',
+                            fr: 'Valeur',
+                            de: 'Wert',
+                            ja: '値',
+                          ),
+                          openHandLocalizedText(
+                            context,
+                            zh: '域名',
+                            zhHant: '網域',
+                            en: 'Domain',
+                            fr: 'Domaine',
+                            de: 'Domain',
+                            ja: 'ドメイン',
+                          ),
+                          openHandPathLabel(context),
+                          openHandLocalizedText(
+                            context,
+                            zh: '到期时间',
+                            zhHant: '到期時間',
+                            en: 'Expires',
+                            fr: 'Expiration',
+                            de: 'Ablaufzeit',
+                            ja: '有効期限',
+                          ),
+                          'HttpOnly',
+                          openHandLocalizedText(
+                            context,
+                            zh: '仅 HTTPS',
+                            zhHant: '僅 HTTPS',
+                            en: 'HTTPS only',
+                            fr: 'HTTPS uniquement',
+                            de: 'Nur HTTPS',
+                            ja: 'HTTPS のみ',
+                          ),
+                          'SameSite',
                         ],
                         rows: [
                           for (final c in cookies)
-                            DataRow(
+                            OpenHandOperationalRankRow(
+                              value: 0,
+                              data: c,
                               cells: [
-                                DataCell(_mono('${c['name'] ?? ''}')),
-                                DataCell(
-                                  _mono(
-                                    clipTextWithEllipsis(
-                                      '${c['value'] ?? ''}',
-                                      80,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(_mono('${c['domain'] ?? ''}')),
-                                DataCell(_mono('${c['path'] ?? ''}')),
-                                DataCell(_mono(_formatExpires(c['expires']))),
-                                DataCell(
-                                  Text(c['httpOnly'] == true ? '✓' : ''),
-                                ),
-                                DataCell(Text(c['secure'] == true ? '✓' : '')),
-                                DataCell(_mono('${c['sameSite'] ?? ''}')),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        tooltip: _wrEditLabel(context),
-                                        visualDensity: VisualDensity.compact,
-                                        iconSize: 16,
-                                        padding: const EdgeInsets.all(6),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 28,
-                                          minHeight: 28,
-                                        ),
-                                        onPressed:
-                                            c['partitionKeyOpaque'] == true
-                                            ? null
-                                            : () => _editCookie(c),
-                                        icon: const Icon(Icons.edit_rounded),
-                                      ),
-                                      kOpenHandHGap4,
-                                      IconButton(
-                                        tooltip: openHandDeleteLabel(context),
-                                        visualDensity: VisualDensity.compact,
-                                        iconSize: 16,
-                                        padding: const EdgeInsets.all(6),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 28,
-                                          minHeight: 28,
-                                        ),
-                                        onPressed:
-                                            c['partitionKeyOpaque'] == true
-                                            ? null
-                                            : () => _deleteCookie(c),
-                                        icon: Icon(
-                                          Icons.delete_outline_rounded,
-                                          color: cs.error,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                '${c['name'] ?? ''}',
+                                clipTextWithEllipsis('${c['value'] ?? ''}', 80),
+                                '${c['domain'] ?? ''}',
+                                '${c['path'] ?? ''}',
+                                _formatExpires(c['expires']),
+                                c['httpOnly'] == true ? '✓' : '',
+                                c['secure'] == true ? '✓' : '',
+                                '${c['sameSite'] ?? ''}',
                               ],
                             ),
                         ],
+                        rowActionBuilder: (row) {
+                          final cookie = row.data as Map<String, Object?>;
+                          final opaque = cookie['partitionKeyOpaque'] == true;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: _wrEditLabel(context),
+                                style: actionStyle,
+                                iconSize: 16,
+                                onPressed: opaque
+                                    ? null
+                                    : () => _editCookie(cookie),
+                                icon: const Icon(Icons.edit_rounded),
+                              ),
+                              kOpenHandHGap4,
+                              IconButton(
+                                tooltip: openHandDeleteLabel(context),
+                                style: actionStyle,
+                                iconSize: 16,
+                                onPressed: opaque
+                                    ? null
+                                    : () => _deleteCookie(cookie),
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: cs.error,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ),
-                  ),
                 ),
         ),
       ],
     );
   }
 
-  Widget _mono(String s) => Text(
-    s,
-    style: const TextStyle(
-      fontFamily: kOpenHandMonospaceFontFamily,
-      fontSize: 12,
-    ),
-  );
-
   String _formatExpires(Object? raw) {
     if (raw == null) return '';
     final n = raw is num ? raw.toDouble() : 0;
-    if (n <= 0) return 'Session';
+    if (n <= 0) return openHandSessionLabel(context);
     final dt = DateTime.fromMillisecondsSinceEpoch((n * 1000).toInt());
     return dt.toIso8601String().split('.').first;
   }

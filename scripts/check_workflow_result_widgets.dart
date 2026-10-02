@@ -18,6 +18,49 @@ Future<void> main() async {
 
 const _checks = '''
 void main() {
+  testWidgets('工作流参数操作列横向滚动后仍固定右侧且展开内容保持自然行高', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final payload = {'对象': {'文本': '较长的参数内容', '列表': [1, 2, 3]}, '文字': '普通参数'};
+    for (final direction in TextDirection.values) {
+      for (final width in [380.0, 960.0]) {
+        Widget screen(double size) => MaterialApp(home: Scaffold(body: Directionality(textDirection: direction,
+          child: Align(alignment: Alignment.topLeft, child: SizedBox(width: size,
+            child: SingleChildScrollView(child: _WorkflowTestParameterTable(entries: _workflowTestOutputEntries(payload, {}))))))));
+        await tester.pumpWidget(screen(width)); await tester.pumpAndSettle();
+        final scroll = tester.widget<SingleChildScrollView>(find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal)).controller!;
+        final copy = find.byTooltip('复制参数 对象');
+        final x = tester.getCenter(copy).dx;
+        expect(x, closeTo(width - 33, .5));
+        final state = tester.element(copy);
+        for (final fraction in [0.0, .4, 1.0]) {
+          scroll.jumpTo(scroll.position.maxScrollExtent * fraction); await tester.pumpAndSettle();
+          expect(tester.getCenter(copy).dx, closeTo(x, .5));
+          expect(tester.getCenter(find.text('操作')).dx, closeTo(x, .5));
+          expect(identical(state, tester.element(copy)), isTrue);
+          await tester.tap(copy); await tester.pumpAndSettle();
+          expect(jsonDecode(copied!), payload['对象']);
+        }
+        final expansion = find.byType(OpenHandExpansionTile).first;
+        tester.widget<InkWell>(find.descendant(of: expansion, matching: find.byType(InkWell)).first).onTap!();
+        await tester.pumpAndSettle();
+        expect(find.byType(OpenHandJsonTreeView), findsOneWidget);
+        expect(tester.getSize(find.byType(OpenHandFixedActionCell).at(1)).height,
+          greaterThanOrEqualTo(tester.getSize(expansion).height));
+        expect(tester.getCenter(copy).dx, closeTo(x, .5));
+        await tester.pumpWidget(screen(620)); await tester.pumpAndSettle();
+        expect(tester.getCenter(copy).dx, closeTo(620 - 33, .5));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+  });
   testWidgets('结果表格统一操作列，嵌套数据按需展开，复制保留完整数据', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));

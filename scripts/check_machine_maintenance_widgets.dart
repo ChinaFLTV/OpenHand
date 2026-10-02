@@ -1161,6 +1161,123 @@ void main() {
     }
     await tester.binding.setSurfaceSize(null);
   });
+  testWidgets('操作列在双向布局、横纵滚动、分页和窗口缩放后始终固定右侧', (tester) async {
+    for (final direction in TextDirection.values) {
+      for (final compact in [false, true]) {
+        await tester.binding.setSurfaceSize(const Size(1300, 800));
+        final tapped = <String>[];
+        var details = 0;
+        Widget screen(double width) => MaterialApp(locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+          home: Scaffold(body: Directionality(textDirection: direction,
+            child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width,
+              child: RepaintBoundary(key: const ValueKey('固定操作列预览'), child: OpenHandOperationalRankTable(
+                headers: const ['名称', '描述', '版本', '创建时间', '完整资源标识'],
+                minimumColumnWidths: const {1: 280, 3: 200, 4: 280},
+                compact: compact, maxBodyHeight: compact ? 132 : 174, sortByValue: false,
+                animateRows: true, animateCellChanges: true,
+                rows: [for (var i = 0; i < 23; i++) OpenHandOperationalRankRow(value: 0, rowKey: i,
+                  cells: ['条目 \$i', '横向滚动后仍可操作的资源条目 \$i', '1.26-browsers', '2026-10-03 12:30:00', 'sha256:0123456789abcdef0123456789abcdef'])],
+                onRowTap: (_) => details++,
+                rowActions: (row) => {'记录操作': () => tapped.add(row.cells.first)},
+              )))))));
+        await tester.pumpWidget(screen(420));
+        await tester.pumpAndSettle();
+        ScrollPosition position(Axis axis) => tester.state<ScrollableState>(find.descendant(
+          of: find.byType(OpenHandOperationalRankTable),
+          matching: find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == axis)).first).position;
+        Finder visibleMenu() => find.byType(OpenHandOperationalRowMenu).hitTestable().first;
+        final horizontal = position(Axis.horizontal);
+        final x = tester.getCenter(find.text('操作')).dx;
+        expect(x, inInclusiveRange(350, 420));
+        void checkPinned(double expected) {
+          expect(tester.getCenter(find.text('操作')).dx, closeTo(expected, .5));
+          for (final menu in find.byType(OpenHandOperationalRowMenu).hitTestable().evaluate()) {
+            expect(tester.getCenter(find.byWidget(menu.widget)).dx, closeTo(expected, .5));
+          }
+          expect(tester.takeException(), isNull);
+        }
+        final menuState = tester.element(visibleMenu());
+        for (final fraction in [0.0, .45, 1.0, .2]) {
+          horizontal.jumpTo(horizontal.maxScrollExtent * fraction);
+          await tester.pumpAndSettle();
+          checkPinned(x);
+          expect(identical(menuState, tester.element(visibleMenu())), isTrue);
+        }
+        final rowHeight = compact ? 44.0 : 58.0;
+        position(Axis.vertical).jumpTo(rowHeight * 2);
+        await tester.pumpAndSettle();
+        checkPinned(x);
+        await tester.tap(visibleMenu()); await tester.pumpAndSettle();
+        await tester.tap(find.text('记录操作')); await tester.pumpAndSettle();
+        expect(tapped, ['条目 2']); expect(details, 0);
+        await tester.tap(find.text('2').last); await tester.pumpAndSettle();
+        checkPinned(x);
+        expect(position(Axis.vertical).pixels, 0);
+        await tester.tap(visibleMenu()); await tester.pumpAndSettle();
+        await tester.tap(find.text('记录操作')); await tester.pumpAndSettle();
+        expect(tapped, ['条目 2', '条目 20']); expect(details, 0);
+        horizontal.jumpTo(horizontal.maxScrollExtent);
+        await tester.pumpAndSettle();
+        for (final width in [900.0, 320.0, 1280.0, 420.0]) {
+          await tester.pumpWidget(screen(width)); await tester.pumpAndSettle();
+          checkPinned(x + width - 420);
+        }
+        final preview = Platform.environment['MAINTENANCE_FIXED_ACTIONS_PREVIEW'];
+        if (compact && direction == TextDirection.ltr && preview != null) {
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('固定操作列预览'))).toImage(pixelRatio: 1.5);
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File(preview).writeAsBytes(bytes!.buffer.asUint8List()); image.dispose();
+          });
+        }
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('自定义行内操作固定右侧，滚动不重建按钮，禁用状态与短视口保持正确', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 300));
+    var builds = 0, tapped = 0, hidden = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SizedBox(height: 110,
+      child: OpenHandOperationalRankTable(headers: const ['名称', '内容'],
+        rows: [for (var i = 0; i < 8; i++) OpenHandOperationalRankRow(value: 0, cells: ['条目 \$i', '详情 \$i'], data: i,
+          cellWidgets: [null, GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => hidden++, child: const SizedBox.expand())])],
+        minimumColumnWidths: const {1: 600, 2: 84},
+        compact: true, paginate: false, sortByValue: false, maxBodyHeight: 1000,
+        rowActionBuilder: (row) {
+          builds++;
+          return Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap), key: ValueKey<String>('编辑-\${row.data}'), constraints: const BoxConstraints.tightFor(width: 28, height: 28), padding: EdgeInsets.zero,
+              onPressed: () => tapped++, icon: const Icon(Icons.edit, size: 16)),
+            kOpenHandHGap4,
+            IconButton(style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap), key: ValueKey<String>('删除-\${row.data}'), constraints: const BoxConstraints.tightFor(width: 28, height: 28), padding: EdgeInsets.zero,
+              onPressed: null, icon: const Icon(Icons.delete, size: 16)),
+          ]);
+        },
+      )))));
+    await tester.pumpAndSettle();
+    expect(find.byType(OpenHandOperationalRowMenu), findsNothing);
+    final editor = find.byKey(const ValueKey<String>('编辑-0'));
+    final x = tester.getCenter(editor).dx;
+    expect(x, lessThan(400));
+    expect((x + tester.getCenter(find.byKey(const ValueKey<String>('删除-0'))).dx) / 2, closeTo(tester.getCenter(find.text('Actions')).dx, .5));
+    expect(tester.getSize(find.byType(OpenHandOperationalRankTable)).height, 110);
+    await tester.tapAt(Offset(395, tester.getCenter(editor).dy)); expect(hidden, 0);
+    final horizontal = tester.state<ScrollableState>(find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.horizontal).first).position;
+    final initialBuilds = builds;
+    horizontal.jumpTo(horizontal.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(editor).dx, closeTo(x, .5));
+    expect(builds, initialBuilds);
+    await tester.tap(editor); expect(tapped, 1);
+    await tester.tap(find.byKey(const ValueKey<String>('删除-0'))); expect(tapped, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('共用图标菜单在狭窄和拉伸布局下不变成长胶囊，禁用时不打开', (tester) async {
     for (final width in [28.0, 120.0]) {
       await tester.pumpWidget(MaterialApp(theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),

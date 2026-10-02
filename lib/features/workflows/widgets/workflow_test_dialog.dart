@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show TableCellParentData;
 import 'package:flutter/services.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
@@ -12,6 +14,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_fixed_action_cell.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_json_tree.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -1306,7 +1309,7 @@ class _WorkflowTestStructuredTable extends StatelessWidget {
   );
 }
 
-class _WorkflowTestParameterTable extends StatelessWidget {
+class _WorkflowTestParameterTable extends StatefulWidget {
   const _WorkflowTestParameterTable({
     required this.entries,
     this.copyTooltipPrefix = '复制参数',
@@ -1317,29 +1320,64 @@ class _WorkflowTestParameterTable extends StatelessWidget {
   final String emptyLabel;
 
   @override
+  State<_WorkflowTestParameterTable> createState() =>
+      _WorkflowTestParameterTableState();
+}
+
+class _WorkflowTestParameterTableState
+    extends State<_WorkflowTestParameterTable> {
+  final ScrollController _horizontal = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontal.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    if (entries.isEmpty) {
+    if (widget.entries.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(14),
-        child: Text(emptyLabel),
+        child: Text(widget.emptyLabel),
       );
     }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth < _workflowTestTableMinWidth
-            ? _workflowTestTableMinWidth
-            : constraints.maxWidth;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: width,
-            child: _WorkflowTestOutlinedSurface(
-              backgroundColor: colors.surface,
-              borderColor: colors.outlineVariant.withValues(alpha: 0.65),
-              borderRadius: kOpenHandRadius14,
+    final headerColor = Color.alphaBlend(
+      colors.primary.withValues(alpha: 0.06),
+      colors.surface,
+    );
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: colors.surface,
+      borderColor: colors.outlineVariant.withValues(alpha: 0.65),
+      borderRadius: kOpenHandRadius14,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth < _workflowTestTableMinWidth
+              ? _workflowTestTableMinWidth
+              : constraints.maxWidth;
+          // 内容支持展开，固定操作列沿用表格计算的自然行高。
+          Widget actionCell({
+            required Widget child,
+            required Color background,
+          }) => _WorkflowTestActionCell(
+            child: OpenHandFixedActionCell(
+              controller: _horizontal,
+              viewportWidth: constraints.maxWidth,
+              contentWidth: width,
+              backgroundColor: background,
+              borderColor: colors.outlineVariant,
+              child: Semantics(role: SemanticsRole.cell, child: child),
+            ),
+          );
+          return SingleChildScrollView(
+            controller: _horizontal,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: width,
               child: Table(
+                textDirection: TextDirection.ltr,
                 columnWidths: const {
                   0: FlexColumnWidth(2),
                   1: FixedColumnWidth(80),
@@ -1354,11 +1392,9 @@ class _WorkflowTestParameterTable extends StatelessWidget {
                 ),
                 children: [
                   TableRow(
-                    decoration: BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.06),
-                    ),
+                    decoration: BoxDecoration(color: headerColor),
                     children: [
-                      for (final title in ['参数名称', '类型', '参数介绍', '内容', '操作'])
+                      for (final title in ['参数名称', '类型', '参数介绍', '内容'])
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -1372,14 +1408,32 @@ class _WorkflowTestParameterTable extends StatelessWidget {
                             ),
                           ),
                         ),
+                      actionCell(
+                        background: headerColor,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '操作',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  for (final (index, entry) in entries.indexed)
+                  for (final (index, entry) in widget.entries.indexed)
                     TableRow(
                       key: ValueKey((index, entry.name)),
                       decoration: BoxDecoration(
                         color: index.isOdd
-                            ? colors.surfaceContainerLow.withValues(alpha: 0.45)
+                            ? colors.surfaceContainerLow
                             : colors.surface,
                       ),
                       children: [
@@ -1420,15 +1474,21 @@ class _WorkflowTestParameterTable extends StatelessWidget {
                           ),
                           child: _WorkflowTestValueView(value: entry.value),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Center(
-                            child: _workflowTestCopyButton(
-                              context,
-                              tooltip: '$copyTooltipPrefix ${entry.name}',
-                              value: entry.value,
-                              logAction: '复制工作流参数',
-                              successMessage: '已复制参数“${entry.name}”',
+                        actionCell(
+                          background: index.isOdd
+                              ? colors.surfaceContainerLow
+                              : colors.surface,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Center(
+                              child: _workflowTestCopyButton(
+                                context,
+                                tooltip:
+                                    '${widget.copyTooltipPrefix} ${entry.name}',
+                                value: entry.value,
+                                logAction: '复制工作流参数',
+                                successMessage: '已复制参数“${entry.name}”',
+                              ),
                             ),
                           ),
                         ),
@@ -1437,11 +1497,27 @@ class _WorkflowTestParameterTable extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
+}
+
+// 只让操作列填满行高，语义节点位于固定列内，避免拦截平移后的点击。
+class _WorkflowTestActionCell extends ParentDataWidget<TableCellParentData> {
+  const _WorkflowTestActionCell({required super.child});
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final data = renderObject.parentData! as TableCellParentData;
+    if (data.verticalAlignment == TableCellVerticalAlignment.fill) return;
+    data.verticalAlignment = TableCellVerticalAlignment.fill;
+    renderObject.parent?.markNeedsLayout();
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => Table;
 }
 
 class _WorkflowTestValueView extends StatelessWidget {
