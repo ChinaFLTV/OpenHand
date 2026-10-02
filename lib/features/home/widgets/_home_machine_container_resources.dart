@@ -1519,8 +1519,9 @@ class _ContainerRegistryDetailsDialogState
         surfaceTintColor: Colors.transparent,
         child: SizedBox(
           width: kOpenHandDialogWidthWide,
-          height: MediaQuery.sizeOf(context).height * .86,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _MachineTerminalDialogHeader(
                 icon: Icons.layers_outlined,
@@ -1530,38 +1531,61 @@ class _ContainerRegistryDetailsDialogState
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: cs.surfaceContainer,
-                    borderRadius: BorderRadius.circular(12),
+                    border: Border(
+                      bottom: BorderSide(color: cs.outlineVariant),
+                    ),
                   ),
-                  padding: const EdgeInsets.all(4),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      spacing: 4,
+                      spacing: 8,
                       children: [
                         for (var i = 0; i < tabs.length; i++)
-                          TextButton.icon(
-                            key: ValueKey(('image-detail-tab', i)),
-                            onPressed: () {
-                              if (_tab != i) setState(() => _tab = i);
-                            },
-                            style: _maintenanceActionButtonStyle(context)
-                                .copyWith(
-                                  backgroundColor: WidgetStatePropertyAll(
-                                    _tab == i
-                                        ? cs.primaryContainer
+                          Semantics(
+                            selected: _tab == i,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: _tab == i
+                                        ? cs.primary
                                         : Colors.transparent,
-                                  ),
-                                  foregroundColor: WidgetStatePropertyAll(
-                                    _tab == i
-                                        ? cs.onPrimaryContainer
-                                        : cs.onSurfaceVariant,
+                                    width: 2,
                                   ),
                                 ),
-                            icon: Icon(tabs[i].$2, size: 16),
-                            label: Text(tabs[i].$1),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: TextButton.icon(
+                                  key: ValueKey(('image-detail-tab', i)),
+                                  onPressed: () {
+                                    if (_tab != i) setState(() => _tab = i);
+                                  },
+                                  style: _maintenanceActionButtonStyle(context)
+                                      .copyWith(
+                                        side: const WidgetStatePropertyAll(
+                                          BorderSide.none,
+                                        ),
+                                        backgroundColor: WidgetStatePropertyAll(
+                                          _tab == i
+                                              ? cs.primary.withValues(
+                                                  alpha: .08,
+                                                )
+                                              : Colors.transparent,
+                                        ),
+                                        foregroundColor: WidgetStatePropertyAll(
+                                          _tab == i
+                                              ? cs.primary
+                                              : cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  icon: Icon(tabs[i].$2, size: 16),
+                                  label: Text(tabs[i].$1),
+                                ),
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -1573,27 +1597,38 @@ class _ContainerRegistryDetailsDialogState
                   padding: EdgeInsets.only(top: 8),
                   child: LinearProgressIndicator(minHeight: 2),
                 ),
-              Expanded(
-                child: AnimatedSwitcher(
-                  key: const ValueKey('image-detail-transition'),
-                  duration: motion.entranceDuration,
-                  reverseDuration: motion.exitDuration,
-                  switchInCurve: kOpenHandSwitchInCurve,
-                  switchOutCurve: kOpenHandSwitchOutCurve,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, .025),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
+              Flexible(
+                child: OpenHandAnimatedDialogSize(
+                  child: AnimatedSwitcher(
+                    key: const ValueKey('image-detail-transition'),
+                    duration: motion.entranceDuration,
+                    reverseDuration: motion.exitDuration,
+                    switchInCurve: kOpenHandSwitchInCurve,
+                    switchOutCurve: kOpenHandSwitchOutCurve,
+                    layoutBuilder: (child, previous) => Stack(
+                      alignment: Alignment.topCenter,
+                      children: [
+                        // 退场内容不参与尺寸计算，避免旧长页面阻碍弹窗收缩。
+                        for (final outgoing in previous)
+                          Positioned.fill(child: outgoing),
+                        if (child != null) child,
+                      ],
                     ),
-                  ),
-                  child: SingleChildScrollView(
-                    key: PageStorageKey(('image-detail-body', _tab)),
-                    padding: _maintenanceDetailPadding,
-                    child: content,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, .025),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: SingleChildScrollView(
+                      key: PageStorageKey(('image-detail-body', _tab)),
+                      padding: _maintenanceDetailPadding.copyWith(top: 12),
+                      child: content,
+                    ),
                   ),
                 ),
               ),
@@ -1805,47 +1840,50 @@ class _ContainerImagePlatformsState extends State<_ContainerImagePlatforms> {
           ),
         ),
         if (rows.isEmpty)
-          _MaintenanceEmptyHint(message: maintenanceLabel(context, '暂无可用数据')),
-        _MaintenanceGrid(
-          minWidth: 290,
-          maxColumns: 2,
-          fillLastRow: false,
-          children: [
-            for (final row in rows.take(_limit))
-              _MaintenanceCard(
-                title:
-                    '${_containerImageOs(context, row['os'])} · ${_containerImageArchitecture(context, row['architecture'])}',
-                icon: Icons.computer_outlined,
-                accent: cs.secondary,
-                scrollBody: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 10,
-                  children: [
-                    _MaintenanceFacts(
-                      maxColumns: 1,
-                      values: {
-                        l.maintenanceImageVariant: '${row['variant'] ?? '—'}',
-                        l.maintenanceImageSize: _containerImageSize(
-                          context,
-                          row['size'],
-                        ),
-                        l.maintenanceImageLastPushed: _containerImageTimestamp(
-                          row['last_pushed'],
-                        ),
-                      },
-                    ),
-                    _ContainerImageFacts(
-                      maxColumns: 1,
-                      values: {
-                        l.maintenanceImageDigests: '${row['digest'] ?? '—'}',
-                      },
-                    ),
-                  ],
+          _MaintenanceEmptyHint(
+            message: maintenanceLabel(context, '暂无可用数据'),
+            compact: true,
+          )
+        else
+          _MaintenanceGrid(
+            minWidth: 290,
+            maxColumns: 2,
+            fillLastRow: false,
+            children: [
+              for (final row in rows.take(_limit))
+                _MaintenanceCard(
+                  title:
+                      '${_containerImageOs(context, row['os'])} · ${_containerImageArchitecture(context, row['architecture'])}',
+                  icon: Icons.computer_outlined,
+                  accent: cs.secondary,
+                  scrollBody: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 10,
+                    children: [
+                      _MaintenanceFacts(
+                        maxColumns: 1,
+                        values: {
+                          l.maintenanceImageVariant: '${row['variant'] ?? '—'}',
+                          l.maintenanceImageSize: _containerImageSize(
+                            context,
+                            row['size'],
+                          ),
+                          l.maintenanceImageLastPushed:
+                              _containerImageTimestamp(row['last_pushed']),
+                        },
+                      ),
+                      _ContainerImageFacts(
+                        maxColumns: 1,
+                        values: {
+                          l.maintenanceImageDigests: '${row['digest'] ?? '—'}',
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
         if (rows.length > _limit)
           Center(
             child: FilledButton.tonalIcon(

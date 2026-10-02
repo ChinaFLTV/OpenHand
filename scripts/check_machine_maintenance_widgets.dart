@@ -6394,6 +6394,106 @@ class _DocumentRegistry extends MachineImageRegistry {
 }
 
 void resourceChecks() {
+  testWidgets('镜像详情按内容收缩，长文受限滚动，切换尺寸和底部操作平滑过渡', (tester) async {
+    tester.view.devicePixelRatio=1;tester.view.physicalSize=const Size(1180,1000);
+    addTearDown(tester.view.resetDevicePixelRatio);addTearDown(tester.view.resetPhysicalSize);
+    await tester.binding.setSurfaceSize(const Size(1180,1000));
+    addTearDown(()=>tester.binding.setSurfaceSize(null));
+    await tester.runAsync(()=>_testSettings.updateDialogAnimationSettings(const DialogAnimationSettings(
+      durationMs:600,entranceStyle:DialogAnimationStyle.fade,exitStyle:DialogAnimationStyle.fade,
+      curve:DialogAnimationCurve.easeInOut)));
+    final document=[for(var i=0;i<80;i++)'Paragraph '+i.toString()+': repository documentation.'].join('\n\n');
+    MachineImageRegistry factory()=>MachineImageRegistry(clientFactory:HttpClient.new,read:(uri) async=>
+      uri.path.contains('/tags/')?{'name':'latest','images':[]}:
+      {'name':'golang','namespace':'library','description':'Go programming language.','full_description':document});
+    var reduced=false;
+    late StateSetter update;
+    final theme=OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),
+      theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+      localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      builder:(context,child)=>StatefulBuilder(builder:(context,setState){update=setState;return RepaintBoundary(
+        key:const ValueKey('镜像尺寸预览'),child:MediaQuery(data:MediaQuery.of(context).copyWith(disableAnimations:reduced),child:child!));}),
+      home:Scaffold(body:_ContainerRegistryDetailsDialog(image:MachineContainerImageSearchResult.fromJson({'Name':'golang'}),
+        selected:'latest',registryFactory:factory,onTagChanged:(_){}))));
+    await tester.pumpAndSettle();
+    final dialog=find.byType(_ContainerRegistryDetailsDialog);
+    final shell=find.descendant(of:dialog,matching:find.byType(OpenHandAnimatedDialogSize)).first;
+    final footer=find.widgetWithText(OpenHandDialogActionButton,'创建容器');
+    final overviewHeight=tester.getSize(shell).height;
+    expect(overviewHeight,lessThan(700));
+    final tab=find.byKey(const ValueKey(('image-detail-tab',0)));
+    final body=find.byKey(const PageStorageKey(('image-detail-body',0)));
+    expect(tester.getRect(tab).left-tester.getRect(shell).left,closeTo(16,1));
+    expect(tester.getRect(body).top-tester.getRect(tab).bottom,inInclusiveRange(0,12));
+    final content=find.descendant(of:body,matching:find.byType(_MaintenanceAnimatedColumn)).first;
+    expect(tester.getRect(content).top-tester.getRect(body).top,closeTo(12,1));
+    final selectedButton=tester.widget<TextButton>(tab);
+    expect(selectedButton.style!.side!.resolve({}),BorderSide.none);
+    final semantics=find.ancestor(of:tab,matching:find.byWidgetPredicate((widget)=>widget is Semantics&&widget.properties.selected==true));
+    expect(semantics,findsOneWidget);
+    Future<void> capture(String name) async {
+      if(Platform.environment['MAINTENANCE_PREVIEW']==null)return;
+      await tester.runAsync(()async{
+        final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像尺寸预览'))).toImage(pixelRatio:1.5);
+        final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+        await File('/tmp/openhand-image-size-'+name+'.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+      });
+    }
+    await capture('overview');
+    final startFooter=tester.getRect(footer).top;
+    await tester.tap(find.byKey(const ValueKey(('image-detail-tab',2))));await tester.pump();
+    expect(tester.getSize(shell).height,closeTo(overviewHeight,1));
+    for(var frame=0;frame<5;frame++)await tester.pump(const Duration(milliseconds:50));
+    expect(tester.getSize(shell).height,greaterThan(overviewHeight));
+    expect(tester.getSize(shell).height,lessThan(900));
+    expect(tester.getRect(footer).top,greaterThan(startFooter));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(shell).height,closeTo(900,1));
+    final readme=find.byKey(const PageStorageKey(('image-detail-body',2)));
+    final scroll=tester.state<ScrollableState>(find.descendant(of:readme,matching:find.byType(Scrollable)).first);
+    expect(scroll.position.maxScrollExtent,greaterThan(0));
+    expect(tester.getRect(footer).bottom,lessThanOrEqualTo(tester.getRect(shell).bottom));
+    scroll.position.jumpTo(scroll.position.maxScrollExtent);await tester.pumpAndSettle();
+    expect(find.text('Paragraph 79: repository documentation.').hitTestable(),findsOneWidget);
+    await capture('long');
+    await tester.tap(find.byKey(const ValueKey(('image-detail-tab',1))));await tester.pump();
+    final tallHeight=tester.getSize(shell).height;
+    for(var frame=0;frame<5;frame++)await tester.pump(const Duration(milliseconds:50));
+    final intermediateHeight=tester.getSize(shell).height;
+    expect(intermediateHeight,lessThan(tallHeight));
+    await tester.pumpAndSettle();
+    final shortHeight=tester.getSize(shell).height;
+    expect(shortHeight,lessThan(intermediateHeight));expect(shortHeight,lessThan(overviewHeight));
+    expect(tester.widget<_MaintenanceEmptyHint>(find.byType(_MaintenanceEmptyHint)).compact,isTrue);
+    expect(find.byKey(const PageStorageKey(('image-detail-body',2))),findsNothing);
+    await capture('empty-platforms');
+    for(final tab in [2,0,1]) {
+      await tester.tap(find.byKey(ValueKey(('image-detail-tab',tab))));await tester.pump(const Duration(milliseconds:40));
+    }
+    await tester.pumpAndSettle();expect(tester.getSize(shell).height,closeTo(shortHeight,1));
+    for(final style in [DialogAnimationStyle.springScale,DialogAnimationStyle.elastic]) {
+      await tester.runAsync(()=>_testSettings.updateDialogAnimationSettings(DialogAnimationSettings(
+        durationMs:600,entranceStyle:style,exitStyle:style)));
+      for(final tab in [2,1]) {
+        await tester.tap(find.byKey(ValueKey(('image-detail-tab',tab))));
+        for(var frame=0;frame<15;frame++) {
+          await tester.pump(const Duration(milliseconds:50));
+          expect(tester.getSize(shell).height,inInclusiveRange(0,900));expect(tester.takeException(),isNull);
+        }
+        await tester.pumpAndSettle();
+      }
+    }
+    update(()=>reduced=true);await tester.pumpAndSettle();
+    expect(find.descendant(of:dialog,matching:find.byType(AnimatedSize)),findsNothing);
+    await tester.tap(find.byKey(const ValueKey(('image-detail-tab',2))));await tester.pump();
+    expect(tester.getSize(shell).height,closeTo(900,1));
+    await tester.tap(find.byKey(const ValueKey(('image-detail-tab',1))));await tester.pump();
+    expect(tester.getSize(shell).height,closeTo(shortHeight,1));
+    expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('Markdown 无空格长串快速解析，自动链接、邮箱、强调与代码语义保持一致', () {
     final source='a'*kOpenHandMarketMarkdownMaxCharacters;
     final watch=Stopwatch()..start();
