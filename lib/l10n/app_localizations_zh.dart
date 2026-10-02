@@ -15282,8 +15282,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceCronReboot => '系统启动时';
 
   @override
-  String get maintenanceCronHelp =>
-      '选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。';
+  String get maintenanceCronHelp => '使用目标机器的任务时区；日期和星期同时限制时，任一匹配即执行。';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -15303,6 +15302,86 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformUnavailable => '镜像没有与目标运行时操作系统和架构匹配的版本。';
+
+  @override
+  String get maintenanceCronDate => '日期';
+
+  @override
+  String get maintenanceCronMonth => '月份';
+
+  @override
+  String get maintenanceCronAny => '不限';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return '间隔 $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp => '启用后按调度计划执行。';
+
+  @override
+  String get maintenanceTaskDisabledHelp => '停用后保留配置，暂停执行。';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return '第 $line 行，第 $column 列';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'Shell 脚本 / Bash';
+
+  @override
+  String get codeEditorPlainText => '纯文本';
+
+  @override
+  String get codeEditorUndo => '撤销';
+
+  @override
+  String get codeEditorRedo => '重做';
+
+  @override
+  String get codeEditorFind => '查找';
+
+  @override
+  String get codeEditorImport => '导入代码文件';
+
+  @override
+  String get codeEditorImporting => '正在导入';
+
+  @override
+  String get codeEditorWordWrapEnable => '启用自动换行';
+
+  @override
+  String get codeEditorWordWrapDisable => '关闭自动换行';
+
+  @override
+  String codeEditorFileType(String language) {
+    return '$language 代码文件';
+  }
+
+  @override
+  String get codeEditorFormatDone => '代码已格式化。';
+
+  @override
+  String get codeEditorFormatUnchanged => '内容已经是格式化状态。';
+
+  @override
+  String get codeEditorJsonInvalid => 'JSON 语法无效，无法格式化。';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return '已导入代码文件：$file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge => '代码文件不能超过 512 KiB。';
+
+  @override
+  String get codeEditorImportInvalid => '代码文件不是有效的 UTF-8 文本。';
+
+  @override
+  String get codeEditorImportFailed => '读取代码文件失败，请检查文件是否可访问。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30566,8 +30645,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get maintenanceCronReboot => '系統啟動時';
 
   @override
-  String get maintenanceCronHelp =>
-      '選擇週期，再點擊卡片設定數值。使用目標機器的工作時區；同時指定日期和星期時，任一符合即執行。';
+  String get maintenanceCronHelp => '使用目標機器的任務時區；日期和星期同時限制時，任一符合即執行。';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -30587,4 +30665,84 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImagePlatformUnavailable => '映像檔沒有符合目標執行環境作業系統及架構的版本。';
+
+  @override
+  String get maintenanceCronDate => '日期';
+
+  @override
+  String get maintenanceCronMonth => '月份';
+
+  @override
+  String get maintenanceCronAny => '不限';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return '間隔 $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp => '啟用後依排程計畫執行。';
+
+  @override
+  String get maintenanceTaskDisabledHelp => '停用後保留設定，暫停執行。';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return '第 $line 行，第 $column 欄';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'Shell 指令碼 / Bash';
+
+  @override
+  String get codeEditorPlainText => '純文字';
+
+  @override
+  String get codeEditorUndo => '復原';
+
+  @override
+  String get codeEditorRedo => '重做';
+
+  @override
+  String get codeEditorFind => '尋找';
+
+  @override
+  String get codeEditorImport => '匯入程式碼檔案';
+
+  @override
+  String get codeEditorImporting => '正在匯入';
+
+  @override
+  String get codeEditorWordWrapEnable => '啟用自動換行';
+
+  @override
+  String get codeEditorWordWrapDisable => '關閉自動換行';
+
+  @override
+  String codeEditorFileType(String language) {
+    return '$language 程式碼檔案';
+  }
+
+  @override
+  String get codeEditorFormatDone => '程式碼已格式化。';
+
+  @override
+  String get codeEditorFormatUnchanged => '內容已經是格式化狀態。';
+
+  @override
+  String get codeEditorJsonInvalid => 'JSON 語法無效，無法格式化。';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return '已匯入程式碼檔案：$file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge => '程式碼檔案不能超過 512 KiB。';
+
+  @override
+  String get codeEditorImportInvalid => '程式碼檔案不是有效的 UTF-8 文字。';
+
+  @override
+  String get codeEditorImportFailed => '讀取程式碼檔案失敗，請確認檔案是否可存取。';
 }

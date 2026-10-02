@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/state/settings_controller.dart';
-import '../util/localized_text.dart';
+import '../../l10n/app_localizations.dart';
 import 'oh_pill.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
@@ -280,12 +280,8 @@ class OpenHandEditorWrapToggleButton extends StatelessWidget {
     );
     return OpenHandEditorHeaderActionButton(
       tooltip: wordWrap
-          ? openHandLocalizedText(
-              context,
-              zh: '关闭自动换行',
-              en: 'Disable word wrap',
-            )
-          : openHandLocalizedText(context, zh: '自动换行', en: 'Word wrap'),
+          ? AppLocalizations.of(context)!.codeEditorWordWrapDisable
+          : AppLocalizations.of(context)!.codeEditorWordWrapEnable,
       icon: Icons.wrap_text_rounded,
       color: wordWrap ? colorScheme.primary : colorScheme.onSurfaceVariant,
       onPressed: () {

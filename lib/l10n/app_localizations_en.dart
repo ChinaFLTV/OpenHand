@@ -15794,7 +15794,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceCronHelp =>
-      'Choose a schedule, then select a card to configure its values. Uses the task timezone on the target machine. If both day of month and weekday are restricted, either match runs the task.';
+      'Uses the target machine’s task time zone. If both date and weekday are restricted, either match triggers execution.';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -15816,4 +15816,88 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get maintenanceImagePlatformUnavailable =>
       'No image version matches the target runtime operating system and architecture.';
+
+  @override
+  String get maintenanceCronDate => 'Date';
+
+  @override
+  String get maintenanceCronMonth => 'Month';
+
+  @override
+  String get maintenanceCronAny => 'Any';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return 'Interval $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp =>
+      'Run according to the schedule when enabled.';
+
+  @override
+  String get maintenanceTaskDisabledHelp =>
+      'Keep the configuration and pause execution when disabled.';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return 'Line $line, column $column';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'Shell script / Bash';
+
+  @override
+  String get codeEditorPlainText => 'Plain text';
+
+  @override
+  String get codeEditorUndo => 'Undo';
+
+  @override
+  String get codeEditorRedo => 'Redo';
+
+  @override
+  String get codeEditorFind => 'Find';
+
+  @override
+  String get codeEditorImport => 'Import code file';
+
+  @override
+  String get codeEditorImporting => 'Importing';
+
+  @override
+  String get codeEditorWordWrapEnable => 'Enable word wrap';
+
+  @override
+  String get codeEditorWordWrapDisable => 'Disable word wrap';
+
+  @override
+  String codeEditorFileType(String language) {
+    return '$language code files';
+  }
+
+  @override
+  String get codeEditorFormatDone => 'Code formatted.';
+
+  @override
+  String get codeEditorFormatUnchanged => 'The content is already formatted.';
+
+  @override
+  String get codeEditorJsonInvalid => 'Invalid JSON syntax; cannot format.';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return 'Imported code file: $file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge => 'Code files must not exceed 512 KiB.';
+
+  @override
+  String get codeEditorImportInvalid =>
+      'The code file is not valid UTF-8 text.';
+
+  @override
+  String get codeEditorImportFailed =>
+      'Could not read the code file. Check that it is accessible.';
 }

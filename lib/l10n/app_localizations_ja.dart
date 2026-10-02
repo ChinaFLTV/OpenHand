@@ -15436,7 +15436,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceCronHelp =>
-      '周期を選び、カードから値を設定します。対象マシンのタスクのタイムゾーンを使用します。日付と曜日の両方を指定した場合、どちらかが一致すれば実行します。';
+      '対象マシンのタスクのタイムゾーンを使用します。日付と曜日を両方指定した場合は、どちらかが一致すると実行します。';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -15458,4 +15458,84 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get maintenanceImagePlatformUnavailable =>
       '対象ランタイムの OS とアーキテクチャに一致するイメージがありません。';
+
+  @override
+  String get maintenanceCronDate => '日付';
+
+  @override
+  String get maintenanceCronMonth => '月';
+
+  @override
+  String get maintenanceCronAny => '指定なし';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return '間隔 $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp => '有効な場合、スケジュールに従って実行します。';
+
+  @override
+  String get maintenanceTaskDisabledHelp => '設定を保持して実行を一時停止します。';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return '$line 行、$column 列';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'シェルスクリプト / Bash';
+
+  @override
+  String get codeEditorPlainText => 'プレーンテキスト';
+
+  @override
+  String get codeEditorUndo => '元に戻す';
+
+  @override
+  String get codeEditorRedo => 'やり直す';
+
+  @override
+  String get codeEditorFind => '検索';
+
+  @override
+  String get codeEditorImport => 'コードファイルを読み込む';
+
+  @override
+  String get codeEditorImporting => '読み込み中';
+
+  @override
+  String get codeEditorWordWrapEnable => '自動折り返しを有効にする';
+
+  @override
+  String get codeEditorWordWrapDisable => '自動折り返しを無効にする';
+
+  @override
+  String codeEditorFileType(String language) {
+    return '$language コードファイル';
+  }
+
+  @override
+  String get codeEditorFormatDone => 'コードを整形しました。';
+
+  @override
+  String get codeEditorFormatUnchanged => '内容はすでに整形されています。';
+
+  @override
+  String get codeEditorJsonInvalid => 'JSON の構文が無効なため整形できません。';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return 'コードファイルを読み込みました：$file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge => 'コードファイルは 512 KiB 以下にしてください。';
+
+  @override
+  String get codeEditorImportInvalid => 'コードファイルは有効な UTF-8 テキストではありません。';
+
+  @override
+  String get codeEditorImportFailed => 'コードファイルを読み込めません。アクセス可能か確認してください。';
 }

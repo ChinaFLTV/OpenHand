@@ -9769,11 +9769,66 @@
   "maintenanceCronWeekly": "Weekly",
   "maintenanceCronMonthly": "Monthly",
   "maintenanceCronReboot": "At system startup",
-  "maintenanceCronHelp": "Choose a schedule, then select a card to configure its values. Uses the task timezone on the target machine. If both day of month and weekday are restricted, either match runs the task.",
+  "maintenanceCronHelp": "Uses the target machine’s task time zone. If both date and weekday are restricted, either match triggers execution.",
   "maintenanceCronCommandHelp": "Crontab requires a single-line shell command. Separate commands with semicolons or invoke a script file.",
   "maintenanceImageDownloading": "Downloading image",
   "maintenanceImageUploading": "Transferring to target machine",
   "maintenanceImageImporting": "Importing image",
   "maintenanceImageAuthFailed": "Registry authentication failed. Check the registry login credentials on the target machine.",
-  "maintenanceImagePlatformUnavailable": "No image version matches the target runtime operating system and architecture."
+  "maintenanceImagePlatformUnavailable": "No image version matches the target runtime operating system and architecture.",
+  "maintenanceCronDate": "Date",
+  "maintenanceCronMonth": "Month",
+  "maintenanceCronAny": "Any",
+  "maintenanceCronStepValue": "Interval {count}",
+  "@maintenanceCronStepValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskEnabledHelp": "Run according to the schedule when enabled.",
+  "maintenanceTaskDisabledHelp": "Keep the configuration and pause execution when disabled.",
+  "codeEditorCursorPosition": "Line {line}, column {column}",
+  "@codeEditorCursorPosition": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      }
+    }
+  },
+  "codeEditorShellLanguage": "Shell script / Bash",
+  "codeEditorPlainText": "Plain text",
+  "codeEditorUndo": "Undo",
+  "codeEditorRedo": "Redo",
+  "codeEditorFind": "Find",
+  "codeEditorImport": "Import code file",
+  "codeEditorImporting": "Importing",
+  "codeEditorWordWrapEnable": "Enable word wrap",
+  "codeEditorWordWrapDisable": "Disable word wrap",
+  "codeEditorFileType": "{language} code files",
+  "@codeEditorFileType": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorFormatDone": "Code formatted.",
+  "codeEditorFormatUnchanged": "The content is already formatted.",
+  "codeEditorJsonInvalid": "Invalid JSON syntax; cannot format.",
+  "codeEditorImportSuccess": "Imported code file: {file}",
+  "@codeEditorImportSuccess": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorImportTooLarge": "Code files must not exceed 512 KiB.",
+  "codeEditorImportInvalid": "The code file is not valid UTF-8 text.",
+  "codeEditorImportFailed": "Could not read the code file. Check that it is accessible."
 }

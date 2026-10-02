@@ -769,20 +769,89 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
     '@yearly': '0 0 1 1 *',
     '@annually': '0 0 1 1 *',
   };
-  int _active = 0;
+  int? _active;
+
+  Widget _choices(
+    BuildContext context, {
+    required List<(String, String)> options,
+    required String selected,
+    required ValueChanged<String> onSelected,
+    String keyPrefix = 'cron-preset',
+    double minWidth = 80,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return _MaintenanceGrid(
+      minWidth: minWidth,
+      balanceColumns: true,
+      fillLastRow: false,
+      children: [
+        for (final option in options)
+          SizedBox(
+            key: ValueKey((keyPrefix, option.$1)),
+            height: MediaQuery.textScalerOf(context).scale(40),
+            child: OutlinedButton(
+              key: ValueKey('$keyPrefix-${option.$1}'),
+              onPressed: widget.enabled ? () => onSelected(option.$1) : null,
+              style: _maintenanceActionButtonStyle(context).copyWith(
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 8),
+                ),
+                textStyle: WidgetStatePropertyAll(
+                  Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                backgroundColor: WidgetStatePropertyAll(
+                  option.$1 == selected
+                      ? cs.primaryContainer
+                      : cs.surfaceContainerLow,
+                ),
+                foregroundColor: WidgetStatePropertyAll(
+                  option.$1 == selected ? cs.onPrimaryContainer : cs.onSurface,
+                ),
+                side: WidgetStatePropertyAll(
+                  BorderSide(
+                    color: option.$1 == selected
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: .55),
+                  ),
+                ),
+                shape: const WidgetStatePropertyAll(
+                  RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius10),
+                ),
+              ),
+              child: Semantics(
+                selected: option.$1 == selected,
+                child: Text(
+                  option.$2,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final labels = [
       l.cronParserFieldMinute,
       l.cronParserFieldHour,
-      l.cronParserFieldDayOfMonth,
-      l.cronParserFieldMonth,
+      l.maintenanceCronDate,
+      l.maintenanceCronMonth,
       l.cronParserFieldDayOfWeek,
     ];
+    final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
     return FormField<String>(
       validator: (_) => machineTaskCronValid(widget.controller.text.trim())
           ? null
@@ -793,8 +862,9 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
           final raw = value.text.trim();
           final fields = (_aliases[raw] ?? raw).split(RegExp(r'\s+'));
           final editable = fields.length == _ranges.length;
-          final token = editable ? fields[_active] : '*';
-          final range = _ranges[_active];
+          final active = _active ?? 0;
+          final token = editable ? fields[active] : '*';
+          final range = _ranges[active];
           final simple = token
               .split(',')
               .every((part) => int.tryParse(part) != null);
@@ -808,22 +878,30 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
               : 'preserve';
           void update(String replacement) {
             final next = [...fields];
-            next[_active] = replacement;
+            next[active] = replacement;
             widget.controller.text = next.join(' ');
             field.didChange(widget.controller.text);
           }
 
-          String numberLabel(int number) {
+          String numberLabel(int number, {bool full = false}) {
             final locale = Localizations.localeOf(context).toString();
-            if (_active == 4) {
-              return DateFormat.EEEE(
-                locale,
-              ).format(DateTime(2026, 1, 4 + number % 7));
+            if (active == 4) {
+              return (full ? DateFormat.EEEE(locale) : DateFormat.E(locale))
+                  .format(DateTime(2026, 1, 4 + number % 7));
             }
-            if (_active == 3) {
-              return DateFormat.MMMM(locale).format(DateTime(2026, number));
+            if (active == 3) {
+              return (full ? DateFormat.MMMM(locale) : DateFormat.MMM(locale))
+                  .format(DateTime(2026, number));
             }
             return number.toString().padLeft(2, '0');
+          }
+
+          String cardValue(String value) {
+            if (value == '*') return l.maintenanceCronAny;
+            final interval = RegExp(r'^\*/(\d+)$').firstMatch(value);
+            return interval == null
+                ? value
+                : l.maintenanceCronStepValue(interval[1]!);
           }
 
           return _MaintenanceCard(
@@ -833,42 +911,27 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
             child: _MaintenanceAnimatedColumn(
               spacing: 12,
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final preset in [
-                      ('* * * * *', l.maintenanceCronMinute),
-                      ('0 * * * *', l.maintenanceCronHourly),
-                      ('0 9 * * *', l.maintenanceCronDaily),
-                      ('0 9 * * 1', l.maintenanceCronWeekly),
-                      ('0 9 1 * *', l.maintenanceCronMonthly),
-                      ('@reboot', l.maintenanceCronReboot),
-                    ])
-                      ChoiceChip(
-                        label: Text(preset.$2),
-                        selected: raw == preset.$1,
-                        onSelected: !widget.enabled
-                            ? null
-                            : (_) {
-                                widget.controller.text = preset.$1;
-                                field.didChange(preset.$1);
-                              },
-                      ),
+                _choices(
+                  context,
+                  selected: raw,
+                  options: [
+                    ('* * * * *', l.maintenanceCronMinute),
+                    ('0 * * * *', l.maintenanceCronHourly),
+                    ('0 9 * * *', l.maintenanceCronDaily),
+                    ('0 9 * * 1', l.maintenanceCronWeekly),
+                    ('0 9 1 * *', l.maintenanceCronMonthly),
+                    ('@reboot', l.maintenanceCronReboot),
                   ],
+                  onSelected: (preset) {
+                    widget.controller.text = preset;
+                    field.didChange(preset);
+                    setState(() => _active = null);
+                  },
                 ),
-                Text(
-                  l.maintenanceCronHelp,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                if (editable) ...[
+                if (editable)
                   LayoutBuilder(
                     builder: (context, bounds) {
-                      final scale =
-                          MediaQuery.textScalerOf(context).scale(13) / 13;
-                      final columns = (bounds.maxWidth / (110 * scale))
+                      final columns = (bounds.maxWidth / (72 * scale))
                           .floor()
                           .clamp(1, 5);
                       final width =
@@ -880,44 +943,89 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
                           for (var i = 0; i < fields.length; i++)
                             SizedBox(
                               width: width,
+                              height: 96 * scale,
                               child: OutlinedButton(
                                 key: ValueKey('cron-card-$i'),
                                 onPressed: widget.enabled
-                                    ? () => setState(() => _active = i)
+                                    ? () => setState(
+                                        () => _active = _active == i ? null : i,
+                                      )
                                     : null,
                                 style: _maintenanceActionButtonStyle(context)
                                     .copyWith(
                                       padding: const WidgetStatePropertyAll(
-                                        EdgeInsets.all(12),
+                                        EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 8,
+                                        ),
                                       ),
                                       backgroundColor: WidgetStatePropertyAll(
                                         i == _active
-                                            ? cs.primaryContainer
+                                            ? Color.alphaBlend(
+                                                cs.primary.withValues(
+                                                  alpha: .08,
+                                                ),
+                                                cs.surfaceContainerLowest,
+                                              )
                                             : cs.surfaceContainerLow,
                                       ),
                                       foregroundColor: WidgetStatePropertyAll(
-                                        i == _active
-                                            ? cs.onPrimaryContainer
-                                            : cs.onSurface,
+                                        cs.onSurface,
+                                      ),
+                                      side: WidgetStatePropertyAll(
+                                        BorderSide(
+                                          color: i == _active
+                                              ? cs.primary
+                                              : cs.outlineVariant.withValues(
+                                                  alpha: .5,
+                                                ),
+                                          width: i == _active ? 1.5 : 1,
+                                        ),
+                                      ),
+                                      shape: const WidgetStatePropertyAll(
+                                        RoundedRectangleBorder(
+                                          borderRadius: kOpenHandBorderRadius10,
+                                        ),
                                       ),
                                     ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      labels[i],
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      fields[i],
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
+                                child: Semantics(
+                                  selected: i == _active,
+                                  label: '${labels[i]} ${fields[i]}',
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        height: 30 * scale,
+                                        child: Center(
+                                          child: Text(
+                                            labels[i],
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            style: theme.textTheme.labelMedium
+                                                ?.copyWith(
+                                                  fontSize: 11,
+                                                  color: cs.onSurfaceVariant,
+                                                ),
                                           ),
-                                    ),
-                                  ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Tooltip(
+                                        message: fields[i],
+                                        child: Text(
+                                          cardValue(fields[i]),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -925,22 +1033,18 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
                       );
                     },
                   ),
-                  _MaintenanceAnimatedSize(
-                    child: AnimatedSwitcher(
-                      duration: openHandMotionSettingsOf(
-                        context,
-                        OpenHandMotionSettingsScope.dialog,
-                      ).entranceDuration,
-                      reverseDuration: openHandMotionSettingsOf(
-                        context,
-                        OpenHandMotionSettingsScope.dialog,
-                      ).exitDuration,
-                      switchInCurve: kOpenHandSwitchInCurve,
-                      switchOutCurve: kOpenHandSwitchOutCurve,
-                      transitionBuilder: (child, animation) => AnimatedBuilder(
-                        animation: animation,
-                        child: child,
-                        builder: (context, child) => Transform(
+                _MaintenanceAnimatedSize(
+                  child: AnimatedSwitcher(
+                    duration: motion.entranceDuration,
+                    reverseDuration: motion.exitDuration,
+                    switchInCurve: motion.curve.curve,
+                    switchOutCurve: motion.curve.reverseCurve,
+                    transitionBuilder: (child, animation) => AnimatedBuilder(
+                      animation: animation,
+                      child: child,
+                      builder: (context, child) => IgnorePointer(
+                        ignoring: animation.status == AnimationStatus.reverse,
+                        child: Transform(
                           alignment: Alignment.topCenter,
                           transform: Matrix4.identity()
                             ..setEntry(3, 2, .001)
@@ -951,136 +1055,301 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
                           ),
                         ),
                       ),
-                      child: Column(
-                        key: ValueKey('cron-settings-$_active'),
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            labels[_active],
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final option in [
-                                ('every', l.maintenanceCronEvery),
-                                ('select', l.maintenanceCronSelect),
-                                ('step', l.maintenanceCronStep),
-                                if (mode == 'preserve')
-                                  ('preserve', l.maintenanceCronPreserve),
-                              ])
-                                ChoiceChip(
-                                  label: Text(option.$2),
-                                  selected: mode == option.$1,
-                                  onSelected:
-                                      !widget.enabled || option.$1 == 'preserve'
-                                      ? null
-                                      : (_) {
-                                          if (option.$1 == mode) return;
-                                          update(switch (option.$1) {
-                                            'every' => '*',
-                                            'step' => '*/1',
-                                            _ => '${range.$1}',
-                                          });
-                                        },
-                                ),
-                            ],
-                          ),
-                          if (mode == 'select') ...[
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
+                    ),
+                    child: !editable || _active == null
+                        ? const SizedBox.shrink(
+                            key: ValueKey('cron-settings-closed'),
+                          )
+                        : Container(
+                            key: ValueKey('cron-settings-$active'),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerLow,
+                              borderRadius: kOpenHandBorderRadius10,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                for (
-                                  var n = range.$1;
-                                  n <= (_active == 4 ? 6 : range.$2);
-                                  n++
-                                )
-                                  FilterChip(
-                                    label: Text(numberLabel(n)),
-                                    selected: token
-                                        .split(',')
-                                        .any(
-                                          (part) =>
-                                              int.parse(part) == n ||
-                                              (_active == 4 &&
-                                                  n == 0 &&
-                                                  int.parse(part) == 7),
-                                        ),
-                                    onSelected: !widget.enabled
-                                        ? null
-                                        : (selected) {
-                                            final values = token
-                                                .split(',')
-                                                .map(int.parse)
-                                                .toSet();
-                                            if (selected) {
-                                              values.add(n);
-                                            } else {
-                                              values.remove(n);
-                                              if (_active == 4 && n == 0) {
-                                                values.remove(7);
-                                              }
-                                            }
-                                            if (values.isEmpty) return;
-                                            update(
-                                              (values.toList()..sort()).join(
-                                                ',',
-                                              ),
-                                            );
-                                          },
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        labels[active],
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${range.$1}–${range.$2}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                _choices(
+                                  context,
+                                  keyPrefix: 'cron-mode',
+                                  minWidth: 65,
+                                  selected: mode,
+                                  options: [
+                                    ('every', l.maintenanceCronEvery),
+                                    ('select', l.maintenanceCronSelect),
+                                    ('step', l.maintenanceCronStep),
+                                  ],
+                                  onSelected: (option) {
+                                    if (option == mode) return;
+                                    update(switch (option) {
+                                      'every' => '*',
+                                      'step' => '*/1',
+                                      _ => '${range.$1}',
+                                    });
+                                  },
+                                ),
+                                if (mode == 'preserve') ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    l.maintenanceCronPreserve,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
                                   ),
+                                ],
+                                if (mode == 'select') ...[
+                                  const SizedBox(height: 10),
+                                  LayoutBuilder(
+                                    builder: (context, bounds) {
+                                      final last = active == 4 ? 6 : range.$2;
+                                      final labelWidth = math.min(
+                                        bounds.maxWidth - 28,
+                                        openHandSelectionWidth(
+                                          context,
+                                          [
+                                            for (
+                                              var n = range.$1;
+                                              n <= last;
+                                              n++
+                                            )
+                                              numberLabel(n),
+                                          ],
+                                          style: theme.textTheme.labelMedium!
+                                              .copyWith(fontSize: 12),
+                                          extraWidth: 0,
+                                        ),
+                                      );
+                                      return ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxHeight: 180 * scale,
+                                        ),
+                                        child: SingleChildScrollView(
+                                          primary: false,
+                                          child: Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: [
+                                              for (
+                                                var n = range.$1;
+                                                n <= last;
+                                                n++
+                                              )
+                                                FilterChip(
+                                                  tooltip: numberLabel(
+                                                    n,
+                                                    full: true,
+                                                  ),
+                                                  showCheckmark: false,
+                                                  materialTapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  shape: const RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        kOpenHandBorderRadius8,
+                                                  ),
+                                                  backgroundColor:
+                                                      cs.surfaceContainerLowest,
+                                                  selectedColor:
+                                                      cs.primaryContainer,
+                                                  labelStyle: theme
+                                                      .textTheme
+                                                      .labelMedium
+                                                      ?.copyWith(fontSize: 12),
+                                                  label: SizedBox(
+                                                    width: labelWidth,
+                                                    child: Text(
+                                                      numberLabel(n),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                    ),
+                                                  ),
+                                                  selected: token
+                                                      .split(',')
+                                                      .any(
+                                                        (part) =>
+                                                            int.parse(part) ==
+                                                                n ||
+                                                            (active == 4 &&
+                                                                n == 0 &&
+                                                                int.parse(
+                                                                      part,
+                                                                    ) ==
+                                                                    7),
+                                                      ),
+                                                  onSelected: !widget.enabled
+                                                      ? null
+                                                      : (selected) {
+                                                          final values = token
+                                                              .split(',')
+                                                              .map(int.parse)
+                                                              .toSet();
+                                                          if (selected) {
+                                                            values.add(n);
+                                                          } else {
+                                                            values.remove(n);
+                                                            if (active == 4 &&
+                                                                n == 0) {
+                                                              values.remove(7);
+                                                            }
+                                                          }
+                                                          if (values.isEmpty) {
+                                                            return;
+                                                          }
+                                                          update(
+                                                            (values.toList()
+                                                                  ..sort())
+                                                                .join(','),
+                                                          );
+                                                        },
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                                if (mode == 'step') ...[
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: LayoutBuilder(
+                                      builder: (context, bounds) => SizedBox(
+                                        width: math.min(
+                                          160 * scale,
+                                          bounds.maxWidth,
+                                        ),
+                                        child: AnimatedDropdownButtonFormField<int>(
+                                          key: ValueKey((active, token)),
+                                          initialValue: int.parse(step![1]!),
+                                          isExpanded: true,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(fontSize: 13),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            constraints: BoxConstraints(
+                                              minHeight: 40 * scale,
+                                            ),
+                                            filled: true,
+                                            fillColor:
+                                                cs.surfaceContainerLowest,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                            border: const OutlineInputBorder(
+                                              borderRadius:
+                                                  kOpenHandBorderRadius8,
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  kOpenHandBorderRadius8,
+                                              borderSide: BorderSide(
+                                                color: cs.outlineVariant,
+                                              ),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  kOpenHandBorderRadius8,
+                                              borderSide: BorderSide(
+                                                color: cs.primary,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                          items: [
+                                            for (final n in {
+                                              for (
+                                                var i = 1;
+                                                i <= range.$2 - range.$1 + 1;
+                                                i++
+                                              )
+                                                i,
+                                              int.parse(step[1]!),
+                                            })
+                                              DropdownMenuItem(
+                                                value: n,
+                                                child: Text(
+                                                  l.maintenanceCronStepValue(
+                                                    '$n',
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                          onChanged: widget.enabled
+                                              ? (n) {
+                                                  if (n != null) {
+                                                    update('*/$n');
+                                                  }
+                                                }
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
-                          ],
-                          if (mode == 'step') ...[
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: SizedBox(
-                                width: openHandSelectionWidth(context, [
-                                  '${range.$2 - range.$1 + 1}',
-                                  step![1]!,
-                                ], style: theme.textTheme.titleMedium!),
-                                child: AnimatedDropdownButton<int>(
-                                  value: int.parse(step[1]!),
-                                  isExpanded: true,
-                                  items: [
-                                    for (final n in {
-                                      for (
-                                        var i = 1;
-                                        i <= range.$2 - range.$1 + 1;
-                                        i++
-                                      )
-                                        i,
-                                      int.parse(step[1]!),
-                                    })
-                                      DropdownMenuItem(
-                                        value: n,
-                                        child: Text('$n'),
-                                      ),
-                                  ],
-                                  onChanged: widget.enabled
-                                      ? (n) {
-                                          if (n != null) update('*/$n');
-                                        }
-                                      : null,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                          ),
                   ),
-                ],
-                SelectableText(
-                  raw,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+                ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: kOpenHandBorderRadius8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l.maintenanceTaskCron,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        raw,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  l.maintenanceCronHelp,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    height: 1.5,
                   ),
                 ),
                 if (field.errorText != null)
@@ -1289,7 +1558,6 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
   Widget _field(
     TextEditingController controller,
     String label, {
-    int lines = 1,
     String? Function(String)? validate,
     bool required = true,
   }) {
@@ -1316,8 +1584,6 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
           label: label,
           child: TextFormField(
             controller: controller,
-            minLines: lines,
-            maxLines: lines == 1 ? 1 : lines + 5,
             enabled: !_saving,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: _maintenanceFormFontSize,
@@ -1354,6 +1620,90 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
     );
   }
 
+  Widget _codeField(
+    TextEditingController controller, {
+    required String language,
+    required String fileName,
+    bool singleLine = false,
+  }) {
+    final l = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return FormField<String>(
+      validator: (_) => controller.text.trim().isEmpty
+          ? l.maintenanceTaskValidation
+          : singleLine && RegExp(r'[\r\n\x00]').hasMatch(controller.text)
+          ? l.maintenanceCronCommandHelp
+          : null,
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => OpenHandCodeEditor(
+              value: value.text,
+              language: language,
+              fileName: fileName,
+              icon: singleLine ? Icons.terminal_rounded : Icons.code_rounded,
+              height: singleLine ? 180 : 240,
+              borderRadius: kOpenHandBorderRadius10,
+              readOnly: _saving,
+              // 通用缩进规则不适用于原生配置，避免改写 XML 文本值或 INI 续行。
+              enableFormatting: singleLine,
+              preserveSingleLineOnFormat: singleLine,
+              onChanged: (text) {
+                if (controller.text != text) controller.text = text;
+                field.didChange(text);
+              },
+            ),
+          ),
+          if (field.errorText != null) ...[
+            const SizedBox(height: 8),
+            Text(field.errorText!, style: TextStyle(color: cs.error)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _enabledField() {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: kOpenHandBorderRadius10,
+      clipBehavior: Clip.antiAlias,
+      child: OpenHandFormTile(
+        child: SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 4,
+          ),
+          title: Text(
+            _enabled ? l.maintenanceTaskEnabled : l.maintenanceTaskDisabled,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            _enabled
+                ? l.maintenanceTaskEnabledHelp
+                : l.maintenanceTaskDisabledHelp,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 11,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          value: _enabled,
+          onChanged: _saving
+              ? null
+              : (value) => setState(() => _enabled = value),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -1365,7 +1715,7 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
         backgroundColor: cs.surfaceContainerLow,
         maxHeight: MediaQuery.sizeOf(context).height * .88,
         child: SizedBox(
-          width: math.min(960, MediaQuery.sizeOf(context).width * .92),
+          width: math.min(920, MediaQuery.sizeOf(context).width * .92),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1446,74 +1796,59 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                               label: Text(l.maintenanceTaskNative),
                             ),
                           if (_cron) ...[
-                            _MachineCronSchedule(
-                              controller: _schedule,
-                              enabled: !_saving,
-                            ),
-                            _MaintenanceCard(
-                              title: maintenanceLabel(context, '启动命令'),
-                              icon: Icons.terminal_rounded,
-                              scrollBody: false,
-                              child: FormField<String>(
-                                validator: (_) => _command.text.trim().isEmpty
-                                    ? l.maintenanceTaskValidation
-                                    : RegExp(
-                                        r'[\r\n\x00]',
-                                      ).hasMatch(_command.text)
-                                    ? l.maintenanceCronCommandHelp
-                                    : null,
-                                builder: (field) => Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      l.maintenanceCronCommandHelp,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ValueListenableBuilder<TextEditingValue>(
-                                      valueListenable: _command,
-                                      builder: (context, value, _) =>
-                                          OpenHandCodeEditor(
-                                            value: value.text,
-                                            language: 'bash',
-                                            fileName: 'cron.sh',
-                                            icon: Icons.terminal_rounded,
-                                            height: 280,
-                                            borderRadius:
-                                                kOpenHandBorderRadius8,
-                                            readOnly: _saving,
-                                            onChanged: (text) {
-                                              if (_command.text != text) {
-                                                _command.text = text;
-                                              }
-                                              field.didChange(text);
-                                            },
-                                          ),
-                                    ),
-                                    if (field.errorText != null) ...[
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        field.errorText!,
-                                        style: TextStyle(color: cs.error),
-                                      ),
-                                    ],
-                                  ],
+                            _MaintenanceGrid(
+                              minWidth: 380,
+                              maxColumns: 2,
+                              children: [
+                                _MachineCronSchedule(
+                                  controller: _schedule,
+                                  enabled: !_saving,
                                 ),
-                              ),
-                            ),
-                            OpenHandFormTile(
-                              child: SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(l.maintenanceTaskEnabled),
-                                value: _enabled,
-                                onChanged: _saving
-                                    ? null
-                                    : (value) =>
-                                          setState(() => _enabled = value),
-                              ),
+                                _MaintenanceCard(
+                                  key: const ValueKey('task-command-editor'),
+                                  title: maintenanceLabel(context, '启动命令'),
+                                  icon: Icons.terminal_rounded,
+                                  accent: cs.tertiary,
+                                  scrollBody: false,
+                                  child: _MaintenanceAnimatedColumn(
+                                    spacing: 12,
+                                    children: [
+                                      _codeField(
+                                        _command,
+                                        language: 'bash',
+                                        fileName: 'cron.sh',
+                                        singleLine: true,
+                                      ),
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline_rounded,
+                                            size: 15,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              l.maintenanceCronCommandHelp,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    fontSize: 11,
+                                                    color: cs.onSurfaceVariant,
+                                                    height: 1.5,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      _enabledField(),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ] else if (!_native &&
                               task != null &&
@@ -1560,23 +1895,23 @@ class _MachineTaskDialogState extends State<_MachineTaskDialog> {
                                 ),
                               ],
                             ),
-                            if (task == null)
-                              OpenHandFormTile(
-                                child: SwitchListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(l.maintenanceTaskEnabled),
-                                  value: _enabled,
-                                  onChanged: _saving
-                                      ? null
-                                      : (value) =>
-                                            setState(() => _enabled = value),
-                                ),
-                              ),
+                            if (task == null) _enabledField(),
                           ] else
-                            _field(
-                              _definition,
-                              l.maintenanceTaskNative,
-                              lines: 14,
+                            _MaintenanceCard(
+                              title: l.maintenanceTaskNative,
+                              icon: Icons.code_rounded,
+                              scrollBody: false,
+                              child: _codeField(
+                                _definition,
+                                language:
+                                    task?.scheduler ==
+                                        MachineTaskScheduler.systemd
+                                    ? 'ini'
+                                    : 'xml',
+                                fileName: task?.source.isNotEmpty == true
+                                    ? task!.source.split(RegExp(r'[/\\]')).last
+                                    : 'task.xml',
+                              ),
                             ),
                         ],
                         if (!_editing && task != null) ...[

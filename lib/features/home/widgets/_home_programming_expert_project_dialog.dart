@@ -79,7 +79,7 @@ String _programmingLanguageLabel(BuildContext context, String languageId) {
     return _programmingLanguageOptionLabel(context, option);
   }
   if (languageId.isEmpty) {
-    return 'Plain Text';
+    return AppLocalizations.of(context)!.codeEditorPlainText;
   }
   return languageId[0].toUpperCase() + languageId.substring(1);
 }
@@ -88,6 +88,9 @@ String _programmingLanguageOptionLabel(
   BuildContext context,
   ({String id, String labelZh, String labelEn}) option,
 ) {
+  if (option.id == 'shell') {
+    return AppLocalizations.of(context)!.codeEditorShellLanguage;
+  }
   if (option.id != 'mixed') {
     return option.labelEn;
   }

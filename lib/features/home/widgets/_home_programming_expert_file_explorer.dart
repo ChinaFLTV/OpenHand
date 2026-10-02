@@ -8856,7 +8856,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               child: Row(
                 children: [
                   Text(
-                    'Ln $_cursorLine, Col $_cursorColumn',
+                    AppLocalizations.of(
+                      context,
+                    )!.codeEditorCursorPosition(_cursorLine, _cursorColumn),
                     style: TextStyle(
                       fontSize: 11,
                       color: colorScheme.onSurfaceVariant,

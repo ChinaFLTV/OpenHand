@@ -16023,7 +16023,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceCronHelp =>
-      'Choisissez un rythme, puis une carte pour régler ses valeurs. Le fuseau de la tâche sur la machine cible s’applique. Si le jour du mois et de la semaine sont restreints, une seule correspondance suffit.';
+      'Utilise le fuseau horaire des tâches de la machine cible. Si la date et le jour de semaine sont limités, un seul critère suffit.';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -16045,4 +16045,90 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get maintenanceImagePlatformUnavailable =>
       'Aucune version de l’image ne correspond au système et à l’architecture de l’environnement cible.';
+
+  @override
+  String get maintenanceCronDate => 'Jour';
+
+  @override
+  String get maintenanceCronMonth => 'Mois';
+
+  @override
+  String get maintenanceCronAny => 'Tous';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return 'Intervalle $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp =>
+      'Exécuter selon le planning lorsque la tâche est activée.';
+
+  @override
+  String get maintenanceTaskDisabledHelp =>
+      'Conserver la configuration et suspendre l’exécution.';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return 'Ligne $line, colonne $column';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'Script shell / Bash';
+
+  @override
+  String get codeEditorPlainText => 'Texte brut';
+
+  @override
+  String get codeEditorUndo => 'Annuler';
+
+  @override
+  String get codeEditorRedo => 'Rétablir';
+
+  @override
+  String get codeEditorFind => 'Rechercher';
+
+  @override
+  String get codeEditorImport => 'Importer un fichier de code';
+
+  @override
+  String get codeEditorImporting => 'Importation en cours';
+
+  @override
+  String get codeEditorWordWrapEnable => 'Activer le retour à la ligne';
+
+  @override
+  String get codeEditorWordWrapDisable => 'Désactiver le retour à la ligne';
+
+  @override
+  String codeEditorFileType(String language) {
+    return 'Fichiers de code $language';
+  }
+
+  @override
+  String get codeEditorFormatDone => 'Code mis en forme.';
+
+  @override
+  String get codeEditorFormatUnchanged => 'Le contenu est déjà mis en forme.';
+
+  @override
+  String get codeEditorJsonInvalid =>
+      'Syntaxe JSON invalide ; mise en forme impossible.';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return 'Fichier de code importé : $file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge =>
+      'Les fichiers de code ne doivent pas dépasser 512 Kio.';
+
+  @override
+  String get codeEditorImportInvalid =>
+      'Le fichier de code n’est pas un texte UTF-8 valide.';
+
+  @override
+  String get codeEditorImportFailed =>
+      'Impossible de lire le fichier de code. Vérifiez son accessibilité.';
 }

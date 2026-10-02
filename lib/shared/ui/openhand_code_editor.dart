@@ -10,9 +10,9 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/editor_code_theme.dart';
 import '../../app/state/settings_controller.dart';
+import '../../l10n/app_localizations.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/input_value_parsing.dart';
-import '../util/localized_text.dart';
 import '../util/text_search.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
@@ -274,6 +274,8 @@ class OpenHandCodeEditor extends StatefulWidget {
     this.height = 360,
     this.borderRadius = BorderRadius.zero,
     this.readOnly = false,
+    this.enableFormatting = true,
+    this.preserveSingleLineOnFormat = false,
     this.focusNode,
   });
 
@@ -286,6 +288,8 @@ class OpenHandCodeEditor extends StatefulWidget {
   final double height;
   final BorderRadius borderRadius;
   final bool readOnly;
+  final bool enableFormatting;
+  final bool preserveSingleLineOnFormat;
   final FocusNode? focusNode;
 
   @override
@@ -298,6 +302,8 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const int _compactFormatterIndentWidth = 2;
   static const double _minEditorHeight = 180;
   static const double _maxEditorHeight = 720;
+  static const double _headerInlineMinWidth = 280;
+  static const double _findInlineMinWidth = 260;
   static const int _maxLineNumberItems = 20000;
   static const Map<String, List<String>> _codeFileExtensions =
       <String, List<String>>{
@@ -321,6 +327,8 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         'markdown': <String>['md', 'markdown'],
         'md': <String>['md', 'markdown'],
         'json': <String>['json'],
+        'xml': <String>['xml', 'plist'],
+        'ini': <String>['ini', 'conf', 'service', 'timer'],
       };
   static const Map<String, String> _codeLanguageLabels = <String, String>{
     'python': 'Python',
@@ -330,11 +338,6 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'js': 'JavaScript',
     'node': 'JavaScript',
     'nodejs': 'JavaScript',
-    'shell': 'Shell / Bash',
-    'bash': 'Shell / Bash',
-    'sh': 'Shell / Bash',
-    'zsh': 'Shell / Bash',
-    'linuxshell': 'Shell / Bash',
     'powershell': 'PowerShell',
     'pwsh': 'PowerShell',
     'ps': 'PowerShell',
@@ -343,6 +346,8 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'markdown': 'Markdown',
     'md': 'Markdown',
     'json': 'JSON',
+    'xml': 'XML',
+    'ini': 'INI',
   };
   static final RegExp _languageSeparatorPattern = RegExp(r'[\s_-]+');
   static final RegExp _pythonDedentPattern = RegExp(
@@ -504,102 +509,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                height: kOpenHandEditorHeaderHeight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        widget.icon,
-                        size: 13,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
-                        ),
-                      ),
-                      kOpenHandHGap6,
-                      Expanded(
-                        child: Text(
-                          widget.fileName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      ValueListenableBuilder<UndoHistoryValue>(
-                        valueListenable: _undoController,
-                        builder: (context, undo, _) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              OpenHandEditorHeaderActionButton(
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '撤销',
-                                  en: 'Undo',
-                                ),
-                                icon: Icons.undo_rounded,
-                                color: colorScheme.onSurfaceVariant,
-                                onPressed: widget.readOnly || !undo.canUndo
-                                    ? null
-                                    : _undo,
-                              ),
-                              OpenHandEditorHeaderActionButton(
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '重做',
-                                  en: 'Redo',
-                                ),
-                                icon: Icons.redo_rounded,
-                                color: colorScheme.onSurfaceVariant,
-                                onPressed: widget.readOnly || !undo.canRedo
-                                    ? null
-                                    : _redo,
-                              ),
-                              OpenHandEditorHeaderActionButton(
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '查找',
-                                  en: 'Find',
-                                ),
-                                icon: Icons.search_rounded,
-                                color: _findVisible
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurfaceVariant,
-                                onPressed: _showFind,
-                              ),
-                              OpenHandEditorHeaderActionButton(
-                                tooltip: _isImportingCodeFile
-                                    ? openHandLocalizedText(
-                                        context,
-                                        zh: '导入中',
-                                        en: 'Importing',
-                                      )
-                                    : openHandLocalizedText(
-                                        context,
-                                        zh: '从代码文件导入',
-                                        en: 'Import file',
-                                      ),
-                                icon: Icons.file_open_outlined,
-                                color: colorScheme.onSurfaceVariant,
-                                onPressed:
-                                    widget.readOnly || _isImportingCodeFile
-                                    ? null
-                                    : _importCodeFile,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      const OpenHandEditorWrapToggleButton(),
-                    ],
-                  ),
-                ),
-              ),
+              _buildHeader(context),
               Divider(
                 height: kOpenHandEditorHairline,
                 thickness: kOpenHandEditorHairline,
@@ -642,6 +552,101 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final scale = MediaQuery.textScalerOf(context).scale(11) / 11;
+    final height = math.max(kOpenHandEditorHeaderHeight, 11 * scale * 1.5 + 10);
+    final title = Row(
+      children: [
+        Icon(
+          widget.icon,
+          size: 13,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: .6),
+        ),
+        kOpenHandHGap6,
+        Expanded(
+          child: Text(
+            widget.fileName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+    final actions = ValueListenableBuilder<UndoHistoryValue>(
+      valueListenable: _undoController,
+      builder: (context, undo, _) {
+        return Wrap(
+          alignment: WrapAlignment.end,
+          children: [
+            OpenHandEditorHeaderActionButton(
+              tooltip: AppLocalizations.of(context)!.codeEditorUndo,
+              icon: Icons.undo_rounded,
+              color: colorScheme.onSurfaceVariant,
+              onPressed: widget.readOnly || !undo.canUndo ? null : _undo,
+            ),
+            OpenHandEditorHeaderActionButton(
+              tooltip: AppLocalizations.of(context)!.codeEditorRedo,
+              icon: Icons.redo_rounded,
+              color: colorScheme.onSurfaceVariant,
+              onPressed: widget.readOnly || !undo.canRedo ? null : _redo,
+            ),
+            OpenHandEditorHeaderActionButton(
+              tooltip: AppLocalizations.of(context)!.codeEditorFind,
+              icon: Icons.search_rounded,
+              color: _findVisible
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+              onPressed: _showFind,
+            ),
+            OpenHandEditorHeaderActionButton(
+              tooltip: _isImportingCodeFile
+                  ? AppLocalizations.of(context)!.codeEditorImporting
+                  : AppLocalizations.of(context)!.codeEditorImport,
+              icon: Icons.file_open_outlined,
+              color: colorScheme.onSurfaceVariant,
+              onPressed: widget.readOnly || _isImportingCodeFile
+                  ? null
+                  : _importCodeFile,
+            ),
+            const OpenHandEditorWrapToggleButton(),
+          ],
+        );
+      },
+    );
+    return LayoutBuilder(
+      builder: (context, bounds) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: bounds.maxWidth < _headerInlineMinWidth * scale
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: height, child: title),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: actions,
+                  ),
+                ],
+              )
+            : SizedBox(
+                height: height,
+                child: Row(
+                  children: [
+                    Expanded(child: title),
+                    actions,
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -797,155 +802,147 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   Widget _buildFindReplaceBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final scale =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(kOpenHandEditorToolbarFieldFontSize) /
+        kOpenHandEditorToolbarFieldFontSize;
+    final fieldHeight = math.max(
+      kOpenHandEditorToolbarFieldHeight,
+      kOpenHandEditorToolbarFieldFontSize * scale * 1.5 + 8,
+    );
     final matchLabel = _findMatchOffsets.isEmpty
         ? ''
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
+    final field = SizedBox(
+      height: fieldHeight,
+      child: TextField(
+        controller: _findController,
+        focusNode: _findFocusNode,
+        style: TextStyle(
+          fontSize: kOpenHandEditorToolbarFieldFontSize,
+          color: colorScheme.onSurface,
+        ),
+        decoration: openHandEditorToolbarInputDecoration(
+          colorScheme,
+          hintText: AppLocalizations.of(context)!.codeEditorFind,
+        ),
+        onChanged: _updateFindMatches,
+        onSubmitted: (_) => _findNext(),
+      ),
+    );
+    final controls = <Widget>[
+      if (matchLabel.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text(
+            matchLabel,
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+          ),
+        ),
+      OpenHandEditorFindBarButton(
+        icon: Icons.keyboard_arrow_up_rounded,
+        tooltip: AppLocalizations.of(context)!.progExpFEPreviousMatch,
+        onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
+        colorScheme: colorScheme,
+      ),
+      OpenHandEditorFindBarButton(
+        icon: Icons.keyboard_arrow_down_rounded,
+        tooltip: AppLocalizations.of(context)!.progExpFENextMatch,
+        onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
+        colorScheme: colorScheme,
+      ),
+      OpenHandEditorFindBarButton(
+        icon: Icons.font_download_rounded,
+        tooltip: AppLocalizations.of(context)!.progExpFEMatchCase,
+        isActive: _findCaseSensitive,
+        onPressed: () {
+          setState(() => _findCaseSensitive = !_findCaseSensitive);
+          _updateFindMatches(_findController.text);
+        },
+        colorScheme: colorScheme,
+      ),
+      if (!_replaceVisible)
+        OpenHandEditorFindBarButton(
+          icon: Icons.find_replace_rounded,
+          tooltip: AppLocalizations.of(context)!.progExpFEShowReplace,
+          onPressed: () => setState(() => _replaceVisible = true),
+          colorScheme: colorScheme,
+        ),
+      OpenHandEditorFindBarButton(
+        icon: Icons.close_rounded,
+        tooltip: AppLocalizations.of(context)!.commonClose,
+        onPressed: _hideFind,
+        colorScheme: colorScheme,
+      ),
+    ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: openHandEditorToolbarSurface(colorScheme),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: kOpenHandEditorToolbarFieldHeight,
-                  child: TextField(
-                    controller: _findController,
-                    focusNode: _findFocusNode,
-                    style: TextStyle(
-                      fontSize: kOpenHandEditorToolbarFieldFontSize,
-                      color: colorScheme.onSurface,
-                    ),
-                    decoration: openHandEditorToolbarInputDecoration(
-                      colorScheme,
-                      hintText: openHandLocalizedText(
-                        context,
-                        zh: '查找',
-                        en: 'Find',
+      child: LayoutBuilder(
+        builder: (context, bounds) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (bounds.maxWidth < _findInlineMinWidth * scale) ...[
+              field,
+              kOpenHandGap4,
+              Wrap(alignment: WrapAlignment.end, children: controls),
+            ] else
+              Row(
+                children: [
+                  Expanded(child: field),
+                  ...controls,
+                ],
+              ),
+            if (_replaceVisible) ...[
+              kOpenHandGap4,
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: fieldHeight,
+                      child: TextField(
+                        controller: _replaceController,
+                        enabled: !widget.readOnly,
+                        style: TextStyle(
+                          fontSize: kOpenHandEditorToolbarFieldFontSize,
+                          color: colorScheme.onSurface,
+                        ),
+                        decoration: openHandEditorToolbarInputDecoration(
+                          colorScheme,
+                          hintText: AppLocalizations.of(
+                            context,
+                          )!.progExpFEReplaceCurrent,
+                        ),
+                        onSubmitted: (_) => _replaceCurrent(),
                       ),
                     ),
-                    onChanged: _updateFindMatches,
-                    onSubmitted: (_) => _findNext(),
                   ),
-                ),
-              ),
-              if (matchLabel.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    matchLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  kOpenHandHGap4,
+                  OpenHandEditorFindBarButton(
+                    icon: Icons.find_replace_rounded,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    )!.progExpFEReplaceCurrent,
+                    onPressed: widget.readOnly || _findMatchOffsets.isEmpty
+                        ? null
+                        : _replaceCurrent,
+                    colorScheme: colorScheme,
                   ),
-                ),
-              OpenHandEditorFindBarButton(
-                icon: Icons.keyboard_arrow_up_rounded,
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '上一个',
-                  en: 'Previous',
-                ),
-                onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
-                colorScheme: colorScheme,
-              ),
-              OpenHandEditorFindBarButton(
-                icon: Icons.keyboard_arrow_down_rounded,
-                tooltip: openHandLocalizedText(context, zh: '下一个', en: 'Next'),
-                onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
-                colorScheme: colorScheme,
-              ),
-              OpenHandEditorFindBarButton(
-                icon: Icons.font_download_rounded,
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '区分大小写',
-                  en: 'Match case',
-                ),
-                isActive: _findCaseSensitive,
-                onPressed: () {
-                  setState(() => _findCaseSensitive = !_findCaseSensitive);
-                  _updateFindMatches(_findController.text);
-                },
-                colorScheme: colorScheme,
-              ),
-              if (!_replaceVisible)
-                OpenHandEditorFindBarButton(
-                  icon: Icons.find_replace_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '显示替换',
-                    en: 'Show replace',
+                  OpenHandEditorFindBarButton(
+                    icon: Icons.done_all_rounded,
+                    tooltip: AppLocalizations.of(context)!.progExpFEReplaceAll,
+                    onPressed: widget.readOnly || _findMatchOffsets.isEmpty
+                        ? null
+                        : _replaceAll,
+                    colorScheme: colorScheme,
                   ),
-                  onPressed: () => setState(() => _replaceVisible = true),
-                  colorScheme: colorScheme,
-                ),
-              OpenHandEditorFindBarButton(
-                icon: Icons.close_rounded,
-                tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
-                onPressed: _hideFind,
-                colorScheme: colorScheme,
+                ],
               ),
             ],
-          ),
-          if (_replaceVisible) ...[
-            kOpenHandGap4,
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: kOpenHandEditorToolbarFieldHeight,
-                    child: TextField(
-                      controller: _replaceController,
-                      enabled: !widget.readOnly,
-                      style: TextStyle(
-                        fontSize: kOpenHandEditorToolbarFieldFontSize,
-                        color: colorScheme.onSurface,
-                      ),
-                      decoration: openHandEditorToolbarInputDecoration(
-                        colorScheme,
-                        hintText: openHandLocalizedText(
-                          context,
-                          zh: '替换',
-                          en: 'Replace',
-                        ),
-                      ),
-                      onSubmitted: (_) => _replaceCurrent(),
-                    ),
-                  ),
-                ),
-                kOpenHandHGap4,
-                OpenHandEditorFindBarButton(
-                  icon: Icons.find_replace_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '替换当前',
-                    en: 'Replace',
-                  ),
-                  onPressed: widget.readOnly || _findMatchOffsets.isEmpty
-                      ? null
-                      : _replaceCurrent,
-                  colorScheme: colorScheme,
-                ),
-                OpenHandEditorFindBarButton(
-                  icon: Icons.done_all_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '全部替换',
-                    en: 'Replace all',
-                  ),
-                  onPressed: widget.readOnly || _findMatchOffsets.isEmpty
-                      ? null
-                      : _replaceAll,
-                  colorScheme: colorScheme,
-                ),
-              ],
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1130,11 +1127,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   Widget _buildStatusBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final languageKey = widget.language.trim().toLowerCase().replaceAll(
-      _languageSeparatorPattern,
-      '',
-    );
-    final languageLabel = _codeLanguageLabels[languageKey] ?? widget.language;
+    final languageLabel = _languageLabel(context);
     final zoomPct = (_fontSize / kOpenHandEditorFontSizeDefault * 100).round();
     return MouseRegion(
       cursor: SystemMouseCursors.resizeUpDown,
@@ -1147,7 +1140,10 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         },
         onDoubleTap: _resetEditorViewport,
         child: Container(
-          height: kOpenHandEditorStatusBarHeight,
+          height: math.max(
+            kOpenHandEditorStatusBarHeight,
+            MediaQuery.textScalerOf(context).scale(11) * 1.5 + 8,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: openHandEditorStatusBarDecoration(colorScheme),
           child: Row(
@@ -1159,7 +1155,9 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: Row(
                     children: [
                       Text(
-                        'Ln $_cursorLine, Col $_cursorColumn',
+                        AppLocalizations.of(
+                          context,
+                        )!.codeEditorCursorPosition(_cursorLine, _cursorColumn),
                         style: TextStyle(
                           fontSize: 11,
                           color: colorScheme.onSurfaceVariant,
@@ -1190,22 +1188,18 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                           ),
                         ),
                       ],
-                      kOpenHandHGap8,
-                      OpenHandEditorStatusChip(
-                        colorScheme: colorScheme,
-                        icon: Icons.auto_fix_high_rounded,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '格式化',
-                          en: 'Format',
+                      if (widget.enableFormatting) ...[
+                        kOpenHandHGap8,
+                        OpenHandEditorStatusChip(
+                          colorScheme: colorScheme,
+                          icon: Icons.auto_fix_high_rounded,
+                          label: AppLocalizations.of(context)!.progExpFEFormat,
+                          tooltip: AppLocalizations.of(
+                            context,
+                          )!.progExpFEFormatDocument,
+                          onPressed: widget.readOnly ? null : _formatCode,
                         ),
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '格式化当前内容',
-                          en: 'Format document',
-                        ),
-                        onPressed: widget.readOnly ? null : _formatCode,
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -1250,22 +1244,50 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       widget.onChanged(importedCode);
       if (!mounted) return;
       setState(() {});
-      showOpenHandSuccessSnack(context, '已导入代码文件：${file.name}');
+      showOpenHandSuccessSnack(
+        context,
+        AppLocalizations.of(context)!.codeEditorImportSuccess(file.name),
+      );
     } on BoundedXFileSizeException {
       if (mounted) {
-        showOpenHandErrorSnack(context, '代码文件不能超过 512 KiB。');
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.codeEditorImportTooLarge,
+        );
       }
     } on FormatException {
       if (mounted) {
-        showOpenHandErrorSnack(context, '代码文件不是有效的 UTF-8 文本。');
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.codeEditorImportInvalid,
+        );
       }
     } catch (_) {
       if (mounted) {
-        showOpenHandErrorSnack(context, '读取代码文件失败，请检查文件是否可访问。');
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.codeEditorImportFailed,
+        );
       }
     } finally {
       if (mounted) setState(() => _isImportingCodeFile = false);
     }
+  }
+
+  String _languageLabel(BuildContext context) {
+    final key = widget.language.trim().toLowerCase().replaceAll(
+      _languageSeparatorPattern,
+      '',
+    );
+    final l = AppLocalizations.of(context)!;
+    if (const {'shell', 'bash', 'sh', 'zsh', 'linuxshell'}.contains(key)) {
+      return l.codeEditorShellLanguage;
+    }
+    if (key.isEmpty ||
+        const {'text', 'txt', 'plain', 'plaintext'}.contains(key)) {
+      return l.codeEditorPlainText;
+    }
+    return _codeLanguageLabels[key] ?? widget.language;
   }
 
   XTypeGroup _codeFileTypeGroup() {
@@ -1274,8 +1296,12 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       '',
     );
     final extensions = _codeFileExtensions[languageKey] ?? <String>['txt'];
-    final label = _codeLanguageLabels[languageKey] ?? '代码';
-    return XTypeGroup(label: '$label代码文件', extensions: extensions);
+    return XTypeGroup(
+      label: AppLocalizations.of(
+        context,
+      )!.codeEditorFileType(_languageLabel(context)),
+      extensions: extensions,
+    );
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -1402,7 +1428,7 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       _languageSeparatorPattern,
       '',
     );
-    final String formatted;
+    String formatted;
     if (languageKey == 'json') {
       final trimmed = source.trim();
       if (trimmed.isEmpty) {
@@ -1410,7 +1436,10 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       } else {
         final decoded = tryDecodeJsonValue(trimmed);
         if (!decoded.success) {
-          showOpenHandErrorSnack(context, 'JSON 语法无效，无法格式化。');
+          showOpenHandErrorSnack(
+            context,
+            AppLocalizations.of(context)!.codeEditorJsonInvalid,
+          );
           return;
         }
         formatted = prettyPrintJson(decoded.value);
@@ -1418,8 +1447,16 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     } else {
       formatted = _formatSourceCode(source, widget.language);
     }
+    // 单行任务不因格式化追加换行；已有多行内容仍交由表单校验。
+    if (widget.preserveSingleLineOnFormat &&
+        !RegExp(r'[\r\n]').hasMatch(source)) {
+      formatted = formatted.trimRight();
+    }
     if (formatted == source) {
-      showOpenHandInfoSnack(context, '代码已经是格式化状态。');
+      showOpenHandInfoSnack(
+        context,
+        AppLocalizations.of(context)!.codeEditorFormatUnchanged,
+      );
       return;
     }
     _controller.value = TextEditingValue(
@@ -1428,7 +1465,10 @@ class OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     );
     widget.onChanged(formatted);
     setState(() {});
-    showOpenHandSuccessSnack(context, '代码已格式化。');
+    showOpenHandSuccessSnack(
+      context,
+      AppLocalizations.of(context)!.codeEditorFormatDone,
+    );
   }
 
   String _formatSourceCode(String source, String language) {

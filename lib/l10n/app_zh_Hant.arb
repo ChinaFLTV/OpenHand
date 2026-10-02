@@ -9764,11 +9764,66 @@
   "maintenanceCronWeekly": "每週",
   "maintenanceCronMonthly": "每月",
   "maintenanceCronReboot": "系統啟動時",
-  "maintenanceCronHelp": "選擇週期，再點擊卡片設定數值。使用目標機器的工作時區；同時指定日期和星期時，任一符合即執行。",
+  "maintenanceCronHelp": "使用目標機器的任務時區；日期和星期同時限制時，任一符合即執行。",
   "maintenanceCronCommandHelp": "Crontab 使用單行 Shell 命令；多條命令請用分號連接，或呼叫指令碼檔案。",
   "maintenanceImageDownloading": "正在下載映像檔",
   "maintenanceImageUploading": "正在傳輸至目標機器",
   "maintenanceImageImporting": "正在匯入映像檔",
   "maintenanceImageAuthFailed": "映像檔倉庫驗證失敗，請檢查目標機器的倉庫登入憑證。",
-  "maintenanceImagePlatformUnavailable": "映像檔沒有符合目標執行環境作業系統及架構的版本。"
+  "maintenanceImagePlatformUnavailable": "映像檔沒有符合目標執行環境作業系統及架構的版本。",
+  "maintenanceCronDate": "日期",
+  "maintenanceCronMonth": "月份",
+  "maintenanceCronAny": "不限",
+  "maintenanceCronStepValue": "間隔 {count}",
+  "@maintenanceCronStepValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskEnabledHelp": "啟用後依排程計畫執行。",
+  "maintenanceTaskDisabledHelp": "停用後保留設定，暫停執行。",
+  "codeEditorCursorPosition": "第 {line} 行，第 {column} 欄",
+  "@codeEditorCursorPosition": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      }
+    }
+  },
+  "codeEditorShellLanguage": "Shell 指令碼 / Bash",
+  "codeEditorPlainText": "純文字",
+  "codeEditorUndo": "復原",
+  "codeEditorRedo": "重做",
+  "codeEditorFind": "尋找",
+  "codeEditorImport": "匯入程式碼檔案",
+  "codeEditorImporting": "正在匯入",
+  "codeEditorWordWrapEnable": "啟用自動換行",
+  "codeEditorWordWrapDisable": "關閉自動換行",
+  "codeEditorFileType": "{language} 程式碼檔案",
+  "@codeEditorFileType": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorFormatDone": "程式碼已格式化。",
+  "codeEditorFormatUnchanged": "內容已經是格式化狀態。",
+  "codeEditorJsonInvalid": "JSON 語法無效，無法格式化。",
+  "codeEditorImportSuccess": "已匯入程式碼檔案：{file}",
+  "@codeEditorImportSuccess": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorImportTooLarge": "程式碼檔案不能超過 512 KiB。",
+  "codeEditorImportInvalid": "程式碼檔案不是有效的 UTF-8 文字。",
+  "codeEditorImportFailed": "讀取程式碼檔案失敗，請確認檔案是否可存取。"
 }

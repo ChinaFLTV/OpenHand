@@ -4874,9 +4874,10 @@ void scheduledTaskChecks() {
       child:_MachineCronSchedule(controller:controller,enabled:enabled)))));
     await tester.pumpWidget(app(true));await tester.pumpAndSettle();
     expect(controller.text,'5,10 9-17/2 * JAN,MAR MON-FRI');expect(form.currentState!.validate(),isTrue);
+    expect(find.byKey(const ValueKey('cron-settings-0')),findsNothing);
     await tester.tap(find.byKey(const ValueKey('cron-card-1')));await tester.pumpAndSettle();
     expect(find.text('保留现有规则'),findsOneWidget);expect(controller.text,'5,10 9-17/2 * JAN,MAR MON-FRI');
-    await tester.tap(find.widgetWithText(ChoiceChip,'固定间隔'));await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton,'固定间隔'));await tester.pumpAndSettle();
     final dropdown=tester.widget<AnimatedDropdownButton<int>>(find.byType(AnimatedDropdownButton<int>));
     dropdown.onChanged!(2);await tester.pumpAndSettle();expect(controller.text,'5,10 */2 * JAN,MAR MON-FRI');
     await tester.tap(find.byKey(const ValueKey('cron-card-0')));await tester.pumpAndSettle();
@@ -4884,9 +4885,9 @@ void scheduledTaskChecks() {
     for(final alias in ['@reboot','@yearly','@annually','@midnight','@weekly','@monthly','@hourly']) {
       controller.text=alias;await tester.pumpAndSettle();expect(controller.text,alias);expect(form.currentState!.validate(),isTrue);
     }
-    await tester.tap(find.widgetWithText(ChoiceChip,'每天'));await tester.pumpAndSettle();expect(controller.text,'0 9 * * *');
+    await tester.tap(find.widgetWithText(OutlinedButton,'每天'));await tester.pumpAndSettle();expect(controller.text,'0 9 * * *');
     await tester.pumpWidget(app(false));await tester.pumpAndSettle();
-    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip,'每周')).onSelected,isNull);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton,'每周')).onPressed,isNull);
     expect(tester.widget<OutlinedButton>(find.byKey(const ValueKey('cron-card-0'))).onPressed,isNull);
     expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());controller.dispose();await tester.binding.setSurfaceSize(null);
   });
@@ -5036,7 +5037,11 @@ void scheduledTaskChecks() {
       await tester.tap(find.text('保存'));await tester.pumpAndSettle();
       expect(attempts,0);expect(find.byType(_MachineTaskDialog),findsOneWidget);
     }
+    expect(editor.preserveSingleLineOnFormat,isTrue);
     editor.onChanged('/opt/backup --new');await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(OpenHandCodeEditor));
+    await tester.tap(find.byTooltip(AppLocalizations.of(state.context)!.progExpFEFormatDocument));await tester.pumpAndSettle();
+    expect(state._command.text,'/opt/backup --new');
     await tester.tap(find.text('保存')); await tester.pumpAndSettle();
     await tester.tap(find.text('保存').last); await tester.pumpAndSettle();
     expect(attempts,1); expect(state._command.text,'/opt/backup --new');
@@ -5057,18 +5062,19 @@ void scheduledTaskChecks() {
     pending.complete(taskFixture()); await tester.pumpAndSettle(); expect(busy,isFalse); expect(tester.takeException(),isNull);
   });
   testWidgets('定时任务新增弹窗适配六语言窄屏大字号与原生编辑', (tester) async {
+    await tester.runAsync(()async {await _testSettings.updateThemePreset(OpenHandThemePreset.tundraGreen);});
     await tester.binding.setSurfaceSize(const Size(420,800));
     final snapshot=MachineScheduledTaskSnapshot.parse(taskFixture());
     for(final locale in AppLocalizations.supportedLocales) {
       for(final platform in ['Linux','Windows']) {
-       for(final width in [420.0,1100.0]) {
+       for(final width in [320.0,420.0,1100.0]) {
         await tester.binding.setSurfaceSize(Size(width,1000));
-        final theme=width==420?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        final theme=width<500?OpenHandTheme.dark(OpenHandThemePreset.tundraGreen):OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
         await tester.pumpWidget(_SettingsApp(locale:locale,
           theme:theme.copyWith(chipTheme:theme.chipTheme.copyWith(labelStyle:theme.textTheme.labelLarge?.copyWith(fontFamily:'运维预览字体'),secondaryLabelStyle:theme.textTheme.labelLarge?.copyWith(fontFamily:'运维预览字体')),textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
           localizationsDelegates:AppLocalizations.localizationsDelegates,
           supportedLocales:AppLocalizations.supportedLocales,
-          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,1000),textScaler:TextScaler.linear(width==420?1.5:1)),child:child!),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,1000),textScaler:TextScaler.linear(width==320?1.8:width==420?1.5:1)),child:child!),
           home:Scaffold(body:Builder(builder:(context)=>TextButton(
             onPressed:()=>showAnimatedDialog<void>(context:context,builder:(_)=>RepaintBoundary(key:const ValueKey('Cron表单预览'),child:_MachineTaskDialog(
               platform:platform,snapshot:snapshot,task:null,edit:true,
@@ -5078,6 +5084,56 @@ void scheduledTaskChecks() {
         final state=tester.state<_MachineTaskDialogState>(find.byType(_MachineTaskDialog));
         final l=AppLocalizations.of(state.context)!;
         expect(find.text(l.maintenanceTaskAdd),findsOneWidget);
+        if(platform=='Linux') {
+          expect(find.text(l.codeEditorCursorPosition(1,1)),findsOneWidget);
+          expect(find.text(l.codeEditorShellLanguage),findsOneWidget);
+          expect(find.textContaining('Ln '),findsNothing);
+          expect(find.byTooltip(l.codeEditorFind),findsOneWidget);
+          expect(find.byTooltip(l.codeEditorImport),findsOneWidget);
+          final code=find.byType(OpenHandCodeEditor);
+          await tester.ensureVisible(code);
+          await tester.enterText(find.descendant(of:code,matching:find.byType(TextField)),'echo old');await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byTooltip(l.codeEditorFind));
+          await tester.tap(find.byTooltip(l.codeEditorFind));await tester.pumpAndSettle();
+          final findField=find.byWidgetPredicate((w)=>w is TextField&&w.decoration?.hintText==l.codeEditorFind);
+          await tester.enterText(findField,'old');await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byTooltip(l.progExpFEShowReplace));
+          await tester.tap(find.byTooltip(l.progExpFEShowReplace));await tester.pumpAndSettle();
+          final replaceField=find.byWidgetPredicate((w)=>w is TextField&&w.decoration?.hintText==l.progExpFEReplaceCurrent);
+          await tester.enterText(replaceField,'new');await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byTooltip(l.progExpFEReplaceAll));
+          await tester.tap(find.byTooltip(l.progExpFEReplaceAll));await tester.pumpAndSettle();
+          expect(state._command.text,'echo new');expect(tester.takeException(),isNull);
+          final closeFind=find.descendant(of:code,matching:find.byTooltip(l.commonClose));
+          await tester.ensureVisible(closeFind);await tester.tap(closeFind);await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byType(SwitchListTile));
+          await tester.tap(find.byType(Switch));await tester.pumpAndSettle();
+          expect(state._enabled,isFalse);expect(find.text(l.maintenanceTaskDisabledHelp),findsOneWidget);
+          await tester.tap(find.byType(Switch));await tester.pumpAndSettle();
+          expect(state._enabled,isTrue);
+          await tester.ensureVisible(find.byKey(const ValueKey('cron-card-2')));await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('cron-card-2')));await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byKey(const ValueKey('cron-mode-step')));
+          await tester.tap(find.byKey(const ValueKey('cron-mode-step')));await tester.pumpAndSettle();
+          expect(state._schedule.text,'0 9 */1 * *');
+          expect(find.byType(AnimatedDropdownButtonFormField<int>),findsOneWidget);
+          await tester.ensureVisible(find.byType(AnimatedDropdownButtonFormField<int>));await tester.pumpAndSettle();
+          expect(tester.takeException(),isNull);
+          if(locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+            await tester.runAsync(()async {
+              final boundary=tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('Cron表单预览')));
+              final shot=await boundary.toImage(pixelRatio:1.5);final bytes=await shot.toByteData(format:ui.ImageByteFormat.png);
+              await File('/tmp/openhand-cron-form-'+width.toInt().toString()+'-interval.png').writeAsBytes(bytes!.buffer.asUint8List());shot.dispose();
+            });
+          }
+          await tester.ensureVisible(find.byKey(const ValueKey('cron-card-2')));
+          await tester.tap(find.byKey(const ValueKey('cron-card-2')));await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('cron-settings-2')),findsNothing);
+          final daily=find.byKey(const ValueKey('cron-preset-0 9 * * *'));
+          await tester.ensureVisible(daily);await tester.tap(daily);await tester.pumpAndSettle();
+          expect(state._schedule.text,'0 9 * * *');
+          await tester.ensureVisible(find.byType(_MachineCronSchedule));await tester.pumpAndSettle();
+        }
         expect(tester.takeException(),isNull);
         if(platform=='Linux'&&locale==const Locale('zh')&&Platform.environment['MAINTENANCE_PREVIEW']!=null) {
           for(final section in ['schedule','command']) {
@@ -5096,6 +5152,9 @@ void scheduledTaskChecks() {
           await tester.tap(find.text(l.maintenanceTaskNative)); await tester.pumpAndSettle();
           final definition=xml.XmlDocument.parse(state._definition.text);
           expect(definition.findAllElements('Command').single.innerText,state._command.text);
+          final nativeEditor=tester.widget<OpenHandCodeEditor>(find.byType(OpenHandCodeEditor));
+          expect(nativeEditor.language,'xml');expect(nativeEditor.value,state._definition.text);
+          expect(nativeEditor.enableFormatting,isFalse);expect(find.byTooltip(l.progExpFEFormatDocument),findsNothing);
           expect(state._native,isTrue); expect(tester.takeException(),isNull);
         }
         await tester.tap(find.text(l.commonClose)); await tester.pumpAndSettle();

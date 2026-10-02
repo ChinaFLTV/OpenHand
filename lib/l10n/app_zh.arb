@@ -10940,11 +10940,66 @@
   "maintenanceCronWeekly": "每周",
   "maintenanceCronMonthly": "每月",
   "maintenanceCronReboot": "系统启动时",
-  "maintenanceCronHelp": "选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。",
+  "maintenanceCronHelp": "使用目标机器的任务时区；日期和星期同时限制时，任一匹配即执行。",
   "maintenanceCronCommandHelp": "Crontab 使用单行 Shell 命令；多条命令请用分号连接，或调用脚本文件。",
   "maintenanceImageDownloading": "正在下载镜像",
   "maintenanceImageUploading": "正在传输到目标机器",
   "maintenanceImageImporting": "正在导入镜像",
   "maintenanceImageAuthFailed": "镜像仓库鉴权失败，请检查目标机器上的仓库登录凭据。",
-  "maintenanceImagePlatformUnavailable": "镜像没有与目标运行时操作系统和架构匹配的版本。"
+  "maintenanceImagePlatformUnavailable": "镜像没有与目标运行时操作系统和架构匹配的版本。",
+  "maintenanceCronDate": "日期",
+  "maintenanceCronMonth": "月份",
+  "maintenanceCronAny": "不限",
+  "maintenanceCronStepValue": "间隔 {count}",
+  "@maintenanceCronStepValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskEnabledHelp": "启用后按调度计划执行。",
+  "maintenanceTaskDisabledHelp": "停用后保留配置，暂停执行。",
+  "codeEditorCursorPosition": "第 {line} 行，第 {column} 列",
+  "@codeEditorCursorPosition": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      }
+    }
+  },
+  "codeEditorShellLanguage": "Shell 脚本 / Bash",
+  "codeEditorPlainText": "纯文本",
+  "codeEditorUndo": "撤销",
+  "codeEditorRedo": "重做",
+  "codeEditorFind": "查找",
+  "codeEditorImport": "导入代码文件",
+  "codeEditorImporting": "正在导入",
+  "codeEditorWordWrapEnable": "启用自动换行",
+  "codeEditorWordWrapDisable": "关闭自动换行",
+  "codeEditorFileType": "{language} 代码文件",
+  "@codeEditorFileType": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorFormatDone": "代码已格式化。",
+  "codeEditorFormatUnchanged": "内容已经是格式化状态。",
+  "codeEditorJsonInvalid": "JSON 语法无效，无法格式化。",
+  "codeEditorImportSuccess": "已导入代码文件：{file}",
+  "@codeEditorImportSuccess": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorImportTooLarge": "代码文件不能超过 512 KiB。",
+  "codeEditorImportInvalid": "代码文件不是有效的 UTF-8 文本。",
+  "codeEditorImportFailed": "读取代码文件失败，请检查文件是否可访问。"
 }

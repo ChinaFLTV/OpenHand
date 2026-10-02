@@ -49,6 +49,9 @@ _editorLspLanguageOptions = [
 
 String _editorLspLanguageLabel(BuildContext context, String language) {
   final normalized = normalizeAiLspLanguage(language);
+  if (normalized == 'shell') {
+    return AppLocalizations.of(context)!.codeEditorShellLanguage;
+  }
   for (final option in _editorLspLanguageOptions) {
     if (option.id == normalized) {
       return openHandLocalizedText(

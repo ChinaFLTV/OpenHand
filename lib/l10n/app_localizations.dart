@@ -28574,7 +28574,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceCronHelp.
   ///
   /// In zh, this message translates to:
-  /// **'选择周期，再点击卡片配置数值。使用目标机器的任务时区；同时指定日期和星期时，任一匹配即执行。'**
+  /// **'使用目标机器的任务时区；日期和星期同时限制时，任一匹配即执行。'**
   String get maintenanceCronHelp;
 
   /// No description provided for @maintenanceCronCommandHelp.
@@ -28612,6 +28612,150 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'镜像没有与目标运行时操作系统和架构匹配的版本。'**
   String get maintenanceImagePlatformUnavailable;
+
+  /// No description provided for @maintenanceCronDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get maintenanceCronDate;
+
+  /// No description provided for @maintenanceCronMonth.
+  ///
+  /// In zh, this message translates to:
+  /// **'月份'**
+  String get maintenanceCronMonth;
+
+  /// No description provided for @maintenanceCronAny.
+  ///
+  /// In zh, this message translates to:
+  /// **'不限'**
+  String get maintenanceCronAny;
+
+  /// No description provided for @maintenanceCronStepValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'间隔 {count}'**
+  String maintenanceCronStepValue(String count);
+
+  /// No description provided for @maintenanceTaskEnabledHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用后按调度计划执行。'**
+  String get maintenanceTaskEnabledHelp;
+
+  /// No description provided for @maintenanceTaskDisabledHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用后保留配置，暂停执行。'**
+  String get maintenanceTaskDisabledHelp;
+
+  /// No description provided for @codeEditorCursorPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {line} 行，第 {column} 列'**
+  String codeEditorCursorPosition(int line, int column);
+
+  /// No description provided for @codeEditorShellLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'Shell 脚本 / Bash'**
+  String get codeEditorShellLanguage;
+
+  /// No description provided for @codeEditorPlainText.
+  ///
+  /// In zh, this message translates to:
+  /// **'纯文本'**
+  String get codeEditorPlainText;
+
+  /// No description provided for @codeEditorUndo.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get codeEditorUndo;
+
+  /// No description provided for @codeEditorRedo.
+  ///
+  /// In zh, this message translates to:
+  /// **'重做'**
+  String get codeEditorRedo;
+
+  /// No description provided for @codeEditorFind.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找'**
+  String get codeEditorFind;
+
+  /// No description provided for @codeEditorImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入代码文件'**
+  String get codeEditorImport;
+
+  /// No description provided for @codeEditorImporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导入'**
+  String get codeEditorImporting;
+
+  /// No description provided for @codeEditorWordWrapEnable.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用自动换行'**
+  String get codeEditorWordWrapEnable;
+
+  /// No description provided for @codeEditorWordWrapDisable.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭自动换行'**
+  String get codeEditorWordWrapDisable;
+
+  /// No description provided for @codeEditorFileType.
+  ///
+  /// In zh, this message translates to:
+  /// **'{language} 代码文件'**
+  String codeEditorFileType(String language);
+
+  /// No description provided for @codeEditorFormatDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码已格式化。'**
+  String get codeEditorFormatDone;
+
+  /// No description provided for @codeEditorFormatUnchanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已经是格式化状态。'**
+  String get codeEditorFormatUnchanged;
+
+  /// No description provided for @codeEditorJsonInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'JSON 语法无效，无法格式化。'**
+  String get codeEditorJsonInvalid;
+
+  /// No description provided for @codeEditorImportSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入代码文件：{file}'**
+  String codeEditorImportSuccess(String file);
+
+  /// No description provided for @codeEditorImportTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码文件不能超过 512 KiB。'**
+  String get codeEditorImportTooLarge;
+
+  /// No description provided for @codeEditorImportInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码文件不是有效的 UTF-8 文本。'**
+  String get codeEditorImportInvalid;
+
+  /// No description provided for @codeEditorImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取代码文件失败，请检查文件是否可访问。'**
+  String get codeEditorImportFailed;
 }
 
 class _AppLocalizationsDelegate

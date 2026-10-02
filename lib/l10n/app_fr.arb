@@ -9764,11 +9764,66 @@
   "maintenanceCronWeekly": "Chaque semaine",
   "maintenanceCronMonthly": "Chaque mois",
   "maintenanceCronReboot": "Au démarrage du système",
-  "maintenanceCronHelp": "Choisissez un rythme, puis une carte pour régler ses valeurs. Le fuseau de la tâche sur la machine cible s’applique. Si le jour du mois et de la semaine sont restreints, une seule correspondance suffit.",
+  "maintenanceCronHelp": "Utilise le fuseau horaire des tâches de la machine cible. Si la date et le jour de semaine sont limités, un seul critère suffit.",
   "maintenanceCronCommandHelp": "Crontab exige une commande shell sur une ligne. Séparez les commandes par des points-virgules ou appelez un fichier script.",
   "maintenanceImageDownloading": "Téléchargement de l’image",
   "maintenanceImageUploading": "Transfert vers la machine cible",
   "maintenanceImageImporting": "Importation de l’image",
   "maintenanceImageAuthFailed": "Échec de l’authentification au registre. Vérifiez les identifiants de connexion sur la machine cible.",
-  "maintenanceImagePlatformUnavailable": "Aucune version de l’image ne correspond au système et à l’architecture de l’environnement cible."
+  "maintenanceImagePlatformUnavailable": "Aucune version de l’image ne correspond au système et à l’architecture de l’environnement cible.",
+  "maintenanceCronDate": "Jour",
+  "maintenanceCronMonth": "Mois",
+  "maintenanceCronAny": "Tous",
+  "maintenanceCronStepValue": "Intervalle {count}",
+  "@maintenanceCronStepValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskEnabledHelp": "Exécuter selon le planning lorsque la tâche est activée.",
+  "maintenanceTaskDisabledHelp": "Conserver la configuration et suspendre l’exécution.",
+  "codeEditorCursorPosition": "Ligne {line}, colonne {column}",
+  "@codeEditorCursorPosition": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      }
+    }
+  },
+  "codeEditorShellLanguage": "Script shell / Bash",
+  "codeEditorPlainText": "Texte brut",
+  "codeEditorUndo": "Annuler",
+  "codeEditorRedo": "Rétablir",
+  "codeEditorFind": "Rechercher",
+  "codeEditorImport": "Importer un fichier de code",
+  "codeEditorImporting": "Importation en cours",
+  "codeEditorWordWrapEnable": "Activer le retour à la ligne",
+  "codeEditorWordWrapDisable": "Désactiver le retour à la ligne",
+  "codeEditorFileType": "Fichiers de code {language}",
+  "@codeEditorFileType": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorFormatDone": "Code mis en forme.",
+  "codeEditorFormatUnchanged": "Le contenu est déjà mis en forme.",
+  "codeEditorJsonInvalid": "Syntaxe JSON invalide ; mise en forme impossible.",
+  "codeEditorImportSuccess": "Fichier de code importé : {file}",
+  "@codeEditorImportSuccess": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorImportTooLarge": "Les fichiers de code ne doivent pas dépasser 512 Kio.",
+  "codeEditorImportInvalid": "Le fichier de code n’est pas un texte UTF-8 valide.",
+  "codeEditorImportFailed": "Impossible de lire le fichier de code. Vérifiez son accessibilité."
 }

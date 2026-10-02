@@ -9764,11 +9764,66 @@
   "maintenanceCronWeekly": "Wöchentlich",
   "maintenanceCronMonthly": "Monatlich",
   "maintenanceCronReboot": "Beim Systemstart",
-  "maintenanceCronHelp": "Zeitplan wählen und Werte über die Karten festlegen. Es gilt die Aufgabenzeitzone des Zielrechners. Bei eingeschränktem Monats- und Wochentag genügt eine Übereinstimmung.",
+  "maintenanceCronHelp": "Verwendet die Aufgabenzeitzone des Zielrechners. Sind Datum und Wochentag eingeschränkt, genügt eine Übereinstimmung.",
   "maintenanceCronCommandHelp": "Crontab benötigt einen einzeiligen Shell-Befehl. Befehle mit Semikolon trennen oder eine Skriptdatei aufrufen.",
   "maintenanceImageDownloading": "Image wird heruntergeladen",
   "maintenanceImageUploading": "Übertragung auf den Zielrechner",
   "maintenanceImageImporting": "Image wird importiert",
   "maintenanceImageAuthFailed": "Registrierungsanmeldung fehlgeschlagen. Prüfen Sie die Zugangsdaten auf dem Zielrechner.",
-  "maintenanceImagePlatformUnavailable": "Keine Image-Version passt zum Betriebssystem und zur Architektur der Ziellaufzeit."
+  "maintenanceImagePlatformUnavailable": "Keine Image-Version passt zum Betriebssystem und zur Architektur der Ziellaufzeit.",
+  "maintenanceCronDate": "Tag",
+  "maintenanceCronMonth": "Monat",
+  "maintenanceCronAny": "Beliebig",
+  "maintenanceCronStepValue": "Abstand {count}",
+  "@maintenanceCronStepValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maintenanceTaskEnabledHelp": "Bei Aktivierung gemäß dem Zeitplan ausführen.",
+  "maintenanceTaskDisabledHelp": "Konfiguration behalten und Ausführung pausieren.",
+  "codeEditorCursorPosition": "Zeile {line}, Spalte {column}",
+  "@codeEditorCursorPosition": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      }
+    }
+  },
+  "codeEditorShellLanguage": "Shell-Skript / Bash",
+  "codeEditorPlainText": "Klartext",
+  "codeEditorUndo": "Rückgängig",
+  "codeEditorRedo": "Wiederholen",
+  "codeEditorFind": "Suchen",
+  "codeEditorImport": "Codedatei importieren",
+  "codeEditorImporting": "Import läuft",
+  "codeEditorWordWrapEnable": "Zeilenumbruch aktivieren",
+  "codeEditorWordWrapDisable": "Zeilenumbruch deaktivieren",
+  "codeEditorFileType": "{language}-Codedateien",
+  "@codeEditorFileType": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorFormatDone": "Code formatiert.",
+  "codeEditorFormatUnchanged": "Der Inhalt ist bereits formatiert.",
+  "codeEditorJsonInvalid": "Ungültige JSON-Syntax; Formatierung nicht möglich.",
+  "codeEditorImportSuccess": "Codedatei importiert: {file}",
+  "@codeEditorImportSuccess": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "codeEditorImportTooLarge": "Codedateien dürfen 512 KiB nicht überschreiten.",
+  "codeEditorImportInvalid": "Die Codedatei enthält keinen gültigen UTF-8-Text.",
+  "codeEditorImportFailed": "Codedatei konnte nicht gelesen werden. Prüfen Sie den Zugriff."
 }

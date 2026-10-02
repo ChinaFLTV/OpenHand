@@ -15969,7 +15969,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceCronHelp =>
-      'Zeitplan wählen und Werte über die Karten festlegen. Es gilt die Aufgabenzeitzone des Zielrechners. Bei eingeschränktem Monats- und Wochentag genügt eine Übereinstimmung.';
+      'Verwendet die Aufgabenzeitzone des Zielrechners. Sind Datum und Wochentag eingeschränkt, genügt eine Übereinstimmung.';
 
   @override
   String get maintenanceCronCommandHelp =>
@@ -15991,4 +15991,90 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get maintenanceImagePlatformUnavailable =>
       'Keine Image-Version passt zum Betriebssystem und zur Architektur der Ziellaufzeit.';
+
+  @override
+  String get maintenanceCronDate => 'Tag';
+
+  @override
+  String get maintenanceCronMonth => 'Monat';
+
+  @override
+  String get maintenanceCronAny => 'Beliebig';
+
+  @override
+  String maintenanceCronStepValue(String count) {
+    return 'Abstand $count';
+  }
+
+  @override
+  String get maintenanceTaskEnabledHelp =>
+      'Bei Aktivierung gemäß dem Zeitplan ausführen.';
+
+  @override
+  String get maintenanceTaskDisabledHelp =>
+      'Konfiguration behalten und Ausführung pausieren.';
+
+  @override
+  String codeEditorCursorPosition(int line, int column) {
+    return 'Zeile $line, Spalte $column';
+  }
+
+  @override
+  String get codeEditorShellLanguage => 'Shell-Skript / Bash';
+
+  @override
+  String get codeEditorPlainText => 'Klartext';
+
+  @override
+  String get codeEditorUndo => 'Rückgängig';
+
+  @override
+  String get codeEditorRedo => 'Wiederholen';
+
+  @override
+  String get codeEditorFind => 'Suchen';
+
+  @override
+  String get codeEditorImport => 'Codedatei importieren';
+
+  @override
+  String get codeEditorImporting => 'Import läuft';
+
+  @override
+  String get codeEditorWordWrapEnable => 'Zeilenumbruch aktivieren';
+
+  @override
+  String get codeEditorWordWrapDisable => 'Zeilenumbruch deaktivieren';
+
+  @override
+  String codeEditorFileType(String language) {
+    return '$language-Codedateien';
+  }
+
+  @override
+  String get codeEditorFormatDone => 'Code formatiert.';
+
+  @override
+  String get codeEditorFormatUnchanged => 'Der Inhalt ist bereits formatiert.';
+
+  @override
+  String get codeEditorJsonInvalid =>
+      'Ungültige JSON-Syntax; Formatierung nicht möglich.';
+
+  @override
+  String codeEditorImportSuccess(String file) {
+    return 'Codedatei importiert: $file';
+  }
+
+  @override
+  String get codeEditorImportTooLarge =>
+      'Codedateien dürfen 512 KiB nicht überschreiten.';
+
+  @override
+  String get codeEditorImportInvalid =>
+      'Die Codedatei enthält keinen gültigen UTF-8-Text.';
+
+  @override
+  String get codeEditorImportFailed =>
+      'Codedatei konnte nicht gelesen werden. Prüfen Sie den Zugriff.';
 }
