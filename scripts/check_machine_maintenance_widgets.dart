@@ -1372,7 +1372,8 @@ void main() {
   testWidgets('出口信息按当前语言分组，窄屏、大字体与明暗主题布局稳定', (tester) async {
     final report = MachineEgressReport.parse(jsonEncode({
       'ip': '2001:4860:4860::8888', 'country': 'United States', 'country_code': 'US',
-      'continent': 'North America', 'continent_code': 'NA', 'region': 'California',
+      'continent': 'North America', 'continent_code': 'NA', 'country_code_iso3': 'USA',
+      'region': 'California', 'region_code': 'CA', 'postal': '94043',
       'city': 'Mountain View', 'latitude': 37.386, 'longitude': -122.0838,
       'connection': {'asn': 15169, 'org': 'Google LLC', 'isp': 'Google', 'domain': 'google.com'},
       'timezone': {'id': 'America/Los_Angeles', 'is_dst': true},
@@ -1380,7 +1381,7 @@ void main() {
       'extra': {'network_role': 'resolver'},
     }), source: 'https://ipwho.is/');
     for (final locale in AppLocalizations.supportedLocales) {
-      for (final width in [360.0, 1280.0]) {
+      for (final width in [360.0, 820.0, 1280.0]) {
         await tester.binding.setSurfaceSize(Size(width, 1100));
         final theme = width == 360 ? OpenHandTheme.dark(OpenHandThemePreset.tundraGreen) : OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
         await tester.pumpWidget(MaterialApp(locale: locale,
@@ -1403,6 +1404,13 @@ void main() {
         };
         expect(find.text(country), findsOneWidget);
         expect(find.text('Mountain View'), findsOneWidget);
+        for (final value in ['US', 'USA', 'NA', 'CA', '94043', '37.386', '-122.0838', '15169', 'Google LLC', 'google.com']) {
+          expect(find.text(value), findsOneWidget);
+        }
+        for (final label in [l.maintenanceEgressCountryCode, l.maintenanceEgressCountryIso3, l.maintenanceEgressRegionCode, l.maintenanceEgressContinentCode]) {
+          expect(find.text(label), findsOneWidget);
+        }
+        expect(find.byTooltip(l.maintenanceEgressCountry), findsOneWidget);
         expect(find.textContaining(l.maintenanceEgressSource + ' · ' + report.source), findsOneWidget);
         final copy = find.byTooltip(l.commonCopy + ' IP');
         final refresh = find.byTooltip(l.maintenanceEgressRefresh);
@@ -1412,18 +1420,45 @@ void main() {
         expect(maintenanceEgressValue(context, report, '机房', 'Original data'), 'Original data');
         expect(find.textContaining('{"ip"'), findsNothing);
         expect(tester.takeException(), isNull);
-        if (locale.toString() == 'zh' && width == 1280 && Platform.environment['MAINTENANCE_FONT'] != null) {
+        if (locale.toString() == 'zh' && Platform.environment['MAINTENANCE_PREVIEW'] != null) {
           final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('出口预览')));
           await tester.runAsync(() async {
             final image = await boundary.toImage(pixelRatio: 1.5);
             final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-            await File('/tmp/openhand-egress-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
+            await File('/tmp/openhand-egress-\${width.toInt()}-preview.png').writeAsBytes(bytes!.buffer.asUint8List());
             image.dispose();
           });
         }
         await tester.pumpWidget(const SizedBox());
       }
     }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('出口关联字段保留重复数据和缺少主字段的代码，长内容完整可选', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    final rows = <List<String>>[
+      ['国家或地区', 'United States'], ['国家代码', 'US'], ['国家代码', 'USA'],
+      ['地域代码', 'CA'], ['自治系统编号', '15169'], ['自治系统编号', '13335'],
+      ['组织', 'Example Network ' * 12], ['extra.role', 'Original data'],
+    ];
+    final report = MachineEgressReport(ip: '8.8.8.8', version: 'IPv4', source: 'ipwho.is',
+      collectedAt: DateTime(2026), groups: {'地理位置': rows});
+    await tester.pumpWidget(MaterialApp(locale: const Locale('de'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SingleChildScrollView(child: _MaintenanceEgressFields(rows: rows, report: report)))));
+    await tester.pumpAndSettle();
+    final l = AppLocalizations.of(tester.element(find.byType(_MaintenanceEgressFields)))!;
+    for (final value in ['US', 'USA', 'CA', '15169', '13335', 'Example Network ' * 12, 'Original data']) {
+      expect(find.text(value), findsOneWidget);
+      final text = tester.widget<SelectableText>(find.byWidgetPredicate((widget) => widget is SelectableText && widget.data == value));
+      expect(text.maxLines, isNull);
+    }
+    expect(find.text(l.maintenanceEgressRegionCode), findsOneWidget);
+    expect(find.text(l.maintenanceEgressCountryCode), findsNWidgets(2));
+    expect(find.byTooltip('extra.role'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });
   testWidgets('出口扩展信息展开后刷新保留状态，未知字段可核对原始标识', (tester) async {

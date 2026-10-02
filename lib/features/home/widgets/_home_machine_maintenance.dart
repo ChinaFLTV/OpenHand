@@ -3562,7 +3562,7 @@ class _MaintenanceEgressCard extends StatelessWidget {
     return _MaintenanceCard(
       title: l10n.maintenanceEgressTitle,
       icon: Icons.public_rounded,
-      accent: OpenHandStatusColors.info,
+      accent: cs.primary,
       scrollBody: false,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3624,10 +3624,14 @@ class _MaintenanceEgressCard extends StatelessWidget {
           if (data != null) ...[
             Container(
               key: const ValueKey('egress-summary'),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(10),
+                color: Color.alphaBlend(
+                  cs.primary.withValues(alpha: .08),
+                  cs.surfaceContainerLowest,
+                ),
+                borderRadius: BorderRadius.circular(_maintenanceCardRadius),
+                border: Border.all(color: cs.primary.withValues(alpha: .18)),
               ),
               child: LayoutBuilder(
                 builder: (context, bounds) {
@@ -3639,80 +3643,114 @@ class _MaintenanceEgressCard extends StatelessWidget {
                       _MaintenanceValue(
                         value: data.ip,
                         selectable: true,
+                        maxLines: null,
                         style: theme.textTheme.titleLarge?.copyWith(
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: cs.onSurface,
                         ),
                       ),
                       _MaintenanceStatus(
                         label: data.version,
-                        color: OpenHandStatusColors.info,
+                        color: cs.primary,
                       ),
                     ],
                   );
-                  final source = Row(
-                    mainAxisSize: MainAxisSize.min,
+                  final source = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 6,
                     children: [
-                      if (busy) ...[
-                        const SizedBox.square(
-                          dimension: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      for (final item in [
+                        (
+                          Icons.dns_outlined,
+                          '${l10n.maintenanceEgressSource} · ${data.source}',
                         ),
-                        const SizedBox(width: 8),
-                      ],
-                      Flexible(
-                        child: _MaintenanceValue(
-                          value:
-                              '${l10n.maintenanceEgressSource} · ${data.source}\n${l10n.maintenanceUpdated(MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(data.collectedAt)))}',
-                          maxLines: null,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            height: 1.5,
+                        (
+                          Icons.schedule_rounded,
+                          l10n.maintenanceUpdated(
+                            MaterialLocalizations.of(context).formatTimeOfDay(
+                              TimeOfDay.fromDateTime(data.collectedAt),
+                            ),
                           ),
                         ),
-                      ),
+                      ])
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (busy && item.$1 == Icons.schedule_rounded)
+                              const SizedBox.square(
+                                dimension: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else
+                              Icon(
+                                item.$1,
+                                size: 14,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: _MaintenanceValue(
+                                value: item.$2,
+                                maxLines: null,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   );
                   if (bounds.maxWidth <
                       MediaQuery.textScalerOf(context).scale(640)) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [address, const SizedBox(height: 8), source],
+                      children: [address, const SizedBox(height: 12), source],
                     );
                   }
                   return Row(
                     children: [
                       Expanded(child: address),
                       const SizedBox(width: 20),
-                      source,
+                      Flexible(child: source),
                     ],
                   );
                 },
               ),
             ),
+            if (data.groups.containsKey('地理位置') ||
+                data.groups.containsKey('网络归属'))
+              _MaintenanceGrid(
+                key: const ValueKey('egress-primary-groups'),
+                minWidth: 400,
+                maxColumns: 2,
+                children: [
+                  for (final entry in data.groups.entries)
+                    if (entry.key == '地理位置' || entry.key == '网络归属')
+                      _MaintenanceCard(
+                        key: ValueKey(('egress-group', entry.key)),
+                        title: entry.key,
+                        icon: entry.key == '地理位置'
+                            ? Icons.location_on_outlined
+                            : Icons.hub_outlined,
+                        accent: entry.key == '地理位置'
+                            ? cs.secondary
+                            : cs.tertiary,
+                        scrollBody: false,
+                        contentPadding: const EdgeInsets.all(12),
+                        child: _MaintenanceEgressFields(
+                          rows: entry.value,
+                          report: data,
+                        ),
+                      ),
+                ],
+              ),
             for (final entry in data.groups.entries)
-              if (entry.key == '地理位置' || entry.key == '网络归属')
-                _MaintenanceCard(
-                  key: ValueKey(('egress-group', entry.key)),
-                  title: maintenanceLabel(context, entry.key),
-                  icon: entry.key == '地理位置'
-                      ? Icons.location_on_outlined
-                      : Icons.hub_outlined,
-                  accent: entry.key == '地理位置'
-                      ? OpenHandStatusColors.info
-                      : OpenHandStatusColors.success,
-                  scrollBody: false,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  child: _MaintenanceEgressFields(
-                    rows: entry.value,
-                    report: data,
-                  ),
-                )
-              else
+              if (entry.key != '地理位置' && entry.key != '网络归属')
                 _MaintenanceSection(
                   key: ValueKey(('egress-group', entry.key)),
                   title: entry.key,
@@ -3721,9 +3759,7 @@ class _MaintenanceEgressCard extends StatelessWidget {
                     '国家信息' => Icons.flag_outlined,
                     _ => Icons.data_object_rounded,
                   },
-                  accent: entry.key == '国家信息'
-                      ? OpenHandStatusColors.warning
-                      : cs.tertiary,
+                  accent: entry.key == '国家信息' ? cs.secondary : cs.tertiary,
                   child: _MaintenanceEgressFields(
                     rows: entry.value,
                     report: data,
@@ -3736,23 +3772,75 @@ class _MaintenanceEgressCard extends StatelessWidget {
   }
 }
 
-/// 数量不定的出口属性使用紧凑详情行，共享字号与间距，不嵌套滚动表格。
+/// 名称与代码合并为信息块；缺少名称时，代码仍独立展示。
 class _MaintenanceEgressFields extends StatelessWidget {
   const _MaintenanceEgressFields({required this.rows, required this.report});
   final List<List<String>> rows;
   final MachineEgressReport report;
+
+  static const _relatedFields = {
+    '国家或地区': ['国家代码', '三字母国家代码'],
+    '洲': ['洲代码'],
+    '地域': ['地域代码'],
+    '城市': ['邮政编码'],
+    '时区': ['时区简称', 'UTC 偏移', 'UTC 偏移（秒）'],
+    '货币名称': ['货币代码', '货币符号'],
+  };
+  static const _fieldOrder = [
+    '国家或地区',
+    '城市',
+    '地域',
+    '洲',
+    '纬度',
+    '经度',
+    '邮政编码',
+    '互联网服务商',
+    '组织',
+    '自治系统编号',
+    '归属域名',
+    '网络前缀',
+    '时区',
+    '查询时当地时间',
+    '夏令时',
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final details = <int, List<int>>{};
+    final attached = <int>{};
+    for (final entry in _relatedFields.entries) {
+      final parent = rows.indexWhere((row) => row[0] == entry.key);
+      if (parent < 0) continue;
+      final indices = [
+        for (var i = 0; i < rows.length; i++)
+          if (entry.value.contains(rows[i][0])) i,
+      ];
+      details[parent] = indices;
+      attached.addAll(indices);
+    }
+    int priority(int index) {
+      final order = _fieldOrder.indexOf(rows[index][0]);
+      return order < 0 ? _fieldOrder.length : order;
+    }
+
+    final fields =
+        [
+          for (var i = 0; i < rows.length; i++)
+            if (!attached.contains(i)) i,
+        ]..sort((a, b) {
+          final order = priority(a).compareTo(priority(b));
+          return order == 0 ? a.compareTo(b) : order;
+        });
     final occurrences = <String, int>{};
     return _MaintenanceGrid(
-      minWidth: 460,
-      maxColumns: 2,
+      minWidth: 180,
+      balanceColumns: true,
+      fillLastRow: false,
       children: [
-        for (var index = 0; index < rows.length; index++)
+        for (final index in fields)
           Container(
             key: ValueKey((
               rows[index][0],
@@ -3762,24 +3850,21 @@ class _MaintenanceEgressFields extends StatelessWidget {
                 ifAbsent: () => 0,
               ),
             )),
-            constraints: const BoxConstraints(minHeight: 42),
+            constraints: const BoxConstraints(minHeight: 88),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: .35),
-                ),
-              ),
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(kOpenHandRadius10),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: LayoutBuilder(
-              builder: (context, bounds) {
+            padding: const EdgeInsets.all(12),
+            child: Builder(
+              builder: (context) {
                 final row = rows[index];
                 final translated = maintenanceDetailLabel(context, row[0]);
                 final unknown =
                     translated == row[0] &&
                     RegExp(r'^[\x00-\x7F]+$').hasMatch(row[0]);
                 final label = Tooltip(
-                  message: row[0],
+                  message: unknown ? row[0] : translated,
                   child: Text(
                     unknown
                         ? '${l10n.maintenanceEgressExtraField} ${index + 1}'
@@ -3790,36 +3875,64 @@ class _MaintenanceEgressFields extends StatelessWidget {
                     ),
                   ),
                 );
-                final value = _MaintenanceValue(
-                  value: maintenanceEgressValue(
-                    context,
-                    report,
-                    row[0],
-                    row[1],
-                  ),
-                  selectable: true,
-                  maxLines: null,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
-                  ),
-                );
-                final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
-                if (bounds.maxWidth < 400 * scale) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [label, const SizedBox(height: 4), value],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: math.min(bounds.maxWidth * .32, 200 * scale),
-                      child: label,
+                    label,
+                    const SizedBox(height: 6),
+                    _MaintenanceValue(
+                      value: maintenanceEgressValue(
+                        context,
+                        report,
+                        row[0],
+                        row[1],
+                      ),
+                      selectable: true,
+                      maxLines: null,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
                     ),
-                    const SizedBox(width: 20),
-                    Expanded(child: value),
+                    if (details[index]?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 8),
+                      for (final detail in details[index]!)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 3,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                maintenanceDetailLabel(
+                                  context,
+                                  rows[detail][0],
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                              ),
+                              _MaintenanceValue(
+                                value: maintenanceEgressValue(
+                                  context,
+                                  report,
+                                  rows[detail][0],
+                                  rows[detail][1],
+                                ),
+                                selectable: true,
+                                maxLines: null,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ],
                 );
               },
@@ -5391,11 +5504,13 @@ class _MaintenanceGrid extends StatelessWidget {
     this.minWidth = 360,
     this.maxColumns = 3,
     this.balanceColumns = false,
+    this.fillLastRow = true,
   });
   final List<Widget> children;
   final double minWidth;
   final int maxColumns;
   final bool balanceColumns;
+  final bool fillLastRow;
   @override
   Widget build(BuildContext context) {
     context.watch<SettingsController?>();
@@ -5418,11 +5533,13 @@ class _MaintenanceGrid extends StatelessWidget {
             : capacity;
         final tiles = <Widget>[];
         for (var start = 0; start < children.length; start += columns) {
-          // 末行按实际卡片数分配宽度，不留下整列空位。
+          // 内容卡填满末行；字段网格可保留统一列宽。
           final count = math.min(columns, children.length - start);
+          final widthColumns = fillLastRow ? count : columns;
           final width =
-              (constraints.maxWidth - (count - 1) * _maintenanceGridGap) /
-              count;
+              (constraints.maxWidth -
+                  (widthColumns - 1) * _maintenanceGridGap) /
+              widthColumns;
           final widths = List<double>.filled(count, width);
           final flexible = <int>[];
           var spare = 0.0;
