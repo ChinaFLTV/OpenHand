@@ -387,7 +387,30 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final controlHeight = _maintenanceFormControlHeightOf(context);
-    final actionStyle = _maintenanceTonalButtonStyle(context);
+    final actionHeight = math.max(
+      _maintenanceControlHeight,
+      MediaQuery.textScalerOf(context).scale(_maintenanceFormFontSize) * 1.4 +
+          12,
+    );
+    final actionStyle = _maintenanceTonalButtonStyle(context).copyWith(
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? cs.onSurface.withValues(alpha: .12)
+            : cs.surface.withValues(alpha: .72),
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? cs.onSurface.withValues(alpha: .38)
+            : cs.onSurfaceVariant,
+      ),
+      minimumSize: WidgetStatePropertyAll(Size(0, actionHeight)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 10),
+      ),
+      side: WidgetStatePropertyAll(
+        BorderSide(color: cs.outlineVariant.withValues(alpha: .55)),
+      ),
+    );
     final blocked = !widget.enabled || _busy || _overlay || _error != null;
     final query = _search.text.trim().toLowerCase();
     final tasks =
@@ -413,10 +436,10 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           SizedBox.square(
-            dimension: controlHeight,
+            dimension: actionHeight,
             child: IconButton(
               style: actionStyle.copyWith(
-                minimumSize: WidgetStatePropertyAll(Size.square(controlHeight)),
+                minimumSize: WidgetStatePropertyAll(Size.square(actionHeight)),
                 padding: const WidgetStatePropertyAll(EdgeInsets.zero),
               ),
               tooltip: l.maintenanceRefreshSection,

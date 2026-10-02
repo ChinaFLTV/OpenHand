@@ -4864,7 +4864,15 @@ void scheduledTaskChecks() {
           expect(tester.getSize(field).height, closeTo(tester.getSize(menu).height,.1));
           final add = find.widgetWithText(FilledButton,l.maintenanceTaskAdd);
           final style = tester.widget<FilledButton>(add).style!;
-          expect(style.backgroundColor!.resolve({}), theme.colorScheme.secondaryContainer);
+          expect(style.backgroundColor!.resolve({}), theme.colorScheme.surface.withValues(alpha:.72));
+          expect(style.foregroundColor!.resolve({}), theme.colorScheme.onSurfaceVariant);
+          final refresh = find.byTooltip(l.maintenanceRefreshSection);
+          if(scale==1) {
+            expect(tester.getSize(add).height,_maintenanceControlHeight);
+            expect(tester.getSize(add).height,closeTo(tester.getSize(refresh).height,.1));
+          } else {
+            expect(tester.getSize(add).height,greaterThanOrEqualTo(tester.getSize(refresh).height));
+          }
           expect(style.elevation!.resolve({WidgetState.hovered}),0);
           expect((style.shape!.resolve({})! as RoundedRectangleBorder).borderRadius,kOpenHandBorderRadius8);
           expect(_taskSchedulerLabel(context,MachineTaskScheduler.cron),l.maintenanceTaskSchedulerCron);
