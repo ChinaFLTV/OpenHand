@@ -991,7 +991,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     }
 
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.all(16),
+      padding: _maintenancePanelPadding,
       children: [
         Container(
           key: const ValueKey('container-runtime-toolbar'),

@@ -1949,14 +1949,14 @@ void main() {
         final fold = find.byType(ExpansionTile);
         final collapsedHeight = tester.getSize(panel).height;
         for (final expanded in [true, false]) {
-          expect(tester.getRect(fold).bottom, closeTo(size.height - _maintenancePanelBottomInset, 1));
+          expect(tester.getRect(fold).bottom, closeTo(size.height, 1));
           expect(tester.getRect(fold).top - tester.getRect(panel).bottom, closeTo(8, 1));
           await tester.tap(find.text('轮转记录与配置'));
           await tester.pump(const Duration(milliseconds: 50));
           expect(tester.takeException(), isNull);
           await tester.pumpAndSettle();
           expect(tester.getSize(panel).height, expanded ? lessThan(collapsedHeight) : closeTo(collapsedHeight, 1));
-          expect(tester.getRect(fold).bottom, closeTo(size.height - _maintenancePanelBottomInset, 1));
+          expect(tester.getRect(fold).bottom, closeTo(size.height, 1));
         }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

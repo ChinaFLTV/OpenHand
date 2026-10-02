@@ -11,6 +11,7 @@ const _maintenanceFieldHeight = 104.0;
 const _maintenanceFieldMaxColumns = 4;
 const _maintenanceSectionHeaderHeight = 54.0;
 const _maintenancePanelBottomInset = 8.0;
+const _maintenancePanelPadding = EdgeInsets.fromLTRB(16, 16, 16, 0);
 const _maintenanceLogPreviewMaxHeight = 260.0;
 const _maintenanceDetailPadding = EdgeInsets.fromLTRB(18, 4, 18, 12);
 
@@ -1690,7 +1691,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
     ];
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: _maintenancePanelPadding,
       children: [
         _MaintenanceGrid(
           key: const ValueKey('maintenance-overview-summary'),
@@ -2024,7 +2025,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
 
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: _maintenancePanelPadding,
       empty: _MaintenanceEmptyHint(message: l10n.maintenanceGpuEmpty),
       children: [
         for (final device in gpu.devices) ...[
@@ -2822,7 +2823,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     }
 
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: _maintenancePanelPadding,
       children: [
         _MaintenanceGrid(
           key: const ValueKey('maintenance-service-summary'),
@@ -3054,7 +3055,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
             }
           },
         ),
-        const SizedBox(height: _maintenancePanelBottomInset),
       ],
     );
   }
@@ -3088,12 +3088,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       Icons.access_time_filled,
     ];
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        12,
-        12,
-        _maintenancePanelBottomInset,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       children: [
         _MaintenanceGrid(
           key: const ValueKey('maintenance-health-reports'),
@@ -3292,7 +3287,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       ),
     );
     return _MaintenanceAnimatedList(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: _maintenancePanelPadding,
       children: [
         _MaintenanceGrid(
           key: const ValueKey('maintenance-network-summary'),
@@ -3569,7 +3564,6 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
         ),
         const SizedBox(height: _maintenanceGridGap),
         diagnostics,
-        const SizedBox(height: _maintenancePanelBottomInset),
       ],
     );
   }
@@ -5395,6 +5389,7 @@ List<Widget> _maintenanceMotionChildren(
   List<Widget> children, {
   double spacing = 0,
   bool mergeSpacing = true,
+  bool includeTrailingSpacing = true,
 }) {
   Key identity(Widget child) {
     if (child.key != null) return child.key!;
@@ -5430,7 +5425,7 @@ List<Widget> _maintenanceMotionChildren(
     );
     gap = 0;
   }
-  if (gap > 0 && result.isNotEmpty) {
+  if (includeTrailingSpacing && gap > 0 && result.isNotEmpty) {
     final last = result.removeLast() as Padding;
     result.add(
       Padding(
@@ -5503,7 +5498,11 @@ class _MaintenanceAnimatedList extends StatelessWidget {
           padding: padding,
           sliver: OpenHandAnimatedSliverList(
             settings: motion,
-            children: _maintenanceMotionChildren(children, spacing: spacing),
+            children: _maintenanceMotionChildren(
+              children,
+              spacing: spacing,
+              includeTrailingSpacing: false,
+            ),
           ),
         ),
         if (children.isEmpty && empty != null)
@@ -8367,12 +8366,7 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
     final selectedRows = metadata[_metadataKind]!;
     return LayoutBuilder(
       builder: (context, bounds) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          12,
-          8,
-          12,
-          _maintenancePanelBottomInset,
-        ),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
