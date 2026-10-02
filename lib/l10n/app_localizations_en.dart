@@ -15960,4 +15960,88 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformsMore => 'Load more platforms';
+
+  @override
+  String get maintenanceImageRepositoryType => 'Repository type';
+
+  @override
+  String get maintenanceImageStatusDescription => 'Status description';
+
+  @override
+  String get maintenanceImagePrivate => 'Private repository';
+
+  @override
+  String get maintenanceImageAutomated => 'Automated builds';
+
+  @override
+  String get maintenanceImageLastModified => 'Last modified';
+
+  @override
+  String get maintenanceImageRegistered => 'Registered';
+
+  @override
+  String get maintenanceImageCollaborators => 'Collaborator count';
+
+  @override
+  String get maintenanceImageAffiliation => 'Repository affiliation';
+
+  @override
+  String get maintenanceImageHubUser => 'Docker Hub user';
+
+  @override
+  String get maintenanceImageStarred => 'Starred';
+
+  @override
+  String get maintenanceImageMediaType => 'Media type';
+
+  @override
+  String get maintenanceImageContentType => 'Content type';
+
+  @override
+  String get maintenanceImageCategories => 'Categories';
+
+  @override
+  String get maintenanceImageImmutableTags => 'Tag immutability';
+
+  @override
+  String get maintenanceImageTagRules => 'Rules';
+
+  @override
+  String get maintenanceImageStorageSize => 'Storage usage';
+
+  @override
+  String get maintenanceImageCreator => 'Creator ID';
+
+  @override
+  String get maintenanceImageLastUpdater => 'Last updater ID';
+
+  @override
+  String get maintenanceImageLastUpdaterName => 'Last updater';
+
+  @override
+  String get maintenanceImageRegistryV2 => 'Registry protocol V2';
+
+  @override
+  String get maintenanceImageTagStatus => 'Tag status';
+
+  @override
+  String get maintenanceImageLastPulled => 'Last pulled';
+
+  @override
+  String get maintenanceImageFeatures => 'Platform features';
+
+  @override
+  String get maintenanceImageOsFeatures => 'OS features';
+
+  @override
+  String get maintenanceImageAdminPermission => 'Admin permission';
+
+  @override
+  String get maintenanceImageReadPermission => 'Read permission';
+
+  @override
+  String get maintenanceImageWritePermission => 'Write permission';
+
+  @override
+  String get maintenanceImageSlug => 'Slug';
 }

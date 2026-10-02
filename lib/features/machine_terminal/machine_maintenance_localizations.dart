@@ -1104,11 +1104,44 @@ String maintenanceDetailLabel(BuildContext context, String field) {
     'full_size' => l10n.maintenanceImageSize,
     'variant' => l10n.maintenanceImageVariant,
     'images' => l10n.maintenanceImagePlatforms,
+    'repository_type' => l10n.maintenanceImageRepositoryType,
+    'status_description' => l10n.maintenanceImageStatusDescription,
+    'is_private' => l10n.maintenanceImagePrivate,
+    'is_automated' => l10n.maintenanceImageAutomated,
+    'last_modified' => l10n.maintenanceImageLastModified,
+    'date_registered' => l10n.maintenanceImageRegistered,
+    'collaborator_count' => l10n.maintenanceImageCollaborators,
+    'affiliation' => l10n.maintenanceImageAffiliation,
+    'hub_user' => l10n.maintenanceImageHubUser,
+    'has_starred' => l10n.maintenanceImageStarred,
+    'media_type' || 'media_types' => l10n.maintenanceImageMediaType,
+    'content_type' || 'content_types' => l10n.maintenanceImageContentType,
+    'categories' => l10n.maintenanceImageCategories,
+    'immutable_tags_settings' => l10n.maintenanceImageImmutableTags,
+    'rules' => l10n.maintenanceImageTagRules,
+    'storage_size' => l10n.maintenanceImageStorageSize,
+    'creator' => l10n.maintenanceImageCreator,
+    'last_updater' => l10n.maintenanceImageLastUpdater,
+    'last_updater_username' => l10n.maintenanceImageLastUpdaterName,
+    'v2' => l10n.maintenanceImageRegistryV2,
+    'tag_status' => l10n.maintenanceImageTagStatus,
+    'tag_last_pulled' || 'last_pulled' => l10n.maintenanceImageLastPulled,
+    'features' => l10n.maintenanceImageFeatures,
+    'os_features' => l10n.maintenanceImageOsFeatures,
+    'os_version' => l10n.maintenanceOsVersion,
+    'admin' => l10n.maintenanceImageAdminPermission,
+    'read' => l10n.maintenanceImageReadPermission,
+    'write' => l10n.maintenanceImageWritePermission,
+    'slug' => l10n.maintenanceImageSlug,
     _ => null,
   };
   if (registryLabel != null) return registryLabel;
   const aliases = {
     'name': '名称',
+    'user': '用户',
+    'source': '来源',
+    'enabled': '启用',
+    'permissions': '权限',
     'ID': 'UUID / ID',
     'Id': 'UUID / ID',
     'id': 'UUID / ID',
@@ -1535,6 +1568,11 @@ bool maintenanceIsTimestampColumn(BuildContext context, String field) {
     l.maintenanceTaskLast,
     l.maintenanceTaskNext,
     l.maintenanceTaskSampled,
+    l.maintenanceImageLastUpdated,
+    l.maintenanceImageLastModified,
+    l.maintenanceImageRegistered,
+    l.maintenanceImageLastPushed,
+    l.maintenanceImageLastPulled,
   }.contains(field);
 }
 
@@ -1544,6 +1582,66 @@ String maintenanceDetailValue(
   String field = '',
 }) {
   final l10n = AppLocalizations.of(context)!;
+  final leaf = field.split(' / ').last;
+  // 仓库属性和权限表示“是/否”；服务开关仍按启用状态展示。
+  if (const {
+    'is_private',
+    'is_automated',
+    'has_starred',
+    'is_official',
+    'v2',
+    'admin',
+    'read',
+    'write',
+  }.contains(leaf)) {
+    switch (value.trim().toLowerCase()) {
+      case 'true' || 'yes':
+        return l10n.maintenanceHealthParsedYes;
+      case 'false' || 'no':
+        return l10n.maintenanceHealthParsedNo;
+    }
+    return value;
+  }
+  if (leaf == 'repository_type' ||
+      leaf == 'content_type' ||
+      leaf == 'content_types') {
+    return value
+        .split(' · ')
+        .map(
+          (type) => type.trim() == 'image' ? l10n.maintenanceDetailImage : type,
+        )
+        .join(' · ');
+  }
+  if (leaf == 'status_description' ||
+      leaf == 'tag_status' ||
+      (leaf == 'status' && field.startsWith('images ['))) {
+    return switch (value.trim().toLowerCase()) {
+      'active' => l10n.maintenanceCounterActive,
+      'inactive' => l10n.maintenanceCounterInactive,
+      _ => value,
+    };
+  }
+  // 用户数据不套用状态词翻译，避免改写名为 active 或 false 的标识。
+  if (const {
+    'name',
+    'user',
+    'namespace',
+    'hub_user',
+    'last_updater_username',
+    'description',
+    'full_description',
+    'digest',
+    'slug',
+    'source',
+    'affiliation',
+    'media_type',
+    'media_types',
+    'rules',
+    'features',
+    'os_features',
+  }.contains(leaf)) {
+    return value;
+  }
   var trimmed = value.trim();
   if (!trimmed.contains('\n')) {
     if (trimmed.endsWith(';')) {
@@ -1555,7 +1653,6 @@ String maintenanceDetailValue(
       trimmed = trimmed.substring(1, trimmed.length - 1);
     }
   }
-  final leaf = field.split(' / ').last;
   if (const {'MemoryCurrent', 'CPUUsageNSec'}.contains(leaf) &&
       const {
         '18446744073709551615',

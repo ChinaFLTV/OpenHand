@@ -15439,6 +15439,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformsMore => '加载更多平台';
+
+  @override
+  String get maintenanceImageRepositoryType => '仓库类型';
+
+  @override
+  String get maintenanceImageStatusDescription => '状态说明';
+
+  @override
+  String get maintenanceImagePrivate => '私有仓库';
+
+  @override
+  String get maintenanceImageAutomated => '自动构建';
+
+  @override
+  String get maintenanceImageLastModified => '最近修改';
+
+  @override
+  String get maintenanceImageRegistered => '注册时间';
+
+  @override
+  String get maintenanceImageCollaborators => '协作者数量';
+
+  @override
+  String get maintenanceImageAffiliation => '仓库归属';
+
+  @override
+  String get maintenanceImageHubUser => 'Docker Hub 用户';
+
+  @override
+  String get maintenanceImageStarred => '已星标';
+
+  @override
+  String get maintenanceImageMediaType => '媒体类型';
+
+  @override
+  String get maintenanceImageContentType => '内容类型';
+
+  @override
+  String get maintenanceImageCategories => '分类';
+
+  @override
+  String get maintenanceImageImmutableTags => '标签不可变性';
+
+  @override
+  String get maintenanceImageTagRules => '规则';
+
+  @override
+  String get maintenanceImageStorageSize => '存储占用';
+
+  @override
+  String get maintenanceImageCreator => '创建者标识';
+
+  @override
+  String get maintenanceImageLastUpdater => '最近更新者标识';
+
+  @override
+  String get maintenanceImageLastUpdaterName => '最近更新者';
+
+  @override
+  String get maintenanceImageRegistryV2 => '镜像仓库协议 V2';
+
+  @override
+  String get maintenanceImageTagStatus => '标签状态';
+
+  @override
+  String get maintenanceImageLastPulled => '最近拉取';
+
+  @override
+  String get maintenanceImageFeatures => '平台特性';
+
+  @override
+  String get maintenanceImageOsFeatures => '操作系统特性';
+
+  @override
+  String get maintenanceImageAdminPermission => '管理权限';
+
+  @override
+  String get maintenanceImageReadPermission => '读取权限';
+
+  @override
+  String get maintenanceImageWritePermission => '写入权限';
+
+  @override
+  String get maintenanceImageSlug => '短标识';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -30860,4 +30944,88 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImagePlatformsMore => '載入更多平台';
+
+  @override
+  String get maintenanceImageRepositoryType => '儲存庫類型';
+
+  @override
+  String get maintenanceImageStatusDescription => '狀態說明';
+
+  @override
+  String get maintenanceImagePrivate => '私人儲存庫';
+
+  @override
+  String get maintenanceImageAutomated => '自動建置';
+
+  @override
+  String get maintenanceImageLastModified => '最近修改';
+
+  @override
+  String get maintenanceImageRegistered => '註冊時間';
+
+  @override
+  String get maintenanceImageCollaborators => '協作者數量';
+
+  @override
+  String get maintenanceImageAffiliation => '儲存庫歸屬';
+
+  @override
+  String get maintenanceImageHubUser => 'Docker Hub 使用者';
+
+  @override
+  String get maintenanceImageStarred => '已加星號';
+
+  @override
+  String get maintenanceImageMediaType => '媒體類型';
+
+  @override
+  String get maintenanceImageContentType => '內容類型';
+
+  @override
+  String get maintenanceImageCategories => '分類';
+
+  @override
+  String get maintenanceImageImmutableTags => '標籤不可變性';
+
+  @override
+  String get maintenanceImageTagRules => '規則';
+
+  @override
+  String get maintenanceImageStorageSize => '儲存空間用量';
+
+  @override
+  String get maintenanceImageCreator => '建立者識別碼';
+
+  @override
+  String get maintenanceImageLastUpdater => '最近更新者識別碼';
+
+  @override
+  String get maintenanceImageLastUpdaterName => '最近更新者';
+
+  @override
+  String get maintenanceImageRegistryV2 => '映像檔儲存庫通訊協定 V2';
+
+  @override
+  String get maintenanceImageTagStatus => '標籤狀態';
+
+  @override
+  String get maintenanceImageLastPulled => '最近拉取';
+
+  @override
+  String get maintenanceImageFeatures => '平台特性';
+
+  @override
+  String get maintenanceImageOsFeatures => '作業系統特性';
+
+  @override
+  String get maintenanceImageAdminPermission => '管理權限';
+
+  @override
+  String get maintenanceImageReadPermission => '讀取權限';
+
+  @override
+  String get maintenanceImageWritePermission => '寫入權限';
+
+  @override
+  String get maintenanceImageSlug => '短識別碼';
 }

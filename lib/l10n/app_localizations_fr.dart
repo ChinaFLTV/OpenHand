@@ -16191,4 +16191,88 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformsMore => 'Charger plus de plateformes';
+
+  @override
+  String get maintenanceImageRepositoryType => 'Type de dépôt';
+
+  @override
+  String get maintenanceImageStatusDescription => 'Description de l’état';
+
+  @override
+  String get maintenanceImagePrivate => 'Dépôt privé';
+
+  @override
+  String get maintenanceImageAutomated => 'Builds automatisés';
+
+  @override
+  String get maintenanceImageLastModified => 'Dernière modification';
+
+  @override
+  String get maintenanceImageRegistered => 'Date d’enregistrement';
+
+  @override
+  String get maintenanceImageCollaborators => 'Nombre de collaborateurs';
+
+  @override
+  String get maintenanceImageAffiliation => 'Affiliation du dépôt';
+
+  @override
+  String get maintenanceImageHubUser => 'Utilisateur Docker Hub';
+
+  @override
+  String get maintenanceImageStarred => 'Ajouté aux favoris';
+
+  @override
+  String get maintenanceImageMediaType => 'Type de média';
+
+  @override
+  String get maintenanceImageContentType => 'Type de contenu';
+
+  @override
+  String get maintenanceImageCategories => 'Catégories';
+
+  @override
+  String get maintenanceImageImmutableTags => 'Immutabilité des tags';
+
+  @override
+  String get maintenanceImageTagRules => 'Règles';
+
+  @override
+  String get maintenanceImageStorageSize => 'Stockage utilisé';
+
+  @override
+  String get maintenanceImageCreator => 'Identifiant du créateur';
+
+  @override
+  String get maintenanceImageLastUpdater => 'Identifiant du dernier auteur';
+
+  @override
+  String get maintenanceImageLastUpdaterName => 'Dernier auteur';
+
+  @override
+  String get maintenanceImageRegistryV2 => 'Protocole de registre V2';
+
+  @override
+  String get maintenanceImageTagStatus => 'État du tag';
+
+  @override
+  String get maintenanceImageLastPulled => 'Dernière récupération';
+
+  @override
+  String get maintenanceImageFeatures => 'Fonctionnalités de la plateforme';
+
+  @override
+  String get maintenanceImageOsFeatures => 'Fonctionnalités du système';
+
+  @override
+  String get maintenanceImageAdminPermission => 'Droit d’administration';
+
+  @override
+  String get maintenanceImageReadPermission => 'Droit de lecture';
+
+  @override
+  String get maintenanceImageWritePermission => 'Droit d’écriture';
+
+  @override
+  String get maintenanceImageSlug => 'Identifiant court';
 }

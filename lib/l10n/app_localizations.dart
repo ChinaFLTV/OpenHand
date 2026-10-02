@@ -28858,6 +28858,174 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加载更多平台'**
   String get maintenanceImagePlatformsMore;
+
+  /// No description provided for @maintenanceImageRepositoryType.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库类型'**
+  String get maintenanceImageRepositoryType;
+
+  /// No description provided for @maintenanceImageStatusDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态说明'**
+  String get maintenanceImageStatusDescription;
+
+  /// No description provided for @maintenanceImagePrivate.
+  ///
+  /// In zh, this message translates to:
+  /// **'私有仓库'**
+  String get maintenanceImagePrivate;
+
+  /// No description provided for @maintenanceImageAutomated.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动构建'**
+  String get maintenanceImageAutomated;
+
+  /// No description provided for @maintenanceImageLastModified.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近修改'**
+  String get maintenanceImageLastModified;
+
+  /// No description provided for @maintenanceImageRegistered.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册时间'**
+  String get maintenanceImageRegistered;
+
+  /// No description provided for @maintenanceImageCollaborators.
+  ///
+  /// In zh, this message translates to:
+  /// **'协作者数量'**
+  String get maintenanceImageCollaborators;
+
+  /// No description provided for @maintenanceImageAffiliation.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库归属'**
+  String get maintenanceImageAffiliation;
+
+  /// No description provided for @maintenanceImageHubUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'Docker Hub 用户'**
+  String get maintenanceImageHubUser;
+
+  /// No description provided for @maintenanceImageStarred.
+  ///
+  /// In zh, this message translates to:
+  /// **'已星标'**
+  String get maintenanceImageStarred;
+
+  /// No description provided for @maintenanceImageMediaType.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体类型'**
+  String get maintenanceImageMediaType;
+
+  /// No description provided for @maintenanceImageContentType.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容类型'**
+  String get maintenanceImageContentType;
+
+  /// No description provided for @maintenanceImageCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'分类'**
+  String get maintenanceImageCategories;
+
+  /// No description provided for @maintenanceImageImmutableTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签不可变性'**
+  String get maintenanceImageImmutableTags;
+
+  /// No description provided for @maintenanceImageTagRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则'**
+  String get maintenanceImageTagRules;
+
+  /// No description provided for @maintenanceImageStorageSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储占用'**
+  String get maintenanceImageStorageSize;
+
+  /// No description provided for @maintenanceImageCreator.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建者标识'**
+  String get maintenanceImageCreator;
+
+  /// No description provided for @maintenanceImageLastUpdater.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近更新者标识'**
+  String get maintenanceImageLastUpdater;
+
+  /// No description provided for @maintenanceImageLastUpdaterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近更新者'**
+  String get maintenanceImageLastUpdaterName;
+
+  /// No description provided for @maintenanceImageRegistryV2.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像仓库协议 V2'**
+  String get maintenanceImageRegistryV2;
+
+  /// No description provided for @maintenanceImageTagStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签状态'**
+  String get maintenanceImageTagStatus;
+
+  /// No description provided for @maintenanceImageLastPulled.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近拉取'**
+  String get maintenanceImageLastPulled;
+
+  /// No description provided for @maintenanceImageFeatures.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台特性'**
+  String get maintenanceImageFeatures;
+
+  /// No description provided for @maintenanceImageOsFeatures.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作系统特性'**
+  String get maintenanceImageOsFeatures;
+
+  /// No description provided for @maintenanceImageAdminPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理权限'**
+  String get maintenanceImageAdminPermission;
+
+  /// No description provided for @maintenanceImageReadPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取权限'**
+  String get maintenanceImageReadPermission;
+
+  /// No description provided for @maintenanceImageWritePermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'写入权限'**
+  String get maintenanceImageWritePermission;
+
+  /// No description provided for @maintenanceImageSlug.
+  ///
+  /// In zh, this message translates to:
+  /// **'短标识'**
+  String get maintenanceImageSlug;
 }
 
 class _AppLocalizationsDelegate

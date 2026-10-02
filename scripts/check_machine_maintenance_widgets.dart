@@ -6369,6 +6369,145 @@ void telemetryChecks() {
 
 const _resourceChecks = r'''
 void resourceChecks() {
+  testWidgets('仓库完整元数据六语言即时刷新，属性、权限、时间按语义展示并原样复制', (tester) async {
+    const timestamp = '2026-10-02T01:02:03.123456Z';
+    const fixture = {
+      'repository': {
+        'user':'library', 'name':'active', 'namespace':'library', 'repository_type':'image',
+        'status':1, 'status_description':'active', 'description':'false', 'is_private':false,
+        'is_automated':true, 'star_count':2594, 'pull_count':3364966144,
+        'last_updated':timestamp, 'last_modified':timestamp, 'date_registered':timestamp,
+        'collaborator_count':0, 'affiliation':'official', 'hub_user':'library', 'has_starred':false,
+        'full_description':'# 示例说明\n\n发布者内容保持原文。',
+        'permissions':{'admin':false, 'read':true, 'write':false},
+        'media_types':['application/vnd.docker.distribution.manifest.v2+json'],
+        'content_types':['image'], 'categories':[{'name':'inactive','slug':'unknown'}],
+        'immutable_tags_settings':{'enabled':false,'rules':['active','false']},
+        'storage_size':1024, 'source':'docker-library', 'is_official':true,
+      },
+      'tag': {
+        'creator':7, 'id':9, 'last_updated':timestamp, 'last_updater':7,
+        'last_updater_username':'active', 'name':'latest', 'repository':11, 'full_size':2048,
+        'v2':true, 'tag_status':'active', 'tag_last_pulled':timestamp, 'tag_last_pushed':timestamp,
+        'media_type':'application/vnd.oci.image.index.v1+json', 'content_type':'image', 'digest':'sha256:abc',
+        'images':[{'architecture':'amd64','digest':'sha256:def','features':'active',
+          'last_pulled':timestamp,'last_pushed':timestamp,'os':'linux','os_features':'false',
+          'os_version':'6.1','size':2048,'status':'inactive','variant':'v1'}],
+      },
+    };
+    final raw = jsonEncode(fixture);
+    final parsed = MachineMaintenanceReadout.parse(raw, 'container_image');
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    MachineImageRegistry factory() => MachineImageRegistry(clientFactory:HttpClient.new,
+      read:(uri) async => Map<String,dynamic>.from(fixture[uri.path.contains('/tags/')?'tag':'repository']!));
+    for (final width in [1180.0, 420.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      final theme = width > 500 ? OpenHandTheme.light(OpenHandThemePreset.tundraGreen)
+        : OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+      _ContainerRegistryDetailsDialogState? previous;
+      for (final locale in AppLocalizations.supportedLocales) {
+        await tester.pumpWidget(_SettingsApp(locale:locale,
+          localizationsDelegates:AppLocalizations.localizationsDelegates, supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>RepaintBoundary(key:const ValueKey('元数据翻译预览'),
+            child:MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width>500?1:1.6)),child:child!)),
+          home:Scaffold(body:_ContainerRegistryDetailsDialog(image:MachineContainerImageSearchResult.fromJson({'Name':'active'}),
+            selected:'latest',registryFactory:factory,onTagChanged:(_){}))));
+        await tester.pumpAndSettle();
+        final dialog = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+        if (previous == null) {
+          final tab = find.byKey(const ValueKey(('image-detail-tab',3)));
+          await Scrollable.ensureVisible(tester.element(tab),alignment:.5);await tester.pumpAndSettle();
+          await tester.tap(tab);await tester.pumpAndSettle();
+          for (final group in fixture.keys) {
+            final expansion = find.descendant(of:find.byKey(ValueKey(group)),matching:find.byType(ExpansionTile)).first;
+            await Scrollable.ensureVisible(tester.element(expansion),alignment:.1);await tester.pumpAndSettle();
+            await tester.tap(find.descendant(of:expansion,matching:find.byType(ListTile)).first);await tester.pumpAndSettle();
+          }
+        } else {
+          expect(identical(previous,dialog),isTrue);
+          expect(dialog._tab,3);
+        }
+        previous = dialog;
+        final context = tester.element(find.byType(_ContainerRegistryDetailsDialog));
+        final l = AppLocalizations.of(context)!;
+        for (final group in fixture.keys) {
+          final section = find.byKey(ValueKey(group));
+          expect(tester.widget<_MaintenanceSection>(section).title,
+            group=='repository'?l.maintenanceImageRepositoryDetails:l.maintenanceImageTag);
+          final fields = tester.widget<_MaintenanceFields>(find.descendant(of:section,matching:find.byType(_MaintenanceFields)));
+          final source = parsed.groups[group]!.rows;
+          expect(fields.rows.length,source.length);
+          for (var i=0;i<source.length;i++) {
+            expect(fields.fieldKeys![i],source[i][0]);
+            for (final part in source[i][0].split(' / ')) {
+              final label = maintenanceDetailLabel(context,part);
+              expect(label,isNot(part),reason:'$locale 未翻译 $part');
+              expect(fields.rows[i][0],contains(label));
+            }
+          }
+          final values = {for(var i=0;i<source.length;i++) source[i][0]:fields.rows[i][1]};
+          final expected = group=='repository' ? {
+            'name':'active','description':'false','repository_type':l.maintenanceDetailImage,
+            'status':'1','status_description':l.maintenanceCounterActive,
+            'is_private':l.maintenanceHealthParsedNo,'is_automated':l.maintenanceHealthParsedYes,
+            'has_starred':l.maintenanceHealthParsedNo,'is_official':l.maintenanceHealthParsedYes,
+            'permissions / admin':l.maintenanceHealthParsedNo,'permissions / read':l.maintenanceHealthParsedYes,
+            'permissions / write':l.maintenanceHealthParsedNo,
+            'immutable_tags_settings / enabled':l.maintenanceDetailDisabled,'immutable_tags_settings / rules':'active · false',
+            'content_types':l.maintenanceDetailImage,'categories [1] / name':'inactive',
+            'categories [1] / slug':'unknown','pull_count':'3364966144','storage_size':'1024',
+          } : {
+            'last_updater_username':'active','v2':l.maintenanceHealthParsedYes,'tag_status':l.maintenanceCounterActive,
+            'content_type':l.maintenanceDetailImage,'images [1] / status':l.maintenanceCounterInactive,
+            'images [1] / features':'active','images [1] / os_features':'false','digest':'sha256:abc',
+          };
+          for (final entry in expected.entries) {
+            expect(values[entry.key],entry.value,reason:'$locale ${entry.key}');
+          }
+          for (final row in source.where((row)=>row[1]==timestamp)) {
+            expect(values[row[0]],'2026-10-02 01:02:03');
+          }
+        }
+        expect(maintenanceDetailValue(context,'artifact',field:'repository_type'),'artifact');
+        expect(maintenanceDetailValue(context,'new-state',field:'tag_status'),'new-state');
+        expect(maintenanceDetailValue(context,'unknown',field:'is_private'),'unknown');
+        expect(maintenanceDetailLabel(context,'future_extension'),'future_extension');
+        final metadata = find.byWidgetPredicate((widget)=>widget is _MaintenanceCard && widget.title==l.maintenanceTelemetryFullMetadata);
+        final copy = find.descendant(of:metadata,matching:find.byWidgetPredicate((widget)=>widget is _MachineTerminalIconButton && widget.tooltip==l.commonCopy)).first;
+        await Scrollable.ensureVisible(tester.element(copy),alignment:.1);await tester.pumpAndSettle();
+        await tester.tap(copy);await tester.pumpAndSettle();
+        expect(jsonDecode(copied!),fixture);
+        expect(jsonEncode({'repository':dialog._repository,'tag':dialog._tagData}),raw);
+        if (locale==const Locale('zh')) {
+          for (final tabIndex in [0,3]) {
+            final tab=find.byKey(ValueKey(('image-detail-tab',tabIndex)));
+            await Scrollable.ensureVisible(tester.element(tab),alignment:.5);await tester.pumpAndSettle();
+            await tester.tap(tab);await tester.pumpAndSettle();
+          }
+          expect(find.byType(_MaintenanceFields),findsNWidgets(2));
+        }
+        if (locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          final card = find.byKey(const ValueKey('maintenance-field-is_private'));
+          await Scrollable.ensureVisible(tester.element(card),alignment:.4);await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('元数据翻译预览'))).toImage(pixelRatio:1.5);
+            final bytes = await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/openhand-registry-metadata-l10n-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+          });
+        }
+        expect(tester.takeException(),isNull,reason:'$locale $width');
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('平台卡片按批加载、筛选复位，长摘要可完整复制且没有悬停阴影', (tester) async {
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {

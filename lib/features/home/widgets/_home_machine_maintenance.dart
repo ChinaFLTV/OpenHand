@@ -5029,7 +5029,7 @@ class _MaintenanceFacts extends StatelessWidget {
       children: [
         for (final entry in values.entries)
           LayoutBuilder(
-            key: ValueKey(entry.key),
+            key: PageStorageKey(entry.key),
             builder: (context, bounds) {
               final label = Text(
                 maintenanceLabel(context, entry.key),
@@ -6044,7 +6044,7 @@ class _MaintenanceFields extends StatelessWidget {
         final occurrences = <String, int>{};
         final keys = [
           for (var i = 0; i < rows.length; i++)
-            ValueKey((
+            PageStorageKey((
               fieldKeys?[i] ?? rows[i][0],
               occurrences.update(
                 fieldKeys?[i] ?? rows[i][0],
@@ -6287,8 +6287,7 @@ class _MaintenanceSection extends StatelessWidget {
         minLeadingWidth: 32,
         horizontalTitleGap: 10,
         child: ExpansionTile(
-          // 稳定组件身份，避免折叠状态与内部滚动位置共用存储键。
-          key: ValueKey(('expansion', key ?? title)),
+          key: PageStorageKey(('expansion', key ?? title)),
           initiallyExpanded: initiallyExpanded,
           shape: const Border(),
           collapsedShape: const Border(),
@@ -6347,7 +6346,11 @@ class _MaintenanceSection extends StatelessWidget {
           ),
           children: [
             const SizedBox(height: 8),
-            _MaintenanceAnimatedSize(child: child),
+            // 将正文滚动位置与折叠状态隔离，字段卡再按原始字段键保存。
+            KeyedSubtree(
+              key: PageStorageKey(('section-content', key ?? title)),
+              child: _MaintenanceAnimatedSize(child: child),
+            ),
           ],
         ),
       ),

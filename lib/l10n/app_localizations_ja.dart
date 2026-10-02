@@ -15596,4 +15596,88 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformsMore => 'さらにプラットフォームを読み込む';
+
+  @override
+  String get maintenanceImageRepositoryType => 'リポジトリの種類';
+
+  @override
+  String get maintenanceImageStatusDescription => '状態の説明';
+
+  @override
+  String get maintenanceImagePrivate => '非公開リポジトリ';
+
+  @override
+  String get maintenanceImageAutomated => '自動ビルド';
+
+  @override
+  String get maintenanceImageLastModified => '最終変更';
+
+  @override
+  String get maintenanceImageRegistered => '登録日時';
+
+  @override
+  String get maintenanceImageCollaborators => '共同作業者数';
+
+  @override
+  String get maintenanceImageAffiliation => 'リポジトリの所属';
+
+  @override
+  String get maintenanceImageHubUser => 'Docker Hub ユーザー';
+
+  @override
+  String get maintenanceImageStarred => 'スター登録済み';
+
+  @override
+  String get maintenanceImageMediaType => 'メディアタイプ';
+
+  @override
+  String get maintenanceImageContentType => 'コンテンツの種類';
+
+  @override
+  String get maintenanceImageCategories => 'カテゴリー';
+
+  @override
+  String get maintenanceImageImmutableTags => 'タグの不変性';
+
+  @override
+  String get maintenanceImageTagRules => 'ルール';
+
+  @override
+  String get maintenanceImageStorageSize => 'ストレージ使用量';
+
+  @override
+  String get maintenanceImageCreator => '作成者 ID';
+
+  @override
+  String get maintenanceImageLastUpdater => '最終更新者 ID';
+
+  @override
+  String get maintenanceImageLastUpdaterName => '最終更新者';
+
+  @override
+  String get maintenanceImageRegistryV2 => 'レジストリプロトコル V2';
+
+  @override
+  String get maintenanceImageTagStatus => 'タグの状態';
+
+  @override
+  String get maintenanceImageLastPulled => '最終取得';
+
+  @override
+  String get maintenanceImageFeatures => 'プラットフォームの機能';
+
+  @override
+  String get maintenanceImageOsFeatures => 'OS の機能';
+
+  @override
+  String get maintenanceImageAdminPermission => '管理権限';
+
+  @override
+  String get maintenanceImageReadPermission => '読み取り権限';
+
+  @override
+  String get maintenanceImageWritePermission => '書き込み権限';
+
+  @override
+  String get maintenanceImageSlug => '短い識別子';
 }

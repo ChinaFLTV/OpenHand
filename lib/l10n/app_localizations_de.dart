@@ -16137,4 +16137,88 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImagePlatformsMore => 'Weitere Plattformen laden';
+
+  @override
+  String get maintenanceImageRepositoryType => 'Repository-Typ';
+
+  @override
+  String get maintenanceImageStatusDescription => 'Statusbeschreibung';
+
+  @override
+  String get maintenanceImagePrivate => 'Privates Repository';
+
+  @override
+  String get maintenanceImageAutomated => 'Automatische Builds';
+
+  @override
+  String get maintenanceImageLastModified => 'Zuletzt geändert';
+
+  @override
+  String get maintenanceImageRegistered => 'Registriert';
+
+  @override
+  String get maintenanceImageCollaborators => 'Anzahl Mitwirkender';
+
+  @override
+  String get maintenanceImageAffiliation => 'Repository-Zugehörigkeit';
+
+  @override
+  String get maintenanceImageHubUser => 'Docker-Hub-Benutzer';
+
+  @override
+  String get maintenanceImageStarred => 'Mit Stern markiert';
+
+  @override
+  String get maintenanceImageMediaType => 'Medientyp';
+
+  @override
+  String get maintenanceImageContentType => 'Inhaltstyp';
+
+  @override
+  String get maintenanceImageCategories => 'Kategorien';
+
+  @override
+  String get maintenanceImageImmutableTags => 'Tag-Unveränderlichkeit';
+
+  @override
+  String get maintenanceImageTagRules => 'Regeln';
+
+  @override
+  String get maintenanceImageStorageSize => 'Speicherbelegung';
+
+  @override
+  String get maintenanceImageCreator => 'Ersteller-ID';
+
+  @override
+  String get maintenanceImageLastUpdater => 'ID des letzten Bearbeiters';
+
+  @override
+  String get maintenanceImageLastUpdaterName => 'Letzter Bearbeiter';
+
+  @override
+  String get maintenanceImageRegistryV2 => 'Registry-Protokoll V2';
+
+  @override
+  String get maintenanceImageTagStatus => 'Tag-Status';
+
+  @override
+  String get maintenanceImageLastPulled => 'Zuletzt abgerufen';
+
+  @override
+  String get maintenanceImageFeatures => 'Plattformfunktionen';
+
+  @override
+  String get maintenanceImageOsFeatures => 'Betriebssystemfunktionen';
+
+  @override
+  String get maintenanceImageAdminPermission => 'Administratorberechtigung';
+
+  @override
+  String get maintenanceImageReadPermission => 'Leseberechtigung';
+
+  @override
+  String get maintenanceImageWritePermission => 'Schreibberechtigung';
+
+  @override
+  String get maintenanceImageSlug => 'Kurzkennung';
 }

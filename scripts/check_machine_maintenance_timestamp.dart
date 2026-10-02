@@ -95,6 +95,13 @@ void main() {
     'Date/Time',
     'NEXT',
     'LAST',
+    'last_updated',
+    'last_modified',
+    'date_registered',
+    'tag_last_pushed',
+    'tag_last_pulled',
+    'images [1] / last_pushed',
+    'images [1] / last_pulled',
   ]) {
     if (!machineMaintenanceIsTimestampField(field)) {
       throw StateError('遗漏日期字段：$field');
@@ -112,6 +119,9 @@ void main() {
     'NextElapseUSecMonotonic',
     'ActiveEnterTimestampMonotonic',
     '过期时间',
+    'star_count',
+    'pull_count',
+    'storage_size',
   ]) {
     if (machineMaintenanceIsTimestampField(field)) {
       throw StateError('误识别日期字段：$field');
