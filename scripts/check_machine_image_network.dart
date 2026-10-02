@@ -81,6 +81,7 @@ class Fixture {
   final requests=<({String path,String? authorization})>[];
   final tunnels=<String>[];
   bool private=false,corrupt=false,redirect=false,slow=false,badManifest=false;
+  int iconSize=4;
   List<int> layer=[];
   late List<int> configuration,manifest,index;
   late String configDigest,manifestDigest,layerDigest;
@@ -120,7 +121,7 @@ class Fixture {
       else if(path.endsWith('/tags')) {response.write('{"results":[{"name":"stable"}],"next":null}');}
       else if(path.endsWith('/tags/stable')) {response.write('{"name":"stable","images":[{"os":"linux","architecture":"arm64"}]}');}
       else if(path.endsWith('/repositories/nginx')) {response.write('{"name":"nginx","full_description":"说明"}');}
-      else if(path=='/icon') {response.headers.contentType=ContentType('image','png');response.add([137,80,78,71]);}
+      else if(path=='/icon') {response.headers.contentType=ContentType('image','png');response.add([137,80,78,71,...List<int>.filled(iconSize-4,0)]);}
       else {response.write('{"results":[{"repo_name":"nginx","star_count":42,"pull_count":1234,"is_official":true}]}');}
       try {await response.close();}catch(_) {}
     });
@@ -190,6 +191,51 @@ void main() {
       final client=routedClient();final response=await(await client.getUrl(Uri.parse('https://127.0.0.1:${fixture.origin.port}/direct'))).close();await response.drain<void>();client.close(force:true);
       expect(fixture.tunnels.length,count);
     }finally{registry.dispose();}
+  });
+
+  test('图标失败及取消允许稍后订阅，错误保留且不进入未捕获区域',()async {
+    final uncaught=<Object>[];
+    final completed=Completer<void>();
+    runZonedGuarded(()async {
+      final registry=MachineImageRegistry(clientFactory:routedClient);
+      try {
+        final url='https://registry.test:${fixture.origin.port}/not-an-image.png';
+        final pending=registry.icon(url);
+        expect(registry.icon(url),same(pending));
+        await Future<void>.delayed(const Duration(milliseconds:300));
+        await expectLater(pending,throwsA(isA<HttpException>().having((error)=>error.message,'响应类型',contains('application/json'))));
+        expect(registry.icon(url),same(pending),reason:'失败结果应复用，避免重建时重复下载');
+        final cancelled=[for(var i=0;i<8;i++)registry.icon('https://registry.test:${fixture.origin.port}/icon?cancel=$i')];
+        registry.cancelPending();
+        await Future<void>.delayed(const Duration(milliseconds:30));
+        for(final future in cancelled)await expectLater(future,throwsA(anything));
+        expect(await registry.icon('https://registry.test:${fixture.origin.port}/icon'),[137,80,78,71]);
+        registry.dispose();
+        final closed=registry.icon('https://registry.test:${fixture.origin.port}/icon?closed');
+        await Future<void>.delayed(const Duration(milliseconds:30));
+        await expectLater(closed,throwsA(isA<StateError>()));
+      }finally {registry.dispose();completed.complete();}
+    },(error,stack)=>uncaught.add(error));
+    await completed.future.timeout(const Duration(seconds:5));
+    expect(uncaught,isEmpty);
+  });
+
+  test('图标缓存限制条目与字节总量，超大响应不进入缓存',()async {
+    final registry=MachineImageRegistry(clientFactory:routedClient);
+    String url(int index)=>'https://registry.test:${fixture.origin.port}/icon?cache=$index';
+    try {
+      final first=registry.icon(url(0));await first;
+      for(var i=1;i<=machineContainerSearchLimit;i++)await registry.icon(url(i));
+      final latest=registry.icon(url(machineContainerSearchLimit));
+      expect(registry.icon(url(machineContainerSearchLimit)),same(latest));
+      final evicted=registry.icon(url(0));expect(evicted,isNot(same(first)));await evicted;
+      registry.cancelPending();fixture.iconSize=512*1024;
+      final large=registry.icon(url(0));await large;
+      for(var i=1;i<17;i++)await registry.icon(url(i));
+      final replaced=registry.icon(url(0));expect(replaced,isNot(same(large)));await replaced;
+      fixture.iconSize=512*1024+1;
+      await expectLater(registry.icon(url(100)),throwsA(isA<HttpException>()));
+    }finally {registry.dispose();}
   });
 
   test('公开镜像不读取私有凭据，多架构选择、归档校验和关闭清理可靠',()async {

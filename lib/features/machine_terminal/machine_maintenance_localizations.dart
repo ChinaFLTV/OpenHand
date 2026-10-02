@@ -7,6 +7,7 @@ import 'machine_containers.dart';
 import 'machine_egress.dart';
 import 'machine_egress_regions.dart';
 import 'machine_maintenance_timestamp.dart';
+import 'machine_terminal_file_service.dart';
 
 part 'machine_maintenance_counter_localizations.dart';
 
@@ -482,6 +483,7 @@ String maintenanceLabel(BuildContext context, String label) {
     "内核资源参数" => l10n.maintenanceKernel,
     "网卡累计计数 · 字节、包、错误与丢包" => l10n.maintenanceNetworkCounters,
     "采集中" => l10n.maintenanceCollecting,
+    '终端正在执行文件或运维操作，请稍后刷新。' => l10n.maintenanceTerminalBusy,
     "采集异常" => l10n.maintenanceCollectionError,
     "自动刷新" => l10n.maintenanceAutoRefresh,
     "手动刷新" => l10n.maintenanceManualRefresh,
@@ -2214,6 +2216,7 @@ String maintenanceEgressValue(
 
 String maintenanceContainerOperationError(BuildContext context, Object error) {
   final l = AppLocalizations.of(context)!;
+  if (error is MachineTerminalOperationBusy) return l.maintenanceTerminalBusy;
   if (error is TimeoutException) {
     return '${l.maintenanceContainerTimeoutTitle} · ${l.maintenanceContainerTimeoutHelp}';
   }

@@ -292,6 +292,38 @@ void main() {
   });
   setUp(() async { _testSettings = await SettingsController.create(store: _MemorySettingsStore()); });
   tearDown(() { _testSettings.dispose(); });
+  testWidgets('终端忙碌保持六语言提示、有效快照和定时刷新，恢复后不重复探测', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420,900));
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      final service=_MaintenanceFixture()..failure=const MachineTerminalOperationBusy();
+      await tester.pumpWidget(ChangeNotifierProvider<MachineTerminalFileService>.value(value:service,
+        child:MaterialApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(size:const Size(420,900)),child:child!),
+          home:const Scaffold(body:_MachineMaintenanceDialog(sessionId:'会话',terminalId:'终端')))));
+      await tester.pumpAndSettle();
+      final state=tester.state<_MachineMaintenanceDialogState>(find.byType(_MachineMaintenanceDialog));
+      expect(state._terminalBusy,isTrue);expect(state._error,isNull);expect(state._loading,isFalse);
+      expect(find.text(l.maintenanceTerminalBusy),findsOneWidget);expect(find.byType(CircularProgressIndicator),findsNothing);
+      expect(maintenanceContainerOperationError(tester.element(find.byType(_MachineMaintenanceDialog)),const MachineTerminalOperationBusy()),l.maintenanceTerminalBusy);
+      final target=state._detectedTarget;final probes=service.probes;
+      state.setState(()=>state._automatic=true);state._schedule();
+      final count=service.calls;await tester.pump(const Duration(seconds:10));await tester.pumpAndSettle();
+      expect(service.calls,count+1);expect(state._timer!.isActive,isTrue);expect(state._detectedTarget,same(target));expect(service.probes,probes);
+      service.failure=null;await tester.pump(const Duration(seconds:10));await tester.pumpAndSettle();
+      expect(state._terminalBusy,isFalse);expect(state._error,isNull);expect(state._snapshots[0],isNotNull);
+      final snapshot=state._snapshots[0];final body=state._body;
+      service.failure=const MachineTerminalOperationBusy();await state._refresh(manual:true,detectShell:false);await tester.pumpAndSettle();
+      expect(state._snapshots[0],same(snapshot));expect(state._body,same(body));expect(state._timer!.isActive,isTrue);
+      expect(find.text(l.maintenanceTerminalBusy),findsOneWidget);
+      service.failure=null;await state._refresh(detectShell:false);await tester.pumpAndSettle();
+      expect(state._terminalBusy,isFalse);expect(service.probes,probes);expect(tester.takeException(),isNull,reason:locale.toString());
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('容器运行时列表、状态菜单和窄屏布局可用', (tester) async {
     final calls = <String>[];
     Future<String> run(String command) async {
@@ -6379,6 +6411,14 @@ void telemetryChecks() {
 ''';
 
 const _resourceChecks = r'''
+class _BrokenIconRegistry extends MachineImageRegistry {
+  _BrokenIconRegistry():super(clientFactory:HttpClient.new,read:(_)async=>{'results':[
+    for(var i=0;i<machineContainerSearchLimit;i++){'repo_name':'library/image'+i.toString(),'slug':'library/image'+i.toString(),'logo_url':'https://registry.test/logo/'+i.toString()+'.png'}]});
+  final requested=<String>{};
+  @override
+  Future<Uint8List> icon(String url)async {requested.add(url);throw const HttpException('模拟图标返回 JSON');}
+}
+
 class _DocumentRegistry extends MachineImageRegistry {
   _DocumentRegistry(Future<Map<String,dynamic>> Function(Uri) read)
     : super(clientFactory:HttpClient.new,read:read);
@@ -6394,6 +6434,24 @@ class _DocumentRegistry extends MachineImageRegistry {
 }
 
 void resourceChecks() {
+  testWidgets('分页外镜像图标不发起请求，失败显示占位图且翻页按需加载', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1180,1000));
+    final registry=_BrokenIconRegistry();
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_ContainerRegistryDialog(
+        client:MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>''),registryFactory:()=>registry,timeout:const Duration(seconds:10)))));
+    final state=tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
+    state._query.text='image';await state._search();await tester.pumpAndSettle();
+    expect(state._results.length,machineContainerSearchLimit);
+    expect(registry.requested.length,inInclusiveRange(1,kOpenHandTableDefaultPageSize));
+    expect(find.byIcon(Icons.layers_outlined),findsWidgets);expect(tester.takeException(),isNull);
+    final previous=Set<String>.of(registry.requested);
+    tester.widget<OpenHandTablePagination>(find.byType(OpenHandTablePagination)).onPageChanged!(2);await tester.pumpAndSettle();
+    expect(registry.requested.difference(previous),isNotEmpty);
+    expect(registry.requested.length,lessThanOrEqualTo(kOpenHandTableDefaultPageSize*2));
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('标签选择六语言使用统一卡片和等高选项，失败保留结果并重试原查询', (tester) async {
     for(final locale in AppLocalizations.supportedLocales) {
       final l=await AppLocalizations.delegate.load(locale);

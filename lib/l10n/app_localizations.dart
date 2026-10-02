@@ -23504,6 +23504,12 @@ abstract class AppLocalizations {
   /// **'NTP / Chrony 服务与同步源'**
   String get maintenanceHealthNtp;
 
+  /// 终端被文件或运维操作占用时的正常状态提示
+  ///
+  /// In zh, this message translates to:
+  /// **'终端正在执行文件或运维操作，请稍后刷新。'**
+  String get maintenanceTerminalBusy;
+
   /// No description provided for @maintenanceCommandTimedOut.
   ///
   /// In zh, this message translates to:

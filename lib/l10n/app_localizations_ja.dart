@@ -12804,6 +12804,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maintenanceHealthNtp => 'NTP / Chrony サービスと同期元';
 
   @override
+  String get maintenanceTerminalBusy =>
+      '端末でファイル操作またはメンテナンスを実行中です。しばらくしてから更新してください。';
+
+  @override
   String get maintenanceCommandTimedOut =>
       '端末の応答がタイムアウトしました。端末が起動し、コマンド入力待ちになっていることを確認して再試行してください。';
 

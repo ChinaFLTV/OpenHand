@@ -12679,6 +12679,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceHealthNtp => 'NTP / Chrony 服务与同步源';
 
   @override
+  String get maintenanceTerminalBusy => '终端正在执行文件或运维操作，请稍后刷新。';
+
+  @override
   String get maintenanceCommandTimedOut => '终端响应超时。请确认终端已就绪且处于命令提示符，然后重试。';
 
   @override
@@ -28180,6 +28183,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceHealthNtp => 'NTP / Chrony 服務與同步來源';
+
+  @override
+  String get maintenanceTerminalBusy => '終端正在執行檔案或維運操作，請稍後重新整理。';
 
   @override
   String get maintenanceCommandTimedOut => '終端回應逾時。請確認終端已就緒且處於命令提示字元，然後重試。';

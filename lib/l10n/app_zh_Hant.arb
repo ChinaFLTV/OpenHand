@@ -8766,6 +8766,7 @@
   "maintenanceHealthHome": "主目錄",
   "maintenanceHealthDate": "日期、時間與時區",
   "maintenanceHealthNtp": "NTP / Chrony 服務與同步來源",
+  "maintenanceTerminalBusy": "終端正在執行檔案或維運操作，請稍後重新整理。",
   "maintenanceCommandTimedOut": "終端回應逾時。請確認終端已就緒且處於命令提示字元，然後重試。",
   "maintenanceHealthParsedInsufficientPermissionsForThisAccount": "權限不足，当前賬戶無法讀取",
   "maintenanceHealthParsedCollectionToolIsMissingOrUnavailable": "採集工具未安裝或不可用",

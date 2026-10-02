@@ -8766,6 +8766,7 @@
   "maintenanceHealthHome": "ホームディレクトリ",
   "maintenanceHealthDate": "日付・時刻・タイムゾーン",
   "maintenanceHealthNtp": "NTP / Chrony サービスと同期元",
+  "maintenanceTerminalBusy": "端末でファイル操作またはメンテナンスを実行中です。しばらくしてから更新してください。",
   "maintenanceCommandTimedOut": "端末の応答がタイムアウトしました。端末が起動し、コマンド入力待ちになっていることを確認して再試行してください。",
   "maintenanceHealthParsedInsufficientPermissionsForThisAccount": "このアカウントには読み取り権限がありません",
   "maintenanceHealthParsedCollectionToolIsMissingOrUnavailable": "収集ツールが未インストールまたは利用不可",

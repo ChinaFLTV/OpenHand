@@ -1,15 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/lifecycle_cache.dart';
 import 'machine_containers.dart';
 
 const machineImageRegistryTimeout = Duration(seconds: 12);
 const machineImageRegistryResponseLimit = 4 * 1024 * 1024;
 const machineImageTagPageSize = 50;
 const machineImageTagPageLimit = 20;
+const _machineImageIconLimit = 512 * 1024;
+const _machineImageIconCacheLimit = 8 * 1024 * 1024;
 
 typedef MachineImageTagPage = ({List<String> tags, bool hasMore});
 
@@ -23,12 +27,16 @@ class MachineImageRegistry {
   final HttpClient Function() clientFactory;
   final Future<Map<String, dynamic>> Function(Uri)? _readOverride;
   final _clients = <HttpClient>{};
-  final _iconRequests = <String, Future<Uint8List>>{};
+  final _iconRequests = LifecycleLruCache<Future<Uint8List>>(
+    maxEntries: machineContainerSearchLimit,
+    maxCost: _machineImageIconCacheLimit,
+  );
   final _iconSlots = OpenHandAsyncSemaphore(
     4,
     maxWaiters: machineContainerSearchLimit,
   );
   bool _disposed = false;
+  int _requestGeneration = 0;
 
   void dispose() {
     _disposed = true;
@@ -36,6 +44,7 @@ class MachineImageRegistry {
   }
 
   void cancelPending() {
+    _requestGeneration++;
     _iconSlots.cancelWaiters();
     _iconRequests.clear();
     for (final client in _clients) {
@@ -70,10 +79,24 @@ class MachineImageRegistry {
     }
   }
 
-  Future<Uint8List> icon(String url) => _iconRequests.putIfAbsent(
-    url,
-    () => _iconSlots.withPermit(() => _loadIcon(url)),
-  );
+  Future<Uint8List> icon(String url) => _iconRequests.putIfAbsent(url, () {
+    final generation = _requestGeneration;
+    final future = _iconSlots.withPermit(() {
+      if (generation != _requestGeneration) {
+        throw StateError('镜像图标查询已取消。');
+      }
+      return _loadIcon(url);
+    });
+    // 缓存负责观察完成状态；组件稍后订阅时仍能收到原始错误并显示占位图。
+    unawaited(
+      future.then<void>(
+        (bytes) =>
+            _iconRequests.updateCostIfIdentical(url, future, bytes.length),
+        onError: (Object _, StackTrace _) {},
+      ),
+    );
+    return future;
+  });
 
   Future<Uint8List> _loadIcon(String url) async {
     final uri = Uri.parse(url);
@@ -87,7 +110,7 @@ class MachineImageRegistry {
       return await fetchBoundedHttpBytes(
         client: client,
         uri: uri,
-        maxBytes: 512 * 1024,
+        maxBytes: _machineImageIconLimit,
         openTimeout: machineImageRegistryTimeout,
         idleTimeout: machineImageRegistryTimeout,
         totalTimeout: machineImageRegistryTimeout,

@@ -13077,6 +13077,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maintenanceHealthNtp => 'NTP / Chrony services and sources';
 
   @override
+  String get maintenanceTerminalBusy =>
+      'The terminal is busy with a file or maintenance operation. Refresh again shortly.';
+
+  @override
   String get maintenanceCommandTimedOut =>
       'The terminal timed out. Check that it is ready and at a command prompt, then retry.';
 

@@ -224,6 +224,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _detailOpen = false,
       _closing = false;
   String? _error;
+  bool _terminalBusy = false;
   String? _shellLabel;
   int _tab = 0, _sort = 0;
   int _intervalSeconds = machineMaintenanceInterval.inSeconds;
@@ -439,6 +440,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       _loading = true;
       _manualRefresh = manual;
       _error = null;
+      _terminalBusy = false;
     });
     try {
       if (egressOnly &&
@@ -531,6 +533,10 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       if (tab == 3 && _tab == 3) {
         await _loadEgress(result.identity, force: manual);
       }
+    } on MachineTerminalOperationBusy {
+      if (mounted && !_closing && tab == _tab) {
+        setState(() => _terminalBusy = true);
+      }
     } on MachineTerminalUploadCancelled {
       // 关闭弹窗后停止传输，不将主动取消报告为采集故障。
       return;
@@ -617,6 +623,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
     setState(() {
       _egressBusy = true;
       _egressError = null;
+      _terminalBusy = false;
     });
     final service = context.read<MachineTerminalFileService>();
     bool cancelled() => !mounted || _closing || _tab != 3;
@@ -642,6 +649,8 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
           _egressAttempted = true;
         });
       }
+    } on MachineTerminalOperationBusy {
+      if (!cancelled()) setState(() => _terminalBusy = true);
     } on MachineTerminalUploadCancelled {
       // 切换分区或关闭弹窗时取消查询，保留上次有效结果。
     } catch (error, stack) {
@@ -1041,6 +1050,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
 
                                 _search.clear();
                                 _error = null;
+                                _terminalBusy = false;
                               });
                               _refresh();
                             },
@@ -1062,11 +1072,15 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                       ),
               ),
               if (data != null &&
-                  (_error != null || data.text('notice').isNotEmpty))
+                  (_terminalBusy ||
+                      _error != null ||
+                      data.text('notice').isNotEmpty))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
                   child: _MaintenanceNotice(
-                    message: _error == null
+                    message: _terminalBusy
+                        ? AppLocalizations.of(context)!.maintenanceTerminalBusy
+                        : _error == null
                         ? data.text('notice')
                         : AppLocalizations.of(
                             context,
@@ -1089,6 +1103,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                         _tab,
                         data == null,
                         data == null && _error != null,
+                        data == null && _terminalBusy,
                       )),
                       child: _content(data, theme, size, motion),
                     ),
@@ -1128,6 +1143,7 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
       Localizations.localeOf(context),
       motion,
       (data?.isComplete == false, (_tab == 2 || _tab == 5) && _loading, _error),
+      data == null && _terminalBusy,
       _tab == 3 ? (_egress, _egressBusy, _egressError, _loading) : null,
     );
     if (_tab == 7 && _platformName != null) {
@@ -1215,10 +1231,14 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (failed)
+                  if (failed || _terminalBusy)
                     _MaintenanceIconBadge(
-                      icon: Icons.cloud_off_rounded,
-                      color: theme.colorScheme.error,
+                      icon: _terminalBusy
+                          ? Icons.hourglass_top_rounded
+                          : Icons.cloud_off_rounded,
+                      color: failed
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
                       size: 48,
                       iconSize: 24,
                     )
@@ -1232,15 +1252,29 @@ class _MachineMaintenanceDialogState extends State<_MachineMaintenanceDialog>
                     ),
                   const SizedBox(height: 16),
                   Text(
-                    maintenanceLabel(context, failed ? '机器状态暂不可用' : '采集中'),
+                    _terminalBusy
+                        ? AppLocalizations.of(
+                            context,
+                          )!.maintenanceTelemetryPending
+                        : maintenanceLabel(
+                            context,
+                            failed ? '机器状态暂不可用' : '采集中',
+                          ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  if (failed) ...[
+                  if (failed || _terminalBusy) ...[
                     const SizedBox(height: 16),
-                    _MaintenanceNotice(message: _error!, error: true),
+                    _MaintenanceNotice(
+                      message: _terminalBusy
+                          ? AppLocalizations.of(
+                              context,
+                            )!.maintenanceTerminalBusy
+                          : _error!,
+                      error: failed,
+                    ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       style: _maintenanceActionButtonStyle(context),

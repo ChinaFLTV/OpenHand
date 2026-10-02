@@ -269,6 +269,13 @@ class MachineTerminalTransferTask {
   }
 }
 
+final class MachineTerminalOperationBusy implements Exception {
+  const MachineTerminalOperationBusy();
+
+  @override
+  String toString() => '终端正在执行文件或运维操作，请稍后刷新。';
+}
+
 class MachineTerminalFileService extends ChangeNotifier {
   MachineTerminalFileService(this._terminalService, {this.scopedCommand}) {
     _restoreFuture = _restoreTransferHistory();
@@ -330,7 +337,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         MachineTerminalCommandShell.posix,
   }) {
     if (_operationGates[_terminalKey(sessionId, terminalId)]?.isIdle == false) {
-      return Future.error(StateError('终端正在执行文件或运维操作，请稍后刷新。'));
+      return Future.error(const MachineTerminalOperationBusy());
     }
     return _withTerminalGate(sessionId, terminalId, () async {
       _throwIfMachineTerminalTransferCancelled(isCancelled);

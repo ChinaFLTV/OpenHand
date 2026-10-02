@@ -42,6 +42,7 @@ class _CommandTerminal extends Fake implements MachineTerminalService {
   bool failWrite = false;
   bool cancelAfterWrite = false;
   bool cancelled = false;
+  Completer<void>? blocked;
   final commands = <String>[];
 
   @override
@@ -56,6 +57,7 @@ class _CommandTerminal extends Fake implements MachineTerminalService {
     expect(displayOutput, isFalse);
     expect(timeout, lessThanOrEqualTo(const Duration(seconds: 30)));
     commands.add(command);
+    if(command=="printf '持有门闩'")await blocked!.future;
     final payload = machineTerminalCommandPayload(command: command,
       beginMarker: '开始', endMarker: '结束', shell: commandShell);
     for (final line in const LineSplitter().convert(payload)) {
@@ -76,6 +78,25 @@ class _CommandTerminal extends Fake implements MachineTerminalService {
 }
 
 void main() {
+  test('运维忙碌不排队，不影响其他终端，完成后释放门闩',()async {
+    if(Platform.isWindows)return;
+    final root=await Directory.systemTemp.createTemp('openhand-busy-gate-');
+    final terminal=_CommandTerminal(root.path,root.path)..blocked=Completer<void>();
+    final service=MachineTerminalFileService(terminal);
+    Future<String> run(String id,String command)=>service.runMaintenanceCommand(sessionId:'会话',terminalId:id,command:command);
+    final held=run('终端',"printf '持有门闩'");
+    try {
+      await expectLater(run('终端',"printf '不应排队'"),throwsA(isA<MachineTerminalOperationBusy>()));
+      expect(await run('另一终端',"printf '独立执行'"),'独立执行');
+      expect(terminal.commands,isNot(contains("printf '不应排队'")));
+      terminal.blocked!.complete();expect(await held,'持有门闩');
+      expect(await run('终端',"printf '门闩已释放'"),'门闩已释放');
+    }finally {
+      if(!terminal.blocked!.isCompleted)terminal.blocked!.complete();
+      await service.shutdown();service.dispose();await root.delete(recursive:true);
+    }
+  });
+
   test('容器文件读写、重命名与删除全部经过作用域，保留主机传输记录', () async {
     if (Platform.isWindows) return;
     final root = await Directory.systemTemp.createTemp('openhand-container-files-');

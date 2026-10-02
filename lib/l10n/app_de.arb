@@ -8766,6 +8766,7 @@
   "maintenanceHealthHome": "Home-Verzeichnis",
   "maintenanceHealthDate": "Datum, Uhrzeit und Zeitzone",
   "maintenanceHealthNtp": "NTP / Chrony: Dienste und Quellen",
+  "maintenanceTerminalBusy": "Das Terminal führt gerade einen Datei- oder Wartungsvorgang aus. Aktualisiere in Kürze erneut.",
   "maintenanceCommandTimedOut": "Zeitüberschreitung des Terminals. Prüfen Sie, ob es bereit ist und eine Eingabeaufforderung anzeigt, und versuchen Sie es erneut.",
   "maintenanceHealthParsedInsufficientPermissionsForThisAccount": "Unzureichende Berechtigungen für dieses Konto",
   "maintenanceHealthParsedCollectionToolIsMissingOrUnavailable": "Erfassungstool fehlt oder ist nicht verfügbar",

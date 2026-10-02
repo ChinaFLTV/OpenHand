@@ -13213,6 +13213,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get maintenanceHealthNtp => 'NTP / Chrony: Dienste und Quellen';
 
   @override
+  String get maintenanceTerminalBusy =>
+      'Das Terminal führt gerade einen Datei- oder Wartungsvorgang aus. Aktualisiere in Kürze erneut.';
+
+  @override
   String get maintenanceCommandTimedOut =>
       'Zeitüberschreitung des Terminals. Prüfen Sie, ob es bereit ist und eine Eingabeaufforderung anzeigt, und versuchen Sie es erneut.';
 

@@ -9724,6 +9724,8 @@
   "maintenanceHealthHome": "主目录",
   "maintenanceHealthDate": "日期、时间与时区",
   "maintenanceHealthNtp": "NTP / Chrony 服务与同步源",
+  "maintenanceTerminalBusy": "终端正在执行文件或运维操作，请稍后刷新。",
+  "@maintenanceTerminalBusy": {"description": "终端被文件或运维操作占用时的正常状态提示"},
   "maintenanceCommandTimedOut": "终端响应超时。请确认终端已就绪且处于命令提示符，然后重试。",
   "maintenanceHealthParsedInsufficientPermissionsForThisAccount": "权限不足，当前账户无法读取",
   "maintenanceHealthParsedCollectionToolIsMissingOrUnavailable": "采集工具未安装或不可用",

@@ -854,32 +854,34 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
                                           SizedBox(
                                             width: 20,
                                             height: 20,
-                                            child: FutureBuilder<Uint8List>(
-                                              future: _registry.icon(
-                                                row.iconUrl!,
+                                            child: Builder(
+                                              builder: (_) => FutureBuilder<Uint8List>(
+                                                future: _registry.icon(
+                                                  row.iconUrl!,
+                                                ),
+                                                builder: (_, snapshot) =>
+                                                    snapshot.hasData
+                                                    ? Image.memory(
+                                                        snapshot.data!,
+                                                        cacheWidth: 40,
+                                                        cacheHeight: 40,
+                                                        fit: BoxFit.contain,
+                                                        errorBuilder:
+                                                            (_, _, _) => Icon(
+                                                              Icons
+                                                                  .layers_outlined,
+                                                              size: 18,
+                                                              color: cs
+                                                                  .onSurfaceVariant,
+                                                            ),
+                                                      )
+                                                    : Icon(
+                                                        Icons.layers_outlined,
+                                                        size: 18,
+                                                        color:
+                                                            cs.onSurfaceVariant,
+                                                      ),
                                               ),
-                                              builder: (_, snapshot) =>
-                                                  snapshot.hasData
-                                                  ? Image.memory(
-                                                      snapshot.data!,
-                                                      cacheWidth: 40,
-                                                      cacheHeight: 40,
-                                                      fit: BoxFit.contain,
-                                                      errorBuilder: (_, _, _) =>
-                                                          Icon(
-                                                            Icons
-                                                                .layers_outlined,
-                                                            size: 18,
-                                                            color: cs
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                    )
-                                                  : Icon(
-                                                      Icons.layers_outlined,
-                                                      size: 18,
-                                                      color:
-                                                          cs.onSurfaceVariant,
-                                                    ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -1429,39 +1431,41 @@ class _ContainerRegistryDetailsDialogState
                             unawaited(_openMessageLinkUri(context, uri));
                           }
                         },
-                        imageBuilder: (uri, title, alt) => FutureBuilder<Uint8List>(
-                          future: _registry.icon(uri.toString()),
-                          builder: (_, snapshot) {
-                            Widget failed(
-                              BuildContext context,
-                              Object error,
-                              StackTrace? stack,
-                            ) => const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Icon(Icons.broken_image_outlined),
-                            );
-                            if (snapshot.hasError) {
-                              return failed(context, snapshot.error!, null);
-                            }
-                            if (!snapshot.hasData) {
-                              return const OpenHandImageShimmerPlaceholder();
-                            }
-                            return uri.path.toLowerCase().endsWith('.svg')
-                                ? SvgPicture.memory(
-                                    snapshot.data!,
-                                    placeholderBuilder: (_) =>
-                                        const OpenHandImageShimmerPlaceholder(),
-                                    errorBuilder: failed,
-                                  )
-                                : Image.memory(
-                                    snapshot.data!,
-                                    fit: BoxFit.contain,
-                                    cacheWidth: 1280,
-                                    frameBuilder:
-                                        openHandImageRevealFrameBuilder,
-                                    errorBuilder: failed,
-                                  );
-                          },
+                        imageBuilder: (uri, title, alt) => Builder(
+                          builder: (_) => FutureBuilder<Uint8List>(
+                            future: _registry.icon(uri.toString()),
+                            builder: (_, snapshot) {
+                              Widget failed(
+                                BuildContext context,
+                                Object error,
+                                StackTrace? stack,
+                              ) => const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Icon(Icons.broken_image_outlined),
+                              );
+                              if (snapshot.hasError) {
+                                return failed(context, snapshot.error!, null);
+                              }
+                              if (!snapshot.hasData) {
+                                return const OpenHandImageShimmerPlaceholder();
+                              }
+                              return uri.path.toLowerCase().endsWith('.svg')
+                                  ? SvgPicture.memory(
+                                      snapshot.data!,
+                                      placeholderBuilder: (_) =>
+                                          const OpenHandImageShimmerPlaceholder(),
+                                      errorBuilder: failed,
+                                    )
+                                  : Image.memory(
+                                      snapshot.data!,
+                                      fit: BoxFit.contain,
+                                      cacheWidth: 1280,
+                                      frameBuilder:
+                                          openHandImageRevealFrameBuilder,
+                                      errorBuilder: failed,
+                                    );
+                            },
+                          ),
                         ),
                       ),
                     ),
