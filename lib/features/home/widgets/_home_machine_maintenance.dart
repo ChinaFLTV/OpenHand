@@ -5485,16 +5485,26 @@ class _MaintenanceToolbarMenu<T> extends StatelessWidget {
   final IconData? icon;
   final bool enabled;
   final double controlHeight;
+
+  static const _chromeWidth = 44.0;
+  static const _leadingWidth = 22.0;
+
+  double preferredWidth(BuildContext context) => openHandSelectionWidth(
+    context,
+    {label, ...items.values}.map((value) => maintenanceLabel(context, value)),
+    style: Theme.of(context).textTheme.bodySmall!,
+    extraWidth: _chromeWidth + (icon == null ? 0 : _leadingWidth),
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        const chrome = 1.0 + 10.0 + 16.0 + 6.0 + 10.0 + 1.0;
-        final leading = icon == null ? 0.0 : 22.0;
+        final leading = icon == null ? 0.0 : _leadingWidth;
         final textMax = constraints.maxWidth.isFinite
-            ? math.max(0.0, constraints.maxWidth - chrome - leading)
+            ? math.max(0.0, constraints.maxWidth - _chromeWidth - leading)
             : double.infinity;
         return PopupMenuTheme(
           data: PopupMenuTheme.of(context).copyWith(

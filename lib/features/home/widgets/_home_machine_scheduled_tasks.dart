@@ -554,10 +554,35 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                       context,
                     ).scale(_maintenanceFormFontSize) /
                     _maintenanceFormFontSize;
-                final stacked = constraints.maxWidth < 580 * scale;
-                final menuWidth = stacked
-                    ? constraints.maxWidth
-                    : math.min(320 * scale, constraints.maxWidth * .4);
+                final schedulerMenu = _MaintenanceToolbarMenu<String>(
+                  label: _filter == null
+                      ? l.maintenanceTaskAll
+                      : _taskSchedulerLabel(context, _filter!),
+                  tooltip: l.maintenanceTaskScheduler,
+                  icon: Icons.filter_list_rounded,
+                  controlHeight: controlHeight,
+                  value: _filter?.name ?? '',
+                  items: {
+                    '': l.maintenanceTaskAll,
+                    for (final scheduler in MachineTaskScheduler.values)
+                      if (data.available.contains(scheduler) ||
+                          _filter == scheduler ||
+                          data.tasks.any((task) => task.scheduler == scheduler))
+                        scheduler.name: _taskSchedulerLabel(context, scheduler),
+                  },
+                  onSelected: (value) => setState(
+                    () => _filter = MachineTaskScheduler.values
+                        .where((scheduler) => scheduler.name == value)
+                        .firstOrNull,
+                  ),
+                );
+                final menuWidth = math.min(
+                  schedulerMenu.preferredWidth(context),
+                  constraints.maxWidth,
+                );
+                final stacked =
+                    constraints.maxWidth <
+                    _maintenanceSearchWidth * scale + menuWidth + 12;
                 final border = OutlineInputBorder(
                   borderRadius: kOpenHandBorderRadius8,
                   borderSide: BorderSide(
@@ -612,36 +637,7 @@ class _MachineScheduledTaskPanelState extends State<_MachineScheduledTaskPanel>
                         ),
                       ),
                     ),
-                    SizedBox(
-                      width: menuWidth,
-                      child: _MaintenanceToolbarMenu<String>(
-                        label: _filter == null
-                            ? l.maintenanceTaskAll
-                            : _taskSchedulerLabel(context, _filter!),
-                        tooltip: l.maintenanceTaskScheduler,
-                        icon: Icons.filter_list_rounded,
-                        controlHeight: controlHeight,
-                        value: _filter?.name ?? '',
-                        items: {
-                          '': l.maintenanceTaskAll,
-                          for (final scheduler in MachineTaskScheduler.values)
-                            if (data.available.contains(scheduler) ||
-                                _filter == scheduler ||
-                                data.tasks.any(
-                                  (task) => task.scheduler == scheduler,
-                                ))
-                              scheduler.name: _taskSchedulerLabel(
-                                context,
-                                scheduler,
-                              ),
-                        },
-                        onSelected: (value) => setState(
-                          () => _filter = MachineTaskScheduler.values
-                              .where((scheduler) => scheduler.name == value)
-                              .firstOrNull,
-                        ),
-                      ),
-                    ),
+                    SizedBox(width: menuWidth, child: schedulerMenu),
                   ],
                 );
               },
@@ -1042,26 +1038,38 @@ class _MachineCronScheduleState extends State<_MachineCronSchedule> {
                           ],
                           if (mode == 'step') ...[
                             const SizedBox(height: 10),
-                            AnimatedDropdownButton<int>(
-                              value: int.parse(step![1]!),
-                              isExpanded: true,
-                              items: [
-                                for (final n in {
-                                  for (
-                                    var i = 1;
-                                    i <= range.$2 - range.$1 + 1;
-                                    i++
-                                  )
-                                    i,
-                                  int.parse(step[1]!),
-                                })
-                                  DropdownMenuItem(value: n, child: Text('$n')),
-                              ],
-                              onChanged: widget.enabled
-                                  ? (n) {
-                                      if (n != null) update('*/$n');
-                                    }
-                                  : null,
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: SizedBox(
+                                width: openHandSelectionWidth(context, [
+                                  '${range.$2 - range.$1 + 1}',
+                                  step![1]!,
+                                ], style: theme.textTheme.titleMedium!),
+                                child: AnimatedDropdownButton<int>(
+                                  value: int.parse(step[1]!),
+                                  isExpanded: true,
+                                  items: [
+                                    for (final n in {
+                                      for (
+                                        var i = 1;
+                                        i <= range.$2 - range.$1 + 1;
+                                        i++
+                                      )
+                                        i,
+                                      int.parse(step[1]!),
+                                    })
+                                      DropdownMenuItem(
+                                        value: n,
+                                        child: Text('$n'),
+                                      ),
+                                  ],
+                                  onChanged: widget.enabled
+                                      ? (n) {
+                                          if (n != null) update('*/$n');
+                                        }
+                                      : null,
+                                ),
+                              ),
                             ),
                           ],
                         ],

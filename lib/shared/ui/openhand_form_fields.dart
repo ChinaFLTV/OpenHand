@@ -11,6 +11,29 @@ import 'openhand_dialog_action_button.dart';
 
 export 'openhand_input_icon_action.dart';
 
+/// 按选项文字和当前字号确定选择框宽度，避免短选项占满表单。
+double openHandSelectionWidth(
+  BuildContext context,
+  Iterable<String> labels, {
+  required TextStyle style,
+  double extraWidth = 56,
+}) {
+  final painter = TextPainter(
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  );
+  final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
+  var width = 0.0;
+  for (final label in labels) {
+    painter.text = TextSpan(text: label, style: effectiveStyle);
+    painter.layout();
+    if (painter.width > width) width = painter.width;
+  }
+  painter.dispose();
+  return width.ceilToDouble() + extraWidth;
+}
+
 /// 隐藏 TextField 的 `maxLength` 计数器。
 ///
 /// 用于既要靠 `maxLength` 做硬性截断、又不想让 "12/200" 计数占位撑高布局的

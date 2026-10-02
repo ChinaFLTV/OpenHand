@@ -1797,32 +1797,42 @@ class _ContainerResourceFormDialogState
     String value,
     Map<String, String> items,
     ValueChanged<String> onChanged,
-  ) => _labeled(
-    label,
-    AnimatedDropdownButtonFormField<String>(
-      isExpanded: true,
-      initialValue: value,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        fontSize: _formFontSize,
-        height: 1.4,
-        color: Theme.of(context).colorScheme.onSurface,
-      ),
-      iconSize: 18,
-      decoration: _decoration(),
-      items: [
-        for (final item in items.entries)
-          DropdownMenuItem(
-            value: item.key,
-            child: Text(
-              item.value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+  ) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyMedium!.copyWith(
+      fontSize: _formFontSize,
+      height: 1.4,
+      color: theme.colorScheme.onSurface,
+    );
+    return _labeled(
+      label,
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: SizedBox(
+          width: openHandSelectionWidth(context, items.values, style: style),
+          child: AnimatedDropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: value,
+            style: style,
+            iconSize: 18,
+            decoration: _decoration(),
+            items: [
+              for (final item in items.entries)
+                DropdownMenuItem(
+                  value: item.key,
+                  child: Text(
+                    item.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: _editable ? (value) => onChanged(value!) : null,
           ),
-      ],
-      onChanged: _editable ? (value) => onChanged(value!) : null,
-    ),
-  );
+        ),
+      ),
+    );
+  }
 
   Widget _rows(
     String title,
