@@ -15672,7 +15672,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'Les images sont téléchargées via le proxy système global, vérifiées puis importées dans la machine et l’environnement sélectionnés avec leurs identifiants de registre. Augmentez le délai pour les grandes images.';
+      'Les images sont téléchargées et vérifiées via le proxy système global, puis importées directement sur cette machine ou transférées vers une machine distante. Le moteur et les identifiants de registre sélectionnés sont utilisés. Augmentez le délai pour les grandes images.';
 
   @override
   String get maintenanceContainerNameOptional =>

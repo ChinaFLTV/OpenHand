@@ -10802,7 +10802,7 @@
   "maintenanceImageStars": "星标数",
   "maintenanceImageOfficial": "官方镜像",
   "maintenanceImageReference": "镜像引用",
-  "maintenanceImagePullHelp": "镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。",
+  "maintenanceImagePullHelp": "镜像通过全局系统代理下载并校验，本机直接导入，远程机器才传输。沿用当前运行时和仓库凭据；大镜像可调高超时时间。",
   "maintenanceContainerNameOptional": "容器名称（可选）",
   "maintenanceContainerStartAfterCreate": "创建后立即启动",
   "maintenanceHostAddress": "主机地址",

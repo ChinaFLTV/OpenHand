@@ -9649,7 +9649,7 @@
   "maintenanceImageStars": "星號數",
   "maintenanceImageOfficial": "官方映像",
   "maintenanceImageReference": "映像參照",
-  "maintenanceImagePullHelp": "映像檔透過全域系統代理下載，驗證後匯入目前選取的機器和執行環境，沿用目標機器的倉庫憑證。大型映像檔可提高逾時時間。",
+  "maintenanceImagePullHelp": "映像檔透過全域系統代理下載並驗證，本機直接匯入，遠端機器才傳輸。沿用目前執行環境和倉庫憑證；大型映像檔可提高逾時時間。",
   "maintenanceContainerNameOptional": "容器名稱（選填）",
   "maintenanceContainerStartAfterCreate": "建立後立即啟動",
   "maintenanceHostAddress": "主機位址",

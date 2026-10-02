@@ -341,7 +341,77 @@ void main() {
     final assertion=expectLater(pending,throwsA(anything));await Future<void>.delayed(const Duration(milliseconds:30));waiting.close(force:true);await assertion.timeout(const Duration(seconds:1));
   });
 
-  test('Docker、Podman、nerdctl 和 Windows 导入保留上下文并清理临时归档',()async {
+  test('共享本地归档直接导入，Docker、Podman、nerdctl 和 Windows 不再上传镜像',()async {
+    for(final runtime in [MachineContainerRuntime.docker,MachineContainerRuntime.podman,MachineContainerRuntime.containerd]) {
+      for(final windows in [false,true]) {
+        final commands=<String>[];final stages=<MachineImageTransferStage>[];final files=<File>[];final output=<String>[];
+        String decoded(String command) => windows && command.contains('-EncodedCommand')?String.fromCharCodes(base64Decode(command.split(' ').last).buffer.asUint16List()):command;
+        Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+          final text=decoded(command);commands.add(text);
+          if(text.contains("'info'"))return runtime==MachineContainerRuntime.podman?' {"host":{"os":"linux","arch":"aarch64"}}':'{"OSType":"linux","Architecture":"aarch64"}';
+          if(text.contains('.local-context')) {
+            expect(onOutput,isNull);expect(timeout,lessThanOrEqualTo(const Duration(seconds:5)));
+            if(windows) {
+              final paths=RegExp("Test-Path -LiteralPath '([^']+)'").allMatches(text).map((match)=>File(match.group(1)!)).toList();
+              expect(paths.length,2);files.addAll(paths);
+              for(final file in paths)expect(await file.exists(),isTrue);
+              final proof=await paths.last.readAsString();expect(text,contains("-eq '$proof'"));return proof;
+            }
+            files.add(File(RegExp(r"\[ -f '([^']+)'").firstMatch(text)!.group(1)!));
+            files.add(File(RegExp(r"cat '([^']+)' 2>/dev/null").firstMatch(text)!.group(1)!));
+            final probe=await Process.run('/bin/sh',['-c',text]).timeout(timeout);expect(probe.exitCode,0);return '${probe.stdout}';
+          }
+          expect(text,contains("'load' '--input' '${files.first.path}'"));
+          expect(await files.first.exists(),isTrue);expect(onOutput,isNotNull);
+          if(windows) {expect(command,contains('-EncodedCommand'));expect(text,contains('exit \$LASTEXITCODE'));}
+          onOutput?.call('已导入');return '已导入';
+        }
+        final client=MachineContainerClient(runtime:runtime,contextName:'目标上下文',scope:'目标命名空间',windows:windows,run:(_)async=>throw StateError('不应调用默认通道'));
+        final operations=MachineImageOperations(clientFactory:routedClient,run:run,
+          upload:(file,directory,stopped,progress)async=>fail('共享本地归档不应上传'),cleanup:(_)async=>fail('本地归档不应通过终端删除'));
+        final result=await operations.pull(client,fixture.image,timeout:const Duration(seconds:5),onOutput:output.add,
+          onProgress:(stage,received,total)=>stages.add(stage));
+        expect(result.output,'已导入');expect(output,['已导入']);
+        expect(stages.toSet().toList(),[MachineImageTransferStage.preparing,MachineImageTransferStage.download,MachineImageTransferStage.import]);
+        expect(commands.any((command)=>command.contains('mktemp')||command.contains('GetTempPath')||command.contains("'pull'")),isFalse);
+        if(runtime==MachineContainerRuntime.docker)expect(commands.last,contains("'--context' '目标上下文'"));
+        if(runtime==MachineContainerRuntime.containerd)expect(commands.last,contains("'--namespace' '目标命名空间'"));
+        for(final file in files)expect(await file.exists(),isFalse);
+        expect(await files.first.parent.exists(),isFalse);
+      }
+    }
+  });
+
+  test('共享路径探测取消、超时或导入失败不触发上传重试，归档仍被清理',()async {
+    for(final failure in ['cancelled','timeout','probe','import']) {
+      var cancelled=false;File? archive,proof;var imports=0;
+      Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+        if(command.contains("'info'"))return '{"OSType":"linux","Architecture":"aarch64"}';
+        if(command.contains('.local-context')) {
+          archive=File(RegExp(r"\[ -f '([^']+)'").firstMatch(command)!.group(1)!);
+          proof=File(RegExp(r"cat '([^']+)' 2>/dev/null").firstMatch(command)!.group(1)!);
+          expect(onOutput,isNull);
+          if(failure=='timeout')throw TimeoutException('模拟路径探测超时');
+          if(failure=='probe')throw StateError('模拟终端探测失败');
+          if(failure=='cancelled')cancelled=true;
+          return await proof!.readAsString();
+        }
+        imports++;throw StateError('模拟本地导入失败');
+      }
+      final operations=MachineImageOperations(clientFactory:routedClient,run:run,
+        upload:(file,directory,stopped,progress)async=>fail('失败或取消不应触发上传'),cleanup:(_)async=>fail('本地归档不应通过终端删除'));
+      await expectLater(operations.pull(MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>''),fixture.image,
+        timeout:const Duration(seconds:5),isCancelled:()=>cancelled),throwsA(switch(failure) {
+          'cancelled'=>isA<MachineContainerConfigException>().having((error)=>error.code,'错误类型','cancelled'),
+          'timeout'=>isA<TimeoutException>(),_=>isA<StateError>(),
+        }));
+      expect(imports,failure=='import'?1:0);
+      expect(archive,isNotNull);expect(proof,isNotNull);
+      expect(await archive!.parent.exists(),isFalse);
+    }
+  });
+
+  test('远程或路径校验不匹配时上传归档，保留上下文并清理临时文件',()async {
     for(final runtime in [MachineContainerRuntime.docker,MachineContainerRuntime.podman,MachineContainerRuntime.containerd]) {
       for(final windows in [false,true]) {
         final commands=<String>[];final stages=<({MachineImageTransferStage stage,int received,int total})>[];var uploaded=false,cleaned=false;
@@ -349,6 +419,7 @@ void main() {
         Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
           final text=decoded(command);commands.add(text);
           if(text.contains("'info'"))return runtime==MachineContainerRuntime.podman?' {"host":{"os":"linux","arch":"aarch64"}}':'{"OSType":"linux","Architecture":"aarch64"}';
+          if(text.contains('.local-context'))return windows?'不匹配的校验值':'';
           if(text.contains('mktemp')||text.contains('GetTempPath'))return windows?r'C:\Temp\openhand-image-test12345':'/tmp/openhand-image-test12345';
           expect(uploaded,isTrue);expect(text,contains("'load' '--input'"));return '已导入';
         }
@@ -367,6 +438,29 @@ void main() {
     }
   });
 
+  test('远程上传失败或取消不显示完成、不执行导入，并清理两端归档',()async {
+    for(final cancel in [false,true]) {
+      var cancelled=false,cleaned=false;File? archive;final stages=<({MachineImageTransferStage stage,int received,int total})>[];
+      Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+        if(command.contains("'info'"))return '{"OSType":"linux","Architecture":"aarch64"}';
+        if(command.contains('.local-context'))return '';
+        if(command.contains('mktemp'))return '/tmp/openhand-image-cancel1234';
+        fail('上传失败或取消不应执行导入');
+      }
+      final operations=MachineImageOperations(clientFactory:routedClient,run:run,
+        upload:(file,directory,stopped,progress)async {
+          archive=file;progress(10);
+          if(cancel) {cancelled=true;return;}
+          throw StateError('模拟传输失败');
+        },cleanup:(command)async {expect(command,contains('openhand-image-cancel1234'));cleaned=true;});
+      await expectLater(operations.pull(MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>''),fixture.image,
+        timeout:const Duration(seconds:5),isCancelled:()=>cancelled,onProgress:(stage,received,total)=>stages.add((stage:stage,received:received,total:total))),
+        throwsA(cancel?isA<MachineContainerConfigException>().having((error)=>error.code,'错误类型','cancelled'):isA<StateError>()));
+      expect(cleaned,isTrue);expect(stages.last.stage,MachineImageTransferStage.upload);
+      expect(stages.last.received,lessThan(stages.last.total));expect(await archive!.parent.exists(),isFalse);
+    }
+  });
+
   test('目标凭据及凭据助手不会进入进度输出，导入失败仍释放临时文件',()async {
     fixture.private=true;
     for(final helper in [false,true]) {
@@ -378,6 +472,7 @@ void main() {
           return '__OH_REGISTRY_CONFIG__\n'+jsonEncode(helper?{'credsStore':'test'}:{'auths':{'registry.test:${fixture.origin.port}':{'auth':base64Encode(utf8.encode('tester:私有密码'))}}});
         }
         if(command.contains('docker-credential-test')){expect(onOutput,isNull);return '{"Username":"tester","Secret":"私有密码"}';}
+        if(command.contains('.local-context'))return '';
         if(command.contains('mktemp'))return '/tmp/openhand-image-failure123';
         throw StateError('模拟导入失败');
       }
@@ -395,7 +490,7 @@ void main() {
       throwsA(isA<MachineContainerConfigException>().having((error)=>'$error','错误详情',isNot(contains('私有密码')))));
   });
 
-  test('实际 Docker 可加载代理下载归档并保持镜像配置与分层',()async {
+  test('实际 Docker 就地导入代理下载归档，不创建上传目录并保持镜像配置与分层',()async {
     if(Platform.environment['IMAGE_IMPORT_REAL']!='1')return;
     final info=await Process.run('docker',['info','--format','{{.Architecture}}']);expect(info.exitCode,0);
     final arch='${info.stdout}'.trim();fixture.layer=gzip.encode(await File('$certDirectory/layer.tar').readAsBytes());fixture.configure(architecture:arch=='aarch64'?'arm64':arch=='x86_64'?'amd64':arch);
@@ -405,16 +500,21 @@ void main() {
         final inspect=await Process.run('docker',['image','inspect','--format','{{.Id}}',archive.reference]);expect(inspect.exitCode,0);expect('${inspect.stdout}'.trim(),anyOf(fixture.configDigest,fixture.manifestDigest));
         final layers=await Process.run('docker',['image','inspect','--format','{{json .RootFS.Layers}}',archive.reference]);expect(jsonDecode('${layers.stdout}'),[fixture.digest(gzip.decode(fixture.layer))]);
       });
+      final commands=<String>[];final stages=<MachineImageTransferStage>[];
       Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
+        commands.add(command);
         final result=await Process.run('/bin/sh',['-c',command]).timeout(timeout);
         if(result.exitCode!=0)throw StateError('${result.stderr}');
         onOutput?.call('${result.stdout}');return '${result.stdout}';
       }
       final operations=MachineImageOperations(clientFactory:routedClient,run:run,
-        upload:(file,directory,stopped,progress)async{await file.copy('$directory/image.tar');},
-        cleanup:(command)async{await run(command,timeout:const Duration(seconds:5));});
+        upload:(file,directory,stopped,progress)async=>fail('本机 Docker 不应上传镜像'),
+        cleanup:(_)async=>fail('本机 Docker 不应通过终端删除归档'));
       final imported=await operations.pull(MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>''),
-        fixture.image.split(':latest').first+'@'+fixture.manifestDigest,timeout:const Duration(seconds:15));
+        fixture.image.split(':latest').first+'@'+fixture.manifestDigest,timeout:const Duration(seconds:15),
+        onProgress:(stage,received,total)=>stages.add(stage));
+      expect(commands.any((command)=>command.contains('mktemp')||command.contains("'pull'")),isFalse);
+      expect(stages.toSet().toList(),[MachineImageTransferStage.preparing,MachineImageTransferStage.download,MachineImageTransferStage.import]);
       expect(imported.image,anyOf(fixture.configDigest,fixture.manifestDigest));
       final inspect=await Process.run('docker',['image','inspect','--format','{{.Id}}',imported.image]);
       expect(inspect.exitCode,0);expect('${inspect.stdout}'.trim(),imported.image);

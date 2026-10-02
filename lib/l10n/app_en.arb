@@ -9654,7 +9654,7 @@
   "maintenanceImageStars": "Stars",
   "maintenanceImageOfficial": "Official",
   "maintenanceImageReference": "Image reference",
-  "maintenanceImagePullHelp": "Images are downloaded through the global system proxy, verified and imported into the selected machine and runtime using its registry credentials. Increase the timeout for large images.",
+  "maintenanceImagePullHelp": "Images are downloaded and verified through the global system proxy, then imported directly on this machine or transferred to a remote machine. Uses the selected runtime and registry credentials. Increase the timeout for large images.",
   "maintenanceContainerNameOptional": "Container name (optional)",
   "maintenanceContainerStartAfterCreate": "Start after creation",
   "maintenanceHostAddress": "Host address",

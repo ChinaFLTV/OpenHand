@@ -27926,7 +27926,7 @@ abstract class AppLocalizations {
   /// No description provided for @maintenanceImagePullHelp.
   ///
   /// In zh, this message translates to:
-  /// **'镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。'**
+  /// **'镜像通过全局系统代理下载并校验，本机直接导入，远程机器才传输。沿用当前运行时和仓库凭据；大镜像可调高超时时间。'**
   String get maintenanceImagePullHelp;
 
   /// No description provided for @maintenanceContainerNameOptional.

@@ -2,12 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:uuid/uuid.dart';
+
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/platform_shell.dart';
 import 'machine_containers.dart';
 import 'machine_image_download.dart';
 
-/// 下载与终端传输分别注入，网络路由与目标运行时上下文互不混淆。
+const _localArchiveProbeTimeout = Duration(seconds: 5);
+
+/// 共享本地归档直接导入，远程终端才上传；下载始终遵循应用代理。
 class MachineImageOperations {
   const MachineImageOperations({
     required this.clientFactory,
@@ -85,47 +90,87 @@ class MachineImageOperations {
           total,
         ),
         consume: (archive) async {
-          final createDirectory = client.windows
+          // 终端可进入 SSH 或容器，用一次性文件确认共享路径，不依赖主机名猜测。
+          final proof = const Uuid().v4();
+          final proofFile = File('${archive.file.parent.path}/.local-context');
+          await writeTemporaryByteStreamBounded(
+            proofFile,
+            Stream.value(utf8.encode(proof)),
+            maxBytes: proof.length,
+            idleTimeout: deadline.limit(_localArchiveProbeTimeout),
+            totalTimeout: deadline.limit(_localArchiveProbeTimeout),
+          );
+          final probe = client.windows
               ? powerShellEncodedCommand(
-                  r"$p=Join-Path ([IO.Path]::GetTempPath()) ('openhand-image-'+[Guid]::NewGuid().ToString()); [IO.Directory]::CreateDirectory($p) | Out-Null; Write-Output $p",
+                  "if ((Test-Path -LiteralPath '${escapePowerShellSingleQuotedString(archive.file.path)}' -PathType Leaf) -and (Test-Path -LiteralPath '${escapePowerShellSingleQuotedString(proofFile.path)}' -PathType Leaf)) { if ([IO.File]::ReadAllText('${escapePowerShellSingleQuotedString(proofFile.path)}') -eq '$proof') { Write-Output '$proof' } }",
                 )
-              : 'umask 077; mktemp -d "\${TMPDIR:-/tmp}/openhand-image-XXXXXXXX"';
-          final directory = (await execute(createDirectory)).trim();
-          if (!RegExp(
-                r'[\\/]openhand-image-[A-Za-z0-9-]{8,}$',
-              ).hasMatch(directory) ||
-              directory.contains(RegExp(r'[\r\n\x00]'))) {
-            throw const FormatException('镜像导入临时目录无效。');
+              : 'if [ -f ${posixShellQuote(archive.file.path)} ] && [ -r ${posixShellQuote(archive.file.path)} ] && [ "\$(cat ${posixShellQuote(proofFile.path)} 2>/dev/null)" = ${posixShellQuote(proof)} ]; then printf %s ${posixShellQuote(proof)}; fi';
+          final shared =
+              (await run(
+                probe,
+                timeout: deadline.limit(_localArchiveProbeTimeout),
+                isCancelled: stopped,
+              )).trim() ==
+              proof;
+          if (stopped()) {
+            throw const MachineContainerConfigException('cancelled');
           }
-          final path = '$directory${client.windows ? '\\' : '/'}image.tar';
-          final removeDirectory = client.windows
-              ? "Remove-Item -LiteralPath '${escapePowerShellSingleQuotedString(directory)}' -Recurse -Force -ErrorAction SilentlyContinue"
-              : 'rm -rf -- ${posixShellQuote(directory)}';
+          var path = archive.file.path;
+          String? removeDirectory;
           try {
-            final length = await archive.file.length();
-            onProgress?.call(MachineImageTransferStage.upload, 0, length);
-            await upload(
-              archive.file,
-              directory,
-              stopped,
-              (received) => onProgress?.call(
+            if (!shared) {
+              final createDirectory = client.windows
+                  ? powerShellEncodedCommand(
+                      r"$p=Join-Path ([IO.Path]::GetTempPath()) ('openhand-image-'+[Guid]::NewGuid().ToString()); [IO.Directory]::CreateDirectory($p) | Out-Null; Write-Output $p",
+                    )
+                  : 'umask 077; mktemp -d "\${TMPDIR:-/tmp}/openhand-image-XXXXXXXX"';
+              final directory = (await execute(createDirectory)).trim();
+              if (!RegExp(
+                    r'[\\/]openhand-image-[A-Za-z0-9-]{8,}$',
+                  ).hasMatch(directory) ||
+                  directory.contains(RegExp(r'[\r\n\x00]'))) {
+                throw const FormatException('镜像导入临时目录无效。');
+              }
+              path = '$directory${client.windows ? '\\' : '/'}image.tar';
+              removeDirectory = client.windows
+                  ? "Remove-Item -LiteralPath '${escapePowerShellSingleQuotedString(directory)}' -Recurse -Force -ErrorAction SilentlyContinue"
+                  : 'rm -rf -- ${posixShellQuote(directory)}';
+              final length = await archive.file.length().timeout(
+                deadline.limit(_localArchiveProbeTimeout),
+              );
+              onProgress?.call(MachineImageTransferStage.upload, 0, length);
+              await upload(
+                archive.file,
+                directory,
+                stopped,
+                (received) => onProgress?.call(
+                  MachineImageTransferStage.upload,
+                  received,
+                  length,
+                ),
+              );
+              if (stopped()) {
+                throw const MachineContainerConfigException('cancelled');
+              }
+              onProgress?.call(
                 MachineImageTransferStage.upload,
-                received,
                 length,
-              ),
-            );
+                length,
+              );
+            }
             if (stopped()) {
               throw const MachineContainerConfigException('cancelled');
             }
-            onProgress?.call(MachineImageTransferStage.upload, length, length);
             onProgress?.call(MachineImageTransferStage.import, 0, 0);
             final load = client.command([
               'load',
               '--input',
               path,
-            ], readable: client.windows);
-            // 导入被中断时，目标 Shell 仍负责删除自己的临时归档。
-            final command = client.windows
+            ], readable: client.windows && removeDirectory != null);
+            // 远程 Shell 清理上传归档，本地归档由下载器统一释放。
+            final command = removeDirectory == null
+                ? load
+                : client.windows
                 ? powerShellEncodedCommand(
                     "try { $load; \$code=\$LASTEXITCODE } finally { $removeDirectory }; exit \$code",
                   )
@@ -161,11 +206,13 @@ class MachineImageOperations {
             }
             return (output: output, image: imported);
           } finally {
-            await cleanup(
-              client.windows
-                  ? powerShellEncodedCommand(removeDirectory)
-                  : removeDirectory,
-            );
+            if (removeDirectory != null) {
+              await cleanup(
+                client.windows
+                    ? powerShellEncodedCommand(removeDirectory)
+                    : removeDirectory,
+              );
+            }
           }
         },
       );

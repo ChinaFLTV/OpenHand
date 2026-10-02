@@ -14946,7 +14946,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      '镜像通过全局系统代理下载，校验后导入当前选中的机器和运行时，复用目标机器的仓库凭据。大镜像可调高超时时间。';
+      '镜像通过全局系统代理下载并校验，本机直接导入，远程机器才传输。沿用当前运行时和仓库凭据；大镜像可调高超时时间。';
 
   @override
   String get maintenanceContainerNameOptional => '容器名称（可选）';
@@ -30479,7 +30479,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImagePullHelp =>
-      '映像檔透過全域系統代理下載，驗證後匯入目前選取的機器和執行環境，沿用目標機器的倉庫憑證。大型映像檔可提高逾時時間。';
+      '映像檔透過全域系統代理下載並驗證，本機直接匯入，遠端機器才傳輸。沿用目前執行環境和倉庫憑證；大型映像檔可提高逾時時間。';
 
   @override
   String get maintenanceContainerNameOptional => '容器名稱（選填）';

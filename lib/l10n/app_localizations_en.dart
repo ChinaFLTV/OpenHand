@@ -15446,7 +15446,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'Images are downloaded through the global system proxy, verified and imported into the selected machine and runtime using its registry credentials. Increase the timeout for large images.';
+      'Images are downloaded and verified through the global system proxy, then imported directly on this machine or transferred to a remote machine. Uses the selected runtime and registry credentials. Increase the timeout for large images.';
 
   @override
   String get maintenanceContainerNameOptional => 'Container name (optional)';

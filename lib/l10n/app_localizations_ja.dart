@@ -15092,7 +15092,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'グローバルのシステムプロキシ経由でイメージをダウンロードし、検証後に選択したマシンとランタイムへインポートします。対象マシンのレジストリ認証情報を使用します。大きなイメージはタイムアウトを延長してください。';
+      'グローバルのシステムプロキシ経由でイメージをダウンロード・検証し、ローカルでは直接インポート、リモートマシンには転送します。選択したランタイムとレジストリ認証情報を使用します。大きなイメージはタイムアウトを延長してください。';
 
   @override
   String get maintenanceContainerNameOptional => 'コンテナー名（任意）';

@@ -15619,7 +15619,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImagePullHelp =>
-      'Images werden über den globalen Systemproxy heruntergeladen, geprüft und mit den Registrierungszugangsdaten des Zielrechners in die gewählte Laufzeit importiert. Bei großen Images das Zeitlimit erhöhen.';
+      'Images werden über den globalen Systemproxy heruntergeladen und geprüft, dann lokal direkt importiert oder zum entfernten Rechner übertragen. Die gewählte Laufzeit und die Registrierungszugangsdaten bleiben erhalten. Bei großen Images das Zeitlimit erhöhen.';
 
   @override
   String get maintenanceContainerNameOptional => 'Containername (optional)';

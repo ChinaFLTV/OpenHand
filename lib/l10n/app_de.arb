@@ -9649,7 +9649,7 @@
   "maintenanceImageStars": "Sterne",
   "maintenanceImageOfficial": "Offiziell",
   "maintenanceImageReference": "Image-Referenz",
-  "maintenanceImagePullHelp": "Images werden über den globalen Systemproxy heruntergeladen, geprüft und mit den Registrierungszugangsdaten des Zielrechners in die gewählte Laufzeit importiert. Bei großen Images das Zeitlimit erhöhen.",
+  "maintenanceImagePullHelp": "Images werden über den globalen Systemproxy heruntergeladen und geprüft, dann lokal direkt importiert oder zum entfernten Rechner übertragen. Die gewählte Laufzeit und die Registrierungszugangsdaten bleiben erhalten. Bei großen Images das Zeitlimit erhöhen.",
   "maintenanceContainerNameOptional": "Containername (optional)",
   "maintenanceContainerStartAfterCreate": "Nach dem Erstellen starten",
   "maintenanceHostAddress": "Hostadresse",

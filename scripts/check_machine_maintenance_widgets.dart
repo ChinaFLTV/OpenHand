@@ -7646,7 +7646,7 @@ void resourceChecks() {
     expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('镜像进度按真实字节显示，阶段切换、六语言与取消回调可靠', (tester) async {
+  testWidgets('镜像进度按真实字节显示，本机跳过上传，六语言与取消回调可靠', (tester) async {
     for(final locale in AppLocalizations.supportedLocales) {
       for(final width in [420.0,900.0]) {
         final pending=Completer<({String output,String image})>();MachineImageTransferProgress? progress;
@@ -7676,12 +7676,14 @@ void resourceChecks() {
         for(var i=86;i<=200;i++)progress!(MachineImageTransferStage.download,i*1024*1024,294*1024*1024);
         expect(form._progress.received,85*1024*1024);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
         expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,closeTo(200/294,1e-10));
-        progress!(MachineImageTransferStage.upload,0,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
-        expect(find.text(l.maintenanceImageUploading),findsOneWidget);expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,0);
-        progress!(MachineImageTransferStage.upload,256,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
-        expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.5);
+        if(width>=500) {
+          progress!(MachineImageTransferStage.upload,0,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+          expect(find.text(l.maintenanceImageUploading),findsOneWidget);expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,0);
+          progress!(MachineImageTransferStage.upload,256,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+          expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.5);
+        }
         progress!(MachineImageTransferStage.import,0,0);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
-        expect(find.text(l.maintenanceImageImporting),findsOneWidget);expect(find.byType(LinearProgressIndicator),findsNothing);
+        expect(find.text(l.maintenanceImageImporting),findsOneWidget);expect(find.text(l.maintenanceImageUploading),findsNothing);expect(find.byType(LinearProgressIndicator),findsNothing);
         form.setState(()=>form._cancelled=true);final before=form._progress;progress!(MachineImageTransferStage.download,294,294);
         await tester.pump(const Duration(milliseconds:200));expect(form._progress,before);
         pending.completeError(TimeoutException('模拟导入取消'));await work;await tester.pumpAndSettle();
