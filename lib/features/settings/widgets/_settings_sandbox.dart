@@ -3535,7 +3535,6 @@ class _SandboxResourceActionDialog extends StatefulWidget {
 class _SandboxResourceActionDialogState
     extends State<_SandboxResourceActionDialog> {
   final Completer<void> _cancellation = Completer<void>();
-  double _progress = 0.03;
   String _message = '';
   AiSandboxActionResult? _result;
 
@@ -3594,26 +3593,6 @@ class _SandboxResourceActionDialogState
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
                 ),
               ),
-              if (!_finished) ...<Widget>[
-                kOpenHandGap18,
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0, end: _progress),
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 520),
-                  ),
-                  curve: kOpenHandEmphasizedCurve,
-                  builder: (context, value, _) => ClipRRect(
-                    borderRadius: kOpenHandBorderRadius12,
-                    child: LinearProgressIndicator(
-                      value: value.clamp(0, 1),
-                      minHeight: 11,
-                      color: accent,
-                      backgroundColor: accent.withValues(alpha: 0.13),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -3671,10 +3650,9 @@ class _SandboxResourceActionDialogState
       final result = await widget.service.performEnvironmentAction(
         widget.action,
         cancelSignal: _cancellation.future,
-        onProgress: (progress, message) {
+        onStatus: (message) {
           if (!mounted) return;
           setState(() {
-            _progress = progress.clamp(_progress, 1);
             _message = message;
           });
         },

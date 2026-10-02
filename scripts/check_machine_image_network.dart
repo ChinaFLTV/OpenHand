@@ -81,7 +81,7 @@ class Fixture {
   final sockets=<Socket>{};
   final requests=<({String path,String? authorization})>[];
   final tunnels=<String>[];
-  bool private=false,corrupt=false,redirect=false,slow=false,badManifest=false;
+  bool private=false,corrupt=false,redirect=false,slow=false,badManifest=false,chunked=false;
   int iconSize=4;
   int latestStatus=200;
   List<int> layer=[];
@@ -89,10 +89,10 @@ class Fixture {
   late String configDigest,manifestDigest,layerDigest;
   String get image=>'registry.test:${origin.port}/check/image:latest';
   String digest(List<int> bytes)=>'sha256:${sha256.convert(bytes)}';
-  void configure({String architecture='arm64'}) {
-    configuration=utf8.encode(jsonEncode({'architecture':architecture,'os':'linux','config':{},'rootfs':{'type':'layers','diff_ids':[if(layer.isNotEmpty)digest(gzip.decode(layer))]},'history':[if(layer.isNotEmpty){'created_by':'测试镜像'}]}));
+  void configure({String architecture='arm64',int repetitions=1,int? duplicateSize}) {
+    configuration=utf8.encode(jsonEncode({'architecture':architecture,'os':'linux','config':{},'rootfs':{'type':'layers','diff_ids':[if(layer.isNotEmpty)for(var i=0;i<repetitions;i++)digest(gzip.decode(layer))]},'history':[if(layer.isNotEmpty){'created_by':'测试镜像'}]}));
     configDigest=digest(configuration);layerDigest=digest(layer);
-    manifest=utf8.encode(jsonEncode({'schemaVersion':2,'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'mediaType':'application/vnd.oci.image.config.v1+json','digest':configDigest,'size':configuration.length},'layers':[if(layer.isNotEmpty){'mediaType':'application/vnd.oci.image.layer.v1.tar+gzip','digest':layerDigest,'size':layer.length}]}));
+    manifest=utf8.encode(jsonEncode({'schemaVersion':2,'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'mediaType':'application/vnd.oci.image.config.v1+json','digest':configDigest,'size':configuration.length},'layers':[if(layer.isNotEmpty)for(var i=0;i<repetitions;i++){'mediaType':'application/vnd.oci.image.layer.v1.tar+gzip','digest':layerDigest,'size':i>0?duplicateSize??layer.length:layer.length}]}));
     manifestDigest=digest(manifest);
     index=utf8.encode(jsonEncode({'schemaVersion':2,'manifests':[
       {'digest':manifestDigest,'size':manifest.length,'platform':{'os':'linux','architecture':'invalid'}},
@@ -117,7 +117,10 @@ class Fixture {
         else if(path.endsWith('/blobs/$layerDigest')) {
           if(redirect){response.statusCode=307;response.headers.set(HttpHeaders.locationHeader,'https://cdn.test:${origin.port}/layer');}
           else if(slow) {await Future<void>.delayed(const Duration(seconds:2));try{response.add(layer);}catch(_) {}}
-          else {response.add(corrupt?List<int>.filled(layer.length,1):layer);}
+          else if(chunked) {
+            final split=layer.length~/2;response.add(layer.sublist(0,split));await response.flush();
+            await Future<void>.delayed(const Duration(milliseconds:100));response.add(layer.sublist(split));
+          } else {response.add(corrupt?List<int>.filled(layer.length,1):layer);}
         } else {response.statusCode=404;}
       } else if(path=='/layer') {response.add(layer);}
       else if(path.endsWith('/tags')) {response.write('{"results":[{"name":"stable"}],"next":null}');}
@@ -165,8 +168,8 @@ class Fixture {
     for(final socket in sockets)socket.destroy();
     await socks?.close();await proxy.close(force:true);await origin.close(force:true);resolver.applyConfig(AppProxySettings.defaults());
   }
-  Future<T> download<T>(Future<T> Function(MachineImageArchive) consume,{bool Function()? cancelled,Duration timeout=const Duration(seconds:5),Future<MachineImageCredential?> Function(String)? credential}) => MachineImageDownload(clientFactory:routedClient).withArchive(
-    image:image,os:'linux',architecture:'arm64',timeout:timeout,consume:consume,isCancelled:cancelled,credential:credential,
+  Future<T> download<T>(Future<T> Function(MachineImageArchive) consume,{bool Function()? cancelled,Duration timeout=const Duration(seconds:5),Future<MachineImageCredential?> Function(String)? credential,MachineImageDownloadProgress? onProgress}) => MachineImageDownload(clientFactory:routedClient).withArchive(
+    image:image,os:'linux',architecture:'arm64',timeout:timeout,consume:consume,isCancelled:cancelled,credential:credential,onProgress:onProgress,
   );
 }
 
@@ -270,6 +273,33 @@ void main() {
     expect(await archive!.exists(),isFalse);
   });
 
+  test('下载进度使用实际唯一分层字节，空分层也有起点与完成通知',()async {
+    final samples=<({int received,int total})>[];
+    await fixture.download((_)async{},onProgress:(received,total)=>samples.add((received:received,total:total)));
+    expect(samples.first,(received:0,total:fixture.configuration.length));
+    expect(samples.last,(received:fixture.configuration.length,total:fixture.configuration.length));
+    fixture.layer=gzip.encode(List<int>.generate(4096,(i)=>(i*31+i~/7)%256));fixture.chunked=true;fixture.configure(repetitions:2);
+    samples.clear();fixture.requests.clear();
+    await fixture.download((_)async{},onProgress:(received,total)=>samples.add((received:received,total:total)));
+    final total=fixture.configuration.length+fixture.layer.length;
+    expect(samples.first,(received:0,total:total));expect(samples.last,(received:total,total:total));
+    expect(samples.any((sample)=>sample.received>fixture.configuration.length && sample.received<total),isTrue);
+    for(var i=1;i<samples.length;i++) {expect(samples[i].total,total);expect(samples[i].received,inInclusiveRange(samples[i-1].received,total));}
+    expect(fixture.requests.where((request)=>request.path.endsWith('/blobs/${fixture.layerDigest}')).length,1);
+    fixture.configure(repetitions:2,duplicateSize:fixture.layer.length+1);
+    await expectLater(fixture.download((_)async{}),throwsA(isA<FormatException>()));
+  });
+
+  test('取消发生在已下载配置后，不上报分层完成且不调用导入',()async {
+    fixture.layer=gzip.encode(List<int>.filled(1024,0));fixture.configure();
+    final samples=<int>[];var cancelled=false,imported=false;
+    await expectLater(fixture.download((_)async{imported=true;},cancelled:()=>cancelled,onProgress:(received,total) {
+      samples.add(received);if(received==fixture.configuration.length)cancelled=true;
+    }),throwsA(anything));
+    expect(imported,isFalse);expect(samples.last,fixture.configuration.length);
+    expect(samples, isNot(contains(fixture.configuration.length+fixture.layer.length)));
+  });
+
   test('私有凭据用于仓库鉴权，跨域分层重定向不携带仓库凭据',()async {
     fixture.private=true;fixture.layer=gzip.encode(List<int>.filled(512,0));fixture.redirect=true;fixture.configure();var reads=0;
     await fixture.download((_)async{},credential:(_)async {reads++;return(username:'tester',secret:'私有密码');});
@@ -314,7 +344,7 @@ void main() {
   test('Docker、Podman、nerdctl 和 Windows 导入保留上下文并清理临时归档',()async {
     for(final runtime in [MachineContainerRuntime.docker,MachineContainerRuntime.podman,MachineContainerRuntime.containerd]) {
       for(final windows in [false,true]) {
-        final commands=<String>[];var uploaded=false,cleaned=false;
+        final commands=<String>[];final stages=<({MachineImageTransferStage stage,int received,int total})>[];var uploaded=false,cleaned=false;
         String decoded(String command) => windows && command.contains('-EncodedCommand')?String.fromCharCodes(base64Decode(command.split(' ').last).buffer.asUint16List()):command;
         Future<String> run(String command,{required Duration timeout,void Function(String)? onOutput,bool Function()? isCancelled})async {
           final text=decoded(command);commands.add(text);
@@ -324,7 +354,12 @@ void main() {
         }
         final client=MachineContainerClient(runtime:runtime,contextName:'目标上下文',scope:'目标命名空间',windows:windows,run:(_)async=>throw StateError('不应调用默认通道'));
         final operations=MachineImageOperations(clientFactory:routedClient,run:run,upload:(file,directory,stopped,progress)async{expect(await file.exists(),isTrue);uploaded=true;progress(await file.length());},cleanup:(command)async{cleaned=true;expect(decoded(command),contains('openhand-image-test12345'));});
-        final result=await operations.pull(client,fixture.image,timeout:const Duration(seconds:5));expect(result.output,'已导入');expect(cleaned,isTrue);
+        final result=await operations.pull(client,fixture.image,timeout:const Duration(seconds:5),onProgress:(stage,received,total)=>stages.add((stage:stage,received:received,total:total)));expect(result.output,'已导入');expect(cleaned,isTrue);
+        expect(stages.map((sample)=>sample.stage).toSet().toList(),MachineImageTransferStage.values);
+        expect(stages.first,(stage:MachineImageTransferStage.preparing,received:0,total:0));
+        final uploadedStage=stages.where((sample)=>sample.stage==MachineImageTransferStage.upload).last;
+        expect(uploadedStage.total,greaterThan(0));expect(uploadedStage.received,uploadedStage.total);
+        expect(stages.last,(stage:MachineImageTransferStage.import,received:0,total:0));
         expect(commands.any((c)=>c.contains("'pull'")),isFalse);
         if(runtime==MachineContainerRuntime.docker)expect(commands.last,contains("'--context' '目标上下文'"));
         if(runtime==MachineContainerRuntime.containerd)expect(commands.last,contains("'--namespace' '目标命名空间'"));

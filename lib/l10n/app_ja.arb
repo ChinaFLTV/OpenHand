@@ -9874,5 +9874,9 @@
   "maintenanceImageAdminPermission": "管理権限",
   "maintenanceImageReadPermission": "読み取り権限",
   "maintenanceImageWritePermission": "書き込み権限",
-  "maintenanceImageSlug": "短い識別子"
+  "maintenanceImageSlug": "短い識別子",
+  "maintenanceImagePreparing": "イメージのダウンロードを準備中",
+  "resourcePreparing": "リソースを準備中",
+  "resourceDownloading": "リソースをダウンロード中",
+  "resourceDownloadFiles": "{completed} / {total} ファイル"
 }

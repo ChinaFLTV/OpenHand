@@ -2948,22 +2948,18 @@ class _OfflineSpeechDownloadDialogState
               ),
               kOpenHandGap18,
               if (!_finished) ...<Widget>[
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0, end: progress ?? 0),
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 520),
-                  ),
-                  curve: kOpenHandEntranceCurve,
-                  builder: (context, value, _) => ClipRRect(
-                    borderRadius: kOpenHandBorderRadius12,
-                    child: LinearProgressIndicator(
-                      value: progress == null ? null : value.clamp(0, 1),
-                      minHeight: 11,
-                      color: accent,
-                      backgroundColor: accent.withValues(alpha: 0.13),
-                    ),
-                  ),
+                OpenHandTransferProgress(
+                  key: ValueKey(state.lifecycle),
+                  label: preparing
+                      ? AppLocalizations.of(context)!.resourcePreparing
+                      : AppLocalizations.of(context)!.resourceDownloading,
+                  detail: state.totalBytes == 0 && state.totalFiles > 0
+                      ? AppLocalizations.of(context)!.resourceDownloadFiles(
+                          state.completedFiles,
+                          state.totalFiles,
+                        )
+                      : '',
+                  value: progress,
                 ),
                 kOpenHandGap12,
                 if (state.totalBytes > 0 || state.totalFiles > 0)
@@ -2981,11 +2977,15 @@ class _OfflineSpeechDownloadDialogState
                         icon: Icons.speed_rounded,
                         text: '${formatByteSize(state.bytesPerSecond)}/s',
                       ),
-                      _OfflineSpeechMetric(
-                        icon: Icons.inventory_2_outlined,
-                        text:
-                            '${state.completedFiles} / ${state.totalFiles} 个文件',
-                      ),
+                      if (state.totalBytes > 0)
+                        _OfflineSpeechMetric(
+                          icon: Icons.inventory_2_outlined,
+                          text: AppLocalizations.of(context)!
+                              .resourceDownloadFiles(
+                                state.completedFiles,
+                                state.totalFiles,
+                              ),
+                        ),
                     ],
                   ),
                 if (state.message != null) ...<Widget>[

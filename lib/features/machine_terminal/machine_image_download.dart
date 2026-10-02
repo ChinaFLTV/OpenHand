@@ -193,13 +193,21 @@ class MachineImageDownload {
       final layers = (data['layers'] as List)
           .map(_ImageDescriptor.parse)
           .toList();
-      final total =
-          config.size + layers.fold<int>(0, (sum, layer) => sum + layer.size);
+      final sizes = <String, int>{config.digest: config.size};
+      for (final layer in layers) {
+        final previous = sizes[layer.digest];
+        if (previous != null && previous != layer.size) {
+          throw const FormatException('相同镜像分层的声明容量不一致。');
+        }
+        sizes[layer.digest] = layer.size;
+      }
+      final total = sizes.values.fold<int>(0, (sum, size) => sum + size);
       if (config.size > _metadataLimit ||
           layers.length > _layerCountLimit ||
           total > _imageLimit) {
         throw const FormatException('镜像超过下载容量上限。');
       }
+      onProgress?.call(0, total);
       final configuration = await transfer.json(
         reference.uri('blobs', config.digest),
         digest: config.digest,
@@ -216,6 +224,7 @@ class MachineImageDownload {
         throw const FormatException('镜像分层与配置不一致。');
       }
       transfer.check();
+      onProgress?.call(config.size, total);
       directory = await createTemporaryDirectoryBounded(
         prefix: 'openhand-image-',
         timeout: deadline.limit(_connectionTimeout),
@@ -316,6 +325,7 @@ class MachineImageDownload {
         await archive.close();
       }
       transfer.check();
+      onProgress?.call(total, total);
       return await consume(
         MachineImageArchive(
           file,

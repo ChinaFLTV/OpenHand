@@ -16062,4 +16062,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceImageSlug => 'Slug';
+
+  @override
+  String get maintenanceImagePreparing => 'Preparing image download';
+
+  @override
+  String get resourcePreparing => 'Preparing resources';
+
+  @override
+  String get resourceDownloading => 'Downloading resources';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total files';
+  }
 }

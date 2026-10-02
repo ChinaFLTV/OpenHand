@@ -2559,6 +2559,12 @@ class _ContainerResourceFormDialogState
   String _error = '', _output = '', _pendingOutput = '', _restart = 'no';
   late int _timeout;
   Timer? _outputTimer;
+  ({MachineImageTransferStage stage, int received, int total}) _progress = (
+    stage: MachineImageTransferStage.preparing,
+    received: 0,
+    total: 0,
+  );
+  late var _pendingProgress = _progress;
   bool get _remove =>
       widget.action == _ContainerResourceAction.removeImage ||
       widget.action == _ContainerResourceAction.removeVolume;
@@ -2603,13 +2609,23 @@ class _ContainerResourceFormDialogState
     return values;
   }
 
-  void _receive(String text) {
+  void _receive(
+    String text, {
+    ({MachineImageTransferStage stage, int received, int total})? progress,
+  }) {
+    if (!mounted || !_busy || _cancelled) return;
+    if (progress != null) _pendingProgress = progress;
     _pendingOutput = text.length > machineContainerOperationOutputLimit
         ? text.substring(text.length - machineContainerOperationOutputLimit)
         : text;
     _outputTimer ??= startSafeTimer(const Duration(milliseconds: 100), () {
       _outputTimer = null;
-      if (mounted) setState(() => _output = _pendingOutput);
+      if (mounted && _busy && !_cancelled) {
+        setState(() {
+          _output = _pendingOutput;
+          _progress = _pendingProgress;
+        });
+      }
     });
   }
 
@@ -2672,6 +2688,12 @@ class _ContainerResourceFormDialogState
     setState(() {
       _busy = true;
       _cancelled = false;
+      _pendingOutput = '';
+      _progress = _pendingProgress = (
+        stage: MachineImageTransferStage.preparing,
+        received: 0,
+        total: 0,
+      );
     });
     final budget = MonotonicDeadline(Duration(seconds: _timeout));
     try {
@@ -2707,6 +2729,14 @@ class _ContainerResourceFormDialogState
             _value('image'),
             timeout: budget.remaining(),
             onOutput: _receive,
+            onProgress: (stage, received, total) => _receive(
+              _pendingOutput,
+              progress: (
+                stage: stage,
+                received: math.max(0, received),
+                total: math.max(0, total),
+              ),
+            ),
             isCancelled: () => !mounted || _cancelled,
           );
           pullOutput = pulled.output;
@@ -2717,6 +2747,14 @@ class _ContainerResourceFormDialogState
         }
         if (widget.action == _ContainerResourceAction.createContainer) {
           args.insert(1, '--pull=never');
+          _receive(
+            _pendingOutput,
+            progress: (
+              stage: MachineImageTransferStage.preparing,
+              received: 0,
+              total: 0,
+            ),
+          );
         }
       }
       final result = widget.action == _ContainerResourceAction.pull
@@ -3448,7 +3486,42 @@ class _ContainerResourceFormDialogState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_busy) ...[
-                        const LinearProgressIndicator(minHeight: 2),
+                        if (widget.action == _ContainerResourceAction.pull ||
+                            widget.action ==
+                                _ContainerResourceAction.createContainer)
+                          OpenHandVerticalRevealSwitcher(
+                            presentKey: ValueKey(_progress.stage),
+                            child: OpenHandTransferProgress(
+                              key: ValueKey(_progress.stage),
+                              label: switch (_progress.stage) {
+                                MachineImageTransferStage.preparing =>
+                                  widget.action ==
+                                          _ContainerResourceAction
+                                              .createContainer
+                                      ? l.maintenanceContainerCreate
+                                      : l.maintenanceImagePreparing,
+                                MachineImageTransferStage.download =>
+                                  l.maintenanceImageDownloading,
+                                MachineImageTransferStage.upload =>
+                                  l.maintenanceImageUploading,
+                                MachineImageTransferStage.import =>
+                                  l.maintenanceImageImporting,
+                              },
+                              value: _progress.total > 0
+                                  ? _progress.received / _progress.total
+                                  : null,
+                              detail: _progress.total > 0
+                                  ? '${formatLocalizedByteSizeOf(context, _progress.received)} / ${formatLocalizedByteSizeOf(context, _progress.total)}'
+                                  : _progress.received > 0
+                                  ? formatLocalizedByteSizeOf(
+                                      context,
+                                      _progress.received,
+                                    )
+                                  : '',
+                            ),
+                          )
+                        else
+                          const LinearProgressIndicator(minHeight: 2),
                         const SizedBox(height: 10),
                       ],
                       if (_error.isNotEmpty || _uncertain || _completed) ...[

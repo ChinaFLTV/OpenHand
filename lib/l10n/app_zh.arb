@@ -11056,5 +11056,19 @@
   "maintenanceImageAdminPermission": "管理权限",
   "maintenanceImageReadPermission": "读取权限",
   "maintenanceImageWritePermission": "写入权限",
-  "maintenanceImageSlug": "短标识"
+  "maintenanceImageSlug": "短标识",
+  "maintenanceImagePreparing": "正在准备镜像下载",
+  "resourcePreparing": "正在准备资源",
+  "resourceDownloading": "正在下载资源",
+  "resourceDownloadFiles": "{completed} / {total} 个文件",
+  "@resourceDownloadFiles": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

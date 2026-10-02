@@ -16,12 +16,18 @@ typedef MachineContainerOperationRunner =
 
 enum MachineContainerResourceKind { images, volumes }
 
+enum MachineImageTransferStage { preparing, download, upload, import }
+
+typedef MachineImageTransferProgress =
+    void Function(MachineImageTransferStage stage, int received, int total);
+
 typedef MachineContainerImagePuller =
     Future<({String output, String image})> Function(
       MachineContainerClient client,
       String image, {
       required Duration timeout,
       void Function(String)? onOutput,
+      MachineImageTransferProgress? onProgress,
       bool Function()? isCancelled,
     });
 

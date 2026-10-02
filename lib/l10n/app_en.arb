@@ -9879,5 +9879,9 @@
   "maintenanceImageAdminPermission": "Admin permission",
   "maintenanceImageReadPermission": "Read permission",
   "maintenanceImageWritePermission": "Write permission",
-  "maintenanceImageSlug": "Slug"
+  "maintenanceImageSlug": "Slug",
+  "maintenanceImagePreparing": "Preparing image download",
+  "resourcePreparing": "Preparing resources",
+  "resourceDownloading": "Downloading resources",
+  "resourceDownloadFiles": "{completed} / {total} files"
 }

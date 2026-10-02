@@ -7,8 +7,6 @@ import '../../shared/util/platform_shell.dart';
 import 'machine_containers.dart';
 import 'machine_image_download.dart';
 
-enum MachineImageTransferStage { download, upload, import }
-
 /// 下载与终端传输分别注入，网络路由与目标运行时上下文互不混淆。
 class MachineImageOperations {
   const MachineImageOperations({
@@ -33,8 +31,7 @@ class MachineImageOperations {
     String image, {
     required Duration timeout,
     bool Function()? isCancelled,
-    void Function(MachineImageTransferStage stage, int received, int total)?
-    onProgress,
+    MachineImageTransferProgress? onProgress,
     void Function(String)? onOutput,
   }) async {
     if (!client.supportsResources) {
@@ -51,6 +48,7 @@ class MachineImageOperations {
       onOutput: output ? onOutput : null,
     );
     try {
+      onProgress?.call(MachineImageTransferStage.preparing, 0, 0);
       final info =
           jsonDecode(await execute(client.command(client.metadataArguments)))
               as Map;
@@ -119,6 +117,7 @@ class MachineImageOperations {
             if (stopped()) {
               throw const MachineContainerConfigException('cancelled');
             }
+            onProgress?.call(MachineImageTransferStage.upload, length, length);
             onProgress?.call(MachineImageTransferStage.import, 0, 0);
             final load = client.command([
               'load',

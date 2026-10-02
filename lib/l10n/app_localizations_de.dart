@@ -16239,4 +16239,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get maintenanceImageSlug => 'Kurzkennung';
+
+  @override
+  String get maintenanceImagePreparing => 'Image-Download wird vorbereitet';
+
+  @override
+  String get resourcePreparing => 'Ressourcen werden vorbereitet';
+
+  @override
+  String get resourceDownloading => 'Ressourcen werden heruntergeladen';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total Dateien';
+  }
 }

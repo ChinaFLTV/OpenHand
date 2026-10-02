@@ -15698,4 +15698,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceImageSlug => '短い識別子';
+
+  @override
+  String get maintenanceImagePreparing => 'イメージのダウンロードを準備中';
+
+  @override
+  String get resourcePreparing => 'リソースを準備中';
+
+  @override
+  String get resourceDownloading => 'リソースをダウンロード中';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total ファイル';
+  }
 }

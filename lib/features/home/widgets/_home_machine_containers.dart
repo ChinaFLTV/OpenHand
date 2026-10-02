@@ -152,11 +152,15 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
     String image, {
     required Duration timeout,
     void Function(String)? onOutput,
+    MachineImageTransferProgress? onProgress,
     bool Function()? isCancelled,
   }) {
     final service = context.read<MachineTerminalFileService>();
     final query = _query!;
     final l = AppLocalizations.of(context)!;
+    final elapsed = Stopwatch()..start();
+    var lastLog = Duration.zero;
+    MachineImageTransferStage? lastStage;
     return MachineImageOperations(
       clientFactory: SystemProxyResolver.instance.createRawHttpClient,
       run: (command, {required timeout, onOutput, isCancelled}) => query.run(
@@ -196,11 +200,20 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
       isCancelled: isCancelled,
       onOutput: onOutput,
       onProgress: (stage, received, total) {
-        if (!mounted || (isCancelled?.call() ?? false) || onOutput == null) {
+        if (!mounted || (isCancelled?.call() ?? false)) {
           return;
         }
-        onOutput(
+        onProgress?.call(stage, received, total);
+        if (stage == lastStage &&
+            received != total &&
+            elapsed.elapsed - lastLog < const Duration(milliseconds: 100)) {
+          return;
+        }
+        lastStage = stage;
+        lastLog = elapsed.elapsed;
+        onOutput?.call(
           '${switch (stage) {
+            MachineImageTransferStage.preparing => l.maintenanceImagePreparing,
             MachineImageTransferStage.download => l.maintenanceImageDownloading,
             MachineImageTransferStage.upload => l.maintenanceImageUploading,
             MachineImageTransferStage.import => l.maintenanceImageImporting,

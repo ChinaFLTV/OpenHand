@@ -1250,21 +1250,6 @@ class _PluginOperationProgressDialogState
                 ? _buildHeaderIcon(theme, pulseEnabled)
                 : null,
             showCloseButton: false,
-            actions: [
-              if (isOperating)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      value: pulseEnabled ? null : 1,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-            ],
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           // 环境信息
@@ -1295,16 +1280,8 @@ class _PluginOperationProgressDialogState
               ),
             ),
           ),
-          // 进度条
-          if (isOperating)
-            LinearProgressIndicator(
-              minHeight: 3,
-              value: pulseEnabled ? null : 1,
-              color: theme.colorScheme.primary,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            )
-          else
-            Container(height: 3, color: OpenHandStatusColors.success),
+          // 包管理器未提供统一下载计量，操作状态由标题与实时日志展示。
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
           // 终端输出区域
           Flexible(
             child: OpenHandConsoleLogPanel(

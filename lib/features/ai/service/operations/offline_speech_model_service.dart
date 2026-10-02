@@ -63,7 +63,9 @@ class OfflineSpeechModelState {
   final int totalFiles;
   final String? message;
 
-  double? get progress => totalBytes > 0
+  double? get progress => lifecycle == OfflineSpeechLifecycle.preparing
+      ? null
+      : totalBytes > 0
       ? (receivedBytes / totalBytes).clamp(0, 1)
       : totalFiles > 0
       ? (completedFiles / totalFiles).clamp(0, 1)
@@ -1036,11 +1038,25 @@ class OfflineSpeechModelService extends ChangeNotifier {
         if (files.any((file) => file.size < 0)) {
           throw StateError('模型仓库文件清单包含无效大小。');
         }
-        totalBytes = files.fold<int>(0, (sum, file) => sum + file.size);
-        if (totalBytes > _maxModelDownloadBytes) {
+        final advertisedBytes = files.fold<int>(
+          0,
+          (sum, file) => sum + file.size,
+        );
+        if (advertisedBytes > _maxModelDownloadBytes) {
           throw StateError('模型下载总量超过安全上限。');
         }
+        // 缺少任一文件大小时按已完成文件数计量，避免部分总量产生虚假百分比。
+        totalBytes = files.every((file) => file.size > 0) ? advertisedBytes : 0;
         totalFiles = files.length;
+        _setState(
+          model.id,
+          OfflineSpeechModelState(
+            lifecycle: OfflineSpeechLifecycle.downloading,
+            totalBytes: totalBytes,
+            totalFiles: totalFiles,
+            message: '正在下载模型文件…',
+          ),
+        );
         final stopwatch = Stopwatch()..start();
         final downloadDeadline = MonotonicDeadline(
           _modelDownloadTotalTimeout,
@@ -1119,6 +1135,20 @@ class OfflineSpeechModelService extends ChangeNotifier {
               throw StateError('模型文件下载不完整：${remote.path}');
             }
             completedFiles++;
+            _setState(
+              model.id,
+              OfflineSpeechModelState(
+                lifecycle: OfflineSpeechLifecycle.downloading,
+                receivedBytes: receivedBytes,
+                totalBytes: totalBytes,
+                completedFiles: completedFiles,
+                totalFiles: totalFiles,
+                bytesPerSecond: stopwatch.elapsedMilliseconds == 0
+                    ? 0
+                    : receivedBytes * 1000 / stopwatch.elapsedMilliseconds,
+                message: remote.path,
+              ),
+            );
           }
         } finally {
           if (identical(cancellation.client, downloadClient)) {

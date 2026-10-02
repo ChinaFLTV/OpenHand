@@ -62,7 +62,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:xml/xml.dart' as xml;
-import 'package:intl/intl.dart' show DateFormat;
+import 'package:intl/intl.dart' show DateFormat, NumberFormat;
 import 'package:openhand/shared/ui/bounded_animation.dart';
 import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:openhand/shared/ui/openhand_animated_sliver_list.dart';
@@ -88,6 +88,8 @@ import 'package:openhand/app/theme/openhand_status_colors.dart';
 import 'package:openhand/features/machine_terminal/machine_maintenance.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/openhand_dialog_action_button.dart';
+import 'package:openhand/shared/ui/openhand_transfer_progress.dart';
+import 'package:openhand/shared/ui/openhand_reveal_switcher.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
 import 'package:openhand/shared/ui/openhand_code_editor.dart';
 import 'package:openhand/shared/ui/openhand_document_markdown_preview.dart';
@@ -7334,7 +7336,7 @@ void resourceChecks() {
         await tester.pumpWidget(_SettingsApp(locale: locale, localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           theme: theme.copyWith(textTheme: theme.textTheme.apply(fontFamily: Platform.environment['MAINTENANCE_FONT'] == null ? null : '运维预览字体')),
           builder: (context, child) => RepaintBoundary(key: const ValueKey('镜像搜索预览'), child: MediaQuery(data: MediaQuery.of(context).copyWith(size:Size(width,960),textScaler: TextScaler.linear(width < 500 ? 1.5 : 1)), child: child!)),
-          home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, pullImage: (client, image, {required timeout, onOutput, isCancelled}) async => (output: 'downloaded', image: image), timeout: const Duration(seconds: 30), onCreated: () => created++))));
+          home: Scaffold(body: _ContainerRegistryDialog(client: client, registryFactory: registryFactory, pullImage: (client, image, {required timeout, onOutput, onProgress, isCancelled}) async => (output: 'downloaded', image: image), timeout: const Duration(seconds: 30), onCreated: () => created++))));
         await tester.pumpAndSettle();
         final registry = tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
         registry._query.text = 'nginx'; await tester.pumpAndSettle();
@@ -7619,7 +7621,7 @@ void resourceChecks() {
     await tester.binding.setSurfaceSize(const Size(1000,1000));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
       home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.createContainer,timeout:const Duration(seconds:30),
-        pullImage:(client,image,{required timeout,onOutput,isCancelled})async{pulled++;expect(image,'nginx');return(output:'已下载',image:imported);} ))));
+        pullImage:(client,image,{required timeout,onOutput,onProgress,isCancelled})async{pulled++;expect(image,'nginx');return(output:'已下载',image:imported);} ))));
     final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
     form._controller('image').text='nginx';form._controller('name').text='nginx';form._controller('entrypoint').text='nginx';form._controller('arguments').text='nginx\n--test';
     await form._submit();await tester.pumpAndSettle();
@@ -7627,6 +7629,67 @@ void resourceChecks() {
     expect(commands.last,contains("'--name' 'nginx'"));expect(commands.last,contains("'--entrypoint' 'nginx'"));expect(commands.last,endsWith("'"+imported+"' 'nginx' '--test'"));
     expect(commands.any((command)=>command.contains("'pull'")),isFalse);
     await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('传输进度平滑追随实际值，未知总量不显示循环条或虚假百分比', (tester) async {
+    var value=.25;var reduced=false;late StateSetter update;
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+      home:Scaffold(body:StatefulBuilder(builder:(context,setState) {update=setState;
+        return MediaQuery(data:MediaQuery.of(context).copyWith(disableAnimations:reduced),child:OpenHandTransferProgress(label:'正在下载资源',detail:'实际已下载量',value:value));}))));
+    await tester.pumpAndSettle();expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.25);
+    update(()=>value=.75);await tester.pump();await tester.pump(const Duration(milliseconds:110));
+    expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,inInclusiveRange(.25,.75));
+    await tester.pumpAndSettle();expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.75);
+    update((){reduced=true;value=.5;});await tester.pump();expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.5);
+    update(()=>value=double.nan);await tester.pump();expect(find.byType(LinearProgressIndicator),findsNothing);expect(find.text('实际已下载量'),findsOneWidget);
+    update(()=>value=2);await tester.pump();expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,1);
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('镜像进度按真实字节显示，阶段切换、六语言与取消回调可靠', (tester) async {
+    for(final locale in AppLocalizations.supportedLocales) {
+      for(final width in [420.0,900.0]) {
+        final pending=Completer<({String output,String image})>();MachineImageTransferProgress? progress;
+        final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>'');
+        final l=await AppLocalizations.delegate.load(locale);
+        final theme=OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+        await tester.binding.setSurfaceSize(Size(width,960));
+        await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(size:Size(width,960),disableAnimations:true,textScaler:TextScaler.linear(width<500?1.3:1)),child:child!),
+          home:Scaffold(body:RepaintBoundary(key:const ValueKey('下载进度预览'),child:_ContainerResourceFormDialog(
+            client:client,action:_ContainerResourceAction.pull,image:'golang:latest',timeout:const Duration(minutes:15),
+            pullImage:(client,image,{required timeout,onOutput,onProgress,isCancelled})async{progress=onProgress;return pending.future;})))));
+        await tester.pumpAndSettle();final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
+        final work=form._submit();await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceImagePreparing),findsOneWidget);expect(find.byType(LinearProgressIndicator),findsNothing);
+        progress!(MachineImageTransferStage.download,85*1024*1024,294*1024*1024);
+        form._receive(l.maintenanceImageDownloading+' · 85 MB / 294 MB');await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+        expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,closeTo(85/294,1e-10));
+        expect(find.text(NumberFormat.decimalPercentPattern(locale:locale.toString(),decimalDigits:1).format(85/294)),findsOneWidget);
+        expect(tester.widget<TweenAnimationBuilder<double>>(find.descendant(of:find.byType(OpenHandTransferProgress),matching:find.byType(TweenAnimationBuilder<double>))).duration,Duration.zero);
+        final preview=Platform.environment['MAINTENANCE_TRANSFER_PREVIEW'];
+        if(locale==const Locale('zh')&&width==900&&preview!=null) {
+          await tester.runAsync(()async{final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('下载进度预览'))).toImage(pixelRatio:1.5);
+            final data=await image.toByteData(format:ui.ImageByteFormat.png);await File(preview).writeAsBytes(data!.buffer.asUint8List());image.dispose();});
+        }
+        for(var i=86;i<=200;i++)progress!(MachineImageTransferStage.download,i*1024*1024,294*1024*1024);
+        expect(form._progress.received,85*1024*1024);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+        expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,closeTo(200/294,1e-10));
+        progress!(MachineImageTransferStage.upload,0,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceImageUploading),findsOneWidget);expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,0);
+        progress!(MachineImageTransferStage.upload,256,512);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+        expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value,.5);
+        progress!(MachineImageTransferStage.import,0,0);await tester.pump(const Duration(milliseconds:110));await tester.pumpAndSettle();
+        expect(find.text(l.maintenanceImageImporting),findsOneWidget);expect(find.byType(LinearProgressIndicator),findsNothing);
+        form.setState(()=>form._cancelled=true);final before=form._progress;progress!(MachineImageTransferStage.download,294,294);
+        await tester.pump(const Duration(milliseconds:200));expect(form._progress,before);
+        pending.completeError(TimeoutException('模拟导入取消'));await work;await tester.pumpAndSettle();
+        expect(form._completed,isFalse);expect(form._uncertain,isTrue);expect(tester.takeException(),isNull,reason:locale.toString());
+        await tester.pumpWidget(const SizedBox());progress!(MachineImageTransferStage.download,1,1);await tester.pump();expect(tester.takeException(),isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
   });
 
   testWidgets('下载输出有界、取消和超时后需刷新确认且重复点击不重复提交', (tester) async {
@@ -7637,7 +7700,7 @@ void resourceChecks() {
     }
     await tester.binding.setSurfaceSize(const Size(1000,900));
     await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,
-      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.pull,image:'nginx:alpine',timeout:const Duration(minutes:15),operate:operate,pullImage:(client,image,{required timeout,onOutput,isCancelled})async=>(output:await operate('下载',timeout:timeout,onOutput:onOutput,isCancelled:isCancelled),image:image)))));
+      home:Scaffold(body:_ContainerResourceFormDialog(client:client,action:_ContainerResourceAction.pull,image:'nginx:alpine',timeout:const Duration(minutes:15),operate:operate,pullImage:(client,image,{required timeout,onOutput,onProgress,isCancelled})async=>(output:await operate('下载',timeout:timeout,onOutput:onOutput,isCancelled:isCancelled),image:image)))));
     await tester.pumpAndSettle();final form=tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog));
     final work=form._submit();await tester.pump();await tester.pump(const Duration(milliseconds:110));await form._submit();
     expect(calls,1);expect(form._output.length,machineContainerOperationOutputLimit);

@@ -9874,5 +9874,9 @@
   "maintenanceImageAdminPermission": "Administratorberechtigung",
   "maintenanceImageReadPermission": "Leseberechtigung",
   "maintenanceImageWritePermission": "Schreibberechtigung",
-  "maintenanceImageSlug": "Kurzkennung"
+  "maintenanceImageSlug": "Kurzkennung",
+  "maintenanceImagePreparing": "Image-Download wird vorbereitet",
+  "resourcePreparing": "Ressourcen werden vorbereitet",
+  "resourceDownloading": "Ressourcen werden heruntergeladen",
+  "resourceDownloadFiles": "{completed} / {total} Dateien"
 }

@@ -16293,4 +16293,19 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceImageSlug => 'Identifiant court';
+
+  @override
+  String get maintenanceImagePreparing =>
+      'Préparation du téléchargement de l’image';
+
+  @override
+  String get resourcePreparing => 'Préparation des ressources';
+
+  @override
+  String get resourceDownloading => 'Téléchargement des ressources';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total fichiers';
+  }
 }

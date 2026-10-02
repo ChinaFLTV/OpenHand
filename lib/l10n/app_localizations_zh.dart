@@ -15539,6 +15539,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceImageSlug => '短标识';
+
+  @override
+  String get maintenanceImagePreparing => '正在准备镜像下载';
+
+  @override
+  String get resourcePreparing => '正在准备资源';
+
+  @override
+  String get resourceDownloading => '正在下载资源';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total 个文件';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -31060,4 +31074,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceImageSlug => '短識別碼';
+
+  @override
+  String get maintenanceImagePreparing => '正在準備鏡像下載';
+
+  @override
+  String get resourcePreparing => '正在準備資源';
+
+  @override
+  String get resourceDownloading => '正在下載資源';
+
+  @override
+  String resourceDownloadFiles(int completed, int total) {
+    return '$completed / $total 個檔案';
+  }
 }

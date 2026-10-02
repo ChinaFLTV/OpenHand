@@ -86,9 +86,6 @@ class AiSandboxActionResult {
 
 enum AiSandboxResourceAction { install, update, uninstall }
 
-typedef AiSandboxActionProgress =
-    void Function(double progress, String message);
-
 class _LinuxSandboxPackageManager {
   const _LinuxSandboxPackageManager({
     required this.executable,
@@ -317,7 +314,7 @@ class AiSandboxService {
 
   Future<AiSandboxActionResult> performEnvironmentAction(
     AiSandboxResourceAction action, {
-    AiSandboxActionProgress? onProgress,
+    void Function(String message)? onStatus,
     Future<void>? cancelSignal,
   }) async {
     if (Platform.isMacOS) {
@@ -343,7 +340,7 @@ class AiSandboxService {
         message: '未找到受支持的系统包管理器。',
       );
     }
-    onProgress?.call(0.08, '正在检查系统权限');
+    onStatus?.call('正在检查系统权限');
     final userId = await runTrackedProcessOrFailed(
       'id',
       const <String>['-u'],
@@ -359,13 +356,13 @@ class AiSandboxService {
       );
     }
 
-    onProgress?.call(0.16, '正在启动系统资源任务');
+    onStatus?.call('正在启动系统资源任务');
     var latestMessage = '正在等待系统包管理器';
     void handleLine(String line) {
       final normalized = line.trim();
       if (normalized.isEmpty) return;
       latestMessage = normalized;
-      onProgress?.call(0.72, normalized);
+      onStatus?.call(normalized);
     }
 
     final arguments = manager.argumentsFor(action);
@@ -398,7 +395,7 @@ class AiSandboxService {
         message: latestMessage.isEmpty ? '系统包管理器执行失败。' : latestMessage,
       );
     }
-    onProgress?.call(1, '系统资源状态已更新');
+    onStatus?.call('系统资源状态已更新');
     return AiSandboxActionResult(
       success: true,
       message: switch (action) {

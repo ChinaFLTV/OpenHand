@@ -44,6 +44,20 @@ class _ObservedCancelFuture implements Future<void> {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _DownloadSpeechService extends _SpeechService {
+  _DownloadSpeechService(this.directory,this.files);
+  final Directory directory;
+  final List<_RemoteModelFile> files;
+  @override
+  String get modelsRoot=>directory.path;
+  @override
+  Future<List<_RemoteModelFile>> _loadRepositoryFiles(OfflineSpeechModelDefinition model,Map<String,Object?> configuration,_DownloadCancellation cancellation) async=>files;
+  @override
+  Future<HttpClientResponse> _openDownload(Uri uri,{required HttpClient client,required MonotonicDeadline deadline}) async=>(await client.getUrl(uri)).close();
+  @override
+  Future<void> _ensureRuntime(OfflineSpeechModelDefinition model,_DownloadCancellation cancellation) async {}
+}
+
 enum _SpeechMode { local, task, realtime, queued }
 
 class _SpeechServer {
@@ -150,6 +164,35 @@ Future<OfflineSpeechAudioStream> _openSpeech(
 }
 
 void main() {
+  test('模型下载按完整字节总量或已完成文件数计量，小文件完成不会丢失进度',() async {
+    final directory=await Directory.systemTemp.createTemp('openhand-speech-progress-');
+    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
+    server.listen((request)async{request.response.add(List<int>.filled(request.uri.path=='/a'?10:30,1));await request.response.close();});
+    try {
+      final model=OfflineSpeechModelCatalog.models.firstWhere((model)=>!model.isOnline&&model.runtime==OfflineSpeechRuntime.fasterWhisper);
+      for(final known in [false,true]) {
+        final target=Directory(p.join(directory.path,known?'已知':'未知'));await target.create();
+        final service=_DownloadSpeechService(target,[
+          _RemoteModelFile(path:'a.bin',size:10,uri:Uri.parse('http://127.0.0.1:${server.port}/a')),
+          _RemoteModelFile(path:'b.bin',size:known?30:0,uri:Uri.parse('http://127.0.0.1:${server.port}/b')),
+        ]);
+        final states=<OfflineSpeechModelState>[];
+        service.addListener(()=>states.add(service.stateOf(model)));
+        try {
+          await service.download(model,{});
+          final downloading=states.where((state)=>state.lifecycle==OfflineSpeechLifecycle.downloading&&state.totalFiles==2).toList();
+          expect(downloading.first.receivedBytes,0);expect(downloading.first.progress,0);
+          expect(downloading.first.totalBytes,known?40:0);
+          final first=downloading.firstWhere((state)=>state.completedFiles==1);
+          expect(first.receivedBytes,10);expect(first.progress,known ? .25 : .5);
+          final last=downloading.last;expect(last.completedFiles,2);expect(last.receivedBytes,40);expect(last.progress,1);
+          expect(states.where((state)=>state.lifecycle==OfflineSpeechLifecycle.preparing).every((state)=>state.progress==null),isTrue);
+          expect(service.stateOf(model).lifecycle,OfflineSpeechLifecycle.installed);
+        }finally{await service.shutdown();}
+      }
+    }finally{await server.close(force:true);await directory.delete(recursive:true);}
+  });
+
   for (final mode in _SpeechMode.values) {
     group('语音流 ${mode.name}', () {
       late _SpeechServer server;

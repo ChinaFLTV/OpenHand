@@ -9874,5 +9874,9 @@
   "maintenanceImageAdminPermission": "管理權限",
   "maintenanceImageReadPermission": "讀取權限",
   "maintenanceImageWritePermission": "寫入權限",
-  "maintenanceImageSlug": "短識別碼"
+  "maintenanceImageSlug": "短識別碼",
+  "maintenanceImagePreparing": "正在準備鏡像下載",
+  "resourcePreparing": "正在準備資源",
+  "resourceDownloading": "正在下載資源",
+  "resourceDownloadFiles": "{completed} / {total} 個檔案"
 }

@@ -29050,6 +29050,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'短标识'**
   String get maintenanceImageSlug;
+
+  /// No description provided for @maintenanceImagePreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备镜像下载'**
+  String get maintenanceImagePreparing;
+
+  /// No description provided for @resourcePreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备资源'**
+  String get resourcePreparing;
+
+  /// No description provided for @resourceDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载资源'**
+  String get resourceDownloading;
+
+  /// No description provided for @resourceDownloadFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'{completed} / {total} 个文件'**
+  String resourceDownloadFiles(int completed, int total);
 }
 
 class _AppLocalizationsDelegate
