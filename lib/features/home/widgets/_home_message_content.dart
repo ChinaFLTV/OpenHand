@@ -1804,6 +1804,17 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
   Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
     final label = (alt ?? title ?? uri.toString()).trim();
     final resolvedFilePath = _resolveMarkdownImageFilePath(uri);
+    // SVG 使用共用矢量图片组件，避免进入位图解码和缓存分支。
+    if ((resolvedFilePath ?? uri.path).toLowerCase().endsWith('.svg')) {
+      return buildOpenHandGalleryImage(
+        context,
+        uri: uri,
+        title: title,
+        alt: alt,
+        images: const [],
+        resolveFilePath: _resolveMarkdownImageFilePath,
+      );
+    }
     if (resolvedFilePath != null) {
       final previewTitle = label.isEmpty ? p.basename(resolvedFilePath) : label;
       return _wrapMarkdownImageTap(

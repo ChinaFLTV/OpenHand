@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../features/home/index.dart'
     show OpenHandHighlightedCodeBlockBuilder;
@@ -8,7 +9,7 @@ import 'openhand_safe_markdown_body.dart';
 
 const int kOpenHandMarketMarkdownMaxCharacters = 80000;
 
-/// 技能与 MCP 说明共用预处理、主题样式和高亮代码块。
+/// 文档说明共用预处理、主题样式、高亮代码块和图片预览。
 class OpenHandDocumentMarkdownPreview extends StatelessWidget {
   const OpenHandDocumentMarkdownPreview({
     super.key,
@@ -18,6 +19,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
     this.truncationMessage = '',
     this.emptyMessage = '',
     this.onTapLink,
+    this.imageBuilder,
   });
 
   final String data;
@@ -26,6 +28,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
   final String truncationMessage;
   final String emptyMessage;
   final void Function(String text, String? href, String title)? onTapLink;
+  final MarkdownImageBuilder? imageBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +58,7 @@ class OpenHandDocumentMarkdownPreview extends StatelessWidget {
       backgroundColor: markdownBackground,
       textColor: colorScheme.onSurface,
       onTapLink: onTapLink,
+      imageBuilder: imageBuilder,
       builders: {
         'pre': OpenHandHighlightedCodeBlockBuilder(
           theme: theme,

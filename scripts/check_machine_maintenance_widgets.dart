@@ -57,6 +57,8 @@ import 'package:openhand/shared/util/async_concurrency.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:xml/xml.dart' as xml;
 import 'package:intl/intl.dart' show DateFormat;
@@ -87,6 +89,14 @@ import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/openhand_dialog_action_button.dart';
 import 'package:openhand/shared/ui/animated_menu.dart';
 import 'package:openhand/shared/ui/openhand_code_editor.dart';
+import 'package:openhand/shared/ui/openhand_document_markdown_preview.dart';
+import 'package:openhand/shared/ui/openhand_safe_markdown_body.dart';
+import 'package:openhand/shared/ui/openhand_message_markdown_theme.dart';
+import 'package:openhand/shared/ui/openhand_image_reveal.dart';
+import 'package:openhand/shared/ui/markdown_image_gallery.dart';
+import 'package:openhand/shared/ui/markdown_ast_sanitizer.dart';
+import 'package:openhand/shared/ui/markdown_math.dart';
+import 'package:openhand/features/home/index.dart' show OpenHandHighlightedCodeBlockBuilder;
 import 'package:openhand/shared/ui/openhand_form_fields.dart';
 import 'package:openhand/shared/util/timer_safety.dart';
 import 'package:openhand/shared/ui/motion_preference.dart';
@@ -111,7 +121,8 @@ class _MachineTerminalFileManagerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const SizedBox();
 }
-Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {}
+final _openedMessageLinks = <Uri>[];
+Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async { _openedMessageLinks.add(uri); }
 $header
 $button
 $terminalConstants
@@ -6368,7 +6379,138 @@ void telemetryChecks() {
 ''';
 
 const _resourceChecks = r'''
+class _DocumentRegistry extends MachineImageRegistry {
+  _DocumentRegistry(Future<Map<String,dynamic>> Function(Uri) read)
+    : super(clientFactory:HttpClient.new,read:read);
+  final images = <String>[];
+  @override
+  Future<Uint8List> icon(String url) async {
+    images.add(url);
+    if (url.endsWith('missing.png')) throw const FormatException('模拟图片不可用');
+    if (url.endsWith('.svg')) return Uint8List.fromList(utf8.encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#628420"/></svg>'));
+    return base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+  }
+}
+
 void resourceChecks() {
+  test('Markdown 无空格长串快速解析，自动链接、邮箱、强调与代码语义保持一致', () {
+    final source='a'*kOpenHandMarketMarkdownMaxCharacters;
+    final watch=Stopwatch()..start();
+    final nodes=parseOpenHandMarkdown(source,inlineSyntaxes:openHandMarkdownMathInlineSyntaxes);
+    watch.stop();
+    expect(nodes.single.textContent,source);
+    expect(watch.elapsed,lessThan(const Duration(seconds:2)));
+    const sample='https://example.com user@example.com **bold** `token123` plainword99';
+    expect(md.renderToHtml(parseOpenHandMarkdown(sample,inlineSyntaxes:openHandMarkdownMathInlineSyntaxes)),
+      md.renderToHtml(md.Document(extensionSet:md.ExtensionSet.gitHubFlavored).parseLines([sample])));
+  });
+
+  testWidgets('镜像说明复用市场 Markdown，六语言主题、表格、高亮、复制、图片与长文边界一致', (tester) async {
+    Future<void> settleImages() async {
+      for (var frame=0;frame<3;frame++) {
+        await tester.pump(const Duration(milliseconds:100));
+        await tester.runAsync(()=>Future<void>.delayed(const Duration(milliseconds:60)));
+      }
+      await tester.pumpAndSettle();
+    }
+    const document = '---\nhidden: front-matter\n---\n# README 标题\n\n'
+      '[文档链接](https://example.invalid/docs)\n\n> 引用说明\n\n'
+      '- 父项目\n  - 子项目\n\n- [x] 已完成项目\n\n'
+      '| 工具 | 说明 |\n| --- | --- |\n| `SearchLog` | 日志检索 |\n\n'
+      '~~~bash\nprintf "hello"\n~~~\n\n'
+      '![位图](https://example.invalid/logo.png)\n\n'
+      '![矢量图](https://example.invalid/logo.svg)\n\n'
+      '![失败图片](https://example.invalid/missing.png)';
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform,(call) async {
+      if (call.method=='Clipboard.setData') copied=(call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(()=>tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform,null));
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final width in [1180.0,420.0]) {
+        await tester.binding.setSurfaceSize(Size(width,1100));
+        var description = document;
+        final registry = _DocumentRegistry((uri) async=>uri.path.contains('/tags/')?{'name':'latest'}:
+          {'name':'readme','namespace':'library','full_description':description});
+        final theme = width>500?OpenHandTheme.light(OpenHandThemePreset.tundraGreen):OpenHandTheme.dark(OpenHandThemePreset.tundraGreen);
+        await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,
+          supportedLocales:AppLocalizations.supportedLocales,
+          theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+          builder:(context,child)=>RepaintBoundary(key:const ValueKey('镜像说明预览'),
+            child:MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:TextScaler.linear(width>500?1:1.5)),child:child!)),
+          home:Scaffold(body:_ContainerRegistryDetailsDialog(image:MachineContainerImageSearchResult.fromJson({'Name':'readme'}),
+            selected:'latest',registryFactory:()=>registry,onTagChanged:(_){}))));
+        await tester.pumpAndSettle();
+        final state = tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+        final tab = find.byKey(const ValueKey(('image-detail-tab',2)));
+        await Scrollable.ensureVisible(tester.element(tab),alignment:.5);await tester.pumpAndSettle();
+        await tester.tap(tab);await settleImages();
+        final preview = tester.widget<OpenHandDocumentMarkdownPreview>(find.byType(OpenHandDocumentMarkdownPreview));
+        expect(preview.data,document);expect(preview.maxCharacters,kOpenHandMarketMarkdownMaxCharacters);
+        expect(preview.backgroundColor,Colors.transparent);expect(preview.imageBuilder,isNotNull);
+        expect(find.byType(MarkdownBody),findsNothing);
+        final body = tester.widget<OpenHandSafeMarkdownBody>(find.byType(OpenHandSafeMarkdownBody));
+        expect(body.selectable,isTrue);expect(body.data,startsWith('# README 标题'));
+        expect(body.data, isNot(contains('front-matter')));
+        expect(body.builders['pre'],isA<OpenHandHighlightedCodeBlockBuilder>());
+        final context=tester.element(find.byType(OpenHandSafeMarkdownBody));
+        final actualTheme=Theme.of(context);
+        final commonStyle=OpenHandMessageMarkdownThemeData.resolve(theme:actualTheme,backgroundColor:Colors.transparent,
+          textColor:actualTheme.colorScheme.onSurface).styleSheet;
+        expect(body.styleSheet.h1,commonStyle.h1);expect(body.styleSheet.a,commonStyle.a);
+        expect(body.styleSheet.tableBorder,commonStyle.tableBorder);
+        expect(body.styleSheet.blockquoteDecoration,commonStyle.blockquoteDecoration);
+        expect(find.descendant(of:find.byType(OpenHandDocumentMarkdownPreview),matching:find.byType(Table)),findsOneWidget);
+        expect(find.byType(SelectionArea),findsWidgets);
+        expect(registry.images.toSet(),{'https://example.invalid/logo.png','https://example.invalid/logo.svg','https://example.invalid/missing.png'});
+        expect(find.byType(SvgPicture),findsOneWidget);
+        expect(tester.widget<SvgPicture>(find.byType(SvgPicture)).bytesLoader,isA<SvgBytesLoader>());
+        expect(find.byIcon(Icons.broken_image_outlined),findsOneWidget);
+        expect(tester.widgetList<Image>(find.byType(Image)).every((image)=>image.image is! NetworkImage),isTrue);
+        _openedMessageLinks.clear();
+        preview.onTapLink!('链接','javascript:alert(1)','');expect(_openedMessageLinks,isEmpty);
+        preview.onTapLink!('链接','https://example.invalid/docs','');expect(_openedMessageLinks.single.toString(),'https://example.invalid/docs');
+        final copy=find.byIcon(Icons.content_copy_rounded);
+        await Scrollable.ensureVisible(tester.element(copy),alignment:.5);await tester.pumpAndSettle();
+        await tester.tap(copy);await tester.pumpAndSettle();expect(copied,'printf "hello"');
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();await tester.pumpAndSettle();
+        if (locale==const Locale('zh') && width>500) {
+          final svg=find.byType(SvgPicture);
+          await Scrollable.ensureVisible(tester.element(svg),alignment:.5);await tester.pumpAndSettle();
+          await tester.tap(find.ancestor(of:svg,matching:find.byType(GestureDetector)).first);await settleImages();
+          expect(find.byType(SvgPicture),findsNWidgets(2));
+          expect(tester.widgetList<SvgPicture>(find.byType(SvgPicture)).every((image)=>image.bytesLoader is SvgBytesLoader),isTrue);
+          expect(tester.widgetList<Image>(find.byType(Image)).every((image)=>image.image is! NetworkImage),isTrue);
+          Navigator.of(tester.element(find.byType(Dialog).last)).pop();await tester.pumpAndSettle();
+        }
+        if (locale==const Locale('zh') && Platform.environment['MAINTENANCE_PREVIEW']!=null) {
+          await Scrollable.ensureVisible(tester.element(find.byType(OpenHandDocumentMarkdownPreview)),alignment:0);await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像说明预览'))).toImage(pixelRatio:1.5);
+            final bytes=await image.toByteData(format:ui.ImageByteFormat.png);
+            await File('/tmp/openhand-registry-markdown-${width.toInt()}.png').writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+          });
+        }
+        if (locale==const Locale('zh') && width>500) {
+          description='a'*kOpenHandMarketMarkdownMaxCharacters+'尾部应截断';
+          await state._loadRepository();await tester.pumpAndSettle();
+          final limited=tester.widget<OpenHandSafeMarkdownBody>(find.byType(OpenHandSafeMarkdownBody));
+          expect(limited.data.length,lessThanOrEqualTo(kOpenHandMarketMarkdownMaxCharacters));
+          expect(limited.data,isNot(contains('尾部应截断')));expect(limited.data,contains('内容较长，已截断预览'));
+          expect(state._repository!['full_description'],description);
+          description='---\nhidden: front-matter\n---\n';await state._loadRepository();await tester.pumpAndSettle();
+          expect(find.byType(OpenHandSafeMarkdownBody),findsNothing);
+          expect(find.text(maintenanceLabel(state.context,'暂无可用数据')),findsOneWidget);
+        }
+        expect(tester.takeException(),isNull,reason:'$locale $width');
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('仓库完整元数据六语言即时刷新，属性、权限、时间按语义展示并原样复制', (tester) async {
     const timestamp = '2026-10-02T01:02:03.123456Z';
     const fixture = {
@@ -6937,7 +7079,7 @@ void resourceChecks() {
           });
           await tester.ensureVisible(find.byKey(const ValueKey(('image-detail-tab', 2))));
           await tester.tap(find.byKey(const ValueKey(('image-detail-tab', 2)))); await tester.pumpAndSettle();
-          expect(find.byType(MarkdownBody), findsOneWidget);
+          expect(find.byType(OpenHandDocumentMarkdownPreview), findsOneWidget);
           await tester.runAsync(() async {
             final image = await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('镜像搜索预览'))).toImage(pixelRatio: 1.5);
             final bytes = await image.toByteData(format: ui.ImageByteFormat.png);

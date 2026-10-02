@@ -3065,6 +3065,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   bool _isCopying = false;
   bool _isSaving = false;
   bool _isOpeningExternal = false;
+  Future<Uint8List>? _imageBytes;
 
   late int _index;
   OpenHandGalleryImage get _current => widget.images[_index];
@@ -3079,6 +3080,29 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     final next = _index + delta;
     if (_busy || next < 0 || next >= widget.images.length) return;
     setState(() => _index = next);
+    _resolveCurrentImage();
+  }
+
+  void _resolveCurrentImage() {
+    final image = _current;
+    _imageBytes = image.loadBytes?.call();
+    final bytes = _imageBytes;
+    if (bytes != null) {
+      _imageSize.resolve(null);
+      unawaited(
+        bytes.then<void>(
+          (value) {
+            if (mounted && identical(image, _current) && !_isSvg) {
+              _imageSize.resolve(MemoryImage(value));
+            }
+          },
+          onError: (Object error, StackTrace stack) {
+            // 加载错误由图片组件展示，保留当前图片以便用户关闭或切换。
+          },
+        ),
+      );
+      return;
+    }
     _imageSize.resolve(
       _isSvg
           ? null
@@ -3092,17 +3116,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   void initState() {
     super.initState();
     _index = widget.initialIndex.clamp(0, widget.images.length - 1);
-    final filePath = _filePath;
-    final imageUri = _imageUri;
-    _imageSize.resolve(
-      _isSvg
-          ? null
-          : filePath != null
-          ? FileImage(File(filePath))
-          : imageUri != null
-          ? NetworkImage(imageUri.toString())
-          : null,
-    );
+    _resolveCurrentImage();
   }
 
   @override
@@ -3372,11 +3386,13 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         throw const FileSystemException('Image source is unavailable.');
       }
       try {
-        final bytes = await _downloadClipboardBytes(
-          sourceUri,
-          maxBytes: _imageClipboardMaxBytes,
-          expectedPrimaryType: 'image',
-        );
+        final bytes =
+            await (_imageBytes ??
+                _downloadClipboardBytes(
+                  sourceUri,
+                  maxBytes: _imageClipboardMaxBytes,
+                  expectedPrimaryType: 'image',
+                ));
         await setOpenHandClipboardImage(bytes);
         if (!context.mounted) return;
         _showMediaClipboardSnack(
@@ -3440,6 +3456,39 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   }
 
   Widget _buildPreviewImage(BuildContext context, Size displaySize) {
+    if (_imageBytes != null) {
+      final image = _current;
+      return FutureBuilder<Uint8List>(
+        key: ValueKey(image),
+        future: _imageBytes,
+        builder: (context, snapshot) {
+          if (!identical(image, _current)) return const SizedBox.shrink();
+          if (snapshot.hasError) return _buildImageLoadError(context);
+          final bytes = snapshot.data;
+          if (bytes == null) return const OpenHandImageShimmerPlaceholder();
+          return _isSvg
+              ? SvgPicture.memory(
+                  bytes,
+                  width: displaySize.width,
+                  height: displaySize.height,
+                  placeholderBuilder: (_) =>
+                      const OpenHandImageShimmerPlaceholder(),
+                  errorBuilder: (context, error, stack) =>
+                      _buildImageLoadError(context),
+                )
+              : Image.memory(
+                  bytes,
+                  width: displaySize.width,
+                  height: displaySize.height,
+                  cacheWidth: _previewDecodeWidth(context, displaySize),
+                  fit: BoxFit.contain,
+                  frameBuilder: openHandImageRevealFrameBuilder,
+                  errorBuilder: (context, error, stack) =>
+                      _buildImageLoadError(context),
+                );
+        },
+      );
+    }
     if (_isSvg) {
       const placeholder = OpenHandImageShimmerPlaceholder();
       return _filePath != null
@@ -3584,6 +3633,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         ],
       );
       if (location == null) return;
+      if (_imageBytes != null) {
+        await File(location.path).writeAsBytes(await _imageBytes!);
+        return;
+      }
       final sourceFilePath = _filePath;
       if (sourceFilePath != null) {
         if (!await isRegularFilePath(sourceFilePath)) {

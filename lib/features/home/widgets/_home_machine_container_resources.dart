@@ -1154,7 +1154,7 @@ class _ContainerRegistryDetailsDialogState
         : widget.image.withMetadata(
             MachineContainerImageSearchResult.fromJson(_repository!),
           );
-    final description = '${_repository?['full_description'] ?? ''}'.trim();
+    final description = '${_repository?['full_description'] ?? ''}';
     final summary = '${_repository?['description'] ?? image.description}'
         .trim();
     final platforms = (_tagData?['images'] as List? ?? const [])
@@ -1414,25 +1414,22 @@ class _ContainerRegistryDetailsDialogState
                         fontSize: 12,
                       ),
                     ),
-                    if (description.isEmpty)
-                      _MaintenanceEmptyHint(
-                        message: maintenanceLabel(context, '暂无可用数据'),
-                      )
-                    else
-                      MarkdownBody(
+                    OpenHandImageMessageScope(
+                      loadImageBytes: (uri) => _registry.icon(uri.toString()),
+                      child: OpenHandDocumentMarkdownPreview(
                         data: description,
-                        selectable: true,
-                        styleSheet: MarkdownStyleSheet.fromTheme(theme)
-                            .copyWith(
-                              p: theme.textTheme.bodyMedium?.copyWith(
-                                fontSize: 13,
-                                height: 1.6,
-                              ),
-                              codeblockDecoration: BoxDecoration(
-                                color: cs.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
+                        backgroundColor: Colors.transparent,
+                        maxCharacters: kOpenHandMarketMarkdownMaxCharacters,
+                        emptyMessage: maintenanceLabel(context, '暂无可用数据'),
+                        truncationMessage: openHandLocalizedText(
+                          context,
+                          zh: '\n\n---\n内容较长，已截断预览。完整原文可从完整元数据中复制。',
+                          zhHant: '\n\n---\n內容較長，已截斷預覽。完整原文可從完整中繼資料中複製。',
+                          en: '\n\n---\nPreview truncated. Copy the full text from complete metadata.',
+                          fr: '\n\n---\nAperçu tronqué. Copiez le texte intégral depuis les métadonnées complètes.',
+                          de: '\n\n---\nVorschau gekürzt. Kopiere den vollständigen Text aus den vollständigen Metadaten.',
+                          ja: '\n\n---\nプレビューを切り詰めました。全文は完全なメタデータからコピーできます。',
+                        ),
                         onTapLink: (_, href, _) {
                           final uri = Uri.tryParse(href ?? '');
                           if (uri != null &&
@@ -1441,20 +1438,42 @@ class _ContainerRegistryDetailsDialogState
                             unawaited(_openMessageLinkUri(context, uri));
                           }
                         },
-                        imageBuilder: (uri, title, alt) =>
-                            FutureBuilder<Uint8List>(
-                              future: _registry.icon(uri.toString()),
-                              builder: (_, snapshot) => snapshot.hasData
-                                  ? Image.memory(
-                                      snapshot.data!,
-                                      height: 160,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, _, _) =>
-                                          Text(alt ?? title ?? ''),
-                                    )
-                                  : Text(alt ?? title ?? ''),
-                            ),
+                        imageBuilder: (uri, title, alt) => FutureBuilder<Uint8List>(
+                          future: _registry.icon(uri.toString()),
+                          builder: (_, snapshot) {
+                            Widget failed(
+                              BuildContext context,
+                              Object error,
+                              StackTrace? stack,
+                            ) => const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Icon(Icons.broken_image_outlined),
+                            );
+                            if (snapshot.hasError) {
+                              return failed(context, snapshot.error!, null);
+                            }
+                            if (!snapshot.hasData) {
+                              return const OpenHandImageShimmerPlaceholder();
+                            }
+                            return uri.path.toLowerCase().endsWith('.svg')
+                                ? SvgPicture.memory(
+                                    snapshot.data!,
+                                    placeholderBuilder: (_) =>
+                                        const OpenHandImageShimmerPlaceholder(),
+                                    errorBuilder: failed,
+                                  )
+                                : Image.memory(
+                                    snapshot.data!,
+                                    fit: BoxFit.contain,
+                                    cacheWidth: 1280,
+                                    frameBuilder:
+                                        openHandImageRevealFrameBuilder,
+                                    errorBuilder: failed,
+                                  );
+                          },
+                        ),
                       ),
+                    ),
                   ],
                 ),
               ),

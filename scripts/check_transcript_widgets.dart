@@ -940,6 +940,48 @@ void main() {
     });
   }
 
+  testWidgets('消息 Markdown 的本地 SVG 保持矢量渲染，图片加载器切换与关闭不接收迟到结果', (tester) async {
+    final folder=Directory.systemTemp.createTempSync('openhand-svg-check-');
+    addTearDown(()=>folder.deleteSync(recursive:true));
+    final file=File('${folder.path}/image.svg')..writeAsStringSync(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16"/></svg>');
+    await tester.pumpWidget(MaterialApp(home:Scaffold(body:_SafeMarkdownBody(
+      data:'![本地矢量图](${file.uri})',styleSheet:MarkdownStyleSheet(),
+    ))));
+    for (var frame=0;frame<3;frame++) {
+      await tester.pump();
+      await tester.runAsync(()=>Future<void>.delayed(const Duration(milliseconds:50)));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(SvgPicture),findsOneWidget);
+    expect(tester.widget<SvgPicture>(find.byType(SvgPicture)).bytesLoader,isA<SvgFileLoader>());
+    expect(find.byType(Image),findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    final settings=await SettingsController.create(store:_ProbeSettingsStore(false));
+    addTearDown(settings.dispose);
+    final pending=Completer<Uint8List>();
+    final loaded=Completer<Uint8List>();
+    var loads=0;
+    final images=[
+      OpenHandGalleryImage(uri:Uri.parse('https://example.invalid/old.png'),title:'旧图片',loadBytes:(){loads++;return pending.future;}),
+      OpenHandGalleryImage(uri:Uri.parse('https://example.invalid/new.png'),title:'新图片',loadBytes:(){loads++;return loaded.future;}),
+    ];
+    await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(value:settings,
+      child:MaterialApp(home:Scaffold(body:_ImagePreviewDialog.gallery(images:images,initialIndex:0,canLocate:false)))));
+    await tester.pump();
+    final state=tester.state<_ImagePreviewDialogState>(find.byType(_ImagePreviewDialog));
+    state._navigate(1);await tester.pump();
+    pending.complete(base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='));
+    await tester.pump();
+    expect(state._imageSize.size,isNull);
+    expect(state._index,1);expect(loads,2);
+    expect(find.byType(Image),findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    loaded.completeError(const FormatException('模拟关闭后加载失败'));
+    await tester.pump();
+    expect(tester.takeException(),isNull);
+  });
+
   testWidgets('富文本等待解析时不暴露 Markdown 源码', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SafeMarkdownBody(
       data: '**待渲染正文**', styleSheet: MarkdownStyleSheet(),

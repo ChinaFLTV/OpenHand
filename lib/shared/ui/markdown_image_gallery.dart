@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -18,11 +19,13 @@ class OpenHandGalleryImage {
     required this.title,
     this.messageId,
     this.onLocate,
+    this.loadBytes,
   });
   final Uri uri;
   final String title;
   final String? messageId;
   final Future<void> Function()? onLocate;
+  final Future<Uint8List> Function()? loadBytes;
   bool get isSvg => uri.path.toLowerCase().endsWith('.svg');
   String? get filePath => uri.scheme == 'file' ? uri.toFilePath() : null;
 }
@@ -36,6 +39,7 @@ class OpenHandImageMessageScope extends InheritedWidget {
     this.images = const [],
     this.messageId,
     this.galleryImages,
+    this.loadImageBytes,
     required super.child,
   });
   final Future<void> Function()? onLocate;
@@ -43,6 +47,7 @@ class OpenHandImageMessageScope extends InheritedWidget {
   final List<OpenHandGalleryImage> images;
   final String? messageId;
   final Iterable<OpenHandGalleryImage> Function()? galleryImages;
+  final Future<Uint8List> Function(Uri)? loadImageBytes;
   static OpenHandImageMessageScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<OpenHandImageMessageScope>();
   @override
@@ -51,7 +56,8 @@ class OpenHandImageMessageScope extends InheritedWidget {
       onInteractiveTap != oldWidget.onInteractiveTap ||
       images != oldWidget.images ||
       messageId != oldWidget.messageId ||
-      galleryImages != oldWidget.galleryImages;
+      galleryImages != oldWidget.galleryImages ||
+      loadImageBytes != oldWidget.loadImageBytes;
 }
 
 /// 仅在打开预览时取有界快照，保留所点图片前后的消息顺序。
@@ -104,9 +110,21 @@ Future<void> showOpenHandMessageImage(
   if (!gallery.found) {
     gallery = resolveOpenHandImageGallery(local, image);
   }
+  final loader = scope?.loadImageBytes;
   return showOpenHandImageGallery(
     context,
-    images: gallery.images,
+    images: loader == null
+        ? gallery.images
+        : [
+            for (final item in gallery.images)
+              OpenHandGalleryImage(
+                uri: item.uri,
+                title: item.title,
+                messageId: item.messageId,
+                onLocate: item.onLocate,
+                loadBytes: item.loadBytes ?? () => loader(item.uri),
+              ),
+          ],
     initialIndex: gallery.index,
     onLocate: gallery.images[gallery.index].onLocate == null
         ? scope?.onLocate
@@ -152,6 +170,7 @@ Iterable<OpenHandGalleryImage> collectOpenHandMessageImages({
       title: image.title,
       messageId: messageId,
       onLocate: onLocate,
+      loadBytes: image.loadBytes,
     );
   }
 }
@@ -218,6 +237,7 @@ Widget buildOpenHandGalleryImage(
         child: Icon(Icons.broken_image_outlined),
       );
   final content =
+      child ??
       (image.isSvg
           ? (image.filePath != null
                 ? SvgPicture.file(
@@ -232,7 +252,7 @@ Widget buildOpenHandGalleryImage(
                         const OpenHandImageShimmerPlaceholder(),
                     errorBuilder: failed,
                   ))
-          : child) ??
+          : null) ??
       (image.filePath != null
           ? Image.file(
               File(image.filePath!),

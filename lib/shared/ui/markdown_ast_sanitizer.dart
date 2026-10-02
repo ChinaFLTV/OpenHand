@@ -214,7 +214,8 @@ List<md.Node> parseOpenHandMarkdown(
   final document = md.Document(
     extensionSet: md.ExtensionSet.gitHubFlavored,
     blockSyntaxes: blockSyntaxes ?? openHandMarkdownMathBlockSyntaxes,
-    inlineSyntaxes: inlineSyntaxes,
+    // 补齐末尾单词的快速路径，避免无空格长文本逐字符重复匹配。
+    inlineSyntaxes: [...inlineSyntaxes, md.TextSyntax(r'[A-Za-z0-9]+(?=\s|$)')],
     encodeHtml: false,
   );
   final nodes = document.parseLines(const LineSplitter().convert(source));
