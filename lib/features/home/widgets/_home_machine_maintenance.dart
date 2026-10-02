@@ -8239,7 +8239,12 @@ class _MaintenanceLogBrowserState extends State<_MaintenanceLogBrowser> {
                         ),
                         backgroundColor: cs.surface.withValues(alpha: .72),
                         selectedColor: cs.primaryContainer,
-                        checkmarkColor: cs.onPrimaryContainer,
+                        showCheckmark: false,
+                        avatar: Icon(
+                          Icons.vertical_align_bottom_rounded,
+                          size: 18,
+                          color: _follow ? cs.onPrimaryContainer : cs.onSurface,
+                        ),
                         labelStyle: Theme.of(context).textTheme.bodySmall
                             ?.copyWith(
                               color: _follow
