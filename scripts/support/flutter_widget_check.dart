@@ -48,7 +48,17 @@ Future<void> runFlutterWidgetCheck({
     await file.writeAsString(source);
     final process = await Process.start(
       'flutter',
-      ['test', '--reporter', 'expanded', file.path],
+      [
+        'test',
+        '--reporter',
+        'expanded',
+        if (Platform.environment['OPENHAND_WIDGET_TEST_NAME']
+            case final name?) ...[
+          '--plain-name',
+          name,
+        ],
+        file.path,
+      ],
       workingDirectory: root.path,
       mode: ProcessStartMode.inheritStdio,
     );

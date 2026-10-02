@@ -1051,6 +1051,7 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     prefixIconConstraints: const BoxConstraints(minWidth: 34),
                   );
               final controls = Wrap(
+                alignment: WrapAlignment.end,
                 spacing: 10,
                 runSpacing: 10,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -1173,7 +1174,10 @@ class _MachineContainerPanelState extends State<_MachineContainerPanel> {
                     children: [
                       Expanded(child: heading),
                       const SizedBox(width: 16),
-                      if (wide) ...[controls, const SizedBox(width: 10)],
+                      if (wide) ...[
+                        Expanded(flex: 3, child: controls),
+                        const SizedBox(width: 10),
+                      ],
                       refreshButton,
                     ],
                   ),
@@ -1898,7 +1902,11 @@ class _ContainerTelemetryPanelState extends State<_ContainerTelemetryPanel> {
                       key: const ValueKey('telemetry-refresh'),
                       style: actionStyle,
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: Text(l.maintenanceRefreshDetails),
+                      label: Text(
+                        l.maintenanceRefreshDetails,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onPressed: busy ? null : reload,
                     ),
                     if (busy)

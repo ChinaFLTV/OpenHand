@@ -8,6 +8,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../app/theme/openhand_theme_preset.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
@@ -38,9 +39,11 @@ class AiModelProxyController extends ChangeNotifier {
     milliseconds: 40,
   );
   static const Duration _telemetryFlushDelay = Duration(milliseconds: 500);
+  static const Duration _shutdownTimeout = Duration(seconds: 15);
   // 设置变更只需保证最终快照落盘，丢弃尚未开始的旧快照即可避免快速操作堆积。
   final LatestTaskQueue _writes = LatestTaskQueue();
   final SerialTaskQueue _telemetryWrites = SerialTaskQueue(maxPendingTasks: 8);
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   AiModelProxySettings _settings = const AiModelProxySettings();
   final List<AiModelProxyTelemetryBucket> _telemetryBuckets =
       <AiModelProxyTelemetryBucket>[];
@@ -53,6 +56,7 @@ class AiModelProxyController extends ChangeNotifier {
   Completer<void>? _busyCompleter;
   String? _errorMessage;
   bool _disposed = false;
+  bool _shuttingDown = false;
   int _unknownConnectionRequests = 0;
   int _runtimeRequestSequence = 0;
   int _runtimeInboundBytes = 0;
@@ -78,6 +82,8 @@ class AiModelProxyController extends ChangeNotifier {
   Timer? _runtimeResponseNotifyTimer;
   Timer? _telemetryFlushTimer;
   Timer? _telemetrySampleTimer;
+
+  bool get _unavailable => _disposed || _shuttingDown;
 
   AiModelProxySettings get settings => _settings;
   List<AiModelProxyTelemetryBucket> get telemetryBuckets => _telemetryView;
@@ -161,7 +167,7 @@ class AiModelProxyController extends ChangeNotifier {
   void attachNetworkProxyProvider(
     AiExposureProxyConfiguration Function() provider,
   ) {
-    if (_disposed) return;
+    if (_unavailable) return;
     _networkProxyProvider = provider;
   }
 
@@ -217,7 +223,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 接入应用当前的模型配置。使用回调避免控制器复制一份可能过期的列表。
   void attachModelsProvider(List<AiModelConfig> Function() provider) {
-    if (_disposed) return;
+    if (_unavailable) return;
     _modelsProvider = provider;
     if (_httpServer != null) return;
     _httpServer = AiModelProxyHttpServer(
@@ -228,7 +234,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 状态页跟随应用当前主题、明暗、界面语言与弹窗动效，而不是写死一套外观。
   void attachThemeProvider(AiModelProxyPublicLook Function() provider) {
-    if (_disposed) return;
+    if (_unavailable) return;
     _themeProvider = provider;
   }
 
@@ -432,12 +438,13 @@ class AiModelProxyController extends ChangeNotifier {
   void _resetRateLimitWindows() => _rateLimitWindows.clear();
 
   Future<void> load() async {
+    if (_unavailable) return;
     final settings = await _store.load();
-    if (_disposed) return;
+    if (_unavailable) return;
     final telemetry = await _store.loadTelemetry(
       legacyRecords: settings.recentRequests,
     );
-    if (_disposed) return;
+    if (_unavailable) return;
     final previous = _settings;
     _settings = settings;
     _telemetryBuckets
@@ -455,7 +462,7 @@ class AiModelProxyController extends ChangeNotifier {
       _lifecycle == AiModelProxyLifecycle.running ? stop() : start();
 
   Future<void> start() async {
-    if (_disposed || _busy || _lifecycle == AiModelProxyLifecycle.running) {
+    if (_unavailable || _busy || _lifecycle == AiModelProxyLifecycle.running) {
       return;
     }
     _beginBusy();
@@ -484,7 +491,7 @@ class AiModelProxyController extends ChangeNotifier {
       _resetRateLimitWindows();
       _resetRuntimeMetrics();
       await server.start();
-      if (_disposed) {
+      if (_unavailable) {
         await server.stop();
         return;
       }
@@ -497,7 +504,7 @@ class AiModelProxyController extends ChangeNotifier {
     } catch (error) {
       _stopTelemetrySampling();
       await _httpServer?.stop();
-      if (_disposed) return;
+      if (_unavailable) return;
       _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
@@ -516,7 +523,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    if (_disposed || _busy || _lifecycle == AiModelProxyLifecycle.stopped) {
+    if (_unavailable || _busy || _lifecycle == AiModelProxyLifecycle.stopped) {
       return;
     }
     _beginBusy();
@@ -525,7 +532,7 @@ class AiModelProxyController extends ChangeNotifier {
     _notify();
     try {
       await _httpServer?.stop();
-      if (_disposed) return;
+      if (_unavailable) return;
       _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
@@ -542,33 +549,52 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   /// 进程退出前释放监听端口和中转请求客户端。
-  Future<void> shutdown() async {
-    if (_disposed) return;
+  Future<void> shutdown() => _shutdownOnce.run(_shutdown);
+
+  Future<void> _shutdown() async {
+    final deadline = MonotonicDeadline(_shutdownTimeout);
+    _shuttingDown = true;
     _rebindRequested = false;
     _stopTelemetrySampling();
+    _runtimeResponseNotifyTimer?.cancel();
+    _runtimeResponseNotifyTimer = null;
+    _telemetryFlushTimer?.cancel();
+    _telemetryFlushTimer = null;
+    Future<bool> cleanup(String action, FutureOr<void> Function() operation) =>
+        runAsyncCleanupBounded(
+          operation,
+          timeout: deadline.remainingOrNull() ?? Duration.zero,
+          onError: (error, stack) =>
+              silentLog('ai_model_proxy_controller', action, error, stack),
+        );
     final busy = _busyCompleter?.future;
     if (busy != null) {
-      try {
-        await busy.timeout(const Duration(seconds: 15));
-      } on Object {
-        // 启停操作已超过退出预算时继续强制关闭句柄。
-      }
+      await cleanup('等待中转站启停操作结束', () => busy);
     }
     _stopTelemetrySampling();
-    await _httpServer?.dispose();
+    final server = _httpServer;
     _httpServer = null;
+    if (server != null) await cleanup('关闭模型中转站监听服务', server.dispose);
     _lifecycle = AiModelProxyLifecycle.stopped;
     _clearRuntimeStarted();
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
-    await _flushTelemetry();
-    await _telemetryWrites.idle;
-    await _writes.idle;
+    try {
+      await cleanup('等待中转站设置和遥测落盘', () async {
+        await _flushTelemetry();
+        await Future.wait<void>([_telemetryWrites.idle, _writes.idle]);
+      });
+    } finally {
+      deadline.stop();
+      _telemetryWrites.close(StateError('模型中转站已关闭。'));
+      _writes.discardPending();
+      _pendingTelemetry.clear();
+    }
   }
 
   /// 保存并立即应用配置；监听端点变更会在当前生命周期操作结束后自动重绑定。
   Future<void> saveSettings(AiModelProxySettings settings) async {
-    if (_disposed) return;
+    if (_unavailable) return;
     final previous = _settings;
     final normalized = settings.copyWith();
     _validateSecuritySettings(normalized);
@@ -612,7 +638,7 @@ class AiModelProxyController extends ChangeNotifier {
   };
 
   Future<void> recordRequest(AiModelProxyRequestRecord request) async {
-    if (_disposed) return;
+    if (_unavailable) return;
     try {
       // 统计请求可能并发完成。先在内存中基于最新快照累加，再让最新任务落盘，
       // 避免 LatestTaskQueue 丢弃等待任务时覆盖前一个请求的统计。
@@ -633,7 +659,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 记录已进入服务入口的请求，包含被限流或鉴权拒绝的请求。
   void runtimeRequestObserved({int inboundBytes = 0}) {
-    if (_disposed) return;
+    if (_unavailable) return;
     _runtimeInboundBytes =
         (_runtimeInboundBytes + inboundBytes.clamp(0, 1 << 31)).clamp(
           0,
@@ -646,7 +672,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 补记分块传输请求在完整读取后才能确定的入口字节数。
   void runtimeInboundBytesReceived(int inboundBytes) {
-    if (_disposed || inboundBytes <= 0) return;
+    if (_unavailable || inboundBytes <= 0) return;
     final safeBytes = inboundBytes.clamp(0, 1 << 31);
     _runtimeInboundBytes = (_runtimeInboundBytes + safeBytes).clamp(0, 1 << 62);
     _recordTelemetry(inboundBytes: safeBytes);
@@ -655,7 +681,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 记录进入并发执行阶段的请求，供服务运维面板展示实时并发。
   int? runtimeRequestStarted({String? connectionKey, String? userAgent}) {
-    if (_disposed) return null;
+    if (_unavailable) return null;
     final requestId = ++_runtimeRequestSequence;
     final key = connectionKey?.trim() ?? '';
     _runtimeRequests[requestId] = key;
@@ -688,7 +714,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 记录响应载荷大小，避免把展示层的流量指标写死为零。
   void runtimeResponseWritten({int outboundBytes = 0, int statusCode = 200}) {
-    if (_disposed) return;
+    if (_unavailable) return;
     _runtimeOutboundBytes =
         (_runtimeOutboundBytes + outboundBytes.clamp(0, 1 << 31)).clamp(
           0,
@@ -711,7 +737,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   void runtimeRequestFinished(int? requestId) {
-    if (_disposed) return;
+    if (_unavailable) return;
     final key = requestId == null ? null : _runtimeRequests.remove(requestId);
     if (key == null) return;
     if (key.isEmpty) {
@@ -732,7 +758,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   void runtimeServerStoppedUnexpectedly(Object? error) {
-    if (_disposed ||
+    if (_unavailable ||
         (_lifecycle != AiModelProxyLifecycle.starting &&
             _lifecycle != AiModelProxyLifecycle.running)) {
       return;
@@ -764,7 +790,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   void _startTelemetrySampling() {
-    if (_disposed) return;
+    if (_unavailable) return;
     _telemetrySampleTimer?.cancel();
     _telemetrySampleTimer = startSafePeriodicTimer(const Duration(minutes: 1), (
       _,
@@ -794,7 +820,7 @@ class AiModelProxyController extends ChangeNotifier {
     bool sampleConnections = false,
     DateTime? at,
   }) {
-    if (_disposed) return;
+    if (_unavailable) return;
     final key = aiModelProxyTelemetryBucketKey(at ?? DateTime.now());
     final connections = currentConnections;
     final includeContext = !_pendingTelemetry.containsKey(key);
@@ -882,11 +908,13 @@ class AiModelProxyController extends ChangeNotifier {
         () => _store.mergeTelemetry(pending.values),
       );
     } catch (error, stack) {
-      for (final entry in pending.entries) {
-        final newer = _pendingTelemetry[entry.key];
-        _pendingTelemetry[entry.key] = newer == null
-            ? entry.value
-            : entry.value.merge(newer);
+      if (!_unavailable) {
+        for (final entry in pending.entries) {
+          final newer = _pendingTelemetry[entry.key];
+          _pendingTelemetry[entry.key] = newer == null
+              ? entry.value
+              : entry.value.merge(newer);
+        }
       }
       silentLog('ai_model_proxy_controller', '保存中转站遥测', error, stack);
     }
@@ -977,27 +1005,18 @@ class AiModelProxyController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _stopTelemetrySampling();
-    _runtimeResponseNotifyTimer?.cancel();
-    _runtimeResponseNotifyTimer = null;
-    _telemetryFlushTimer?.cancel();
-    _telemetryFlushTimer = null;
-    unawaited(_flushTelemetry());
-    _clearRuntimeStarted();
-    _resetRuntimeOccupancy();
-    _resetRateLimitWindows();
     unawaited(
-      _httpServer?.dispose().then<void>(
+      shutdown().then<void>(
         (_) {},
         onError: (Object error, StackTrace stack) =>
             silentLog('ai_model_proxy_controller', '释放模型中转站服务', error, stack),
       ),
     );
-    _httpServer = null;
     super.dispose();
   }
 
   Future<void> _requestServerRebind() {
+    if (_unavailable) return Future<void>.value();
     _rebindRequested = true;
     final existing = _rebindFuture;
     if (existing != null) return existing;
@@ -1021,13 +1040,13 @@ class AiModelProxyController extends ChangeNotifier {
         if (busy == null) break;
         await busy;
       }
-      if (_disposed || _lifecycle != AiModelProxyLifecycle.running) continue;
+      if (_unavailable || _lifecycle != AiModelProxyLifecycle.running) continue;
       await _rebindServer();
     }
   }
 
   Future<void> _rebindServer() async {
-    if (_disposed || _lifecycle != AiModelProxyLifecycle.running) return;
+    if (_unavailable || _lifecycle != AiModelProxyLifecycle.running) return;
     _beginBusy();
     _lifecycle = AiModelProxyLifecycle.starting;
     _errorMessage = null;
@@ -1036,12 +1055,12 @@ class AiModelProxyController extends ChangeNotifier {
       final server = _httpServer;
       if (server == null) throw StateError('中转站 HTTP 服务未初始化。');
       await server.stop();
-      if (_disposed) return;
+      if (_unavailable) return;
       _clearRuntimeStarted();
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       await server.start();
-      if (_disposed) {
+      if (_unavailable) {
         await server.stop();
         return;
       }
@@ -1049,7 +1068,7 @@ class AiModelProxyController extends ChangeNotifier {
       _markRuntimeStarted();
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
-      if (_disposed) return;
+      if (_unavailable) return;
       _clearRuntimeStarted();
       _stopTelemetrySampling();
       _lifecycle = AiModelProxyLifecycle.error;

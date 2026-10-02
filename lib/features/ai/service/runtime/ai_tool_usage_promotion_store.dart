@@ -930,7 +930,7 @@ final class AiToolUsagePromotionStore {
   }
 
   Future<void> _finishShutdown() async {
-    await _operations.idle;
+    await _operations.drainAndClose(runtimeCleanupTimeout);
     await _initializeLocked();
     await _flushLocked();
   }

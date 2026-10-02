@@ -289,6 +289,7 @@ print(json.dumps(result, ensure_ascii=False))
     final active = _disposeFuture;
     if (active != null) return active;
     _disposed = true;
+    _operationQueue.close(_disposedError);
     return _disposeFuture = _finishDispose();
   }
 

@@ -11,7 +11,7 @@ import 'motion_preference.dart';
 const Duration _kDefaultAppearDuration = kOpenHandMotion320;
 const double _kDefaultAppearSlideOffset = 12.0;
 
-/// 一次性淡入上移动画；完成后释放控制器，后续重建直接返回静态子树。
+/// 一次性淡入上移动画；完成后释放控制器，保持子树与交互状态。
 class AppearOnce extends StatefulWidget {
   const AppearOnce({
     super.key,
@@ -40,10 +40,9 @@ class _AppearOnceState extends State<AppearOnce>
   @override
   void initState() {
     super.initState();
-    final ctrl = AnimationController(
-      duration: _safeAppearDuration(widget.duration),
-      vsync: this,
-    );
+    final duration = _safeAppearDuration(widget.duration);
+    if (duration == Duration.zero) return;
+    final ctrl = AnimationController(duration: duration, vsync: this);
     _opacity = openHandCurveAnimation(parent: ctrl, curve: Curves.easeOut);
     _translate = openHandCurveAnimation(
       parent: ctrl,
@@ -98,21 +97,18 @@ class _AppearOnceState extends State<AppearOnce>
 
   @override
   Widget build(BuildContext context) {
-    final opacity = _opacity;
-    final translate = _translate;
-    if (opacity == null || translate == null) {
-      return widget.child;
-    }
-    if (!openHandTickerMotionEnabled(context)) {
+    final motionEnabled =
+        openHandTickerMotionEnabled(context) && widget.duration > Duration.zero;
+    if (!motionEnabled && _ctrl != null) {
       // 延后释放，避免在构建阶段触发状态变更。
       _disposeControllerAfterBuild();
-      return widget.child;
     }
-    return FadeTransition(
-      opacity: opacity,
-      child: _AppearTranslate(
-        animation: translate,
-        slideOffset: _safeAppearSlideOffset(widget.slideOffset),
+    const completed = AlwaysStoppedAnimation<double>(1);
+    return _AppearTranslate(
+      animation: motionEnabled ? _translate ?? completed : completed,
+      slideOffset: _safeAppearSlideOffset(widget.slideOffset),
+      child: FadeTransition(
+        opacity: motionEnabled ? _opacity ?? completed : completed,
         child: widget.child,
       ),
     );
@@ -149,11 +145,14 @@ class _AppearTranslate extends SingleChildRenderObjectWidget {
   }
 }
 
-class _AppearTranslateRender extends RenderProxyBox {
+class _AppearTranslateRender extends RenderTransform {
   _AppearTranslateRender({
     required this._animation,
     required double slideOffset,
-  }) : _slideOffset = _safeAppearSlideOffset(slideOffset);
+  }) : _slideOffset = _safeAppearSlideOffset(slideOffset),
+       super(transform: Matrix4.identity()) {
+    _updateTransform();
+  }
 
   Animation<double> _animation;
   double _slideOffset;
@@ -161,44 +160,41 @@ class _AppearTranslateRender extends RenderProxyBox {
   set animation(Animation<double> value) {
     if (identical(_animation, value)) return;
     if (attached) {
-      _animation.removeListener(markNeedsPaint);
-      value.addListener(markNeedsPaint);
+      _animation.removeListener(_updateTransform);
+      value.addListener(_updateTransform);
     }
     _animation = value;
-    markNeedsPaint();
+    _updateTransform();
   }
 
   set slideOffset(double value) {
     final safeValue = _safeAppearSlideOffset(value);
     if (_slideOffset == safeValue) return;
     _slideOffset = safeValue;
-    markNeedsPaint();
+    _updateTransform();
   }
 
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _animation.addListener(markNeedsPaint);
+    _animation.addListener(_updateTransform);
   }
 
   @override
   void detach() {
-    _animation.removeListener(markNeedsPaint);
+    _animation.removeListener(_updateTransform);
     super.detach();
   }
 
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child == null) return;
-    final value = _animation.value.clamp(0.0, 1.0);
+  void _updateTransform() {
+    final value = openHandBoundedProgress(_animation.value);
     final dy = (1 - value) * _slideOffset;
-    super.paint(context, offset + Offset(0, dy));
+    transform = Matrix4.translationValues(0, dy, 0);
   }
 }
 
 Duration _safeAppearDuration(Duration duration) {
-  if (duration <= Duration.zero) return _kDefaultAppearDuration;
-  return duration;
+  return duration < Duration.zero ? Duration.zero : duration;
 }
 
 double _safeAppearSlideOffset(double value) {
@@ -206,7 +202,7 @@ double _safeAppearSlideOffset(double value) {
   return value;
 }
 
-/// 按全局列表项动效设置包装 [child]；禁用动效时直接返回原组件。
+/// 按全局列表项动效设置包装 [child]，切换设置时保留组件状态。
 class SettingsAwareAppearOnce extends StatelessWidget {
   const SettingsAwareAppearOnce({super.key, required this.child});
 
@@ -218,28 +214,11 @@ class SettingsAwareAppearOnce extends StatelessWidget {
         .select<SettingsController, DialogAnimationSettings>(
           (c) => c.listItemAnimationSettings,
         );
-    if (settings.entranceStyle == DialogAnimationStyle.none) {
-      return child;
-    }
-    final double slide;
-    switch (settings.entranceStyle) {
-      case DialogAnimationStyle.slideUp:
-        slide = 12.0;
-      case DialogAnimationStyle.slideDown:
-        slide = -12.0;
-      case DialogAnimationStyle.fade:
-      case DialogAnimationStyle.fadeScale:
-      case DialogAnimationStyle.expand:
-      case DialogAnimationStyle.elastic:
-      case DialogAnimationStyle.springScale:
-      case DialogAnimationStyle.flipX:
-      case DialogAnimationStyle.rotateScale:
-      case DialogAnimationStyle.slideLeft:
-      case DialogAnimationStyle.slideRight:
-        slide = 0.0;
-      case DialogAnimationStyle.none:
-        return child;
-    }
+    final slide = switch (settings.entranceStyle) {
+      DialogAnimationStyle.slideUp => _kDefaultAppearSlideOffset,
+      DialogAnimationStyle.slideDown => -_kDefaultAppearSlideOffset,
+      _ => 0.0,
+    };
     return AppearOnce(
       duration: settings.entranceDuration,
       slideOffset: slide,

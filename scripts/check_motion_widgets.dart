@@ -20,6 +20,8 @@ import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 import 'package:openhand/shared/ui/animated_expandable.dart';
+import 'package:openhand/shared/ui/animated_appearance.dart';
+import 'package:openhand/shared/ui/appear_once.dart';
 import 'package:openhand/shared/ui/animated_overlay.dart';
 import 'package:openhand/shared/ui/auto_follow_scroll_guard.dart';
 import 'package:openhand/shared/ui/choice_input_dialog.dart';
@@ -64,6 +66,10 @@ class _MotionSettings extends ChangeNotifier implements SettingsController {
   @override
   DialogAnimationSettings chipAnimationSettings = OpenHandMotionDefaults.chip;
   @override
+  DialogAnimationSettings listItemAnimationSettings = OpenHandMotionDefaults.listItem;
+  @override
+  DialogAnimationSettings dialogAnimationSettings = OpenHandMotionDefaults.dialog;
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -81,6 +87,195 @@ class _ObservedCancelFuture implements Future<void> {
 }
 
 void main() {
+  testWidgets('入场完成与关闭动效保留输入、焦点和子树状态', (tester) async {
+    final settings = _MotionSettings();
+    var disabled = false;
+    var appearanceSettings = OpenHandMotionDefaults.dialog;
+    Widget host(Widget Function(Widget) wrap) => ChangeNotifierProvider<SettingsController>.value(
+      value: settings,
+      child: MaterialApp(home: MediaQuery(
+        data: MediaQueryData(disableAnimations: disabled),
+        child: Scaffold(body: Center(child: wrap(const TextField()))),
+      )),
+    );
+    final wrappers = <Widget Function(Widget)>[
+      (child) => AppearOnce(child: child),
+      (child) => SettingsAwareAppearOnce(child: child),
+      (child) => OpenHandSpringEntrance(child: child),
+      (child) => OpenHandAnimatedDialogSize(child: child),
+      (child) => AnimatedAppearance(settings: appearanceSettings, collapseSize: false, child: child),
+      (child) => OpenHandVerticalRevealSwitcher(child: child),
+      (child) => OpenHandInlineRevealSwitcher(child: child),
+      (child) => OpenHandCrossFadeSwitcher(child: child),
+      (child) => OpenHandFadeSizeSwitcher(duration: const Duration(milliseconds: 200), child: child),
+      (child) => OpenHandContentStateSwitcher(stateKey: '正文', child: child),
+    ];
+    for (final wrap in wrappers) {
+      disabled = false;
+      appearanceSettings = OpenHandMotionDefaults.dialog;
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(host(wrap));
+      await tester.pump();
+      final state = tester.state(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), '保留输入');
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TextField)), same(state));
+      expect(find.text('保留输入'), findsOneWidget);
+      disabled = true;
+      appearanceSettings = OpenHandMotionDefaults.disabled;
+      await tester.pumpWidget(host(wrap));
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TextField)), same(state));
+      expect(find.text('保留输入'), findsOneWidget);
+      expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
+      disabled = false;
+      appearanceSettings = OpenHandMotionDefaults.dialog;
+      await tester.pumpWidget(host(wrap));
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TextField)), same(state));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    settings.dispose();
+  });
+
+  testWidgets('关闭动效后尺寸变更即时完成且保留输入状态', (tester) async {
+    var disabled = false;
+    var height = 100.0;
+    for (final contentState in [false, true]) {
+      Widget host() => MaterialApp(home: MediaQuery(
+        data: MediaQueryData(disableAnimations: disabled),
+        child: Scaffold(body: Center(child: contentState
+          ? OpenHandContentStateSwitcher(stateKey: '正文', child: SizedBox(height: height, child: const TextField()))
+          : OpenHandAnimatedDialogSize(child: SizedBox(height: height, child: const TextField())))),
+      ));
+      disabled = false;
+      height = 100;
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(host());
+      await tester.enterText(find.byType(TextField), '尺寸输入');
+      final state = tester.state(find.byType(TextField));
+      disabled = true;
+      await tester.pumpWidget(host());
+      height = 180;
+      await tester.pumpWidget(host());
+      expect(tester.state(find.byType(TextField)), same(state));
+      expect(find.text('尺寸输入'), findsOneWidget);
+      expect(tester.getSize(find.byType(TextField)).height, 180);
+      expect(tester.takeException(), isNull);
+      disabled = false;
+      await tester.pumpWidget(host());
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TextField)), same(state));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('列表动效设置切换与零时长入场不会重置内容', (tester) async {
+    final settings = _MotionSettings();
+    Widget host() => ChangeNotifierProvider<SettingsController>.value(
+      value: settings,
+      child: const MaterialApp(home: Scaffold(body: SettingsAwareAppearOnce(child: TextField()))),
+    );
+    await tester.pumpWidget(host());
+    await tester.enterText(find.byType(TextField), '列表输入');
+    await tester.pump(const Duration(milliseconds: 20));
+    final state = tester.state(find.byType(TextField));
+    settings.listItemAnimationSettings = OpenHandMotionDefaults.disabled;
+    settings.notifyListeners();
+    await tester.pump();
+    expect(tester.widget<FadeTransition>(find.descendant(of: find.byType(AppearOnce), matching: find.byType(FadeTransition))).opacity.value, 1);
+    expect(tester.state(find.byType(TextField)), same(state));
+    settings.listItemAnimationSettings = OpenHandMotionDefaults.listItem;
+    settings.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(TextField)), same(state));
+    expect(find.text('列表输入'), findsOneWidget);
+    await tester.pumpWidget(const MaterialApp(home: AppearOnce(duration: Duration.zero, child: Text('立即显示'))));
+    await tester.pump();
+    expect(tester.widget<FadeTransition>(find.byType(FadeTransition).last).opacity.value, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    settings.dispose();
+  });
+
+  testWidgets('弹窗尺寸动效即时订阅全局设置并保留输入', (tester) async {
+    final settings = _MotionSettings();
+    await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(
+      value: settings,
+      child: const MaterialApp(home: Scaffold(body: OpenHandAnimatedDialogSize(child: TextField()))),
+    ));
+    await tester.enterText(find.byType(TextField), '弹窗输入');
+    await tester.pumpAndSettle();
+    final state = tester.state(find.byType(TextField));
+    settings.dialogAnimationSettings = OpenHandMotionDefaults.disabled;
+    settings.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.byType(AnimatedSize), findsNothing);
+    expect(tester.state(find.byType(TextField)), same(state));
+    settings.dialogAnimationSettings = OpenHandMotionDefaults.dialog.copyWith(durationMs: 640);
+    settings.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedSize>(find.byType(AnimatedSize)).duration, const Duration(milliseconds: 640));
+    expect(find.text('弹窗输入'), findsOneWidget);
+    expect(tester.state(find.byType(TextField)), same(state));
+    await tester.pumpWidget(const SizedBox.shrink());
+    settings.dispose();
+  });
+
+  testWidgets('内容切换快速往返时退场层不能拦截新内容点击', (tester) async {
+    var taps = 0;
+    Widget host(String key, {bool disabled = false}) => MaterialApp(home: MediaQuery(
+      data: MediaQueryData(disableAnimations: disabled),
+      child: Scaffold(body: OpenHandContentStateSwitcher(stateKey: key, animateSize: false,
+        child: SizedBox(width: 200, height: 60, child: TextButton(onPressed: () => taps++, child: Text(key))))),
+    ));
+    await tester.pumpWidget(host('甲'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(host('乙'));
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pumpWidget(host('甲'));
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('甲').last);
+    expect(taps, 1);
+    await tester.pumpWidget(host('甲', disabled: true));
+    await tester.pump();
+    expect(find.text('乙'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('入场位移的绘制、坐标转换和点击区域保持一致', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(
+      child: AppearOnce(duration: const Duration(seconds: 1), slideOffset: 100,
+        child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => taps++, child: const SizedBox(width: 80, height: 20))),
+    ))));
+    await tester.pump();
+    final target = find.byType(GestureDetector).last;
+    final box = tester.renderObject<RenderBox>(target);
+    await tester.tapAt(box.localToGlobal(const Offset(40, 10)));
+    expect(taps, 1);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('首次展开前的快速反向操作合并为最终状态', (tester) async {
+    final changes = <bool>[];
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: OpenHandExpansionTile(
+      title: const Text('展开标题'), children: const [Text('展开内容')], onExpansionChanged: changes.add,
+    ))));
+    await tester.tap(find.text('展开标题'));
+    await tester.tap(find.text('展开标题'));
+    await tester.pumpAndSettle();
+    expect(find.text('展开内容'), findsNothing);
+    expect(changes, isEmpty);
+    await tester.tap(find.text('展开标题'));
+    await tester.pumpAndSettle();
+    expect(find.text('展开内容'), findsOneWidget);
+    expect(changes, [true]);
+  });
+
   testWidgets('输入选择支持空闲、首帧前及被覆盖时取消', (tester) async {
     late BuildContext context;
     await tester.pumpWidget(MaterialApp(

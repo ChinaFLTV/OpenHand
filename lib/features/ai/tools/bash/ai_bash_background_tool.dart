@@ -1184,6 +1184,7 @@ class _BgSession {
   Future<void> close({required bool kill}) {
     final existing = _closeFuture;
     if (existing != null) return existing;
+    _stdinWrites.close(StateError('后台进程正在关闭。'));
     final cleanup = <Future<bool>>[];
     if (kill && alive) {
       alive = false;

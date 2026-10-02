@@ -118,6 +118,8 @@ class McpStdioWriteQueue {
       // 管道持续繁忙时由关闭流程继续终止子进程。
     } catch (_) {
       // 写入失败已传递给任务调用方，排空仅尽力执行。
+    } finally {
+      if (isClosed) _queue.close(_closedError);
     }
   }
 }

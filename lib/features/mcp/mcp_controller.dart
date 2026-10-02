@@ -586,6 +586,7 @@ class McpController extends ChangeNotifier {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _operationQueue.close(StateError('MCP 控制器已释放。'));
     final pendingTasks = <Future<void>>[
       _operationQueue.idle,
       _refreshFlight.idle,

@@ -59,22 +59,26 @@ DialogAnimationSettings openHandMotionSettingsOf(
   DialogAnimationSettings? override,
   bool respectReduceMotion = true,
   bool respectTickerMode = true,
+  bool listen = false,
 }) {
   if ((respectReduceMotion && openHandReduceMotionOf(context)) ||
       (respectTickerMode && !TickerMode.valuesOf(context).enabled)) {
     return OpenHandMotionDefaults.disabled;
   }
-  return (override ?? openHandMotionSettingsFallbackOf(context, scope))
+  return (override ??
+          openHandMotionSettingsFallbackOf(context, scope, listen: listen))
       .normalized();
 }
 
 DialogAnimationSettings openHandMotionSettingsFallbackOf(
   BuildContext context,
-  OpenHandMotionSettingsScope scope,
-) {
+  OpenHandMotionSettingsScope scope, {
+  bool listen = false,
+}) {
   try {
-    final controller = context.read<SettingsController>();
-    return switch (scope) {
+    DialogAnimationSettings select(
+      SettingsController controller,
+    ) => switch (scope) {
       OpenHandMotionSettingsScope.dialog => controller.dialogAnimationSettings,
       OpenHandMotionSettingsScope.menu => controller.menuAnimationSettings,
       OpenHandMotionSettingsScope.page => controller.pageAnimationSettings,
@@ -83,6 +87,9 @@ DialogAnimationSettings openHandMotionSettingsFallbackOf(
       OpenHandMotionSettingsScope.listItem =>
         controller.listItemAnimationSettings,
     };
+    return listen
+        ? context.select<SettingsController, DialogAnimationSettings>(select)
+        : select(context.read<SettingsController>());
   } on ProviderNotFoundException {
     return openHandDefaultMotionSettings(scope);
   }

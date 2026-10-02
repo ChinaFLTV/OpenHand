@@ -77,7 +77,6 @@ class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
     required this.controller,
     required this.anchorsBottom,
     super.childCount,
-    super.addRepaintBoundaries,
     super.findChildIndexCallback,
   });
 
@@ -3380,7 +3379,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 beforeCenterCount - index - 1,
                               ),
                               childCount: beforeCenterCount,
-                              addRepaintBoundaries: true,
                               findChildIndexCallback: (key) {
                                 final index = findIndex(key);
                                 return index != null &&
@@ -3400,7 +3398,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                               controller: widget.controller,
                               anchorsBottom: _anchorsTranscriptBottom,
                               childCount: listItemCount - beforeCenterCount,
-                              addRepaintBoundaries: true,
                               findChildIndexCallback: (key) {
                                 final index = findIndex(key);
                                 return index != null &&

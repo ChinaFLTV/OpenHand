@@ -218,22 +218,19 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
       _notifyDismissedSoon();
       return const SizedBox.shrink();
     }
-    if (!_directionMotionAvailable(context, entering: widget.present)) {
-      if (!widget.present) {
-        _notifyDismissedSoon();
-        return const SizedBox.shrink();
-      }
-      return widget.child;
+    if (!widget.present &&
+        !_directionMotionAvailable(context, entering: false)) {
+      _notifyDismissedSoon();
+      return const SizedBox.shrink();
     }
-    Widget content =
-        !widget.present && widget.keepContentVisibleDuringExitCollapse
-        ? widget.child
-        : buildAnimationStyleTransition(
-            animation: _ctrl,
-            settings: widget.settings,
-            profile: widget.transitionProfile,
-            child: widget.child,
-          );
+    Widget content = buildAnimationStyleTransition(
+      animation: !widget.present && widget.keepContentVisibleDuringExitCollapse
+          ? const AlwaysStoppedAnimation<double>(1)
+          : _ctrl,
+      settings: widget.settings,
+      profile: widget.transitionProfile,
+      child: widget.child,
+    );
     if (widget.collapseSize) {
       content = SizeTransition(
         // 保留曲线方向，动画中途反向时从当前尺寸继续。

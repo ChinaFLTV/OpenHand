@@ -951,10 +951,14 @@ class AiSessionController extends ChangeNotifier {
   Future<void>? _shutdownFuture;
   StateError get _disposedError => StateError('$runtimeType 已关闭');
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
-  final Map<String, Future<void>> _sessionOperationQueues =
-      <String, Future<void>>{};
-  final Map<String, Future<void>> _sessionHeaderOperationQueues =
-      <String, Future<void>>{};
+  final KeyedSerialTaskQueue<String> _sessionOperationQueues =
+      KeyedSerialTaskQueue<String>(
+        maxPendingTasks: _maxPendingSessionScopedOperations,
+      );
+  final KeyedSerialTaskQueue<String> _sessionHeaderOperationQueues =
+      KeyedSerialTaskQueue<String>(
+        maxPendingTasks: _maxPendingSessionScopedOperations,
+      );
   int _pendingSessionScopedOperations = 0;
   final Map<String, int> _sessionHeaderMutationGenerations = <String, int>{};
   final Map<String, int> _sessionPendingSendOperationCounts = <String, int>{};
@@ -7209,6 +7213,7 @@ class AiSessionController extends ChangeNotifier {
     final completer = Completer<void>();
     _shutdownFuture = completer.future;
     _isDisposed = true;
+    _operationQueue.close(_disposedError);
     _sessionHydrationSemaphore.cancelWaiters();
     _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
@@ -7242,13 +7247,13 @@ class AiSessionController extends ChangeNotifier {
     };
     final pendingOperations = <Future<void>>[
       _operationQueue.idle,
-      ..._sessionOperationQueues.values,
-      ..._sessionHeaderOperationQueues.values,
+      _sessionOperationQueues.idle,
+      _sessionHeaderOperationQueues.idle,
     ];
     _sessionCancelHandlers.clear();
     _sessionStopSignals.clear();
-    _sessionOperationQueues.clear();
-    _sessionHeaderOperationQueues.clear();
+    _sessionOperationQueues.close(_disposedError);
+    _sessionHeaderOperationQueues.close(_disposedError);
     _sessionSendPhases.clear();
     _sessionPendingSendOperationCounts.clear();
     _approvalPreviousPhases.clear();
@@ -14366,7 +14371,7 @@ $tail''';
   }
 
   Future<T> _enqueueSessionScopedOperation<T>({
-    required Map<String, Future<void>> queues,
+    required KeyedSerialTaskQueue<String> queues,
     required String sessionId,
     required Future<T> Function() operation,
     required void Function() onIdle,
@@ -14378,30 +14383,12 @@ $tail''';
       return Future<T>.error(StateError('AI 会话操作队列已满，拒绝继续堆积任务。'));
     }
     _pendingSessionScopedOperations++;
-    final completer = Completer<T>();
-    final previousQueue = queues[sessionId] ?? Future<void>.value();
-    late final Future<void> nextQueue;
-    nextQueue = previousQueue
-        .catchError((_) {})
-        .then((_) async {
-          try {
-            if (_isDisposed) {
-              throw _disposedError;
-            }
-            completer.complete(await operation());
-          } catch (error, stackTrace) {
-            completer.completeError(error, stackTrace);
-          }
-        })
-        .whenComplete(() {
-          _pendingSessionScopedOperations--;
-          if (identical(queues[sessionId], nextQueue)) {
-            queues.remove(sessionId);
-            onIdle();
-          }
-        });
-    queues[sessionId] = nextQueue;
-    return completer.future;
+    return queues
+        .enqueue(sessionId, () {
+          if (_isDisposed) throw _disposedError;
+          return operation();
+        }, onIdle: onIdle)
+        .whenComplete(() => _pendingSessionScopedOperations--);
   }
 
   void _setSessionSendPhase(String sessionId, AiSendPhase phase) {

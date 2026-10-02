@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
+import 'collision_safe_animated_switcher.dart';
+import 'motion_animated_size.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 
@@ -12,8 +14,7 @@ const Duration kOpenHandVerticalRevealReverseDuration = kOpenHandMotion240;
 ///
 /// 收敛全库重复的 `AnimatedSwitcher + SizeTransition + FadeTransition
 /// (+ SlideTransition)` 组合：统一曲线、轴对齐与堆叠对齐，并强制经过
-/// [openHandMotionDuration]，保证与全局动效设置一致——关闭动效时直接返回
-/// 子树，连 AnimatedSwitcher 都不挂载，避免无谓的 Ticker 与图层开销。
+/// [openHandMotionDuration]；关闭动效时立即切换并保留当前子树状态。
 ///
 /// 调用方按 AnimatedSwitcher 约定给 [child] 挂 key；只有需要“有/无”两态切换
 /// 时才传 [presentKey]，由本组件补齐存在态的 key。
@@ -48,17 +49,11 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
     final present = hasChild && presentKey != null
         ? KeyedSubtree(key: presentKey, child: child!)
         : child;
-    if (!openHandTickerMotionEnabled(context)) {
-      return present ?? const SizedBox.shrink(key: _absentKey);
-    }
     final inDuration = openHandMotionDuration(context, duration);
     final outDuration = openHandMotionDuration(
       context,
       reverseDuration ?? duration,
     );
-    if (inDuration <= Duration.zero && outDuration <= Duration.zero) {
-      return present ?? const SizedBox.shrink(key: _absentKey);
-    }
     return AnimatedSwitcher(
       duration: hasChild
           ? inDuration
@@ -71,9 +66,10 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
       switchInCurve: kOpenHandSwitchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) {
-        final faded = FadeTransition(opacity: animation, child: child);
+        final progress = _revealAnimation(animation, inDuration);
+        final faded = FadeTransition(opacity: progress, child: child);
         return SizeTransition(
-          sizeFactor: animation,
+          sizeFactor: progress,
           alignment: AlignmentDirectional.topStart,
           child: slideBeginOffsetY == 0
               ? faded
@@ -81,18 +77,16 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
                   position: Tween<Offset>(
                     begin: Offset(0, slideBeginOffsetY),
                     end: Offset.zero,
-                  ).animate(animation),
+                  ).animate(progress),
                   child: faded,
                 ),
         );
       },
       layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
+        return buildCollisionSafeAnimatedSwitcherLayout(
+          currentChild,
+          inDuration == Duration.zero ? const [] : previousChildren,
           alignment: Alignment.topCenter,
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
         );
       },
       child: present ?? const SizedBox.shrink(key: _absentKey),
@@ -138,29 +132,29 @@ class OpenHandInlineRevealSwitcher extends StatelessWidget {
     final present = hasChild && presentKey != null
         ? KeyedSubtree(key: presentKey, child: child!)
         : child;
-    if (!openHandTickerMotionEnabled(context)) {
-      return present ?? const SizedBox.shrink(key: _absentKey);
-    }
+    final effectiveDuration = openHandMotionDuration(
+      context,
+      hasChild ? duration : (reverseDuration ?? duration),
+    );
     return AnimatedSwitcher(
-      duration: openHandMotionDuration(
-        context,
-        hasChild ? duration : (reverseDuration ?? duration),
-      ),
+      duration: effectiveDuration,
       switchInCurve: kOpenHandSwitchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => SizeTransition(
-        sizeFactor: animation,
+        sizeFactor: _revealAnimation(animation, effectiveDuration),
         axis: Axis.horizontal,
         alignment: AlignmentDirectional.topStart,
-        child: FadeTransition(opacity: animation, child: child),
+        child: FadeTransition(
+          opacity: _revealAnimation(animation, effectiveDuration),
+          child: child,
+        ),
       ),
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.centerLeft,
-        children: <Widget>[
-          ...previousChildren,
-          if (currentChild != null) currentChild,
-        ],
-      ),
+      layoutBuilder: (currentChild, previousChildren) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            effectiveDuration == Duration.zero ? const [] : previousChildren,
+            alignment: Alignment.centerLeft,
+          ),
       child: present ?? const SizedBox.shrink(key: _absentKey),
     );
   }
@@ -197,25 +191,23 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveDuration = openHandMotionDuration(context, duration);
-    if (effectiveDuration == Duration.zero) return child;
     return AnimatedSwitcher(
       duration: effectiveDuration,
       switchInCurve: switchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.topLeft,
-        children: <Widget>[
-          ...previousChildren,
-          if (currentChild != null) currentChild,
-        ],
-      ),
+      layoutBuilder: (currentChild, previousChildren) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            effectiveDuration == Duration.zero ? const [] : previousChildren,
+            alignment: Alignment.topLeft,
+          ),
       transitionBuilder: (transitionChild, animation) => FadeTransition(
-        opacity: OpenHandBoundedDoubleAnimation(animation),
+        opacity: _revealAnimation(animation, effectiveDuration),
         child: SlideTransition(
           position: Tween<Offset>(
             begin: Offset(0, slideBeginOffsetY),
             end: Offset.zero,
-          ).animate(animation),
+          ).animate(_revealAnimation(animation, effectiveDuration)),
           child: transitionChild,
         ),
       ),
@@ -246,22 +238,20 @@ class OpenHandFadeSizeSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveDuration = openHandMotionDuration(context, duration);
-    if (effectiveDuration == Duration.zero) return child;
     return AnimatedSwitcher(
       duration: effectiveDuration,
       switchInCurve: kOpenHandSwitchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: layoutAlignment,
-        children: <Widget>[
-          ...previousChildren,
-          if (currentChild != null) currentChild,
-        ],
-      ),
+      layoutBuilder: (currentChild, previousChildren) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            effectiveDuration == Duration.zero ? const [] : previousChildren,
+            alignment: layoutAlignment,
+          ),
       transitionBuilder: (transitionChild, animation) => FadeTransition(
-        opacity: animation,
+        opacity: _revealAnimation(animation, effectiveDuration),
         child: SizeTransition(
-          sizeFactor: animation,
+          sizeFactor: _revealAnimation(animation, effectiveDuration),
           alignment: sizeAlignment,
           fixedCrossAxisSizeFactor: fixedCrossAxisSizeFactor,
           child: transitionChild,
@@ -302,26 +292,37 @@ class OpenHandContentStateSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveDuration = openHandMotionDuration(context, duration);
-    if (effectiveDuration == Duration.zero) return child;
     final switcher = AnimatedSwitcher(
       duration: effectiveDuration,
       switchInCurve: kOpenHandSwitchInCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: alignment,
-        children: <Widget>[
-          ...previousChildren,
-          if (currentChild != null) currentChild,
-        ],
+      transitionBuilder: (transitionChild, animation) => FadeTransition(
+        opacity: _revealAnimation(animation, effectiveDuration),
+        child: transitionChild,
       ),
+      layoutBuilder: (currentChild, previousChildren) =>
+          buildCollisionSafeAnimatedSwitcherLayout(
+            currentChild,
+            effectiveDuration == Duration.zero ? const [] : previousChildren,
+            alignment: alignment,
+          ),
       child: KeyedSubtree(key: ValueKey<String>(stateKey), child: child),
     );
     if (!animateSize) return switcher;
-    return AnimatedSize(
+    return OpenHandMotionAnimatedSize(
       duration: effectiveDuration,
       curve: kOpenHandSwitchInCurve,
       alignment: alignment,
       child: switcher,
     );
   }
+}
+
+Animation<double> _revealAnimation(
+  Animation<double> animation,
+  Duration duration,
+) {
+  return duration <= Duration.zero
+      ? const AlwaysStoppedAnimation<double>(1)
+      : OpenHandBoundedDoubleAnimation(animation);
 }

@@ -645,6 +645,7 @@ class SettingsController extends ChangeNotifier {
     if (_isDisposed) return;
     _isShuttingDown = true;
     _isDisposed = true;
+    _mutationQueue.close(StateError('设置控制器已释放。'));
     _saveSuccessSignal.dispose();
     super.dispose();
   }
@@ -656,7 +657,7 @@ class SettingsController extends ChangeNotifier {
     _isShuttingDown = true;
     final shutdown = () async {
       await runAsyncCleanupBounded(
-        () => _mutationQueue.idle,
+        () => _mutationQueue.drainAndClose(_settingsShutdownTimeout),
         timeout: _settingsShutdownTimeout,
         onError: (error, stack) =>
             silentLog('settings_controller', '等待设置变更落盘', error, stack),

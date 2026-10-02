@@ -19,26 +19,80 @@ final class SerialTaskQueue {
   final int maxPendingTasks;
   Future<void> _tail = Future<void>.value();
   int _pendingTasks = 0;
+  bool _draining = false;
+  Object? _closedError;
+  final Set<_SerialTask<dynamic>> _pending = <_SerialTask<dynamic>>{};
 
   /// 当前已入队任务全部结束时完成；后续新任务不包含在本次等待中。
   Future<void> get idle => _tail;
 
+  /// 在退出预算内等待已排队任务；完成或超时后统一关闭队列。
+  Future<void> drainAndClose(Duration timeout) async {
+    requirePositiveDuration(timeout, 'timeout');
+    _draining = true;
+    try {
+      await idle.timeout(timeout);
+    } finally {
+      close();
+    }
+  }
+
   Future<T> enqueue<T>(Future<T> Function() task) {
+    final closedError = _closedError;
+    if (closedError != null) return Future<T>.error(closedError);
+    if (_draining) return Future<T>.error(StateError('串行任务队列正在关闭。'));
     if (_pendingTasks >= maxPendingTasks) {
       return Future<T>.error(StateError('串行任务队列已满，拒绝继续堆积任务。'));
     }
     _pendingTasks += 1;
-    final completer = Completer<T>();
+    final entry = _SerialTask<T>(task);
+    _pending.add(entry);
     _tail = _tail.then((_) async {
+      if (!_pending.remove(entry)) return;
       try {
-        completer.complete(await task());
-      } catch (error, stack) {
-        completer.completeError(error, stack);
+        await entry.run();
       } finally {
         _pendingTasks -= 1;
       }
     });
-    return completer.future;
+    return entry.done;
+  }
+
+  /// 拒绝新任务并立即取消尚未开始的任务；运行中的任务仍由所有者负责终止。
+  void close([Object? error]) {
+    if (_closedError != null) return;
+    final reason = _closedError = error ?? StateError('串行任务队列已关闭。');
+    final pending = _pending.toList(growable: false);
+    _pending.clear();
+    _pendingTasks -= pending.length;
+    for (final entry in pending) {
+      entry.cancel(reason);
+    }
+  }
+}
+
+/// 任务取消后立即解除业务闭包引用，不依赖前一个任务是否结束。
+final class _SerialTask<T> {
+  _SerialTask(this._operation);
+
+  Future<T> Function()? _operation;
+  final Completer<T> _completer = Completer<T>();
+
+  Future<T> get done => _completer.future;
+
+  Future<void> run() async {
+    final operation = _operation!;
+    _operation = null;
+    try {
+      _completer.complete(await operation());
+    } catch (error, stack) {
+      _completer.completeError(error, stack);
+    }
+  }
+
+  void cancel(Object error) {
+    _operation = null;
+    _completer.completeError(error, StackTrace.current);
   }
 }
 
@@ -125,21 +179,35 @@ final class KeyedSerialTaskQueue<K> {
   final int maxPendingTasks;
   final Map<K, Future<void>> _tails = <K, Future<void>>{};
   int _pendingTasks = 0;
+  Object? _closedError;
+  final Set<_SerialTask<dynamic>> _pending = <_SerialTask<dynamic>>{};
 
-  Future<T> enqueue<T>(K key, Future<T> Function() task) {
+  Iterable<K> get keys => _tails.keys;
+  bool containsKey(K key) => _tails.containsKey(key);
+
+  /// 等待当前已入队的所有键结束；后续任务不包含在本次等待中。
+  Future<void> get idle => Future.wait<void>(_tails.values).then<void>((_) {});
+
+  Future<T> enqueue<T>(
+    K key,
+    Future<T> Function() task, {
+    void Function()? onIdle,
+  }) {
+    final closedError = _closedError;
+    if (closedError != null) return Future<T>.error(closedError);
     if (_pendingTasks >= maxPendingTasks) {
       return Future<T>.error(StateError('键控串行任务队列已满，拒绝继续堆积任务。'));
     }
 
     _pendingTasks += 1;
     final previous = _tails[key] ?? Future<void>.value();
-    final completer = Completer<T>();
+    final entry = _SerialTask<T>(task);
+    _pending.add(entry);
     late final Future<void> tail;
     tail = previous.then<void>((_) async {
+      if (!_pending.remove(entry)) return;
       try {
-        completer.complete(await task());
-      } catch (error, stack) {
-        completer.completeError(error, stack);
+        await entry.run();
       } finally {
         _pendingTasks -= 1;
       }
@@ -147,9 +215,22 @@ final class KeyedSerialTaskQueue<K> {
     _tails[key] = tail;
     unawaited(
       tail.then<void>((_) {
-        if (identical(_tails[key], tail)) _tails.remove(key);
+        if (!identical(_tails[key], tail)) return;
+        _tails.remove(key);
+        onIdle?.call();
       }),
     );
-    return completer.future;
+    return entry.done;
+  }
+
+  void close([Object? error]) {
+    if (_closedError != null) return;
+    final reason = _closedError = error ?? StateError('键控串行任务队列已关闭。');
+    final pending = _pending.toList(growable: false);
+    _pending.clear();
+    _pendingTasks -= pending.length;
+    for (final entry in pending) {
+      entry.cancel(reason);
+    }
   }
 }

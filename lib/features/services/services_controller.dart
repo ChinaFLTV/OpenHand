@@ -2206,6 +2206,9 @@ class ServicesController extends ChangeNotifier {
     _lifecycle = AiExposureServiceLifecycle.stopping;
     await _drainRuntimeOperations();
     _disposed = true;
+    final closedError = StateError('扫描服务控制器已释放。');
+    _managedDependencyUpdateQueue.close(closedError);
+    _proxyRuntimeUpdateQueue.close(closedError);
     try {
       final pluginController = _pluginServiceController;
       final pluginListener = _pluginStateListener;

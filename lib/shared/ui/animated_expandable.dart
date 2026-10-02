@@ -105,16 +105,24 @@ class OpenHandExpansionTile extends StatefulWidget {
 class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
   late bool _expanded = widget.initiallyExpanded;
   bool _userToggled = false;
+  bool? _pendingExpansion;
 
   void _toggle() {
-    final next = !_expanded;
+    final next = !(_pendingExpansion ?? _expanded);
+    if (_pendingExpansion != null) {
+      _pendingExpansion = next;
+      return;
+    }
     final armSwitcher = !_userToggled && openHandTickerMotionEnabled(context);
     if (armSwitcher) {
+      _pendingExpansion = next;
       setState(() => _userToggled = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() => _expanded = next);
-        widget.onExpansionChanged?.call(next);
+        final pending = _pendingExpansion;
+        _pendingExpansion = null;
+        if (!mounted || pending == null || pending == _expanded) return;
+        setState(() => _expanded = pending);
+        widget.onExpansionChanged?.call(pending);
       });
       return;
     }

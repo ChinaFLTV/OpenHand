@@ -32,10 +32,12 @@ import 'package:openhand/shared/db/database_service.dart';
 import 'package:openhand/shared/db/atomic_file_operations.dart';
 import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/mcp/service/mcp_tool_discovery_service.dart';
+import 'package:openhand/features/mcp/service/mcp_stdio_io_utils.dart';
 import 'package:openhand/features/web_reverse/lsp/web_reverse_lsp_client.dart';
 import 'package:openhand/shared/net/json_rpc_message.dart';
 import 'package:openhand/shared/util/async_concurrency.dart';
 import 'package:openhand/shared/util/timer_safety.dart';
+import 'package:openhand/shared/core/managed_change_notifier.dart';
 import 'package:openhand/app/model/hook_config.dart';
 import 'package:openhand/features/hooks/hooks_controller.dart';
 import 'package:openhand/features/hooks/service/hooks_executor.dart';
@@ -56,6 +58,7 @@ import 'package:openhand/app/model/cron_config.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/features/services/ai_model_proxy_controller.dart';
 import 'package:openhand/features/services/model/ai_model_proxy_models.dart';
+import 'package:openhand/features/services/data/ai_model_proxy_store.dart';
 import 'package:openhand/features/services/service/ai_model_proxy_http_server.dart';
 
 final class _ProxyController implements AiModelProxyController {
@@ -74,6 +77,24 @@ final class _ProxyController implements AiModelProxyController {
   void runtimeRequestFinished(int? id) { active--; }
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final class _ManagedQueueController extends ManagedChangeNotifier {
+  Future<T> run<T>(Future<T> Function() operation) => enqueueOperation(operation);
+  @override
+  Duration get operationShutdownTimeout => const Duration(milliseconds: 30);
+}
+
+final class _BlockedProxyStore extends AiModelProxyStore {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  int writes = 0;
+  @override
+  Future<void> save(AiModelProxySettings settings) {
+    writes++;
+    if (!started.isCompleted) started.complete();
+    return release.future;
+  }
 }
 
 final class _BlockedHttpResponse implements HttpResponse {
@@ -184,6 +205,83 @@ final class _DrainRuntime implements AiToolRuntimeService {
 }
 
 void main() {
+  test('MCP 输入关闭超时后立即取消等待写入且保留原始错误', () async {
+    final queue = McpStdioWriteQueue();
+    final started = Completer<void>();
+    final release = Completer<void>();
+    final active = queue.run(() { started.complete(); return release.future; });
+    var waitingCalled = false;
+    final waiting = queue.run(() async { waitingCalled = true; });
+    final reason = StateError('模拟管道关闭');
+    final failure = expectLater(waiting, throwsA(same(reason)));
+    await started.future;
+    queue.rejectNewWrites(reason);
+    await queue.drain(const Duration(milliseconds: 20));
+    await failure.timeout(const Duration(seconds: 1));
+    await expectLater(queue.run(() async {}), throwsA(same(reason)));
+    release.complete();
+    await active;
+    expect(waitingCalled, isFalse);
+  });
+
+  test('模型中转站关闭共享任务，等待设置落盘期间拒绝新操作', () async {
+    final store = _BlockedProxyStore();
+    final controller = AiModelProxyController(store: store);
+    final saving = controller.saveSettings(controller.settings.copyWith(listenPort: 9901));
+    await store.started.future;
+    final closing = controller.shutdown();
+    expect(identical(closing, controller.shutdown()), isTrue);
+    await controller.saveSettings(controller.settings.copyWith(listenPort: 9902));
+    await controller.start();
+    expect(store.writes, 1);
+    expect(controller.settings.listenPort, 9901);
+    store.release.complete();
+    await saving;
+    await closing;
+    controller.dispose();
+    expect(identical(closing, controller.shutdown()), isTrue);
+  });
+
+  test('模型中转站设置写入停滞不会无限阻塞关闭', () async {
+    final store = _BlockedProxyStore();
+    final controller = AiModelProxyController(store: store);
+    final saving = controller.saveSettings(controller.settings.copyWith(listenPort: 9901));
+    await store.started.future;
+    try {
+      await controller.shutdown().timeout(const Duration(seconds: 17));
+      expect(controller.lifecycle, AiModelProxyLifecycle.stopped);
+      await controller.saveSettings(controller.settings.copyWith(listenPort: 9902));
+      expect(store.writes, 1);
+    } finally {
+      store.release.complete();
+      await saving;
+      controller.dispose();
+    }
+  });
+
+  test('控制器关闭超时后立即退回排队操作，活动操作不能发布过期结果', () async {
+    final controller = _ManagedQueueController();
+    final started = Completer<void>();
+    final blocked = Completer<int>();
+    final active = controller.run(() {
+      started.complete();
+      return blocked.future;
+    });
+    final activeFailure = expectLater(active, throwsStateError);
+    var pendingCalls = 0;
+    final waiting = controller.run(() async => ++pendingCalls);
+    final waitingFailure = expectLater(waiting, throwsStateError);
+    await started.future;
+    final shutdown = controller.shutdown();
+    expect(identical(shutdown, controller.shutdown()), isTrue);
+    await expectLater(shutdown, throwsA(isA<TimeoutException>()));
+    await waitingFailure;
+    expect(pendingCalls, 0);
+    blocked.complete(1);
+    await activeFailure;
+    await expectLater(controller.run(() async => 2), throwsStateError);
+  });
+
   test('合并任务先登记再执行，同步重入、失败恢复和新一轮互不干扰', () async {
     final flight = OpenHandSingleFlight<int>();
     final pending = Completer<int>();

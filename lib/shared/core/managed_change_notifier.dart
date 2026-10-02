@@ -53,7 +53,7 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
     _isShuttingDown = true;
     final shutdown = () async {
       try {
-        await _operationQueue.idle.timeout(operationShutdownTimeout);
+        await _operationQueue.drainAndClose(operationShutdownTimeout);
       } finally {
         if (!_isDisposed) dispose();
       }
@@ -68,6 +68,7 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
     if (_isDisposed) return;
     _isShuttingDown = true;
     _isDisposed = true;
+    _operationQueue.close(_unavailableError);
     super.dispose();
   }
 }

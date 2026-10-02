@@ -234,7 +234,7 @@ class AiUsageTracker {
     _shuttingDown = true;
     return _shutdownOnce.run(() async {
       try {
-        await flush().timeout(runtimeCleanupTimeout);
+        await _writes.drainAndClose(runtimeCleanupTimeout);
       } finally {
         changes.dispose();
       }

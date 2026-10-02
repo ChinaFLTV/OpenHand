@@ -120,7 +120,6 @@ class _OpenHandSpringEntranceState extends State<OpenHandSpringEntrance>
 
   @override
   Widget build(BuildContext context) {
-    if (!openHandTickerMotionEnabled(context)) return widget.child;
     return FadeTransition(
       opacity: _opacity,
       child: ScaleTransition(

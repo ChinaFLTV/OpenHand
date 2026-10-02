@@ -1316,8 +1316,21 @@ class WebMessagePlatformService {
     final active = _disposeFuture;
     if (active != null) return active;
     _disposed = true;
+    _lifecycleQueue.close(_disposedError);
     _artifactCleanupSemaphore.cancelWaiters();
-    final disposal = _lifecycleQueue.idle.then((_) => _disposeLocked());
+    final disposal = () async {
+      await runAsyncCleanupBounded(
+        () => _lifecycleQueue.idle,
+        timeout: kOpenHandServiceRuntimeCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_message_platform_service',
+          '等待网关生命周期任务结束',
+          error,
+          stack,
+        ),
+      );
+      await _disposeLocked();
+    }();
     _disposeFuture = disposal;
     return disposal;
   }
@@ -1352,6 +1365,7 @@ class WebMessagePlatformService {
     _opsPersistenceClosing = true;
     _opsPersistDebouncer.dispose();
     await cleanup('持久化运维记录', () => _persistOpsHistory(duringClose: true));
+    _opsPersistenceQueue.close(_disposedError);
     await cleanup(
       '移除目标续跑判断器',
       () => _sessionController.removeGoalContinuationYieldPredicate(

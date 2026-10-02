@@ -12,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../util/argument_guards.dart';
 import '../util/localized_text.dart';
 import 'bounded_animation.dart';
+import 'motion_animated_size.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
@@ -246,7 +247,7 @@ Widget? buildOpenHandDialogConstrainedContent({
 /// 弹窗宽高随内容变化时走全局弹窗动效，避免生硬跳变。
 ///
 /// 固定高度的铺满弹窗不要包这层：外层已经定死尺寸，再套 [AnimatedSize]
-/// 没有可见收益。关闭动效或时长为 0 时直接返回子树，不挂 Ticker。
+/// 没有可见收益。关闭动效时立即完成尺寸切换，保持子树状态。
 class OpenHandAnimatedDialogSize extends StatelessWidget {
   const OpenHandAnimatedDialogSize({
     super.key,
@@ -262,10 +263,10 @@ class OpenHandAnimatedDialogSize extends StatelessWidget {
     final settings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
+      listen: true,
     );
     final duration = openHandMotionDuration(context, settings.entranceDuration);
-    if (duration <= Duration.zero) return child;
-    return AnimatedSize(
+    return OpenHandMotionAnimatedSize(
       duration: duration,
       reverseDuration: openHandMotionDuration(context, settings.exitDuration),
       curve: _openHandDialogSizeCurve(settings),

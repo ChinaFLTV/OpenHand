@@ -443,6 +443,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (_isDisposed) return;
     _startShutdownCleanup();
     _isDisposed = true;
+    _mutationQueue.close(StateError('定时任务控制器已释放。'));
     super.dispose();
   }
 

@@ -5300,6 +5300,10 @@ class _MaintenanceTable extends StatelessWidget {
   }
 }
 
+const double _maintenanceFactsGap = 8;
+const double _maintenanceFactsLabelMaxWidth = 120;
+const double _maintenanceFactsValueFontSize = 12;
+
 class _MaintenanceFacts extends StatelessWidget {
   const _MaintenanceFacts({required this.values, this.maxColumns = 2});
   final Map<String, String> values;
@@ -5307,19 +5311,28 @@ class _MaintenanceFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
+    final scale =
+        MediaQuery.textScalerOf(context).scale(_maintenanceFactsValueFontSize) /
+        _maintenanceFactsValueFontSize;
     return _MaintenanceGrid(
       minWidth: 380,
+      gap: _maintenanceFactsGap,
       maxColumns: maxColumns,
       children: [
         for (final entry in values.entries)
           LayoutBuilder(
             key: PageStorageKey(entry.key),
             builder: (context, bounds) {
-              final label = Text(
-                maintenanceLabel(context, entry.key),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              final labelText = maintenanceLabel(context, entry.key);
+              final label = Tooltip(
+                message: labelText,
+                child: Text(
+                  labelText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               );
               final value = _MaintenanceValue(
@@ -5329,30 +5342,30 @@ class _MaintenanceFacts extends StatelessWidget {
                 selectable: true,
                 maxLines: null,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 13,
+                  fontSize: _maintenanceFactsValueFontSize,
                   fontWeight: FontWeight.w600,
                 ),
               );
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: bounds.maxWidth < 260 * scale
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: 4,
-                        children: [label, value],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: math.min(bounds.maxWidth * .34, 140 * scale),
-                            child: label,
+              return bounds.maxWidth < 260 * scale
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 4,
+                      children: [label, value],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: math.min(
+                            bounds.maxWidth * .34,
+                            _maintenanceFactsLabelMaxWidth * scale,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(child: value),
-                        ],
-                      ),
-              );
+                          child: label,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: value),
+                      ],
+                    );
             },
           ),
       ],
@@ -5796,12 +5809,14 @@ class _MaintenanceGrid extends StatelessWidget {
     super.key,
     required this.children,
     this.minWidth = 360,
+    this.gap = _maintenanceGridGap,
     this.maxColumns = 3,
     this.balanceColumns = false,
     this.fillLastRow = true,
   });
   final List<Widget> children;
   final double minWidth;
+  final double gap;
   final int maxColumns;
   final bool balanceColumns;
   final bool fillLastRow;
@@ -5817,8 +5832,7 @@ class _MaintenanceGrid extends StatelessWidget {
         final keyed = _maintenanceMotionChildren(children, mergeSpacing: false);
         final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
         final capacity =
-            ((constraints.maxWidth + _maintenanceGridGap) /
-                    (minWidth * scale + _maintenanceGridGap))
+            ((constraints.maxWidth + gap) / (minWidth * scale + gap))
                 .floor()
                 .clamp(1, math.max(1, math.min(maxColumns, children.length)))
                 .toInt();
@@ -5831,9 +5845,7 @@ class _MaintenanceGrid extends StatelessWidget {
           final count = math.min(columns, children.length - start);
           final widthColumns = fillLastRow ? count : columns;
           final width =
-              (constraints.maxWidth -
-                  (widthColumns - 1) * _maintenanceGridGap) /
-              widthColumns;
+              (constraints.maxWidth - (widthColumns - 1) * gap) / widthColumns;
           final widths = List<double>.filled(count, width);
           final flexible = <int>[];
           var spare = 0.0;
@@ -5869,8 +5881,8 @@ class _MaintenanceGrid extends StatelessWidget {
           settings: motion,
           equalRunHeights: true,
           followAnimatedChildHeight: true,
-          spacing: _maintenanceGridGap,
-          runSpacing: _maintenanceGridGap,
+          spacing: gap,
+          runSpacing: gap,
           children: tiles,
         );
       },

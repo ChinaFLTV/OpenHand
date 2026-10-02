@@ -525,7 +525,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   Future<void> shutdown() {
     _shuttingDown = true;
     return _shutdownOnce.run(
-      () => _operations.idle.timeout(runtimeCleanupTimeout),
+      () => _operations.drainAndClose(runtimeCleanupTimeout),
     );
   }
 }
