@@ -15419,6 +15419,19 @@ class AppLocalizationsZh extends AppLocalizations {
       '暂时无法读取此标签的详情，可重试或选择其他标签。';
 
   @override
+  String maintenanceImageTagNotFound(String tag) {
+    return '标签“$tag”不存在，请选择其他标签。';
+  }
+
+  @override
+  String get maintenanceImageNoTags => '此仓库暂无可用标签，可刷新重试或选择其他镜像。';
+
+  @override
+  String maintenanceImageDefaultTagChanged(String tag) {
+    return '此仓库没有 latest 标签，已选择现有标签“$tag”。';
+  }
+
+  @override
   String get maintenanceImagePlatforms => '平台';
 
   @override
@@ -30925,6 +30938,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get maintenanceImageTagDetailsUnavailable =>
       '暫時無法讀取此標籤的詳情，可重試或選擇其他標籤。';
+
+  @override
+  String maintenanceImageTagNotFound(String tag) {
+    return '標籤「$tag」不存在，請選擇其他標籤。';
+  }
+
+  @override
+  String get maintenanceImageNoTags => '此倉庫暫無可用標籤，可重新整理或選擇其他映像。';
+
+  @override
+  String maintenanceImageDefaultTagChanged(String tag) {
+    return '此倉庫沒有 latest 標籤，已選擇現有標籤「$tag」。';
+  }
 
   @override
   String get maintenanceImagePlatforms => '平台';

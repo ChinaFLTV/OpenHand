@@ -666,7 +666,7 @@ class _ContainerRegistryDialogState extends State<_ContainerRegistryDialog> {
       context: context,
       builder: (_) => _ContainerRegistryDetailsDialog(
         image: row,
-        selected: _tags[row.name] ?? 'latest',
+        selected: _tags[row.name],
         registryFactory: widget.registryFactory,
         onTagChanged: (tag) {
           if (mounted) setState(() => _tags[row.name] = tag);
@@ -1040,7 +1040,7 @@ class _ContainerRegistryDetailsDialog extends StatefulWidget {
     required this.onTagChanged,
   });
   final MachineContainerImageSearchResult image;
-  final String selected;
+  final String? selected;
   final MachineImageRegistry Function() registryFactory;
   final ValueChanged<String> onTagChanged;
 
@@ -1052,9 +1052,11 @@ class _ContainerRegistryDetailsDialog extends StatefulWidget {
 class _ContainerRegistryDetailsDialogState
     extends State<_ContainerRegistryDetailsDialog> {
   late final _registry = widget.registryFactory();
-  late String _tag = widget.selected;
+  late String _tag = widget.selected ?? 'latest';
+  late bool _resolveDefaultTag = widget.selected == null;
   Map<String, dynamic>? _repository, _tagData;
   String _repositoryError = '', _tagError = '';
+  bool _tagUnavailable = false, _noTags = false, _defaultTagChanged = false;
   bool _repositoryLoading = false, _tagLoading = false, _selecting = false;
   int _tab = 0;
 
@@ -1098,13 +1100,53 @@ class _ContainerRegistryDetailsDialogState
     setState(() {
       _tagLoading = true;
       _tagError = '';
+      _tagUnavailable = false;
+      _noTags = false;
+      _tagData = null;
     });
     try {
-      final data = await _registry.tagDetails(
-        widget.image.hubRepository!,
-        _tag,
-      );
-      if (mounted) setState(() => _tagData = data);
+      final repository = widget.image.hubRepository!;
+      Map<String, dynamic> data;
+      try {
+        data = await _registry.tagDetails(repository, _tag);
+      } on HttpResponseStatusException catch (error) {
+        if (error.statusCode != HttpStatus.notFound) rethrow;
+        if (!mounted) return;
+        setState(() => _tagUnavailable = true);
+        if (!_resolveDefaultTag) return;
+        // 只为未指定版本的默认查询补选一次，保留用户主动选择的标签。
+        final available = await _registry.tags(repository);
+        if (!mounted) return;
+        final tag = available.tags.where((tag) => tag != _tag).firstOrNull;
+        if (tag == null) {
+          setState(() => _noTags = true);
+          return;
+        }
+        setState(() {
+          _tag = tag;
+          _tagUnavailable = false;
+          _defaultTagChanged = true;
+          _resolveDefaultTag = false;
+        });
+        widget.onTagChanged(tag);
+        data = await _registry.tagDetails(repository, tag);
+      }
+      if (mounted) {
+        setState(() {
+          _tagData = data;
+          _resolveDefaultTag = false;
+        });
+      }
+    } on HttpResponseStatusException catch (error) {
+      if (mounted) {
+        setState(() {
+          if (error.statusCode == HttpStatus.notFound) {
+            _tagUnavailable = true;
+          } else {
+            _tagError = '$error';
+          }
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _tagError = '$error');
@@ -1131,6 +1173,8 @@ class _ContainerRegistryDetailsDialogState
     setState(() {
       _tag = tag;
       _tagData = null;
+      _resolveDefaultTag = false;
+      _defaultTagChanged = false;
     });
     widget.onTagChanged(tag);
     if (widget.image.hubRepository != null) await _loadTag();
@@ -1197,16 +1241,29 @@ class _ContainerRegistryDetailsDialogState
                 '${l.maintenanceImageRepositoryUnavailable}\n$_repositoryError',
             error: true,
           );
-    final tagNotice = _tagError.isEmpty
+    final tagNotice = _tagError.isEmpty && !_tagUnavailable
         ? null
         : _MaintenanceNotice(
-            message: '${l.maintenanceImageTagDetailsUnavailable}\n$_tagError',
-            error: true,
+            message: _noTags
+                ? l.maintenanceImageNoTags
+                : _tagUnavailable
+                ? '${l.maintenanceImageTagNotFound(_tag)}${_tagError.isEmpty ? '' : '\n${l.maintenanceImageTagsUnavailable}'}'
+                : '${l.maintenanceImageTagDetailsUnavailable}\n$_tagError',
+            error: !_tagUnavailable,
           );
     final retryRepository = Align(
       alignment: AlignmentDirectional.centerEnd,
       child: FilledButton.tonalIcon(
         onPressed: _repositoryLoading ? null : _loadRepository,
+        icon: const Icon(Icons.refresh_rounded, size: 16),
+        label: Text(l.maintenanceImageTagRetry),
+      ),
+    );
+    final retryTag = Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: FilledButton.tonalIcon(
+        style: _maintenanceActionButtonStyle(context),
+        onPressed: _tagLoading ? null : _loadTag,
         icon: const Icon(Icons.refresh_rounded, size: 16),
         label: Text(l.maintenanceImageTagRetry),
       ),
@@ -1249,6 +1306,10 @@ class _ContainerRegistryDetailsDialogState
                         fontSize: 13,
                         height: 1.5,
                       ),
+                    ),
+                  if (_defaultTagChanged)
+                    _MaintenanceNotice(
+                      message: l.maintenanceImageDefaultTagChanged(_tag),
                     ),
                   if (image.hubRepository == null)
                     _MaintenanceNotice(
@@ -1356,24 +1417,14 @@ class _ContainerRegistryDetailsDialogState
             ),
             if (repositoryNotice != null) repositoryNotice,
             if (_repositoryError.isNotEmpty) retryRepository,
-            if (tagNotice != null) tagNotice,
+            if (tagNotice != null) ...[tagNotice, retryTag],
           ],
         );
       case 1:
         content = _MaintenanceAnimatedColumn(
           spacing: 12,
           children: [
-            if (tagNotice != null) ...[
-              tagNotice,
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: FilledButton.tonalIcon(
-                  onPressed: _tagLoading ? null : _loadTag,
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text(l.maintenanceImageTagRetry),
-                ),
-              ),
-            ],
+            if (tagNotice != null) ...[tagNotice, retryTag],
             _ContainerImagePlatforms(
               key: ValueKey(_tag),
               images: platforms,
@@ -1636,15 +1687,21 @@ class _ContainerRegistryDetailsDialogState
                 context: context,
                 actions: [
                   OpenHandDialogActionButton.secondary(
-                    onPressed: () =>
-                        Navigator.pop(context, _ContainerResourceAction.pull),
+                    onPressed: _tagLoading || _selecting || _tagUnavailable
+                        ? null
+                        : () => Navigator.pop(
+                            context,
+                            _ContainerResourceAction.pull,
+                          ),
                     label: l.maintenanceImagePullOnly,
                   ),
                   OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      _ContainerResourceAction.createContainer,
-                    ),
+                    onPressed: _tagLoading || _selecting || _tagUnavailable
+                        ? null
+                        : () => Navigator.pop(
+                            context,
+                            _ContainerResourceAction.createContainer,
+                          ),
                     label: l.maintenanceContainerCreate,
                   ),
                 ],

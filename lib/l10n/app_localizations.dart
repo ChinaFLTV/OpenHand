@@ -28823,6 +28823,24 @@ abstract class AppLocalizations {
   /// **'暂时无法读取此标签的详情，可重试或选择其他标签。'**
   String get maintenanceImageTagDetailsUnavailable;
 
+  /// 镜像标签不存在或默认标签补选提示
+  ///
+  /// In zh, this message translates to:
+  /// **'标签“{tag}”不存在，请选择其他标签。'**
+  String maintenanceImageTagNotFound(String tag);
+
+  /// 镜像标签不存在或默认标签补选提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此仓库暂无可用标签，可刷新重试或选择其他镜像。'**
+  String get maintenanceImageNoTags;
+
+  /// 镜像标签不存在或默认标签补选提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此仓库没有 latest 标签，已选择现有标签“{tag}”。'**
+  String maintenanceImageDefaultTagChanged(String tag);
+
   /// No description provided for @maintenanceImagePlatforms.
   ///
   /// In zh, this message translates to:

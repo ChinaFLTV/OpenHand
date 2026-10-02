@@ -54,6 +54,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:openhand/app/support/system_proxy.dart';
 import 'package:openhand/shared/util/async_concurrency.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -6939,6 +6940,138 @@ void resourceChecks() {
     expect(maintenanceDetailLabel(context,'star_count'),l.maintenanceImageStars);
     expect(maintenanceDetailLabel(context,'tag_last_pushed'),l.maintenanceImageLastPushed);
     await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('缺少默认 latest 时补选有效标签，六语言提示与后续镜像引用一致', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420,900));
+    for(final locale in AppLocalizations.supportedLocales) {
+      final l=await AppLocalizations.delegate.load(locale);
+      final requests=<Uri>[];final selected=<String>[];
+      final ready=Completer<Map<String,dynamic>>();
+      final registry=MachineImageRegistry(clientFactory:HttpClient.new,read:(uri)async {
+        requests.add(uri);
+        if(uri.path.endsWith('/tags/latest'))throw HttpResponseStatusException(404,uri:uri);
+        if(uri.path.endsWith('/tags'))return {'results':[{'name':'../invalid'},{'name':'1.26-node'}],'next':null};
+        if(uri.path.endsWith('/tags/1.26-node'))return ready.future;
+        return {'name':'go','namespace':'cimg','description':'Go image'};
+      });
+      final theme=OpenHandTheme.light(OpenHandThemePreset.tundraGreen);
+      await tester.pumpWidget(_SettingsApp(locale:locale,localizationsDelegates:AppLocalizations.localizationsDelegates,
+        supportedLocales:AppLocalizations.supportedLocales,
+        theme:theme.copyWith(textTheme:theme.textTheme.apply(fontFamily:Platform.environment['MAINTENANCE_FONT']==null?null:'运维预览字体')),
+        builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.4)),child:child!),
+        home:Scaffold(body:RepaintBoundary(key:const ValueKey('默认标签预览'),child:_ContainerRegistryDetailsDialog(
+          image:MachineContainerImageSearchResult.fromJson({'Name':'cimg/go'}),selected:null,registryFactory:()=>registry,onTagChanged:selected.add)))));
+      await tester.pump();await tester.pump(const Duration(milliseconds:100));
+      final state=tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+      expect(state._tag,'1.26-node');expect(selected,['1.26-node']);expect(state._tagLoading,isTrue);
+      expect(tester.widgetList<OpenHandDialogActionButton>(find.byType(OpenHandDialogActionButton)).every((button)=>button.onPressed==null),isTrue);
+      ready.complete({'name':'1.26-node','images':[{'os':'linux','architecture':'amd64','size':2048}],'full_size':2048});
+      await tester.pumpAndSettle();
+      expect(state._tagUnavailable,isFalse);expect(state._tagData!['name'],'1.26-node');expect(state._tagError,isEmpty);
+      expect(find.text('cimg/go:1.26-node'),findsOneWidget);
+      expect(find.text(l.maintenanceImageDefaultTagChanged('1.26-node')),findsOneWidget);
+      expect(requests.where((uri)=>uri.path.contains('/tags')).length,3);
+      expect(tester.widgetList<OpenHandDialogActionButton>(find.byType(OpenHandDialogActionButton)).every((button)=>button.onPressed!=null),isTrue);
+      final previewPath=Platform.environment['MAINTENANCE_TAG_PREVIEW'];
+      if(locale==const Locale('zh') && previewPath!=null) {
+        await tester.runAsync(()async {
+          final image=await tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('默认标签预览'))).toImage(pixelRatio:1.5);
+          final bytes=await image.toByteData(format:ui.ImageByteFormat.png);await File(previewPath).writeAsBytes(bytes!.buffer.asUint8List());image.dispose();
+        });
+      }
+      expect(tester.takeException(),isNull,reason:locale.toString());await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('显式失效标签保持选择，网络故障不补选，空列表与删除标签可重试恢复', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(960,900));
+    for(final scenario in [
+      (tag:'release',status:404,empty:false,deleted:false,calls:1,unavailable:true),
+      (tag:null,status:403,empty:false,deleted:false,calls:1,unavailable:false),
+      (tag:null,status:503,empty:false,deleted:false,calls:1,unavailable:false),
+      (tag:null,status:0,empty:false,deleted:false,calls:1,unavailable:false),
+      (tag:null,status:404,empty:true,deleted:false,calls:2,unavailable:true),
+      (tag:null,status:404,empty:false,deleted:true,calls:3,unavailable:true),
+    ]) {
+      final requests=<Uri>[];final selected=<String>[];var failed=true;
+      final registry=MachineImageRegistry(clientFactory:HttpClient.new,read:(uri)async {
+        requests.add(uri);
+        if(uri.path.endsWith('/tags'))return {'results':scenario.empty?[]:[{'name':'stable'}],'next':null};
+        if(uri.path.contains('/tags/')) {
+          if(failed && scenario.status==0)throw TimeoutException('模拟标签超时');
+          if(failed)throw HttpResponseStatusException(scenario.status,uri:uri);
+          return {'name':uri.pathSegments.last,'images':[]};
+        }
+        return {'name':'go','namespace':'cimg'};
+      });
+      await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+        supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_ContainerRegistryDetailsDialog(
+          image:MachineContainerImageSearchResult.fromJson({'Name':'cimg/go'}),selected:scenario.tag,
+          registryFactory:()=>registry,onTagChanged:selected.add))));
+      await tester.pumpAndSettle();
+      final state=tester.state<_ContainerRegistryDetailsDialogState>(find.byType(_ContainerRegistryDetailsDialog));
+      final l=AppLocalizations.of(tester.element(find.byType(_ContainerRegistryDetailsDialog)))!;
+      expect(state._tag,scenario.deleted?'stable':scenario.tag??'latest');
+      expect(state._tagUnavailable,scenario.unavailable);expect(state._noTags,scenario.empty);
+      expect(requests.where((uri)=>uri.path.contains('/tags')).length,scenario.calls);
+      expect(selected,scenario.deleted?['stable']:isEmpty);
+      expect(state._tagData,isNull);expect(state._tagLoading,isFalse);
+      expect(tester.widgetList<OpenHandDialogActionButton>(find.byType(OpenHandDialogActionButton)).every((button)=>(button.onPressed==null)==scenario.unavailable),isTrue);
+      if(scenario.unavailable) {
+        expect(find.text(scenario.empty?l.maintenanceImageNoTags:l.maintenanceImageTagNotFound(state._tag)),findsOneWidget);
+        expect(find.textContaining('HttpException'),findsNothing);
+      }
+      failed=false;await state._loadTag();await tester.pumpAndSettle();
+      expect(state._tagUnavailable,isFalse);expect(state._tagError,isEmpty);expect(state._tagData!['name'],state._tag);
+      expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('默认标签补选同步搜索选择，拉取与创建容器使用同一实际引用', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(960,900));
+    MachineImageRegistry factory()=>MachineImageRegistry(clientFactory:HttpClient.new,read:(uri)async {
+      if(uri.path.contains('/search/'))return {'results':[{'repo_name':'cimg/go'}]};
+      if(uri.path.endsWith('/tags/latest'))throw HttpResponseStatusException(404,uri:uri);
+      if(uri.path.endsWith('/tags'))return {'results':[{'name':'1.26-node'}],'next':null};
+      if(uri.path.endsWith('/tags/1.26-node'))return {'name':'1.26-node','images':[]};
+      return {'name':'go','namespace':'cimg'};
+    });
+    final client=MachineContainerClient(runtime:MachineContainerRuntime.docker,run:(_)async=>'');
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_ContainerRegistryDialog(
+        client:client,registryFactory:factory,timeout:const Duration(seconds:10)))));
+    final state=tester.state<_ContainerRegistryDialogState>(find.byType(_ContainerRegistryDialog));
+    state._query.text='go';await state._search();await tester.pumpAndSettle();
+    final details=state._details(state._results.single);await tester.pumpAndSettle();
+    expect(state._tags['cimg/go'],'1.26-node');
+    var context=tester.element(find.byType(_ContainerRegistryDetailsDialog));final l=AppLocalizations.of(context)!;
+    await tester.tap(find.widgetWithText(OpenHandDialogActionButton,l.maintenanceImagePullOnly));await tester.pumpAndSettle();
+    expect(tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog))._value('image'),'cimg/go:1.26-node');
+    context=tester.element(find.byType(_ContainerResourceFormDialog));Navigator.pop(context,false);await tester.pumpAndSettle();await details;
+    final table=tester.widget<_MaintenanceTable>(find.byType(_MaintenanceTable));
+    table.rowActions!(table.rows.single)[l.maintenanceContainerCreate]!();await tester.pumpAndSettle();
+    expect(tester.state<_ContainerResourceFormDialogState>(find.byType(_ContainerResourceFormDialog))._value('image'),'cimg/go:1.26-node');
+    context=tester.element(find.byType(_ContainerResourceFormDialog));Navigator.pop(context,false);await tester.pumpAndSettle();
+    expect(tester.takeException(),isNull);await tester.pumpWidget(const SizedBox());await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('默认标签补选关闭后不请求详情、不更新选择', (tester) async {
+    final tags=Completer<Map<String,dynamic>>();final requests=<Uri>[];final selected=<String>[];
+    final registry=MachineImageRegistry(clientFactory:HttpClient.new,read:(uri)async {
+      requests.add(uri);
+      if(uri.path.endsWith('/tags/latest'))throw HttpResponseStatusException(404,uri:uri);
+      if(uri.path.endsWith('/tags'))return tags.future;
+      return {'name':'go','namespace':'cimg'};
+    });
+    await tester.pumpWidget(_SettingsApp(locale:const Locale('zh'),localizationsDelegates:AppLocalizations.localizationsDelegates,
+      supportedLocales:AppLocalizations.supportedLocales,home:Scaffold(body:_ContainerRegistryDetailsDialog(
+        image:MachineContainerImageSearchResult.fromJson({'Name':'cimg/go'}),selected:null,registryFactory:()=>registry,onTagChanged:selected.add))));
+    await tester.pump();expect(requests.length,3);
+    await tester.pumpWidget(const SizedBox());tags.complete({'results':[{'name':'stable'}],'next':null});await tester.pumpAndSettle();
+    expect(requests.length,3);expect(selected,isEmpty);expect(tester.takeException(),isNull);
   });
 
   testWidgets('镜像详情独立加载、失败重试去重，关闭后丢弃迟到响应', (tester) async {

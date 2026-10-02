@@ -13,6 +13,14 @@ import 'network_limits.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
+/// 保留状态码，供调用方区分资源不存在与网络故障。
+final class HttpResponseStatusException extends HttpException {
+  HttpResponseStatusException(this.statusCode, {super.uri})
+    : super('HTTP $statusCode');
+
+  final int statusCode;
+}
+
 /// 限制本次服务端写出时间；失败时断开底层连接，成功后不影响后续流式生成。
 Future<void> flushHttpResponseBounded(
   HttpResponse response, {
@@ -132,7 +140,7 @@ Future<Uint8List> fetchBoundedHttpBytes({
     var responseConsumptionStarted = false;
     try {
       if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException('HTTP ${response.statusCode}', uri: uri);
+        throw HttpResponseStatusException(response.statusCode, uri: uri);
       }
       final contentType = response.headers.contentType;
       if (expectedPrimaryType != null &&

@@ -16170,6 +16170,20 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les détails de ce tag sont temporairement indisponibles. Réessayez ou choisissez un autre tag.';
 
   @override
+  String maintenanceImageTagNotFound(String tag) {
+    return 'Le tag « $tag » n’existe pas. Sélectionnez un autre tag.';
+  }
+
+  @override
+  String get maintenanceImageNoTags =>
+      'Ce dépôt n’a aucun tag disponible. Actualisez ou sélectionnez une autre image.';
+
+  @override
+  String maintenanceImageDefaultTagChanged(String tag) {
+    return 'Ce dépôt n’a pas de tag latest. Le tag disponible « $tag » a été sélectionné.';
+  }
+
+  @override
   String get maintenanceImagePlatforms => 'Plateformes';
 
   @override

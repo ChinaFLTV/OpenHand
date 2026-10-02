@@ -15939,6 +15939,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Details for this tag are temporarily unavailable. Retry or select another tag.';
 
   @override
+  String maintenanceImageTagNotFound(String tag) {
+    return 'Tag “$tag” does not exist. Select another tag.';
+  }
+
+  @override
+  String get maintenanceImageNoTags =>
+      'This repository has no available tags. Refresh or select another image.';
+
+  @override
+  String maintenanceImageDefaultTagChanged(String tag) {
+    return 'This repository has no latest tag. Selected the available tag “$tag”.';
+  }
+
+  @override
   String get maintenanceImagePlatforms => 'Platforms';
 
   @override

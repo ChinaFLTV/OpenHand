@@ -49,6 +49,7 @@ import 'package:openhand/features/machine_terminal/machine_containers.dart';
 import 'package:openhand/features/machine_terminal/machine_image_download.dart';
 import 'package:openhand/features/machine_terminal/machine_image_operations.dart';
 import 'package:openhand/features/machine_terminal/machine_image_registry.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
 
 const certDirectory = CERT_DIRECTORY;
 final resolver = SystemProxyResolver.instance;
@@ -82,6 +83,7 @@ class Fixture {
   final tunnels=<String>[];
   bool private=false,corrupt=false,redirect=false,slow=false,badManifest=false;
   int iconSize=4;
+  int latestStatus=200;
   List<int> layer=[];
   late List<int> configuration,manifest,index;
   late String configDigest,manifestDigest,layerDigest;
@@ -120,6 +122,7 @@ class Fixture {
       } else if(path=='/layer') {response.add(layer);}
       else if(path.endsWith('/tags')) {response.write('{"results":[{"name":"stable"}],"next":null}');}
       else if(path.endsWith('/tags/stable')) {response.write('{"name":"stable","images":[{"os":"linux","architecture":"arm64"}]}');}
+      else if(path.endsWith('/tags/latest')) {response.statusCode=latestStatus;response.write(latestStatus==200?'{"name":"latest","images":[]}':'{"message":"模拟标签响应失败"}');}
       else if(path.endsWith('/repositories/nginx')) {response.write('{"name":"nginx","full_description":"说明"}');}
       else if(path=='/icon') {response.headers.contentType=ContentType('image','png');response.add([137,80,78,71,...List<int>.filled(iconSize-4,0)]);}
       else {response.write('{"results":[{"repo_name":"nginx","star_count":42,"pull_count":1234,"is_official":true}]}');}
@@ -191,6 +194,22 @@ void main() {
       final client=routedClient();final response=await(await client.getUrl(Uri.parse('https://127.0.0.1:${fixture.origin.port}/direct'))).close();await response.drain<void>();client.close(force:true);
       expect(fixture.tunnels.length,count);
     }finally{registry.dispose();}
+  });
+
+  test('标签 HTTP 状态保留原始分类，404、权限与限流错误后可继续查询',()async {
+    final registry=MachineImageRegistry(clientFactory:routedClient);
+    try {
+      for(final status in [404,403,429,503]) {
+        fixture.latestStatus=status;
+        await expectLater(registry.tagDetails('library/nginx','latest'),throwsA(
+          isA<HttpResponseStatusException>().having((error)=>error.statusCode,'状态码',status)
+            .having((error)=>error.uri!.path,'请求路径','/v2/namespaces/library/repositories/nginx/tags/latest')));
+        expect((await registry.tags('library/nginx')).tags,['stable']);
+        expect((await registry.tagDetails('library/nginx','stable'))['name'],'stable');
+      }
+      fixture.latestStatus=200;
+      expect((await registry.tagDetails('library/nginx','latest'))['name'],'latest');
+    }finally {registry.dispose();}
   });
 
   test('图标失败及取消允许稍后订阅，错误保留且不进入未捕获区域',()async {

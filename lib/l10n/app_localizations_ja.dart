@@ -15577,6 +15577,20 @@ class AppLocalizationsJa extends AppLocalizations {
       'このタグの詳細を取得できません。再試行するか、別のタグを選択してください。';
 
   @override
+  String maintenanceImageTagNotFound(String tag) {
+    return 'タグ「$tag」が存在しません。別のタグを選択してください。';
+  }
+
+  @override
+  String get maintenanceImageNoTags =>
+      'このリポジトリに利用可能なタグがありません。更新するか、別のイメージを選択してください。';
+
+  @override
+  String maintenanceImageDefaultTagChanged(String tag) {
+    return 'このリポジトリに latest タグがないため、既存のタグ「$tag」を選択しました。';
+  }
+
+  @override
   String get maintenanceImagePlatforms => 'プラットフォーム';
 
   @override
