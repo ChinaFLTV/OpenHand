@@ -40,10 +40,11 @@ const mutation: SessionMessage = {
   metadata: { file_mutation_kind: 'delete', file_mutation_path: `/workspace/${'很长的目录/'.repeat(10)}file.dart`, round_summary_record_count: 12 },
 };
 let copied = 0;
-function mount(width: number) {
+let loaded = 0;
+function mount(width: number, loading = false) {
   render(<div style={{ width, maxWidth: '100%', padding: 16, boxSizing: 'border-box', display: 'grid', gap: 16 }}>
     <MessageCard message={message} active onCopy={() => { copied++; }} />
-    <MessageCard message={preview} onLoadFullContent={() => {}} />
+    <MessageCard message={preview} fullContentLoading={loading} onLoadFullContent={() => { loaded++; }} />
     <MessageCard message={mutation} />
     <MessageMedia message={audio} sessionId="控件检查" />
   </div>, root);
@@ -75,11 +76,23 @@ try {
         const before = copied;
         await act(async () => { copy!.click(); });
         verify(copied === before + 1, '复制操作正常触发');
-        const controls = root.querySelectorAll<HTMLElement>('.oh-message-action-button, .oh-tool-toggle-button, .oh-tool-meta-chip, .oh-message-badge-toggle, .oh-message-context-capsule, .oh-audio-icon-button, .oh-audio-preview-button');
-        verify([...controls].every((node) => Math.abs(node.getBoundingClientRect().height - 32) < 1), `${width}px 窗口控件高度一致`);
+        const load = root.querySelector<HTMLButtonElement>('.oh-message-content-preview-action')!;
+        verify(load.textContent === t('message.contentPreview.load'), `${lang} 完整内容按钮按当前语言显示`);
+        verify(load.getBoundingClientRect().height >= 28 && load.getBoundingClientRect().height <= 32, `${width}px 完整内容按钮使用紧凑尺寸`);
+        verify(getComputedStyle(load).borderRadius === getComputedStyle(toggle).borderRadius, '完整内容按钮沿用原有操作圆角');
+        verify([...card.querySelectorAll<HTMLElement>('.oh-tool-meta-chip')].every((node) => Math.abs(node.getBoundingClientRect().height - 24) < 1), '工具状态保持原有紧凑尺寸');
+        const audioButtons = [...root.querySelectorAll<HTMLElement>('.oh-audio-icon-button')];
+        verify(audioButtons.every((node) => node.getBoundingClientRect().height === (node.classList.contains('is-primary') ? 34 : 28)), '音频操作保持原有圆形尺寸');
+        verify(getComputedStyle(root.querySelector<HTMLElement>('.oh-tool-section')!).backgroundColor === 'rgba(0, 0, 0, 0)', '工具分区保留原有轻量布局');
+        const loadsBefore = loaded;
+        await act(async () => { load.click(); mount(width, true); });
+        const busyLoad = root.querySelector<HTMLButtonElement>('.oh-message-content-preview-action')!;
+        verify(busyLoad.disabled && busyLoad.textContent === t('message.contentPreview.loading'), `${lang} 加载状态已翻译且按钮禁用`);
+        await act(async () => { busyLoad.click(); });
+        verify(loaded === loadsBefore + 1, '加载中不会重复触发请求');
         verify([...root.querySelectorAll<HTMLElement>('.oh-message-card, .oh-audio-result-card')].every((node) => node.scrollWidth <= node.clientWidth + 1), `${width}px 窗口长路径不撑破卡片`);
         verify(getComputedStyle(card).boxShadow === 'none', '卡片使用描边反馈');
-        verify([...root.querySelectorAll<HTMLElement>('.oh-message-card, .oh-tool-section, .oh-message-content-preview-notice, .oh-message-action-button, .oh-tool-meta-chip')]
+        verify([...root.querySelectorAll<HTMLElement>('.oh-message-card, .oh-tool-section, .oh-message-content-preview-notice, .oh-message-content-preview-action, .oh-message-action-button, .oh-tool-meta-chip')]
           .every((node) => getComputedStyle(node).backgroundImage === 'none'), '消息控件不使用渐变');
       }
     }

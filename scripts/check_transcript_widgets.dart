@@ -419,7 +419,7 @@ void main() {
               child: SingleChildScrollView(child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _ToolCallMetaRow(message: message),
+                  _ToolCallMetaRow(message: message, color: (brightness == Brightness.dark ? OpenHandTheme.dark(settings.themePreset) : OpenHandTheme.light(settings.themePreset)).colorScheme.onSecondaryContainer),
                   const SizedBox(height: 10),
                   KeyedSubtree(key: ValueKey(message.id), child: _ToolCallBody(message: message, sessionId: '布局检查', selectable: false)),
                   const SizedBox(height: 10),
@@ -430,7 +430,7 @@ void main() {
           ),
         ));
         await tester.pumpAndSettle();
-        expect(find.textContaining(l10n.messageToolNameMachineTerminalExec), findsOneWidget);
+        expect(find.textContaining(l10n.messageToolNameMachineTerminalExec), findsNWidgets(2));
         expect(find.text('MachineTerminalExec'), findsNothing);
         expect(find.text(l10n.messageCacheHit), findsOneWidget);
         await tester.tap(find.text(l10n.tlCallToolOutput));
@@ -1697,6 +1697,13 @@ void main() {
       expect(find.byType(_PlainTextMessageBody), findsNothing);
       expect(find.byType(html ? _ProgressiveHtmlMessageBody : _SafeMarkdownRichBody), findsWidgets);
       expect(find.text('加载完整内容'), findsOneWidget);
+      final loadButton = find.ancestor(of: find.text('加载完整内容'), matching: find.byType(OutlinedButton));
+      expect(loadButton, findsOneWidget);
+      expect(tester.getSize(loadButton).height, inInclusiveRange(26, 34), reason: '完整内容按钮沿用紧凑操作尺寸');
+      final theme = Theme.of(tester.element(loadButton));
+      final style = tester.widget<OutlinedButton>(loadButton).style!;
+      expect(style.backgroundColor!.resolve({}), theme.colorScheme.surface.withValues(alpha: 0.72));
+      expect(style.foregroundColor!.resolve({}), theme.colorScheme.onSurface);
       final full = probe.session.messages.single.copyWith(
         content: html ? '<p>完整<strong>加粗内容</strong></p>' : '**完整加粗内容**',
         metadata: {aiSessionMessageContentFormatKey: html ? 'html' : 'markdown'},

@@ -727,10 +727,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isReasoning
         ? OpenHandConsolePalette.terminalSurface
         : isToolCall
-        ? Color.alphaBlend(
-            colorScheme.secondary.withValues(alpha: 0.04),
-            colorScheme.surface,
-          )
+        ? colorScheme.secondaryContainer
         : isToolResult
         ? colorScheme.surfaceContainerHighest
         : isSelfLearning
@@ -745,7 +742,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isReasoning
         ? Colors.white
         : isToolCall
-        ? colorScheme.onSurface
+        ? colorScheme.onSecondaryContainer
         : isSelfLearning
         ? colorScheme.onTertiaryContainer
         : colorScheme.onSurface;
@@ -1037,7 +1034,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         border: isScrollHighlighted
             ? Border.all(color: highlightBorderColor, width: 1.8)
             : isToolCall
-            ? Border.all(color: colorScheme.secondary.withValues(alpha: 0.24))
+            ? Border.all(color: colorScheme.secondary, width: 1.2)
             : widget.isSelected
             ? Border.all(
                 color: colorScheme.primary.withValues(alpha: 0.38),
@@ -1089,7 +1086,11 @@ class _MessageBubbleState extends State<_MessageBubble>
                     },
                   )
                 else if (isToolCall)
-                  _ToolCallMetaRow(key: _metaCapsuleKey, message: message)
+                  _ToolCallMetaRow(
+                    key: _metaCapsuleKey,
+                    message: message,
+                    color: textColor,
+                  )
                 else if (isToolResult)
                   _MessageMetaRow(
                     key: _metaCapsuleKey,
@@ -1361,6 +1362,17 @@ class _MessageBubbleState extends State<_MessageBubble>
                       OpenHandMessageActionChip(
                         onPressed: () => unawaited(loadFullContent()),
                         busy: _loadingFullContent,
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: colorScheme.surface.withValues(
+                            alpha: 0.72,
+                          ),
+                          foregroundColor: colorScheme.onSurface,
+                          side: BorderSide(
+                            color: colorScheme.onSurface.withValues(
+                              alpha: 0.16,
+                            ),
+                          ),
+                        ),
                         icon: Icons.unfold_more_rounded,
                         label: _loadingFullContent
                             ? AppLocalizations.of(
@@ -1797,8 +1809,8 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
       oldWidget.state != state;
 }
 
-const double _responseVariantChipHeight = kOpenHandMessageActionChipHeight;
-const double _responseVariantArrowWidth = kOpenHandMessageActionChipHeight;
+const double _responseVariantChipHeight = 26;
+const double _responseVariantArrowWidth = 20;
 const double _responseVariantLabelMinWidth = 28;
 const double _userAttachmentThumbnailExtent = 156;
 const double _assistantAttachmentThumbnailExtent = 220;
@@ -6240,16 +6252,62 @@ class _KnowledgeCitationChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 220),
-      child: OpenHandMessageActionChip(
-        icon: Icons.auto_stories_rounded,
-        label: label,
-        foregroundColor: Theme.of(context).colorScheme.primary,
-        onPressed: () {
-          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-          onPressed();
-        },
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: kOpenHandPillBorderRadius,
+        child: InkWell(
+          borderRadius: kOpenHandPillBorderRadius,
+          onTap: () {
+            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+            onPressed();
+          },
+          child: Ink(
+            height: 28,
+            padding: const EdgeInsetsDirectional.only(start: 6, end: 10),
+            decoration: BoxDecoration(
+              borderRadius: kOpenHandPillBorderRadius,
+              color: colorScheme.primaryContainer.withValues(alpha: 0.58),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.24),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 19,
+                  height: 19,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.62),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    size: 12,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                kOpenHandHGap6,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -6684,10 +6742,7 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
     final label = '${widget.currentIndex + 1}/${widget.count}';
     return Material(
       color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
-        side: side,
-      ),
+      shape: StadiumBorder(side: side),
       clipBehavior: Clip.antiAlias,
       textStyle: theme.textTheme.labelMedium?.copyWith(
         color: foreground,
@@ -6775,7 +6830,7 @@ class _ResponseVariantArrowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = color.withValues(alpha: enabled ? 0.92 : 0.28);
     return InkWell(
-      borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
+      borderRadius: BorderRadius.circular(_responseVariantChipHeight / 2),
       onTap: enabled
           ? () {
               _BubbleHtmlInteractiveScope.maybeOf(

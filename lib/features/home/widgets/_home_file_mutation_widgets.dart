@@ -799,26 +799,16 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: kOpenHandMessageActionChipHeight,
-        maxWidth: 360,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: kOpenHandMessageActionChipHorizontalPadding,
-        vertical: kOpenHandMessageActionChipVerticalPadding,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Text(
         label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
+        style: theme.textTheme.labelSmall?.copyWith(
           color: color,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -902,21 +892,18 @@ class _IconActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
-      child: MicroPressFeedback(
-        scale: 0.96,
-        child: IconButton(
-          onPressed: () {
-            _markToolCardInteractiveTap(context);
-            onTap();
-          },
-          style: openHandMessageActionChipStyle(context).copyWith(
-            fixedSize: const WidgetStatePropertyAll(
-              Size.square(kOpenHandMessageActionChipHeight),
-            ),
-          ),
-          icon: Icon(icon, size: kOpenHandMessageActionIconSize),
+      child: InkWell(
+        borderRadius: kOpenHandPillBorderRadius,
+        onTap: () {
+          _markToolCardInteractiveTap(context);
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: cs.onSurfaceVariant),
         ),
       ),
     );
@@ -2182,8 +2169,10 @@ class _CodexDiffFooter extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
-          style: openHandMessageActionChipStyle(context).copyWith(
-            foregroundColor: WidgetStatePropertyAll(palette.footerForeground),
+          style: TextButton.styleFrom(
+            foregroundColor: palette.footerForeground,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            visualDensity: VisualDensity.compact,
           ),
           onPressed: onToggle,
           icon: Icon(
@@ -2599,7 +2588,11 @@ class _RevealMoreRow extends StatelessWidget {
             ),
             TextButton(
               onPressed: onRevealAll,
-              style: openHandMessageActionChipStyle(context),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 28),
+              ),
               child: Text(l10n.fileMutationRevealAll),
             ),
           ],
@@ -4022,14 +4015,21 @@ class _RoundFileMutationSummaryCardState
           child: Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              style: openHandMessageActionChipStyle(
-                context,
-              ).copyWith(foregroundColor: WidgetStatePropertyAll(cs.primary)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                foregroundColor: cs.primary,
+                visualDensity: VisualDensity.compact,
+              ),
               icon: const Icon(Icons.unfold_more_rounded, size: 16),
               label: Text(
-                AppLocalizations.of(
+                openHandLocalizedText(
                   context,
-                )!.fileMutationRemainingRows(remaining),
+                  zh: '展开剩余 $remaining 行',
+                  en: 'Show $remaining more',
+                ),
                 style: theme.textTheme.labelMedium,
               ),
               onPressed: () {
@@ -4048,8 +4048,13 @@ class _RoundFileMutationSummaryCardState
           child: Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              style: openHandMessageActionChipStyle(context).copyWith(
-                foregroundColor: WidgetStatePropertyAll(cs.onSurfaceVariant),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                foregroundColor: cs.onSurfaceVariant,
+                visualDensity: VisualDensity.compact,
               ),
               icon: const Icon(Icons.unfold_less_rounded, size: 16),
               label: Text(

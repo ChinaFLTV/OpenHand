@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 import 'micro_press_feedback.dart';
 import 'motion_preference.dart';
 
-const double kOpenHandMessageActionChipHeight = 32;
-const double kOpenHandMessageActionChipRadius = 10;
+const double kOpenHandMessageActionChipHeight = 34;
 const double kOpenHandMessageActionChipHorizontalPadding = 10;
-const double kOpenHandMessageActionChipVerticalPadding = 5;
+const double kOpenHandMessageActionChipVerticalPadding = 6;
 const double kOpenHandMessageActionIconSize = 16;
 
 ButtonStyle openHandMessageActionChipStyle(BuildContext context) {
   final theme = Theme.of(context);
-  final colors = theme.colorScheme;
   return OutlinedButton.styleFrom(
     minimumSize: const Size(0, kOpenHandMessageActionChipHeight),
     padding: const EdgeInsets.symmetric(
@@ -19,17 +17,9 @@ ButtonStyle openHandMessageActionChipStyle(BuildContext context) {
       vertical: kOpenHandMessageActionChipVerticalPadding,
     ),
     textStyle: theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w700,
     ),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
-    ),
-    backgroundColor: colors.surfaceContainerLow,
-    foregroundColor: colors.onSurfaceVariant,
-    side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.65)),
-    elevation: 0,
-    shadowColor: Colors.transparent,
-    visualDensity: VisualDensity.standard,
+    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   );
 }
@@ -42,7 +32,7 @@ class OpenHandMessageActionChip extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.busy = false,
-    this.foregroundColor,
+    this.style,
     this.tooltip,
   });
 
@@ -51,20 +41,13 @@ class OpenHandMessageActionChip extends StatelessWidget {
   final String label;
   final bool selected;
   final bool busy;
-  final Color? foregroundColor;
+  final ButtonStyle? style;
   final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final baseStyle = openHandMessageActionChipStyle(context).copyWith(
-      foregroundColor: foregroundColor == null
-          ? null
-          : WidgetStatePropertyAll(foregroundColor),
-      iconColor: foregroundColor == null
-          ? null
-          : WidgetStatePropertyAll(foregroundColor),
-    );
+    final baseStyle = openHandMessageActionChipStyle(context).merge(this.style);
     final style = selected
         ? baseStyle.copyWith(
             backgroundColor: WidgetStatePropertyAll(
@@ -90,6 +73,11 @@ class OpenHandMessageActionChip extends StatelessWidget {
                   dimension: kOpenHandMessageActionIconSize,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
+                    color:
+                        style.foregroundColor?.resolve(const {
+                          WidgetState.disabled,
+                        }) ??
+                        colors.onSurfaceVariant,
                     value: openHandTickerMotionEnabled(context) ? null : 1,
                   ),
                 )

@@ -10,7 +10,7 @@
  * 内容 hash 文件名, 可安全 cache-first。
  */
 const SHELL_CACHE_PREFIX = 'openhand-shell-';
-const CACHE_VERSION = `${SHELL_CACHE_PREFIX}70b5609b70e2f539`;
+const CACHE_VERSION = `${SHELL_CACHE_PREFIX}9abdae4f5a753b7d`;
 const NETWORK_TIMEOUT_MS = 12_000;
 const NOTIFICATION_TITLE_MAX_CODE_UNITS = 120;
 const NOTIFICATION_BODY_MAX_CODE_UNITS = 600;

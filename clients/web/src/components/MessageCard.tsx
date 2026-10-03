@@ -364,9 +364,9 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'tool_call':
       return {
-        background: 'color-mix(in srgb, var(--m3-secondary) 4%, var(--m3-surface))',
+        background: 'color-mix(in srgb, var(--m3-primary) 10%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
-        border: '1px solid color-mix(in srgb, var(--m3-secondary) 24%, var(--m3-outline-variant))',
+        border: '1px solid color-mix(in srgb, var(--m3-primary) 35%, transparent)',
         label: t('detail.kind.toolCall', '工具调用'),
         icon: 'toolCall',
         badge: true,
@@ -385,7 +385,7 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'mcp':
       return {
-        background: 'color-mix(in srgb, var(--m3-primary) 4%, var(--m3-surface))',
+        background: 'color-mix(in srgb, var(--m3-primary-container) 70%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
         label: t('detail.kind.mcp', 'MCP'),
@@ -395,7 +395,7 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'skill':
       return {
-        background: 'color-mix(in srgb, var(--m3-tertiary) 4%, var(--m3-surface))',
+        background: 'color-mix(in srgb, var(--m3-tertiary-container) 66%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent)',
         label: t('detail.kind.skill', '技能'),
@@ -404,7 +404,7 @@ function styleForKind(kind: string, role: string): KindStyle {
       };
     case 'hook':
       return {
-        background: 'color-mix(in srgb, var(--m3-secondary) 4%, var(--m3-surface))',
+        background: 'color-mix(in srgb, var(--m3-secondary-container) 66%, var(--m3-surface-container))',
         color: 'var(--m3-on-surface)',
         border: '1px solid color-mix(in srgb, var(--m3-secondary) 34%, transparent)',
         label: t('detail.kind.hook', 'Hook'),
@@ -2972,7 +2972,7 @@ function MessageCardImpl({
                 </button>
               ) : (
                 <span
-                  class="oh-tool-meta-chip inline-flex items-center gap-1"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
                   style={{
                     background: 'color-mix(in srgb, currentColor 14%, transparent)',
                   }}
@@ -3130,7 +3130,7 @@ function MessageCardImpl({
           {onLoadFullContent ? (
             <button
               type="button"
-              class="oh-message-content-preview-action oh-message-action-button oh-tap-press"
+              class="oh-message-content-preview-action oh-tap-press"
               disabled={fullContentLoading}
               onClick={(event) => {
                 event.stopPropagation();
@@ -4943,7 +4943,7 @@ function ToolSection({
   const preRef = useStickyBottom<HTMLPreElement>(formattedContent, autoFollow);
   return (
     <section class="oh-tool-section">
-      <div class="oh-tool-section-header flex flex-wrap items-center gap-2 mb-2 text-xs oh-text-muted">
+      <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px] oh-text-muted">
         <span style={{ fontWeight: 600, color: danger ? 'var(--m3-error)' : undefined }}>{title}</span>
         {long ? (
           <button
@@ -4952,8 +4952,8 @@ function ToolSection({
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            class="oh-tap-press oh-message-action-button oh-tool-toggle-button"
-            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)', background: 'var(--m3-surface)' }}
+            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
+            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)', background: 'var(--m3-surface)', fontSize: 10 }}
           >
             {expanded ? t('detail.tool.body.collapse', '折叠') : t('detail.tool.body.expand', '展开全部 ')}
           </button>
@@ -5039,7 +5039,7 @@ function formatLegacyToolSearchContent(content: string): string | null {
 }
 
 function MetaChip({ label, tone = 'neutral', mono }: { label: string; tone?: 'neutral' | 'ok' | 'danger'; mono?: boolean }) {
-  const color = tone === 'danger' ? 'var(--m3-error)' : tone === 'ok' ? 'var(--oh-status-success)' : 'var(--m3-on-surface-variant)';
+  const color = tone === 'danger' ? 'var(--m3-error)' : tone === 'ok' ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)';
   return (
     <span
       class="oh-tool-meta-chip inline-flex items-center rounded-m3-sm"
@@ -5060,7 +5060,7 @@ function MetaChip({ label, tone = 'neutral', mono }: { label: string; tone?: 'ne
 function ConstructingBadge() {
   return (
     <span
-      class="oh-tool-meta-chip inline-flex items-center gap-1"
+      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
       style={{
         border: '1px solid var(--m3-outline)',
         color: 'var(--m3-on-surface-variant)',
@@ -5154,11 +5154,12 @@ function ToolArgumentsBlock({
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            class="oh-tap-press oh-message-action-button oh-tool-toggle-button"
+            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
             style={{
               border: '1px solid var(--m3-outline)',
               color: 'var(--m3-on-surface-variant)',
               background: 'var(--m3-surface)',
+              fontSize: 10,
             }}
           >
             {expanded

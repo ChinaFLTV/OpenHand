@@ -122,7 +122,7 @@ function statusVisual(status: string): { color: string; label: string; icon: Too
   }
   if (s === 'success' || s === 'ok' || s === 'completed') {
     return {
-      color: 'var(--oh-status-success)',
+      color: 'var(--m3-secondary)',
       label: t('detail.tool.status.success', '成功'),
       icon: 'check',
     };
@@ -194,7 +194,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
     >
       {ex.toolName ? (
         <span
-          class="oh-tool-meta-chip inline-flex items-center gap-1"
+          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
           style={{
             background: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
             color: 'var(--m3-primary)',
@@ -283,7 +283,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
         <span
           class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
-            border: `1px solid color-mix(in srgb, ${sv.color} 28%, transparent)`,
+            border: `1px solid ${sv.color}`,
             color: sv.color,
             background: `color-mix(in srgb, ${sv.color} 10%, transparent)`,
           }}
