@@ -4,6 +4,8 @@ import { MessageCard, markMessagesAsAppeared } from '../src/components/MessageCa
 import { VirtualMessageList } from '../src/features/sessions/components/SessionDetailPage';
 import type { SessionMessage } from '../src/api/sessions';
 import { MESSAGE_LIST_MAX_VISIBLE_ROWS } from '../src/shared/util/virtual_message_list_math';
+import { clearTranscriptScrollActivity, markTranscriptScrollActivity } from '../src/shared/ui/transcript_scroll_activity';
+import sessionDetailSource from '../src/features/sessions/components/SessionDetailPage.tsx?raw';
 import '../src/styles/global.css';
 
 const root = document.getElementById('qa-root')!;
@@ -268,6 +270,126 @@ try {
   verify(tail.isConnected && Math.abs(tail.getBoundingClientRect().top - tailTop) < 1,
     '接近底部时屏外卡片收缩不重复补偿浏览器夹紧');
   render(null, root);
+
+  // 将页面真实输入与尺寸监听接到虚拟列表，覆盖同一次触底后的图片解码与 HTML 增高。
+  const sliceSource = (start: string, end: string) => {
+    const from = sessionDetailSource.indexOf(start);
+    const to = sessionDetailSource.indexOf(end, from);
+    if (from < 0 || to <= from) throw new Error('未找到真实滚动入口');
+    return sessionDetailSource.slice(from, to);
+  };
+  for (const count of [4, 1000]) {
+    const bottomContentRef: { current: HTMLDivElement | null } = { current: null };
+    const paused = { current: false };
+    const userBottomAnchor = { current: false };
+    const lastTop = { current: 0 };
+    const lastIntent = { current: 0 };
+    const bottomItems = messages.slice(0, count).map(message => ({ ...message, id: `触底-${count}-${message.id}` }));
+    let htmlHeight = 0;
+    let imageSource: string | undefined;
+    settled = false;
+    const mountBottom = () => render(<section ref={scrollRef} class="oh-session-messages"
+      style={{ height: '480px', overflowY: 'auto', width: '600px' }}>
+      <div ref={bottomContentRef} class="oh-session-message-content">
+        <VirtualMessageList key="手动触底" messages={bottomItems} membershipKey="手动触底"
+          followBottom={!paused.current} scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+          onInitialLayoutSettled={() => { settled = true; }}
+          renderMessage={message => message === bottomItems.at(-1)
+            ? <div><p>最终回复中的图片与 HTML</p><img src={imageSource} style={{ width: '100%', display: 'block' }} />
+                <div style={{ height: `${htmlHeight}px` }}>延迟就绪的 HTML 正文</div><p>最终回复结束</p></div>
+            : <div style={{ height: '180px' }}>{message.id}</div>} />
+      </div>
+    </section>, root);
+    mountBottom();
+    await until(() => settled);
+    const bottomScroller = scrollRef.current!;
+    lastTop.current = bottomScroller.scrollTop;
+    const bindings = {
+      useCallback: (callback: () => void) => callback,
+      mainRef: scrollRef, messagesContentRef: bottomContentRef,
+      autoFollowRef: { current: true }, autoFollowPausedRef: paused, userBottomAnchorRef: userBottomAnchor,
+      lastScrollTopRef: lastTop, lastUserScrollIntentAtRef: lastIntent,
+      programmaticScrollUntilRef: { current: 0 }, composerLayoutPinnedRef: { current: false },
+      isNearBottomRef: { current: true }, markTranscriptScrollActivity,
+      hasRecentUserScrollIntent: () => Date.now() - lastIntent.current <= 1200,
+      isComposerLayoutTransitioning: () => false, cancelFollowSettle() {}, cancelAutoFollowMotion() {},
+      setAutoFollowEnabled() {},
+      setAutoFollowPaused(update: (value: boolean) => boolean) { update(paused.current); mountBottom(); },
+      scrollMessagesToBottom() { bottomScroller.scrollTop = bottomScroller.scrollHeight - bottomScroller.clientHeight; },
+      AUTO_FOLLOW_USER_SCROLL_INTENT_MS: 1200, AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX: 0,
+      AUTO_FOLLOW_NEAR_BOTTOM_PX: 64, AUTO_FOLLOW_RESUME_BOTTOM_PX: 1,
+    };
+    const setupBottom = new Function(...Object.keys(bindings), [
+      sliceSource('  const setAutoFollowPausedValue =', '  const hasRecentUserScrollIntent =')
+        .replace('(value: boolean)', '(value)'),
+      sliceSource('    const retainUserBottomAnchor =', '    const handlePointerDown =')
+        .replace('(event: WheelEvent)', '(event)'),
+      sliceSource('    let lastTouchY:', '    function recalc() {')
+        .replace('lastTouchY: number | null', 'lastTouchY').replaceAll('(event: TouchEvent)', '(event)')
+        .replaceAll('event.touches[0]!', 'event.touches[0]'),
+      sliceSource('    function recalc() {', '    recalc();'),
+      sliceSource('    const handleScroll = () => {', "    el?.addEventListener('scroll'"),
+      "mainRef.current.addEventListener('wheel', handleWheel); mainRef.current.addEventListener('scroll', handleScroll);",
+      'const disconnect = (() => {',
+      sliceSource('    const target = messagesContentRef.current;', '  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);'),
+      '})(); return { handleTouchStart, handleTouchMove, cleanup() { disconnect(); mainRef.current.removeEventListener("wheel", handleWheel); mainRef.current.removeEventListener("scroll", handleScroll); } };',
+    ].join('\n'));
+    const bottomControls = setupBottom(...Object.values(bindings));
+    try {
+      bottomScroller.dispatchEvent(new WheelEvent('wheel', { deltaY: -240 }));
+      bottomScroller.scrollTop -= 240;
+      bottomScroller.dispatchEvent(new Event('scroll'));
+      await frames();
+      bottomScroller.dispatchEvent(new WheelEvent('wheel', { deltaY: 10000 }));
+      bottomScroller.scrollTop = bottomScroller.scrollHeight;
+      bottomScroller.dispatchEvent(new Event('scroll'));
+      await frames(2);
+      verify(userBottomAnchor.current, `${count} 条消息一次向下滑到旧底部后记住触底意图`);
+      imageSource = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+      mountBottom();
+      await until(() => root.querySelector<HTMLImageElement>('img')?.naturalHeight === 1);
+      await frames();
+      const actualBottom = () => root.querySelector<HTMLElement>(`[data-message-id="${bottomItems.at(-1)!.id}"]`)!.getBoundingClientRect().bottom;
+      const viewportBottom = () => bottomScroller.getBoundingClientRect().top + bottomScroller.clientHeight;
+      verify(Math.abs(actualBottom() - viewportBottom()) < 1, `${count} 条消息图片解码增高后无需第二次下滑即可看到真实最后一行`);
+      htmlHeight = 900;
+      mountBottom();
+      await frames();
+      verify(Math.abs(actualBottom() - viewportBottom()) < 1, `${count} 条消息同次触底后的 HTML 再次增高仍停在真实尾部`);
+      bottomScroller.dispatchEvent(new WheelEvent('wheel', { deltaY: -.01 }));
+      let readingPixels = bottomScroller.scrollTop;
+      htmlHeight = 1400;
+      mountBottom();
+      await frames();
+      verify(Math.abs(bottomScroller.scrollTop - readingPixels) < 1 && actualBottom() > viewportBottom() + 400,
+        `${count} 条消息微小反向上滑在下一次滚动事件前撤销贴底，后续增高不抢回`);
+      bottomControls.handleTouchStart({ touches: [{ clientY: 400 }] });
+      bottomScroller.scrollTop = bottomScroller.scrollHeight;
+      bottomScroller.dispatchEvent(new Event('scroll'));
+      await frames(2);
+      for (const clientY of [300, 250]) bottomControls.handleTouchMove({ touches: [{ clientY }] });
+      htmlHeight = 1900;
+      mountBottom();
+      await frames();
+      verify(userBottomAnchor.current && Math.abs(actualBottom() - viewportBottom()) < 1,
+        `${count} 条消息触摸触底后继续下滑，没有位置更新也能补齐 HTML 测高`);
+      bottomControls.handleTouchMove({ touches: [{ clientY: 250.01 }] });
+      readingPixels = bottomScroller.scrollTop;
+      htmlHeight = 2400;
+      mountBottom();
+      await frames();
+      verify(!userBottomAnchor.current && Math.abs(bottomScroller.scrollTop - readingPixels) < 1,
+        `${count} 条消息同一次触摸微小反向，立即停止后续测高追底`);
+      clearTranscriptScrollActivity();
+      await frames(30);
+      verify(Math.abs(bottomScroller.scrollTop - readingPixels) < 1, `${count} 条消息滚动静默后不重新拉回底部`);
+      verify(root.querySelectorAll('[data-message-id]').length <= MESSAGE_LIST_MAX_VISIBLE_ROWS, `${count} 条消息连续触底测高保持有界挂载`);
+    } finally {
+      bottomControls.cleanup();
+      clearTranscriptScrollActivity();
+      render(null, root);
+    }
+  }
   document.title = '长会话渲染回归检查通过';
   result.textContent = `通过 ${checks.length} 项：\n${checks.join('\n')}`;
 } catch (error) {

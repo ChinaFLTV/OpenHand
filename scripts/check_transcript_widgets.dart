@@ -1756,6 +1756,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('一次下滑触底后，滚动静默期内连续测高仍停在真实尾部', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('手动触底', 1000));
+    probe.preserveViewportAfterUserScroll = false;
+    await probe.mount(size: const Size(1100, 550));
+    await probe.settle();
+    probe.controller.jumpTo(probe.controller.offset - 240);
+    await tester.pump();
+    probe.activity.value = true;
+    await tester.fling(find.byKey(const ValueKey<String>('session-transcript-list')),
+      const Offset(0, -600), 1800);
+    await tester.pump(const Duration(seconds: 1));
+    expect(probe.controller.position.extentAfter, lessThan(1));
+    final messages = probe.session.messages;
+    final tail = find.byKey(ValueKey<String>(
+      '$_kTranscriptEntryKeyPrefix${messages.last.id}'));
+    for (final paragraphs in [2, 4]) {
+      probe.update(probe.session.copyWith(messages: [
+        ...messages.take(messages.length - 1),
+        messages.last.copyWith(content: List.filled(paragraphs,
+          '**图片与富文本延迟就绪**\n\n新增正文。').join('\n\n')),
+      ]));
+      for (var frame = 0; frame < 40; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getBottomLeft(tail).dy, closeTo(550 - 12, 1),
+          reason: '同一次向下触底必须跟随连续增高后的真实尾部');
+      }
+    }
+    probe.preserveViewportAfterUserScroll = true;
+    probe.controller.jumpTo(probe.controller.offset - 0.1);
+    final readingOffset = probe.controller.offset;
+    probe.update(probe.session.copyWith(messages: [
+      ...messages.take(messages.length - 1),
+      messages.last.copyWith(content: List.filled(6,
+        '**用户已反向上滑**\n\n新增正文。').join('\n\n')),
+    ]));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(probe.controller.offset, closeTo(readingOffset, 0.01),
+      reason: '微小反向上滑也必须撤销触底跟随');
+    probe.activity.value = false;
+    await probe.settle();
+    expect(probe.controller.position.extentAfter, greaterThan(1));
+    expect(tester.binding.hasScheduledFrame, false,
+      reason: '完成或撤销触底后不能持续空转');
+  });
+
   for (final hiddenTail in [true, false]) {
     testWidgets('尾部长富文本就绪后贴底，不被回收重建成骨架，尾随隐藏=$hiddenTail', (tester) async {
       final base = _probeSession('尾部富文本', 3);
@@ -2616,6 +2661,26 @@ void main() {
     home._handleMessageScrollNotification(ScrollUpdateNotification(metrics: metrics, context: context,
       scrollDelta: .1, dragDetails: DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, -.1))));
     expect(home._shouldAutoFollowMessages, true, reason: '主动下滑回到底部后恢复跟随');
+    home._shouldAutoFollowMessages = false;
+    home._handleMessageScrollNotification(OverscrollNotification(metrics: metrics, context: context,
+      overscroll: 30, dragDetails: DragUpdateDetails(globalPosition: Offset.zero, delta: const Offset(0, -30))));
+    expect(home._shouldAutoFollowMessages, true, reason: '拖动已触底时，边界通知也必须恢复跟随');
+    home._shouldAutoFollowMessages = false;
+    await tester.pumpWidget(MaterialApp(home: ListView(controller: home._messageScrollController,
+      children: const [SizedBox(height: 1400)])));
+    home._messageScrollController.jumpTo(home._messageScrollController.position.maxScrollExtent);
+    home._handleMessagePointerSignal(const PointerScrollEvent(scrollDelta: Offset(0, 30)));
+    expect(home._shouldAutoFollowMessages, true, reason: '已在底部的滚轮输入没有位置更新也能保留触底');
+    home._handleMessagePointerSignal(const PointerScrollEvent(scrollDelta: Offset(0, -.01)));
+    expect(home._shouldAutoFollowMessages, false, reason: '同一边界的微小上滑立即撤销跟随');
+    home._messageScrollController.jumpTo(home._messageScrollController.offset - 30);
+    home._handleMessagePointerSignal(const PointerScrollEvent(scrollDelta: Offset(0, 1)));
+    expect(home._shouldAutoFollowMessages, false, reason: '尚未触底的向下输入不能提前贴底');
+    home._autoFollowEnabled = false;
+    home._messageScrollController.jumpTo(home._messageScrollController.position.maxScrollExtent);
+    home._handleMessagePointerSignal(const PointerScrollEvent(scrollDelta: Offset(0, 30)));
+    expect(home._shouldAutoFollowMessages, false, reason: '关闭跟随时边界输入不能重新开启');
+    await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -3184,6 +3249,38 @@ void main() {
       ),
       424,
     );
+    for (final velocity in [0.0, 1200.0]) {
+      expect(physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 400, max: 400),
+        newPosition: metrics(pixels: 400, max: 820),
+        isScrolling: true,
+        velocity: velocity,
+      ), 820, reason: '向下触底后，测高增加的尾部必须在布局阶段补齐');
+      expect(physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 350, max: 400),
+        newPosition: metrics(pixels: 400, max: 820),
+        isScrolling: true,
+        velocity: velocity,
+      ), 820, reason: '同一帧才滑到旧边界时，必须用当前位置识别触底');
+      expect(physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 400, max: 400),
+        newPosition: metrics(pixels: 780, max: 820),
+        isScrolling: true,
+        velocity: velocity,
+      ), 820, reason: '布局正向修正超出旧边界时仍承接底部测高');
+    }
+    expect(physics.adjustPositionForNewDimensions(
+      oldPosition: metrics(pixels: 400, max: 400),
+      newPosition: metrics(pixels: 400, max: 820),
+      isScrolling: true,
+      velocity: -1200,
+    ), 400, reason: '反向惯性不能被触底修正抢占');
+    expect(physics.adjustPositionForNewDimensions(
+      oldPosition: metrics(pixels: 400, max: 400),
+      newPosition: metrics(pixels: 399.9, max: 820),
+      isScrolling: false,
+      velocity: 0,
+    ), 399.9, reason: '上一轮布局的触底快照不能覆盖随后微小上滑');
   });
 
   testWidgets('应用滚动行为在两端使用夹紧物理', (tester) async {

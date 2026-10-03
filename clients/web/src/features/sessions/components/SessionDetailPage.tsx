@@ -2481,6 +2481,7 @@ export function SessionDetailPage() {
   const attachmentIdSeqRef = useRef(0);
   // 用户离底超过阈值时暂停自动跟随；检测到远端生成且本地有草稿时显示冲突提示。
   const isNearBottomRef = useRef<boolean>(true);
+  const userBottomAnchorRef = useRef(false);
   const autoFollowRef = useRef<boolean>(initialComposerDraft?.autoFollow ?? true);
   const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
@@ -2876,6 +2877,7 @@ export function SessionDetailPage() {
   const setAutoFollowEnabled = (value: boolean) => {
     autoFollowRef.current = value;
     if (!value) {
+      userBottomAnchorRef.current = false;
       cancelAutoFollowMotion();
       autoFollowPausedRef.current = false;
       setAutoFollowPaused((current) => (current ? false : current));
@@ -2886,11 +2888,13 @@ export function SessionDetailPage() {
   };
 
   const setAutoFollowPausedValue = (value: boolean) => {
+    if (value) userBottomAnchorRef.current = false;
     autoFollowPausedRef.current = value;
     setAutoFollowPaused((current) => (current === value ? current : value));
   };
 
   const markUserScrollIntent = useCallback(() => {
+    userBottomAnchorRef.current = false;
     composerLayoutPinnedRef.current = false;
     lastUserScrollIntentAtRef.current = Date.now();
     markTranscriptScrollActivity(AUTO_FOLLOW_USER_SCROLL_INTENT_MS);
@@ -3625,9 +3629,18 @@ export function SessionDetailPage() {
       }
       return event.clientX <= rect.right && event.clientX >= rect.right - hitInset;
     };
+    const retainUserBottomAnchor = () => {
+      const el = mainRef.current;
+      if (!el || el.scrollTop < 0 ||
+          el.scrollHeight - el.scrollTop - el.clientHeight > AUTO_FOLLOW_RESUME_BOTTOM_PX) return;
+      // 已触底的下滑可能没有 scroll 事件，也要承接随后图片或 HTML 的增高。
+      userBottomAnchorRef.current = true;
+      if (autoFollowRef.current) setAutoFollowPausedValue(false);
+    };
     const handleWheel = (event: WheelEvent) => {
       if (Math.abs(event.deltaY) > AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX) {
         markUserScrollIntent();
+        if (event.deltaY > 0) retainUserBottomAnchor();
         if (event.deltaY < 0 && autoFollowRef.current) setAutoFollowPausedValue(true);
       }
     };
@@ -3643,10 +3656,25 @@ export function SessionDetailPage() {
       if (upwardScrollKeys.has(event.key) ||
           ['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
         markUserScrollIntent();
-        if ((upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) && autoFollowRef.current) {
-          setAutoFollowPausedValue(true);
+        if (upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) {
+          if (autoFollowRef.current) setAutoFollowPausedValue(true);
+        } else {
+          retainUserBottomAnchor();
         }
       }
+    };
+    let lastTouchY: number | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      lastTouchY = event.touches.length === 1 ? event.touches[0]!.clientY : null;
+      markUserScrollIntent();
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      const previousY = lastTouchY;
+      lastTouchY = event.touches.length === 1 ? event.touches[0]!.clientY : null;
+      if (previousY == null || lastTouchY == null || previousY === lastTouchY) return;
+      markUserScrollIntent();
+      if (lastTouchY < previousY) retainUserBottomAnchor();
+      else if (autoFollowRef.current) setAutoFollowPausedValue(true);
     };
 
     function recalc() {
@@ -3661,6 +3689,11 @@ export function SessionDetailPage() {
       isNearBottomRef.current = dist <= AUTO_FOLLOW_NEAR_BOTTOM_PX;
       const userScrolling = hasRecentUserScrollIntent();
       if (!userScrolling && Date.now() <= programmaticScrollUntilRef.current) return;
+      if (userScrolling && scrolledDown && dist <= AUTO_FOLLOW_RESUME_BOTTOM_PX) {
+        userBottomAnchorRef.current = true;
+      } else if (userScrolling && scrolledUp) {
+        userBottomAnchorRef.current = false;
+      }
       // 一律读 ref：autoFollow / autoFollowPaused 在流式期间高频变化，若进依赖
       // 数组，这整套监听器每来一条消息就拆装一次，并同步跑 recalc 强制回流。
       if (!autoFollowRef.current) {
@@ -3683,8 +3716,8 @@ export function SessionDetailPage() {
     const el = mainRef.current;
     if (el) lastScrollTopRef.current = el.scrollTop;
     el?.addEventListener('wheel', handleWheel, { passive: true });
-    el?.addEventListener('touchstart', markUserScrollIntent, { passive: true });
-    el?.addEventListener('touchmove', markUserScrollIntent, { passive: true });
+    el?.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el?.addEventListener('touchmove', handleTouchMove, { passive: true });
     el?.addEventListener('pointerdown', handlePointerDown, { passive: true });
     const handleScroll = () => {
       // 程序贴底不能冻结高度测量，否则新消息会反复使用旧几何位置。
@@ -3696,8 +3729,8 @@ export function SessionDetailPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       el?.removeEventListener('wheel', handleWheel);
-      el?.removeEventListener('touchstart', markUserScrollIntent);
-      el?.removeEventListener('touchmove', markUserScrollIntent);
+      el?.removeEventListener('touchstart', handleTouchStart);
+      el?.removeEventListener('touchmove', handleTouchMove);
       el?.removeEventListener('pointerdown', handlePointerDown);
       el?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', recalc);
@@ -3716,12 +3749,15 @@ export function SessionDetailPage() {
     const shouldFollowOnGrow = () =>
       autoFollowRef.current &&
       !autoFollowPausedRef.current &&
-      !hasRecentUserScrollIntent() &&
+      (!hasRecentUserScrollIntent() || userBottomAnchorRef.current) &&
       !isComposerLayoutTransitioning();
     const observer = new ResizeObserver(() => {
       if (!shouldFollowOnGrow()) return;
       // 测高发生在绘制前；同步贴底，不能再排到下一帧暴露旧位置。
       scrollMessagesToBottom('auto');
+      // 底部测高修正不是下一次用户滚动，不能拿它判断上滑或反复冻结正文。
+      lastScrollTopRef.current = scroller.scrollTop;
+      isNearBottomRef.current = true;
     });
     observer.observe(target);
     observer.observe(scroller);
@@ -4235,6 +4271,7 @@ export function SessionDetailPage() {
     setLoadingOlder(false);
     setOlderRenderSettlingValue(false);
     setTranscriptReadySessionId(null);
+    userBottomAnchorRef.current = false;
     setError(null);
     associatedKnowledgeBaseCacheRef.current.clear();
     replaceMessageWindow([], 0);

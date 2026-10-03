@@ -589,7 +589,7 @@ try {
   const intentEnd = historyPageSource.indexOf('  }, []);', intentStart);
   assert.ok(scrollStart >= 0 && scrollEnd > scrollStart && intentStart >= 0 && intentEnd > intentStart);
   const { code: scrollCode } = await transformWithOxc(
-    `${historyPageSource.slice(intentStart, intentEnd + '  }, []);'.length)}\n${historyPageSource.slice(scrollStart, scrollEnd)}\nconst controls = { handleWheel, handleKeyDown, recalc };`,
+    `${historyPageSource.slice(intentStart, intentEnd + '  }, []);'.length)}\n${historyPageSource.slice(scrollStart, scrollEnd)}\nconst controls = { handleWheel, handleKeyDown, handleTouchStart, handleTouchMove, markUserScrollIntent, recalc };`,
     'transcript-scroll.ts',
   );
   const scroller = { scrollTop: 1000, scrollHeight: 1600, clientHeight: 600 };
@@ -597,13 +597,15 @@ try {
   const paused = { current: false };
   const lastIntent = { current: 0 };
   const programmatic = { current: Date.now() + 10000 };
+  const userBottomAnchor = { current: false };
   let cancellations = 0;
   const scrollBindings = {
     useCallback: callback => callback, mainRef: { current: scroller },
     composerLayoutPinnedRef: { current: true }, lastUserScrollIntentAtRef: lastIntent,
     programmaticScrollUntilRef: programmatic, lastScrollTopRef: { current: 1000 },
     autoFollowRef: follow, autoFollowPausedRef: paused, isNearBottomRef: { current: true },
-    setAutoFollowPausedValue: value => { paused.current = value; },
+    userBottomAnchorRef: userBottomAnchor,
+    setAutoFollowPausedValue: value => { paused.current = value; if (value) userBottomAnchor.current = false; },
     setAutoFollowEnabled: value => { follow.current = value; },
     hasRecentUserScrollIntent: () => Date.now() - lastIntent.current <= 1200,
     markTranscriptScrollActivity() {}, cancelFollowSettle() {},
@@ -638,6 +640,90 @@ try {
   scroller.scrollTop -= .01;
   scroll.recalc();
   assert.equal(paused.current, true, '触摸和滚动条的微小上移也暂停跟随');
+
+  const growStart = historyPageSource.indexOf('    const target = messagesContentRef.current;');
+  const growEnd = historyPageSource.indexOf('  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);', growStart);
+  assert.ok(growStart >= 0 && growEnd > growStart);
+  let onTranscriptResize;
+  let growDisconnected = false;
+  let composerTransition = false;
+  const observed = [];
+  const growBindings = {
+    ...scrollBindings,
+    messagesContentRef: { current: {} },
+    ResizeObserver: class {
+      constructor(callback) { onTranscriptResize = callback; }
+      observe(target) { observed.push(target); }
+      disconnect() { growDisconnected = true; }
+    },
+    isComposerLayoutTransitioning: () => composerTransition,
+    scrollMessagesToBottom() { scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight; },
+  };
+  const disconnectGrow = new Function(...Object.keys(growBindings), historyPageSource.slice(growStart, growEnd))(...Object.values(growBindings));
+  assert.equal(observed.length, 2, '正文与视口尺寸变化均须处理');
+  lastIntent.current = 0;
+  paused.current = false;
+  scroller.scrollTop = 0;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 1000, '测高回调必须在当前绘制前贴底');
+  scroll.handleWheel({ deltaY: -30 });
+  scroller.scrollTop = 970;
+  scroll.recalc();
+  scroll.handleWheel({ deltaY: 1000 });
+  scroller.scrollTop = 1000;
+  scroll.recalc();
+  assert.equal(userBottomAnchor.current, true, '主动下滑触底必须保留此次触底意图');
+  for (const height of [2300, 3100]) {
+    scroller.scrollHeight = height;
+    onTranscriptResize();
+    assert.equal(scroller.scrollTop, height - 600, '输入保护期内连续图片测高不需要第二次下滑');
+    scroll.recalc();
+    assert.equal(paused.current, false, '布局贴底不能误判为上滑');
+  }
+  scroll.handleWheel({ deltaY: -.01 });
+  scroller.scrollHeight += 400;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 2500, '微小上滑输入先于滚动事件撤销触底跟随');
+  assert.equal(userBottomAnchor.current, false);
+  scroll.markUserScrollIntent();
+  scroller.scrollTop = 2700;
+  scroll.recalc();
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 2700, '接近底部但未触底时仍保留用户位置');
+  scroller.scrollTop = 2900;
+  scroll.recalc();
+  scroller.scrollHeight += 500;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 3400, '触摸或滚动条主动触底也能完成延迟测高');
+  scroll.handleWheel({ deltaY: 20 });
+  assert.equal(userBottomAnchor.current, true, '已在边界的下滑即使没有位移也保留触底');
+  scroll.handleKeyDown({ key: 'End', defaultPrevented: false });
+  assert.equal(userBottomAnchor.current, true, 'End 键触底也能承接延迟测高');
+  follow.current = false;
+  scroller.scrollHeight += 500;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 3400, '关闭跟随时测高不能强行贴底');
+  follow.current = true;
+  composerTransition = true;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, 3400, '输入区过渡期间仍遵守布局保护');
+  composerTransition = false;
+  scroll.handleTouchStart({ touches: [{ clientY: 400 }] });
+  scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+  scroll.recalc();
+  for (const clientY of [300, 250]) scroll.handleTouchMove({ touches: [{ clientY }] });
+  assert.equal(userBottomAnchor.current, true, '触摸已触底后继续同向拖动，不能丢失触底意图');
+  scroller.scrollHeight += 400;
+  onTranscriptResize();
+  assert.equal(scroller.scrollTop, scroller.scrollHeight - 600, '触摸边界没有位置更新时也能补齐延迟测高');
+  const touchBottom = scroller.scrollTop;
+  scroll.handleTouchMove({ touches: [{ clientY: 250.01 }] });
+  scroller.scrollHeight += 400;
+  onTranscriptResize();
+  assert.equal(userBottomAnchor.current, false, '同一次触摸的微小反向立即撤销触底');
+  assert.equal(scroller.scrollTop, touchBottom, '反向触摸不能被后续测高抢回');
+  disconnectGrow();
+  assert.equal(growDisconnected, true, '离开页面必须释放尺寸监听');
 
   const initialStart = historyPageSource.indexOf('    if (initialLayoutSettledRef.current) return undefined;');
   const initialEnd = historyPageSource.indexOf('  }, [membershipKey, onInitialLayoutSettled, scrollContainerRef]);', initialStart);
@@ -678,47 +764,6 @@ try {
     cleanup();
     assert.equal(frames.size, 0, '离开列表必须释放首屏任务');
   }
-
-  const resizeStart = historyPageSource.indexOf('    const target = messagesContentRef.current;');
-  const resizeEnd = historyPageSource.indexOf('  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);', resizeStart);
-  assert.ok(resizeStart >= 0 && resizeEnd > resizeStart);
-  const { code: resizeCode } = await transformWithOxc(
-    `const observe = () => {${historyPageSource.slice(resizeStart, resizeEnd)}};`, 'layout-follow.ts',
-  );
-  let onResize;
-  let disconnected = false;
-  let userReading = false;
-  let composerMoving = false;
-  const layoutFollow = { current: true };
-  const layoutPaused = { current: false };
-  const layoutScroller = { scrollTop: 0, scrollHeight: 2400, clientHeight: 600 };
-  const resizeBindings = {
-    messagesContentRef: { current: {} }, mainRef: { current: layoutScroller },
-    autoFollowRef: layoutFollow, autoFollowPausedRef: layoutPaused,
-    hasRecentUserScrollIntent: () => userReading,
-    isComposerLayoutTransitioning: () => composerMoving,
-    ResizeObserver: class {
-      constructor(callback) { onResize = callback; }
-      observe() {}
-      disconnect() { disconnected = true; }
-    },
-    scrollMessagesToBottom() { layoutScroller.scrollTop = layoutScroller.scrollHeight - layoutScroller.clientHeight; },
-  };
-  const observe = new Function(...Object.keys(resizeBindings), `${resizeCode}\nreturn observe;`)(...Object.values(resizeBindings));
-  const stopObserving = observe();
-  onResize();
-  assert.equal(layoutScroller.scrollTop, 1800, '测高回调必须在当前绘制前贴底');
-  for (const guard of ['user', 'paused', 'disabled', 'composer']) {
-    userReading = guard === 'user';
-    layoutPaused.current = guard === 'paused';
-    layoutFollow.current = guard !== 'disabled';
-    composerMoving = guard === 'composer';
-    layoutScroller.scrollHeight += 100;
-    onResize();
-    assert.equal(layoutScroller.scrollTop, 1800, '用户阅读和输入区动画保护不能被测高绕过');
-  }
-  stopObserving();
-  assert.equal(disconnected, true);
 
   const heightStart = historyPageSource.indexOf('  const captureHeightAnchor = useCallback(');
   const heightEnd = historyPageSource.indexOf('  const handleHeightChange =', heightStart);

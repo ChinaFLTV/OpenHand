@@ -1419,6 +1419,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
+    } else if (event.scrollDelta.dy > 0 && _autoFollowEnabled) {
+      final position = _activeMessageScrollPosition();
+      // 滚轮已在边界时不会再发出位置更新，也要保留这次向下触底。
+      if (position != null &&
+          position.hasContentDimensions &&
+          !position.outOfRange &&
+          position.extentAfter <= _autoFollowResumeDistance) {
+        _shouldAutoFollowMessages = true;
+        _syncAutoFollowPausedState();
+      }
     }
   }
 
@@ -2596,12 +2606,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final recentPointerSignalScroll = _hasRecentPointerSignalScrollActivity();
     final positionActivelyScrolling =
         _messageScrollPositionIsActivelyScrolling();
-    final scrollUpdateDelta = notification is ScrollUpdateNotification
-        ? notification.scrollDelta
-        : null;
+    final scrollDelta = switch (notification) {
+      ScrollUpdateNotification(:final scrollDelta) => scrollDelta,
+      OverscrollNotification(:final overscroll) => overscroll,
+      _ => null,
+    };
     final hasMeaningfulScrollDelta =
-        scrollUpdateDelta != null &&
-        scrollUpdateDelta.abs() > _messageScrollActivityDeltaThreshold;
+        scrollDelta != null &&
+        scrollDelta.abs() > _messageScrollActivityDeltaThreshold;
     final explicitUserScrollStart =
         notification is ScrollStartNotification &&
         notification.dragDetails != null;
@@ -2615,14 +2627,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final implicitPointerSignalScroll = activity.implicitPointerSignalScroll;
     // WebView / 桌面平台视图有时吞掉 PointerSignal，导致
     // recentPointerSignalScroll 与 dragDetails 都缺失；但外层 ScrollPosition
-    // 仍处于 scrolling，且 ScrollUpdateNotification 携带了非零 delta。
+    // 仍处于 scrolling，且位置更新或边界通知携带了非零位移。
     // 这类 tick 只有在确实向历史方向移动时才计入用户滚动活动；否则
     // 流式内容增高 / Sliver 几何沉降会误写最近用户滚动时间，延迟追底。
     final implicitActivePositionScroll =
         !programmaticScroll &&
         positionActivelyScrolling &&
-        notification is ScrollUpdateNotification &&
-        notification.dragDetails == null &&
+        (notification is ScrollUpdateNotification &&
+                notification.dragDetails == null ||
+            notification is OverscrollNotification &&
+                notification.dragDetails == null) &&
         hasMeaningfulScrollDelta;
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
@@ -2637,8 +2651,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         distanceToBottom - previousDistanceToBottom >
             _messageDistanceToBottomDeltaThreshold;
     final updateMovedTowardHistory =
-        scrollUpdateDelta != null &&
-        scrollUpdateDelta < -_messageScrollActivityDeltaThreshold;
+        scrollDelta != null &&
+        scrollDelta < -_messageScrollActivityDeltaThreshold;
     final directionMovedTowardHistory =
         notification is UserScrollNotification &&
         notification.direction == ScrollDirection.forward &&
@@ -2693,14 +2707,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         reallyAwayFromBottom && userScrollActivity;
     final userMovedTowardHistory =
         userScrollActivity &&
-        (scrollUpdateDelta != null
-            ? scrollUpdateDelta < 0
+        (scrollDelta != null
+            ? scrollDelta < 0
             : distanceMovedAwayFromBottom || directionMovedTowardHistory);
     if (_autoFollowEnabled &&
         userScrollActivity &&
         !userMovedTowardHistory &&
-        scrollUpdateDelta != null &&
-        scrollUpdateDelta > 0 &&
+        scrollDelta != null &&
+        scrollDelta > 0 &&
         distanceToBottom <= _autoFollowResumeDistance) {
       _shouldAutoFollowMessages = true;
       _syncAutoFollowPausedState();

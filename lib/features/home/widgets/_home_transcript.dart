@@ -49,16 +49,24 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
     required bool isScrolling,
     required double velocity,
   }) {
-    // 惯性滚动或越界回弹尚未收敛时不要强行贴底，否则会与弹道互抢造成两端抽搐。
-    if (isScrolling || velocity.abs() > precisionErrorTolerance) {
-      return super.adjustPositionForNewDimensions(
-        oldPosition: oldPosition,
-        newPosition: newPosition,
-        isScrolling: isScrolling,
-        velocity: velocity,
-      );
+    // 向下已触底时保留这次触底意图，延迟测高不能要求用户再滑一次。
+    final previousBounds = oldPosition.copyWith(
+      pixels: math.min(newPosition.pixels, oldPosition.maxScrollExtent),
+    );
+    final reachedBottom =
+        !oldPosition.outOfRange &&
+        !newPosition.outOfRange &&
+        previousBounds.extentAfter <= _scrollToBottomSettleTolerance &&
+        velocity >= 0;
+    // oldPosition 是上一轮布局快照；用户已反向移动时不能沿用旧的触底坐标。
+    final movedTowardHistory =
+        newPosition.pixels < oldPosition.pixels - precisionErrorTolerance;
+    final scrolling = isScrolling || velocity.abs() > precisionErrorTolerance;
+    if (!movedTowardHistory &&
+        (!scrolling || reachedBottom) &&
+        shouldAnchorBottom(previousBounds)) {
+      return newPosition.maxScrollExtent;
     }
-    if (shouldAnchorBottom(oldPosition)) return newPosition.maxScrollExtent;
     return super.adjustPositionForNewDimensions(
       oldPosition: oldPosition,
       newPosition: newPosition,
@@ -1171,10 +1179,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _anchorsTranscriptBottom(ScrollMetrics metrics) =>
       mounted &&
       metrics.hasPixels &&
-      !_isTranscriptScrollActive(context) &&
-      (_initialRevealPhase != _TranscriptInitialRevealPhase.ready ||
+      ((_initialRevealPhase != _TranscriptInitialRevealPhase.ready &&
+              !_isTranscriptScrollActive(context)) ||
           (!widget.preserveViewportAfterUserScroll &&
               metrics.hasContentDimensions &&
+              !metrics.outOfRange &&
               metrics.extentAfter <= _scrollToBottomSettleTolerance));
 
   bool _isTranscriptViewportMotionActive(
