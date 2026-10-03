@@ -208,23 +208,32 @@ try {
       await until(() => preview.scrollHeight > preview.clientHeight);
       verify(preview.dataset.collapsed === 'true' && getComputedStyle(preview).overflowY === 'auto',
         `${kind}/${format} 折叠正文保持内部滚动`);
+      const fade = preview.parentElement!.querySelector<HTMLElement>('.oh-reasoning-collapsible-fade')!;
+      verify(getComputedStyle(fade).backgroundImage.startsWith('linear-gradient('),
+        `${kind}/${format} 尾部连续渐隐，不能使用整块半透明底色`);
+      verify(getComputedStyle(fade).pointerEvents === 'none', `${kind}/${format} 渐隐层不拦截正文交互`);
       preview.scrollTop = 60;
       await act(async () => { preview.dispatchEvent(new Event('scroll')); });
       await wait(40);
       verify(preview.scrollTop > 0, `${kind}/${format} 滚动位置不会被测高恢复覆盖`);
+      verify(Math.abs(fade.getBoundingClientRect().bottom - preview.getBoundingClientRect().bottom) < 1,
+        `${kind}/${format} 渐隐始终位于预览底部，不随正文上移`);
       verify(getComputedStyle(preview).overscrollBehaviorY === 'contain', `${kind}/${format} 边界滚动不传递给会话`);
       for (let cycle = 0; cycle < 3; cycle++) {
         preview.scrollTop = preview.scrollHeight;
         await act(async () => { preview.dispatchEvent(new Event('scroll')); });
         await wait(40);
         const bottom = preview.scrollTop;
+        verify(getComputedStyle(fade).opacity === '0', `${kind}/${format} 第 ${cycle + 1} 次触底后移除渐隐`);
         preview.scrollTop -= 60;
         await act(async () => { preview.dispatchEvent(new Event('scroll')); });
         await wait(260);
         verify(preview.scrollTop < bottom - 30, `${kind}/${format} 第 ${cycle + 1} 次触底后反向滚动保持位置`);
+        verify(getComputedStyle(fade).opacity !== '0', `${kind}/${format} 第 ${cycle + 1} 次反向滚动恢复渐隐`);
       }
       await clickToggle();
       verify(preview.dataset.collapsed === 'false', `${kind}/${format} 胶囊实际展开正文`);
+      verify(preview.parentElement!.querySelector('.oh-reasoning-collapsible-fade') == null, `${kind}/${format} 展开正文不保留渐隐`);
       await clickToggle();
       verify(preview.dataset.collapsed === 'true', `${kind}/${format} 胶囊实际折叠正文`);
       render(null, root);

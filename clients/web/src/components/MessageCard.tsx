@@ -4738,34 +4738,36 @@ function ReasoningCollapsibleBody({
   }, [scrollStateKey, settleCollapsedScroll, useCollapsedScroll]);
 
   // 折叠态设置 max-height；正式响应展开态不设人为上限，避免极长正文被裁剪。
-  // 底部使用低对比度渐隐，保留最后一行可读性，避免出现生硬的色块截断。
+  // 渐隐固定在预览外壳底部，保留尾行可读性并避免随正文滚动。
   return (
-    <div
-      ref={bodyRef}
-      class={`oh-reasoning-collapsible-body${useCollapsedScroll ? ' is-scrollable-collapsed' : ''}`}
-      data-collapsed={collapsed ? 'true' : 'false'}
-      data-message-scrollable-body={useCollapsedScroll ? 'true' : undefined}
-      aria-expanded={collapsed ? 'false' : 'true'}
-      onWheel={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
-      onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
-      onScroll={useCollapsedScroll ? handleScroll : undefined}
-      style={{
-        maxHeight: collapsed ? `${previewMaxHeight}px` : 'none',
-        overflowX: 'hidden',
-        overflowY: collapsed
-          ? (useCollapsedScroll ? 'auto' : 'hidden')
-          : (scrollableCollapsed ? 'auto' : 'hidden'),
-        scrollbarGutter: scrollableCollapsed ? 'stable' : undefined,
-        overscrollBehavior: useCollapsedScroll ? 'contain' : undefined,
-      }}
-    >
-      {children}
+    <div class="oh-reasoning-collapsible-frame">
+      <div
+        ref={bodyRef}
+        class={`oh-reasoning-collapsible-body${useCollapsedScroll ? ' is-scrollable-collapsed' : ''}`}
+        data-collapsed={collapsed ? 'true' : 'false'}
+        data-message-scrollable-body={useCollapsedScroll ? 'true' : undefined}
+        aria-expanded={collapsed ? 'false' : 'true'}
+        onWheel={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
+        onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
+        onScroll={useCollapsedScroll ? handleScroll : undefined}
+        style={{
+          maxHeight: collapsed ? `${previewMaxHeight}px` : 'none',
+          overflowX: 'hidden',
+          overflowY: collapsed
+            ? (useCollapsedScroll ? 'auto' : 'hidden')
+            : (scrollableCollapsed ? 'auto' : 'hidden'),
+          scrollbarGutter: scrollableCollapsed ? 'stable' : undefined,
+          overscrollBehavior: useCollapsedScroll ? 'contain' : undefined,
+        }}
+      >
+        {children}
+      </div>
       {collapsed ? (
         <div
           class={`oh-reasoning-collapsible-fade${atBottom ? ' is-hidden' : ''}${scrollingCollapsedBody ? ' is-scroll-sync' : ''}`}
           aria-hidden="true"
           style={{
-            background: fadeBackground,
+            background: `linear-gradient(to bottom, transparent 0%, ${fadeBackground} 100%)`,
           }}
         />
       ) : null}

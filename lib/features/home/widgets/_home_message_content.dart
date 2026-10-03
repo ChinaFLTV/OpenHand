@@ -256,7 +256,16 @@ class _CollapsedPreviewFade extends StatelessWidget {
           curve: kOpenHandSwitchInCurve,
           child: Container(
             height: _collapsedMessageFadeHeight,
-            color: fadeColor.withValues(alpha: _collapsedMessageFadeOpacity),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  fadeColor.withValues(alpha: 0),
+                  fadeColor.withValues(alpha: _collapsedMessageFadeOpacity),
+                ],
+              ),
+            ),
           ),
         ),
       ),

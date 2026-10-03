@@ -6218,6 +6218,9 @@ button.oh-message-context-capsule {
 }
 
 /* 正文只裁剪可见范围，尺寸过渡由卡片统一控制。 */
+.oh-reasoning-collapsible-frame {
+  position: relative;
+}
 .oh-reasoning-collapsible-body {
   position: relative;
   display: block;

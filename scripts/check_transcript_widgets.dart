@@ -659,6 +659,61 @@ void main() {
     expect(cache.get(secondKey), isNull);
     expect(cache.get(firstKey), same(nodes));
   });
+  testWidgets('折叠渐隐：明暗主题尾部连续淡出并保持点击与退场', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final dark in [false, true]) {
+      final background = dark ? const Color(0xff18181b) : const Color(0xffe3e5ef);
+      final foreground = dark ? Colors.white : Colors.black;
+      final captureKey = GlobalKey();
+      var visible = true;
+      var taps = 0;
+      late StateSetter update;
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return RepaintBoundary(key: captureKey, child: SizedBox(width: 200, height: 100,
+            child: Stack(children: [
+              Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque,
+                onTap: () => taps++, child: ColoredBox(color: foreground))),
+              _CollapsedPreviewFade(visible: visible, fadeColor: background),
+            ])));
+        },
+      )))));
+      await tester.pumpAndSettle();
+      Future<List<double>> sampleFade() async {
+        final boundary = captureKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        return (await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          try {
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+            final start = image.height - _collapsedMessageFadeHeight.round();
+            return [for (final fraction in [0.0, .25, .6, .98])
+              (bytes!.getUint8(((start + (_collapsedMessageFadeHeight * fraction).floor()) * image.width + image.width ~/ 2) * 4) / 255 - foreground.r) /
+                (background.r - foreground.r)];
+          } finally {
+            image.dispose();
+          }
+        }))!;
+      }
+      final samples = await sampleFade();
+      expect(samples.first, lessThan(.05), reason: '渐隐顶部不能出现半透明色块边界');
+      for (var index = 1; index < samples.length; index++) {
+        expect(samples[index], greaterThan(samples[index - 1] + .1), reason: '尾部必须连续过渡，不能整块等透明度遮挡');
+      }
+      expect(samples.last, inInclusiveRange(.65, .8));
+      final rect = tester.getRect(find.byKey(captureKey));
+      await tester.tapAt(Offset(rect.center.dx, rect.bottom - 8));
+      expect(taps, 1, reason: '渐隐层不能拦截正文点击');
+      update(() => visible = false);
+      await tester.pumpAndSettle();
+      expect((await sampleFade()).every((value) => value.abs() < .02), true,
+        reason: '触底或展开后渐隐必须完整退场');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   for (final plain in [false, true]) {
     for (final animated in [false, true]) {
       testWidgets('折叠预览同尺寸更新后仍能内部滚动，纯文本=$plain，动画=$animated', (tester) async {
@@ -679,6 +734,8 @@ void main() {
         probe.update(original.copyWith(messages: [message.copyWith(content: message.content.replaceAll('甲', '乙'))]));
         await probe.settle();
         expect(preview._scrollController.position.maxScrollExtent, greaterThan(0));
+        expect(tester.widget<_CollapsedPreviewFade>(find.descendant(of: previewFinder,
+          matching: find.byType(_CollapsedPreviewFade))).visible, true);
         final outerOffset = probe.controller.offset;
         await tester.sendEventToBinding(PointerScrollEvent(
           position: tester.getCenter(previewFinder),
@@ -698,10 +755,14 @@ void main() {
           await probe.settle();
           final bottom = preview._scrollController.position.maxScrollExtent;
           expect(preview._scrollController.offset, closeTo(bottom, 1));
+          expect(tester.widget<_CollapsedPreviewFade>(find.descendant(of: previewFinder,
+            matching: find.byType(_CollapsedPreviewFade))).visible, false, reason: '触底后尾行不能被渐隐遮挡');
           await tester.sendEventToBinding(PointerScrollEvent(
             position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, -60)));
           await probe.settle();
           expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '触底后滚轮必须能反向滚动');
+          expect(tester.widget<_CollapsedPreviewFade>(find.descendant(of: previewFinder,
+            matching: find.byType(_CollapsedPreviewFade))).visible, true, reason: '反向滚动后恢复尾部渐隐');
           await tester.drag(previewFinder, const Offset(0, -2000));
           await probe.settle();
           expect(preview._scrollController.offset, closeTo(bottom, 1));
