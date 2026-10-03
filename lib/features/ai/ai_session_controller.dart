@@ -560,7 +560,7 @@ class AiSessionController extends ChangeNotifier {
   static const int _olderMessageHydrationBatchSize = 12;
   static const int _olderMessageHydrationContentPreviewChars = 4096;
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
-  static const Duration _olderMessageHydrationTimeout = Duration(seconds: 15);
+  static const Duration olderMessageHydrationTimeout = Duration(seconds: 15);
   static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
   static const int _maxConcurrentSessionHydrations = 4;
   static const int _maxPendingSessionHydrations = 64;
@@ -2350,7 +2350,7 @@ class AiSessionController extends ChangeNotifier {
 
   Future<AiSession?> _loadOlderSessionMessages(String sessionId) async {
     final deadline = MonotonicDeadline(
-      _olderMessageHydrationTimeout,
+      olderMessageHydrationTimeout,
       timeoutMessage: '加载更早消息超时，请重试。',
     );
     try {

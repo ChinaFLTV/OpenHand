@@ -257,6 +257,7 @@ class _TranscriptProbe {
   AiSendPhase sendPhase = AiSendPhase.idle;
   bool preserveViewportAfterUserScroll = true;
   VoidCallback? onLayoutChanged;
+  VoidCallback? onRevealOlderMessages;
   _SessionTranscriptState get state => key.currentState!;
 
   Future<void> mount({
@@ -299,7 +300,10 @@ class _TranscriptProbe {
                   onLayoutChanged: () => onLayoutChanged?.call(),
                   onMessageExpansionChanged: (_) {},
                   preserveViewportAfterUserScroll: preserveViewportAfterUserScroll,
-                  onRevealOlderMessages: () => manualReveals += 1,
+                  onRevealOlderMessages: () {
+                    manualReveals += 1;
+                    onRevealOlderMessages?.call();
+                  },
                   onProgrammaticScrollCorrection: (correction) => correction(),
                   messageActions: _MessageActions(
                     onEdit: (_) async {},
@@ -727,7 +731,7 @@ void main() {
     expect(page.messages.last.metadata['tool_execution_stdout'], largeMetadata);
   });
 
-  testWidgets('历史读取超时释放加载状态，迟到页不回写，重试保持单飞', (tester) async {
+  testWidgets('历史加载：读取超时释放状态，迟到页不回写，重试共享任务', (tester) async {
     late Directory directory;
     late AiSessionController controller;
     late AiToolUsagePromotionStore usage;
@@ -1641,7 +1645,174 @@ void main() {
     expect(probe.controller.offset, pixels, reason: '用户滚动时不得强行追底');
   });
 
-  testWidgets('历史加载无进展时停止自动重试，允许手动重试', (tester) async {
+  testWidgets('历史加载：同步回调重入共享同一次展开', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('重入', 30, mixed: true));
+    await probe.mount(size: const Size(800, 600));
+    await probe.settle();
+    final previousStart = probe.state._windowStartIndex;
+    Future<void>? reentrant;
+    probe.onRevealOlderMessages = () {
+      if (probe.manualReveals == 1) reentrant = probe.state._revealOlderMessages();
+    };
+    final first = probe.state._revealOlderMessages();
+    await probe.settle();
+    await first;
+    expect(reentrant, same(first), reason: '回调重入不能重复建立加载任务');
+    expect(probe.manualReveals, 1);
+    expect(probe.state._windowStartIndex,
+      TranscriptListWindowing.revealOlderWindowStart(previousStart));
+    expect(probe.state._loadingOlderMessages, false);
+    expect(probe.state._activeRevealOlderFuture, isNull);
+  });
+
+  testWidgets('历史加载：界面等待超时后可重试，旧请求不能解锁新请求', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('界面超时', 2, hidden: 28));
+    final requests = <Completer<AiSession?>>[];
+    probe.ai.loadOlder = (_) {
+      final request = Completer<AiSession?>();
+      requests.add(request);
+      return request.future;
+    };
+    await probe.mount(paused: true);
+    await probe.settle();
+    final first = probe.state._revealOlderMessages();
+    expect(probe.state._revealOlderMessages(), same(first));
+    await probe.settle();
+    expect(requests.length, 1);
+    expect(probe.state._loadingOlderMessages, true);
+    await tester.pump(const Duration(seconds: 16));
+    await probe.settle();
+    expect(probe.state._loadingOlderMessages, false,
+      reason: '控制器未返回时界面也必须结束加载');
+    expect(probe.state._activeRevealOlderFuture, isNull);
+    await first;
+    expect(find.text('加载更早消息超时，请重试。'), findsOneWidget);
+    final retry = probe.state._revealOlderMessages();
+    await probe.settle();
+    expect(requests.length, 2);
+    requests.first.completeError(StateError('模拟过期读取失败'));
+    await probe.settle();
+    expect(probe.state._loadingOlderMessages, true);
+    expect(probe.state._activeRevealOlderFuture, same(retry));
+    requests.last.complete(probe.session);
+    await probe.settle();
+    await retry;
+    expect(probe.state._loadingOlderMessages, false);
+    expect(probe.state._activeRevealOlderFuture, isNull);
+    expect(probe.manualReveals, 2);
+    expect(probe.state._renderEntries.last.id, '界面超时-1');
+  });
+
+  testWidgets('历史加载：异常后立即恢复按钮并提示重试', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('加载异常', 2, hidden: 28));
+    await probe.mount(paused: true);
+    await probe.settle();
+    probe.ai.loadOlder = (_) => Future.error(StateError('模拟读取失败'));
+    final load = probe.state._revealOlderMessages();
+    await probe.settle();
+    await load;
+    expect(probe.state._loadingOlderMessages, false);
+    expect(probe.state._activeRevealOlderFuture, isNull);
+    expect(find.text('加载更早消息失败，请重试。'), findsOneWidget);
+    expect(find.byType(_TranscriptLoadEarlierButton), findsOneWidget);
+  });
+
+  testWidgets('历史加载：同步界面回调失败也能释放状态并重试', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('回调异常', 30, mixed: true));
+    await probe.mount(size: const Size(800, 600));
+    await probe.settle();
+    final previousStart = probe.state._windowStartIndex;
+    probe.onRevealOlderMessages = () => throw StateError('模拟界面回调失败');
+    final failed = probe.state._revealOlderMessages();
+    await probe.settle();
+    await failed;
+    expect(probe.state._loadingOlderMessages, false);
+    expect(probe.state._activeRevealOlderFuture, isNull);
+    expect(probe.state._windowStartIndex, previousStart);
+    probe.onRevealOlderMessages = null;
+    final retry = probe.state._revealOlderMessages();
+    await probe.settle();
+    await retry;
+    expect(probe.state._windowStartIndex, lessThan(previousStart));
+    expect(probe.manualReveals, 2);
+  });
+
+  testWidgets('历史加载：立即卸载不启动读取', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('启动前卸载', 2, hidden: 28));
+    await probe.mount(paused: true);
+    await probe.settle();
+    final load = probe.state._revealOlderMessages();
+    await tester.pumpWidget(const SizedBox());
+    await probe.settle();
+    await load;
+    expect(probe.ai.loadCount, 0);
+    expect(probe.manualReveals, 1);
+  });
+
+  for (final animated in [false, true]) {
+    testWidgets('历史加载：混合工具消息连续点击完整展开，动画=$animated', (tester) async {
+      final base = _probeSession('混合分页', 108, mixed: true);
+      final messages = <AiSessionMessage>[
+        for (var index = 0; index < base.messages.length; index++)
+          switch (index % 4) {
+            0 => AiSessionMessage.reasoning(id: '混合-$index', content: '正在检查历史记录',
+              createdAt: DateTime.utc(2026), metadata: const {aiSessionMessageReasoningElapsedMsKey: 5000}),
+            2 => AiSessionMessage.toolCall(id: '混合-$index', content: '调用工具',
+              createdAt: DateTime.utc(2026), metadata: {
+                'tool_call_id': '调用-$index', 'tool_name': 'MachineTerminalExec',
+                'tool_execution_status': 'success', 'tool_arguments': '{"命令":"检查历史"}',
+                'tool_execution_stdout': List.filled(20, '模拟工具输出').join('\n'),
+              }),
+            3 => AiSessionMessage.toolResult(id: '混合-$index', content: '工具执行完成',
+              createdAt: DateTime.utc(2026), metadata: {'tool_call_id': '调用-${index - 1}'}),
+            _ => base.messages[index],
+          },
+      ];
+      final complete = base.copyWith(messages: messages);
+      final probe = _TranscriptProbe(tester, complete.copyWith(
+        messages: messages.sublist(96), messageLoadState: AiSessionMessageLoadState.windowed,
+        messageWindowStartIndex: 96, messageTotalCount: messages.length));
+      probe.ai.loadOlder = (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        final start = math.max(0, probe.session.messageWindowStartIndex - 12);
+        final next = complete.copyWith(messages: messages.sublist(start),
+          messageLoadState: start == 0 ? AiSessionMessageLoadState.complete : AiSessionMessageLoadState.windowed,
+          messageWindowStartIndex: start, messageTotalCount: messages.length);
+        probe.update(next);
+        return next;
+      };
+      await probe.mount(size: const Size(1000, 700), animated: animated);
+      await probe.settle();
+      for (var page = 0; page < 30; page++) {
+        if (probe.state._windowStartIndex == 0 && !probe.session.hasMoreHistoricalMessages) break;
+        final button = find.byType(_TranscriptLoadEarlierButton);
+        probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(button, findsOneWidget, reason: '第$page页滚回顶部必须展示历史入口');
+        final anchor = probe.state._capturePrependAnchor();
+        await tester.tap(button);
+        final first = probe.state._activeRevealOlderFuture!;
+        await tester.tap(button);
+        expect(probe.state._activeRevealOlderFuture, same(first));
+        await probe.settle();
+        await first;
+        expect(probe.state._loadingOlderMessages, false, reason: '第$page次展开必须结束加载');
+        expect(probe.state._activeRevealOlderFuture, isNull);
+        if (anchor != null) {
+          expect(probe.state._viewportOffsetForMessage(anchor.messageId),
+            closeTo(anchor.viewportOffset, 2), reason: '第$page次展开必须保留阅读位置');
+        }
+      }
+      expect(probe.ai.loadCount, 8);
+      expect(probe.state._windowStartIndex, 0);
+      expect(probe.session.messageWindowStartIndex, 0);
+      expect(probe.state._renderEntries.map((entry) => entry.id),
+        complete.displayMessages.map((message) => message.id));
+      expect(find.byType(_TranscriptLoadEarlierButton), findsNothing);
+    });
+  }
+
+  testWidgets('历史加载：无进展时停止自动重试，允许手动重试', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('失败', 2, hidden: 28));
     await probe.mount();
     await probe.settle();
@@ -1658,7 +1829,7 @@ void main() {
     expect(probe.manualReveals, 1);
   });
 
-  testWidgets('异步历史加载返回前切换会话，不污染新窗口', (tester) async {
+  testWidgets('历史加载：返回前切换会话，不污染新窗口', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('旧会话', 2, hidden: 20));
     final pending = Completer<AiSession?>();
     probe.ai.loadOlder = (_) => pending.future;
@@ -1676,7 +1847,7 @@ void main() {
     probe.expectFilled();
   });
 
-  testWidgets('往返切换同一会话，旧请求不能提前解锁新请求', (tester) async {
+  testWidgets('历史加载：往返切换同一会话，旧请求不能提前解锁新请求', (tester) async {
     final original = _probeSession('往返会话', 2, hidden: 20);
     final probe = _TranscriptProbe(tester, original);
     final requests = <Completer<AiSession?>>[];
@@ -1700,7 +1871,7 @@ void main() {
     expect(probe.state._loadingOlderMessages, false);
   });
 
-  testWidgets('定位不存在的旧消息遇到无进展分页立即结束', (tester) async {
+  testWidgets('历史加载：定位不存在的旧消息遇到无进展分页立即结束', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('定位失败', 2, hidden: 200));
     await probe.mount();
     await probe.settle();
@@ -1712,7 +1883,7 @@ void main() {
     expect(probe.state._loadingOlderMessages, false);
   });
 
-  testWidgets('连续不可见历史有自动分页上限', (tester) async {
+  testWidgets('历史加载：连续不可见记录有自动分页上限', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('上限', 2, hidden: 400));
     probe.ai.loadOlder = (_) async {
       final previous = probe.session;
@@ -1761,7 +1932,7 @@ void main() {
     expect(probe.state._renderEntries.length, count);
   });
 
-  testWidgets('历史请求完成前卸载组件不遗留任务', (tester) async {
+  testWidgets('历史加载：请求完成前卸载组件不遗留任务', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('卸载', 2, hidden: 20));
     final pending = Completer<AiSession?>();
     probe.ai.loadOlder = (_) => pending.future;

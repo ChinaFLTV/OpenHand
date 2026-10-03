@@ -1052,8 +1052,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               metrics.hasContentDimensions &&
               metrics.extentAfter <= _scrollToBottomSettleTolerance));
 
-  bool _isTranscriptViewportMotionActive(ScrollPosition position) {
-    return position.outOfRange ||
+  bool _isTranscriptViewportMotionActive(
+    ScrollPosition position, {
+    bool includeOutOfRange = true,
+  }) {
+    return (includeOutOfRange && position.outOfRange) ||
         _isTranscriptScrollActive(context) ||
         (position.isScrollingNotifier.value &&
             position.userScrollDirection != ScrollDirection.idle);
@@ -2332,13 +2335,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return existing;
     }
     late final Future<void> future;
-    future = _runRevealOlderMessages(fillViewport: fillViewport).whenComplete(
-      () {
-        if (identical(_activeRevealOlderFuture, future)) {
-          _activeRevealOlderFuture = null;
-        }
-      },
-    );
+    // 先登记任务，再执行可能同步重入的界面回调。
+    future =
+        Future<void>.microtask(() async {
+          if (!mounted || !identical(_activeRevealOlderFuture, future)) return;
+          await _runRevealOlderMessages(fillViewport: fillViewport);
+        }).whenComplete(() {
+          if (identical(_activeRevealOlderFuture, future)) {
+            _activeRevealOlderFuture = null;
+          }
+        });
     _activeRevealOlderFuture = future;
     return future;
   }
@@ -2348,10 +2354,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
       return;
     }
-    if (!fillViewport) widget.onRevealOlderMessages();
-
-    final anchor = _capturePrependAnchor();
-    final restoreGeneration = _viewportRestoreGeneration;
     final restoreSessionId = widget.session.id;
     final generation = ++_historyRevealGeneration;
     bool requestIsCurrent() =>
@@ -2362,6 +2364,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     });
 
     try {
+      if (!fillViewport) widget.onRevealOlderMessages();
+      final anchor = _capturePrependAnchor();
+      final restoreGeneration = _viewportRestoreGeneration;
       await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
       if (!mounted || !requestIsCurrent()) {
         return;
@@ -2377,9 +2382,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         });
       } else {
         final controller = context.read<AiSessionController>();
-        final loaded = await controller.loadOlderSessionMessages(
-          restoreSessionId,
-        );
+        final loaded = await controller
+            .loadOlderSessionMessages(restoreSessionId)
+            .timeout(AiSessionController.olderMessageHydrationTimeout);
         if (!mounted || !requestIsCurrent()) return;
         if (loaded == null) {
           if (!fillViewport) {
@@ -2410,18 +2415,29 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _restorePrependAnchor(anchor);
         _startPrependAnchorStabilization(anchor);
       }
+      await Future<void>.delayed(_transcriptHistoryRevealCooldown);
     } catch (error, stack) {
       silentLog('home_transcript', '显示更早消息', error, stack);
+      if (mounted && requestIsCurrent() && !fillViewport) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: null,
+          fallback: openHandLocalizedText(
+            context,
+            zh: error is TimeoutException ? '加载更早消息超时，请重试。' : '加载更早消息失败，请重试。',
+            en: error is TimeoutException
+                ? 'Loading earlier messages timed out. Please retry.'
+                : 'Could not load earlier messages. Please retry.',
+          ),
+        );
+      }
     } finally {
       if (mounted && requestIsCurrent()) {
-        await _awaitEndOfFrameBounded();
-        await Future<void>.delayed(_transcriptHistoryRevealCooldown);
-        if (mounted && requestIsCurrent()) {
-          setState(() {
-            _loadingOlderMessages = false;
-          });
-          _scheduleViewportFill();
-        }
+        // 释放按钮不依赖下一帧或动画完成，异常路径也能立即重试。
+        setState(() {
+          _loadingOlderMessages = false;
+        });
+        _scheduleViewportFill();
       }
     }
   }
@@ -2529,9 +2545,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (anchor == null || _pendingPrependAnchorFrames <= 0) {
         return;
       }
+      // 布局短暂越界只等待下一帧；真正的用户滚动才取消锚点恢复。
       if (_isTranscriptScrollActive(context) ||
           (widget.controller.hasClients &&
-              _isTranscriptViewportMotionActive(widget.controller.position))) {
+              _isTranscriptViewportMotionActive(
+                widget.controller.position,
+                includeOutOfRange: false,
+              ))) {
         _cancelPendingViewportRestore();
         return;
       }

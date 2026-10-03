@@ -297,6 +297,12 @@ resolve_node_command
 resolve_pnpm_command
 install_web_dependencies
 
+# 历史加载回归也是发布门禁，避免其他界面改动重新引入持续加载。
+log "跑历史加载回归检查"
+if ! OPENHAND_WIDGET_TEST_NAME='历史加载：' dart run scripts/check_transcript_widgets.dart; then
+  fail "历史加载回归失败：请修复后再构建"
+fi
+
 # ---- 安全清理旧产物 ---------------------------------------------------------
 # 依赖准备成功后再清理，避免 corepack/npm 网络失败时把可用旧产物删除。
 prepare_web_output
