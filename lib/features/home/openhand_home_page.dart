@@ -8262,11 +8262,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _pendingAnimatedScrollToBottom = false;
         return;
       }
-      // 跨会话 AnimatedSwitcher cross-fade 期间，新旧两个 _SessionTranscript
-      // 子树可能同时持有 _messageScrollController 的 ScrollPosition，导致
-      // controller.positions.length > 1。此时 jumpTo/animateTo 会触发
-      // Scrollbar 的 _debugCheckHasValidScrollPosition 断言。跳过本次滚动，
-      // 等 transition 完成后旧 position 自然 detach，后续帧会重新 follow。
+      // 新旧列表切换时，首页控制器可能短暂登记多个位置。
+      // 当前列表接管后再跟随，避免滚动旧会话；等待次数有上限。
       final positions = _messageScrollController.positions.toList(
         growable: false,
       );

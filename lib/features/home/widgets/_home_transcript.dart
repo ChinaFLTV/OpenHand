@@ -86,13 +86,13 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
 class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
   const _TranscriptTailChildDelegate(
     super.builder, {
-    required this.controller,
+    required this.scrollPosition,
     required this.anchorsBottom,
     super.childCount,
     super.findChildIndexCallback,
   });
 
-  final ScrollController controller;
+  final ScrollPosition? Function() scrollPosition;
   final bool Function(ScrollMetrics) anchorsBottom;
 
   @override
@@ -103,9 +103,13 @@ class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
     double trailingScrollOffset,
   ) {
     final count = childCount;
-    if (count == null || controller.positions.length != 1) return null;
-    final position = controller.position;
-    if (!position.hasViewportDimension || !anchorsBottom(position)) return null;
+    final position = scrollPosition();
+    if (count == null ||
+        position == null ||
+        !position.hasViewportDimension ||
+        !anchorsBottom(position)) {
+      return null;
+    }
     final averageExtent =
         (trailingScrollOffset - leadingScrollOffset) /
         (lastIndex - firstIndex + 1);
@@ -812,11 +816,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _viewportFillPagesRemaining = _kTranscriptViewportFillPageLimit;
   int? _lastViewportFillHistoryStart;
 
+  // 列表和滚动条独占本地控制器，首页控制器只登记位置以协调导航与跟随。
+  // 复用同一原生位置，不创建额外滚动活动；列表卸载时同步解除登记。
+  late final _listController = OpenHandStableScrollController(
+    initialScrollOffset: widget.controller.initialScrollOffset,
+    keepScrollOffset: widget.controller.keepScrollOffset,
+    debugLabel: widget.controller.debugLabel,
+    onAttach: (position) => widget.controller.attach(position),
+    onDetach: (position) => widget.controller.detach(position),
+  );
+
+  ScrollPosition? get _scrollPosition {
+    final position = _listController.positions.singleOrNull;
+    return widget.controller.positions.contains(position) ? position : null;
+  }
+
   // attach 早于布局完成，首屏和会话切换期间不能直接读取滚动边界。
   ScrollPosition? get _measuredScrollPosition {
-    if (widget.controller.positions.length != 1) return null;
-    final position = widget.controller.position;
-    return position.hasPixels &&
+    final position = _scrollPosition;
+    return position != null &&
+            position.hasPixels &&
             position.hasContentDimensions &&
             position.hasViewportDimension
         ? position
@@ -954,6 +973,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      for (final position in _listController.positions) {
+        oldWidget.controller.detach(position);
+        widget.controller.attach(position);
+      }
+    }
     if (oldWidget.session.id != widget.session.id) {
       _windowFillScheduler.clear();
       _resetSessionScopedState();
@@ -1194,6 +1219,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               metrics.hasContentDimensions &&
               !metrics.outOfRange &&
               metrics.extentAfter <= _scrollToBottomSettleTolerance));
+
+  bool get _anchorsCurrentTranscriptBottom {
+    final position = _scrollPosition;
+    return position != null && _anchorsTranscriptBottom(position);
+  }
 
   bool _isTranscriptViewportMotionActive(
     ScrollPosition position, {
@@ -1683,6 +1713,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _windowFillScheduler.clear();
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
+    _listController.dispose();
     super.dispose();
   }
 
@@ -1896,8 +1927,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return false;
     }
     widget.onProgrammaticScrollCorrection(() {
-      if (!mounted || !widget.controller.hasClients) return;
-      widget.controller.position.jumpTo(target);
+      if (!mounted || !identical(_measuredScrollPosition, position)) return;
+      position.jumpTo(target);
     });
     return true;
   }
@@ -1916,10 +1947,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _cancelPendingViewportRestore();
       return;
     }
-    if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
-      return;
-    }
-    final position = widget.controller.positions.last;
+    final position = _scrollPosition;
+    if (position == null) return;
     if (position.isScrollingNotifier.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -2695,10 +2724,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       }
       // 布局短暂越界只等待下一帧；真正的用户滚动才取消锚点恢复。
+      final position = _scrollPosition;
       if (_isTranscriptScrollActive(context) ||
-          (widget.controller.hasClients &&
+          (position != null &&
               _isTranscriptViewportMotionActive(
-                widget.controller.position,
+                position,
                 includeOutOfRange: false,
               ))) {
         _cancelPendingViewportRestore();
@@ -3520,7 +3550,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     aiSessionController: aiSessionController,
                   );
               final transcriptList = OpenHandSafeScrollbar(
-                controller: widget.controller,
+                controller: _listController,
                 thickness: _kTranscriptScrollbarThickness,
                 radius: _kTranscriptScrollbarRadius,
                 stabilizeMetrics: true,
@@ -3539,7 +3569,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         _kTranscriptListCacheExtent,
                       ),
                       key: const ValueKey<String>('session-transcript-list'),
-                      controller: widget.controller,
+                      controller: _listController,
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: _TranscriptScrollPhysics(
@@ -3559,10 +3589,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 ? beforeCenterCount - 1
                                 : null,
                             anchorsBottom: () =>
-                                widget.controller.hasClients &&
-                                _anchorsTranscriptBottom(
-                                  widget.controller.position,
-                                ),
+                                _anchorsCurrentTranscriptBottom,
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => buildItem(
                                 context,
@@ -3585,14 +3612,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             scrollActive: () =>
                                 _isTranscriptScrollActive(context),
                             anchorsBottom: () =>
-                                widget.controller.hasClients &&
-                                _anchorsTranscriptBottom(
-                                  widget.controller.position,
-                                ),
+                                _anchorsCurrentTranscriptBottom,
                             delegate: _TranscriptTailChildDelegate(
                               (context, index) =>
                                   buildItem(context, beforeCenterCount + index),
-                              controller: widget.controller,
+                              scrollPosition: () => _scrollPosition,
                               anchorsBottom: _anchorsTranscriptBottom,
                               childCount: listItemCount - beforeCenterCount,
                               findChildIndexCallback: (key) {

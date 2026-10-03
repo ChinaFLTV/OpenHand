@@ -242,12 +242,23 @@ AiSession _probeSession(
   );
 }
 
+class _ProbeTranscriptScrollController extends OpenHandStableScrollController {
+  int maxAttachedPositions = 0;
+
+  @override
+  void attach(ScrollPosition position) {
+    super.attach(position);
+    maxAttachedPositions = math.max(maxAttachedPositions, positions.length);
+  }
+}
+
 class _TranscriptProbe {
   _TranscriptProbe(this.tester, this.session);
   final WidgetTester tester;
   AiSession session;
-  final key = GlobalKey<_SessionTranscriptState>();
-  final controller = OpenHandStableScrollController();
+  var key = GlobalKey<_SessionTranscriptState>();
+  var controller = _ProbeTranscriptScrollController();
+  bool _workspaceSwitcher = false;
   final activity = TranscriptScrollActivity();
   final ai = _ProbeAiController();
   final tts = _ProbeTts();
@@ -267,7 +278,9 @@ class _TranscriptProbe {
     bool paused = false,
     bool textActions = false,
     bool writable = false,
+    bool workspaceSwitcher = false,
   }) async {
+    _workspaceSwitcher = workspaceSwitcher;
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -321,7 +334,10 @@ class _TranscriptProbe {
                   translationService: _ProbeTranslation(),
                   onDismissError: (_) async {},
                 );
-                return TickerMode(enabled: tickerEnabled, child: transcript);
+                return TickerMode(enabled: tickerEnabled, child: workspaceSwitcher
+                    ? _WorkspacePrimarySwitcher(child: KeyedSubtree(
+                        key: ValueKey('session-${session.id}'), child: transcript))
+                    : transcript);
               },
             ),
           ),
@@ -346,7 +362,12 @@ class _TranscriptProbe {
     expect(tester.takeException(), isNull);
   }
 
-  void update(AiSession value) => rebuild(() => session = value);
+  void update(AiSession value) => rebuild(() {
+    if (_workspaceSwitcher && value.id != session.id) {
+      key = GlobalKey<_SessionTranscriptState>();
+    }
+    session = value;
+  });
 
   void expectFilled() {
     expect(state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
@@ -1836,47 +1857,151 @@ void main() {
   }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
 
   for (final animated in [false, true]) {
-    testWidgets('会话加载：快速切换未完成首屏的会话后消息和鼠标交互恢复，动画=$animated', (tester) async {
-      final probe = _TranscriptProbe(tester, _probeSession('快速切换起点', 2));
-      await probe.mount(animated: animated, size: const Size(1000, 600));
-      AiSession? latest;
-      for (var cycle = 0; cycle < 12; cycle++) {
-        final full = _probeSession('快速切换$cycle', 30, mixed: true);
-        latest = full;
-        probe.update(full.copyWith(messages: const [],
-          messageLoadState: AiSessionMessageLoadState.header));
-        await tester.pump(const Duration(milliseconds: 16));
-        await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
-        probe.update(full.copyWith(messages: full.messages.sublist(24),
-          messageLoadState: AiSessionMessageLoadState.windowed, messageWindowStartIndex: 24));
-        for (var frame = 0; frame < 3; frame++) {
-          await tester.pump(const Duration(milliseconds: 16));
-          await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
-          expect(tester.takeException(), isNull);
-        }
-      }
-      probe.update(latest!);
+    testWidgets('会话加载：真实工作区切换后首帧布局完整且消息不空白，动画=$animated', (tester) async {
+      final probe = _TranscriptProbe(tester, _probeSession('工作区切换起点', 12, mixed: true));
+      await probe.mount(animated: animated, workspaceSwitcher: true,
+        size: const Size(1068, 548));
       await probe.settle();
       probe.expectFilled();
-      expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
-      expect(find.text('短消息29'), findsOneWidget);
-      final viewportRect = tester.getRect(find.byType(_TranscriptViewport));
-      for (final placeholder in find.byType(_RichContentPendingPreview).evaluate()) {
-        expect(tester.getRect(find.byWidget(placeholder.widget)).overlaps(viewportRect), false,
-          reason: '可见正文不能一直停留在占位状态');
+      for (final count in [1, 12, 35, 3, 30]) {
+        final previousState = probe.state;
+        probe.update(_probeSession('工作区切换$count', count, mixed: true));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull, reason: '新旧列表暂时共享控制器时不能中断首帧布局');
+        expect(probe.state, isNot(same(previousState)), reason: '必须复现工作区的会话组件销毁与重建');
+        final viewport = tester.renderObject<RenderViewport>(find.byType(_TranscriptViewport));
+        for (var child = viewport.firstChild; child != null; child = viewport.childAfter(child)) {
+          expect(child.geometry, isNotNull, reason: '布局中断会留下空几何并导致整页空白');
+        }
+        await probe.settle();
+        probe.expectFilled();
+        expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+        final tail = find.text('短消息${count - 1}');
+        expect(tail, findsOneWidget);
+        expect(tester.getRect(tail).overlaps(tester.getRect(find.byType(_TranscriptViewport))), true,
+          reason: '当前会话最新消息必须真正可见');
+        await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
+        await tester.tapAt(const Offset(500, 300));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(probe.controller.positions, hasLength(1), reason: '旧列表必须释放滚动位置');
       }
-      await tester.tapAt(const Offset(500, 300));
-      await tester.sendEventToBinding(const PointerScrollEvent(
-        position: Offset(900, 300), scrollDelta: Offset(0, -120)));
-      await probe.settle();
-      expect(tester.takeException(), isNull);
-      expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
-      // 缓存范围内的占位微光有持续动效，暂停后单独检查加载与定位任务是否结束。
-      probe.rebuild(() => probe.tickerEnabled = false);
-      await probe.settle();
-      expect(probe.state._viewportFillQueued, false);
-      expect(tester.binding.hasScheduledFrame, false, reason: '旧会话回调不能让当前窗口无限重建');
+      expect(probe.controller.maxAttachedPositions, greaterThan(1),
+        reason: '用例必须覆盖新列表布局早于旧列表卸载的真实窗口');
     }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+
+    for (final workspaceSwitcher in [false, true]) {
+      testWidgets('会话加载：快速切换未完成首屏的会话后消息和鼠标交互恢复，动画=$animated，工作区=$workspaceSwitcher', (tester) async {
+        final probe = _TranscriptProbe(tester, _probeSession('快速切换起点', 2));
+        await probe.mount(animated: animated, workspaceSwitcher: workspaceSwitcher,
+          size: const Size(1000, 600));
+        AiSession? latest;
+        for (var cycle = 0; cycle < 12; cycle++) {
+          final full = _probeSession('快速切换$cycle', 30, mixed: true);
+          latest = full;
+          probe.update(full.copyWith(messages: const [],
+            messageLoadState: AiSessionMessageLoadState.header));
+          await tester.pump(const Duration(milliseconds: 16));
+          await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
+          probe.update(full.copyWith(messages: full.messages.sublist(24),
+            messageLoadState: AiSessionMessageLoadState.windowed, messageWindowStartIndex: 24));
+          for (var frame = 0; frame < 3; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
+            expect(tester.takeException(), isNull);
+          }
+        }
+        probe.update(latest!);
+        await probe.settle();
+        probe.expectFilled();
+        expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+        expect(find.text('短消息29'), findsOneWidget);
+        final viewportRect = tester.getRect(find.byType(_TranscriptViewport));
+        for (final placeholder in find.byType(_RichContentPendingPreview).evaluate()) {
+          expect(tester.getRect(find.byWidget(placeholder.widget)).overlaps(viewportRect), false,
+            reason: '可见正文不能一直停留在占位状态');
+        }
+        await tester.tapAt(const Offset(500, 300));
+        await tester.sendEventToBinding(const PointerScrollEvent(
+          position: Offset(900, 300), scrollDelta: Offset(0, -120)));
+        await probe.settle();
+        expect(tester.takeException(), isNull);
+        expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
+        // 缓存范围内的占位微光有持续动效，暂停后单独检查加载与定位任务是否结束。
+        probe.rebuild(() => probe.tickerEnabled = false);
+        await probe.settle();
+        expect(probe.state._viewportFillQueued, false);
+        expect(tester.binding.hasScheduledFrame, false, reason: '旧会话回调不能让当前窗口无限重建');
+      }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+    }
+  }
+
+  testWidgets('会话加载：更换首页控制器保持当前位置，卸载后解除全部登记', (tester) async {
+    final probe = _TranscriptProbe(tester, _probeSession('位置生命周期', 12, mixed: true));
+    await probe.mount();
+    await probe.settle();
+    final oldController = probe.controller;
+    addTearDown(oldController.dispose);
+    final position = oldController.position;
+    final offset = position.pixels;
+    final state = probe.state;
+    final replacement = _ProbeTranscriptScrollController();
+    probe.rebuild(() => probe.controller = replacement);
+    await tester.pump();
+    expect(oldController.positions, hasLength(0));
+    expect(replacement.positions.single, same(position));
+    expect(state._listController.positions.single, same(position));
+    expect(position.pixels, closeTo(offset, 1), reason: '重新登记不能重建原生位置或改变阅读坐标');
+    await probe.settle();
+    probe.expectFilled();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 2));
+    expect(replacement.positions, hasLength(0));
+    expect(oldController.positions, hasLength(0));
+    expect(state.mounted, false);
+    expect(tester.takeException(), isNull);
+    expect(tester.binding.hasScheduledFrame, false, reason: '卸载不能遗留位置监听或分帧任务');
+  });
+
+  for (final initialPixels in <double?>[null, 420]) {
+    testWidgets('会话加载：共享控制器时只测量和滚动当前列表，额外位置=$initialPixels', (tester) async {
+      final probe = _TranscriptProbe(tester, _probeSession('位置隔离', 35, mixed: true));
+      await probe.mount(size: const Size(1000, 500));
+      await probe.settle();
+      final ownPosition = probe.controller.position;
+      final otherPosition = ScrollPositionWithSingleContext(
+        physics: ownPosition.physics, context: ownPosition.context,
+        initialPixels: initialPixels, keepScrollOffset: false,
+      );
+      if (initialPixels != null) {
+        otherPosition.applyViewportDimension(500);
+        otherPosition.applyContentDimensions(0, 1200);
+      }
+      probe.controller.attach(otherPosition);
+      try {
+        expect(probe.controller.positions, hasLength(2));
+        expect(probe.state._measuredScrollPosition, same(ownPosition),
+          reason: '不能因多位置而跳过自己的测量，也不能使用最后附着的其他位置');
+        final anchor = probe.state._capturePrependAnchor();
+        expect(anchor, isNotNull);
+        final previousOffset = ownPosition.pixels;
+        expect(probe.state._scrollNearRenderEntryIndex(0), true);
+        expect(ownPosition.pixels, lessThan(previousOffset));
+        probe.state._startPrependAnchorStabilization(anchor!, settleFrameCount: 3);
+        tester.view.physicalSize = const Size(1080, 540);
+        await probe.settle();
+        expect(probe.state._pendingPrependAnchor, isNull);
+        expect(otherPosition.hasPixels ? otherPosition.pixels : null, initialPixels,
+          reason: '定位、锚点恢复与重新布局不能修改其他列表的滚动坐标');
+        expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        probe.controller.detach(otherPosition);
+        otherPosition.dispose();
+      }
+      await probe.settle();
+      expect(probe.controller.positions, hasLength(1));
+    });
   }
 
   testWidgets('历史段与当前段的显露坐标包含视口锚点', (tester) async {

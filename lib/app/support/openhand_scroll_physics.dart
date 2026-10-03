@@ -11,5 +11,7 @@ class OpenHandStableScrollController extends ScrollController {
     super.initialScrollOffset,
     super.keepScrollOffset,
     super.debugLabel,
+    super.onAttach,
+    super.onDetach,
   });
 }
