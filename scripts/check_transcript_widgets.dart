@@ -386,6 +386,84 @@ class _TranscriptProbe {
 
 void main() {
   iaw.InAppWebViewPlatform.instance = _ProbeWebViewPlatform();
+  testWidgets('消息控件：六语窄屏、大字号与长输出保持可用', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = await SettingsController.create(store: _ProbeSettingsStore(false));
+    addTearDown(settings.dispose);
+    final output = List.filled(24, '服务运行正常，任务已完成。').join('\n');
+    for (final locale in AppLocalizations.supportedLocales) {
+      for (final brightness in Brightness.values) {
+        final l10n = lookupAppLocalizations(locale);
+        final message = AiSessionMessage.toolCall(
+          id: '${locale.toLanguageTag()}-${brightness.name}',
+          content: '', createdAt: DateTime.utc(2026),
+          metadata: {
+            'tool_name': 'MachineTerminalExec', 'tool_execution_status': 'success',
+            'tool_execution_working_directory': '/workspace/${'很长的项目目录/' * 15}',
+            'tool_arguments': '{"command":"systemctl status"}',
+            'tool_execution_stdout': output, 'tool_execution_exit_code': 0,
+            'websearch_cache': 'hit',
+          },
+        );
+        await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(
+          value: settings,
+          child: MaterialApp(
+            theme: OpenHandTheme.light(settings.themePreset), darkTheme: OpenHandTheme.dark(settings.themePreset),
+            themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
+            locale: locale, supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: Scaffold(body: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(1.6), disableAnimations: true),
+              child: SingleChildScrollView(child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _ToolCallMetaRow(message: message),
+                  const SizedBox(height: 10),
+                  KeyedSubtree(key: ValueKey(message.id), child: _ToolCallBody(message: message, sessionId: '布局检查', selectable: false)),
+                  const SizedBox(height: 10),
+                  OpenHandMessageActionChip(onPressed: () {}, icon: Icons.unfold_more_rounded, label: l10n.messageLoadFullContent),
+                ]),
+              )),
+            )),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(find.textContaining(l10n.messageToolNameMachineTerminalExec), findsOneWidget);
+        expect(find.text('MachineTerminalExec'), findsNothing);
+        expect(find.text(l10n.messageCacheHit), findsOneWidget);
+        await tester.tap(find.text(l10n.tlCallToolOutput));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text(l10n.tlCallViewFullContent));
+        await tester.tap(find.text(l10n.tlCallViewFullContent));
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.tlCallViewInDialog), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: '${locale.toLanguageTag()} / ${brightness.name} 不得溢出');
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('消息控件：忙碌态阻止重复点击，外部工具保留原名', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'), supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: Scaffold(body: Builder(builder: (context) {
+        expect(openHandToolDisplayName(context, 'MachineTerminalExec'), '执行终端命令');
+        expect(openHandToolDisplayName(context, 'mcp__server__Read'), 'mcp__server__Read');
+        final external = AiSessionMessage.toolCall(id: '外部工具', content: '', createdAt: DateTime.utc(2026),
+          metadata: {'tool_name': 'Read', 'tool_source': 'mcp', 'mcp_server_name': '自定义服务', 'mcp_tool_name': 'Read'});
+        expect(_toolCallPresentation(context, external).displayName, '自定义服务 / Read');
+        return OpenHandMessageActionChip(onPressed: () => taps++, busy: true, icon: Icons.copy, label: '加载中');
+      })),
+    ));
+    await tester.tap(find.byType(OutlinedButton));
+    expect(taps, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('同长历史正文的局部差异不能串用 Markdown 缓存', () {
     final first = '${'前' * 300}甲${'后' * 800}';
     final second = '${'前' * 300}乙${'后' * 800}';
@@ -879,7 +957,7 @@ void main() {
     final latest = '**最新正文** ${'新内容 ' * 2500}';
     late StateSetter rebuild;
     var content = initial;
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(
       child: StatefulBuilder(builder: (_, setState) {
         rebuild = setState;
         return _SafeMarkdownRichBody(_SafeMarkdownBody(data: content,
@@ -975,7 +1053,7 @@ void main() {
       placeholder: const SizedBox(height: 60),
       builder: (_) { built++; return const Text('已渲染正文'); },
     );
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(
       child: Column(children: [
         ValueListenableBuilder<double>(valueListenable: spacer,
           builder: (_, height, _) => SizedBox(height: height)),
@@ -995,7 +1073,7 @@ void main() {
       var revision = 0;
       late StateSetter rebuild;
       String source(int index) => '**历史-$index-$revision** ${'正文 ' * (shortContent ? 30 : 300)}';
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: StatefulBuilder(
+      await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: StatefulBuilder(
         builder: (_, setState) {
           rebuild = setState;
           return SingleChildScrollView(child: Column(children: [
@@ -1031,7 +1109,7 @@ void main() {
     addTearDown(()=>folder.deleteSync(recursive:true));
     final file=File('${folder.path}/image.svg')..writeAsStringSync(
       '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16"/></svg>');
-    await tester.pumpWidget(MaterialApp(home:Scaffold(body:_SafeMarkdownBody(
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home:Scaffold(body:_SafeMarkdownBody(
       data:'![本地矢量图](${file.uri})',styleSheet:MarkdownStyleSheet(),
     ))));
     for (var frame=0;frame<3;frame++) {
@@ -1053,7 +1131,7 @@ void main() {
       OpenHandGalleryImage(uri:Uri.parse('https://example.invalid/new.png'),title:'新图片',loadBytes:(){loads++;return loaded.future;}),
     ];
     await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(value:settings,
-      child:MaterialApp(home:Scaffold(body:_ImagePreviewDialog.gallery(images:images,initialIndex:0,canLocate:false)))));
+      child:MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home:Scaffold(body:_ImagePreviewDialog.gallery(images:images,initialIndex:0,canLocate:false)))));
     await tester.pump();
     final state=tester.state<_ImagePreviewDialogState>(find.byType(_ImagePreviewDialog));
     state._navigate(1);await tester.pump();
@@ -1069,7 +1147,7 @@ void main() {
   });
 
   testWidgets('富文本等待解析时不暴露 Markdown 源码', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _SafeMarkdownBody(
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _SafeMarkdownBody(
       data: '**待渲染正文**', styleSheet: MarkdownStyleSheet(),
     ))));
     expect(find.text('**待渲染正文**'), findsNothing);
@@ -1084,6 +1162,8 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               height: 320,
@@ -1799,8 +1879,12 @@ void main() {
         expect(probe.state._loadingOlderMessages, false, reason: '第$page次展开必须结束加载');
         expect(probe.state._activeRevealOlderFuture, isNull);
         if (anchor != null) {
-          expect(probe.state._viewportOffsetForMessage(anchor.messageId),
-            closeTo(anchor.viewportOffset, 2), reason: '第$page次展开必须保留阅读位置');
+          final offset = probe.state._viewportOffsetForMessage(anchor.messageId)!;
+          final position = probe.controller.position;
+          final desired = position.pixels + offset - anchor.viewportOffset;
+          final target = desired.clamp(position.minScrollExtent, position.maxScrollExtent);
+          expect(position.pixels, closeTo(target, 2),
+            reason: '第$page次展开必须在滚动边界内保留阅读位置');
         }
       }
       expect(probe.ai.loadCount, 8);
@@ -2872,6 +2956,8 @@ void main() {
   testWidgets('应用滚动行为在两端使用夹紧物理', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
         scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
         home: const SizedBox(),
       ),

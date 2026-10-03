@@ -10032,5 +10032,321 @@
   "maintenanceRuntimeMappedContainerId": "Container start ID",
   "maintenanceRuntimeMappedHostId": "Host start ID",
   "maintenanceRuntimeMappedIdCount": "Mapped ID count",
-  "maintenanceRuntimeExpectedBuild": "Expected build"
+  "maintenanceRuntimeExpectedBuild": "Expected build",
+  "messageToolNameTask": "Delegate task",
+  "messageToolNameBash": "Run command",
+  "messageToolNameBashBackground": "Background command",
+  "messageToolNameTaskOutput": "Task output",
+  "messageToolNameTaskStop": "Stop task",
+  "messageToolNameGlob": "Find files",
+  "messageToolNameGrep": "Search content",
+  "messageToolNameLs": "Browse directory",
+  "messageToolNameExitPlanMode": "Submit plan",
+  "messageToolNameEndVoiceConversation": "End voice conversation",
+  "messageToolNameRead": "Read file",
+  "messageToolNameEdit": "Edit file",
+  "messageToolNameMultiEdit": "Batch edit",
+  "messageToolNameApplyFileDiffs": "Apply file patches",
+  "messageToolNameWrite": "Write file",
+  "messageToolNameNotebookEdit": "Edit notebook",
+  "messageToolNameWebFetch": "Fetch webpage",
+  "messageToolNameTodoWrite": "Update tasks",
+  "messageToolNameWebSearch": "Search web",
+  "messageToolNameLsp": "Code navigation",
+  "messageToolNameCodebaseSearch": "Search codebase",
+  "messageToolNameGit": "Version control",
+  "messageToolNameDeleteFile": "Delete file",
+  "messageToolNameReadLints": "Read diagnostics",
+  "messageToolNameAskUserChoice": "Request choice",
+  "messageToolNameSkillManager": "Manage skills",
+  "messageToolNameToolSearch": "Find tools",
+  "messageToolNameMemory": "Manage memory",
+  "messageToolNameKnowledgeSearch": "Search knowledge base",
+  "messageToolNameKnowledgeRead": "Read knowledge",
+  "messageToolNameWorkflowList": "Browse workflows",
+  "messageToolNameWorkflowDetail": "View workflow",
+  "messageToolNameWorkflowExecute": "Run workflow",
+  "messageToolNameWorkflowExecutionStatus": "Workflow status",
+  "messageToolNameCronCreate": "Create schedule",
+  "messageToolNameCronEdit": "Edit schedule",
+  "messageToolNameCronDelete": "Delete schedule",
+  "messageToolNameCronEnable": "Enable schedule",
+  "messageToolNameCronDisable": "Disable schedule",
+  "messageToolNameMachineTerminalRead": "Read terminal",
+  "messageToolNameMachineTerminalWrite": "Write to terminal",
+  "messageToolNameMachineTerminalExec": "Run terminal command",
+  "messageToolNameMachineTerminalControl": "Control terminal",
+  "messageToolNameDingTalkToolSearch": "Find DingTalk tools",
+  "messageToolNameDingtalkDws": "DingTalk workspace",
+  "messageToolNameDingtalkImageGeneration": "Generate image",
+  "messageToolNameDingtalkVideoGeneration": "Generate video",
+  "messageToolNameDingtalkAudioGeneration": "Generate audio",
+  "messageToolNameDownloadFile": "Download file",
+  "messageLoadFullContent": "Load full content",
+  "messageLoadingContent": "Loading",
+  "messageCacheHit": "Cache hit",
+  "messageFetchCacheHit": "Fetch cache hit",
+  "messageCache": "Cache",
+  "messageFetchCache": "Fetch cache",
+  "messageCacheStored": "Cached",
+  "messageCacheDisabled": "Cache disabled",
+  "messageCachedAt": "Cached at",
+  "messageExpiresAt": "Expires at",
+  "messageSandboxBlocked": "Sandbox blocked",
+  "messageSandboxProxy": "Sandbox proxy",
+  "messageReasoning": "Reasoning",
+  "fileMutationOpenDiffDialog": "Open diff dialog",
+  "fileMutationUnchangedLines": "{count} unmodified lines",
+  "@fileMutationUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationCollapseUnchangedLines": "Collapse {count} unmodified lines",
+  "@fileMutationCollapseUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationExpandUnchanged": "Expand unchanged content",
+  "fileMutationCollapseUnchanged": "Collapse unchanged content",
+  "fileMutationCollapseDiff": "Collapse diff",
+  "fileMutationExpandRemainingDiff": "Show full diff ({count} more lines)",
+  "@fileMutationExpandRemainingDiff": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationRevealFile": "Reveal file in file manager",
+  "fileMutationRevealFileFailed": "Could not reveal this path in the file manager.",
+  "fileMutationJumpedBeforeCompression": "Target message is before compression point. Jumped to earliest visible message.",
+  "fileMutationSourceMissing": "Could not locate source message (may have been deleted).",
+  "fileMutationExportPickerFailed": "Export aborted (file picker unavailable): {error}",
+  "@fileMutationExportPickerFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationExportCancelled": "Export cancelled.",
+  "fileMutationSaveFailed": "Save failed: {error}",
+  "@fileMutationSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationSavedTo": "Saved to {path}",
+  "@fileMutationSavedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationRoundLoading": "Aggregating round mutations…",
+  "fileMutationRoundEmpty": "No file mutations this round.",
+  "fileMutationRoundTitle": "Round File Mutations",
+  "fileMutationLineStats": "Line additions/deletions",
+  "fileMutationUndoRound": "Undo all round mutations",
+  "fileMutationExportRound": "Export round as JSON",
+  "fileMutationRefreshSummary": "Refresh summary",
+  "fileMutationRemainingRows": "Show {count} more",
+  "@fileMutationRemainingRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationToggleDiff": "Expand / collapse diff preview",
+  "fileMutationJumpToSource": "Jump to source tool-call message",
+  "fileMutationLoadingDiff": "Loading diff…",
+  "fileMutationCreated": "Created",
+  "fileMutationModified": "Modified",
+  "fileMutationDeleted": "Deleted",
+  "messageFullContentFailed": "Unable to load the full content. Please retry.",
+  "messageStreaming": "Streaming",
+  "messageReadAloud": "Read",
+  "messageTranslating": "Translating",
+  "messageOriginal": "Original",
+  "messageLike": "Like",
+  "messageImprove": "Improve",
+  "messageDeleteFromHere": "Delete From Here",
+  "messageAudit": "Audit",
+  "messageShowRendered": "Show Rendered",
+  "messageShowRaw": "Show Raw",
+  "messageOpenBrowser": "Open in Browser",
+  "messageAttachmentMissing": "Attachment file not found or has been moved.",
+  "messageUnsafePath": "Refused unsafe path: {path}",
+  "@messageUnsafePath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "messageOpenFileFailed": "Failed to open file: {error}",
+  "@messageOpenFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageCopyFile": "Copy File",
+  "messageCopying": "Copying…",
+  "messageCopyImage": "Copy Image",
+  "messageCopyImageUrlFallback": "Unable to copy image data. Copied the image URL.",
+  "messageImageLoadFailed": "Failed to load image",
+  "messageMediaTimedOut": "Loading timed out. Open with the system player instead.",
+  "messageMediaInitFailed": "Failed to initialize the media preview. Open it with the system player instead.",
+  "messageFullscreenPlayback": "Fullscreen playback",
+  "messageMediaUrlCopied": "Copied media URL.",
+  "messageSystemPlayer": "System Player",
+  "messageGoalAutoFollowUp": "Goal Auto Follow-up",
+  "messageGoalEvaluationRequest": "Goal Evaluation Request",
+  "messageGoalEvaluationResponse": "Goal Evaluation Response",
+  "messageMachineExpertRequest": "Machine Expert Request",
+  "messageTerminalBound": "The target terminal is bound for this task.",
+  "messageMachineExpert": "Machine Expert",
+  "messageTerminal": "Terminal",
+  "messageLocation": "Location",
+  "messageRequest": "Request",
+  "messageWebEnvironmentBound": "The target page and CDP environment are bound for this task.",
+  "messageWebReverse": "Web Reverse",
+  "messageDeliverables": "Deliverables",
+  "messageAndroidEnvironmentBound": "The target app and analysis boundary are bound for this task.",
+  "messageAndroidReverse": "Android Reverse",
+  "messagePackage": "Package",
+  "messageApkPath": "APK Path",
+  "messageAnalysisMode": "Analysis Mode",
+  "messageAuthorizationScope": "Authorization Scope",
+  "messageCardShortened": "Card content is shortened; the full source remains available for audit and copy.",
+  "messageContinueGoal": "Continue Current Goal",
+  "messageVerifyGoal": "Verify Goal Evidence",
+  "messageGoalPassed": "Goal Evidence Passed",
+  "messageGoalNeedsWork": "Goal Still Needs Work",
+  "messageGoalFollowUpDescription": "Agent Runtime sent this automatically after evaluation required more evidence.",
+  "messageGoalEvaluatorDescription": "The evaluator checks the current goal and recent transcript for completion evidence.",
+  "messageGoalEnoughEvidence": "The evaluator found enough evidence to complete the goal.",
+  "messageGoalInsufficientEvidence": "The evaluator found the evidence insufficient and requested more work.",
+  "messageEvaluationSummary": "Evaluation Summary",
+  "messageNextStep": "Next Step",
+  "messageTokens": "tokens",
+  "messageRecentCount": "{count} recent",
+  "@messageRecentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageTotalTokens": "Total tokens",
+  "messageKnowledgeFailed": "KB failed",
+  "messageKnowledgeNoHits": "KB no hits",
+  "messageKnowledgeHits": "KB {count} hits",
+  "@messageKnowledgeHits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeHitsTokens": "KB · {count} hits · {tokens} tokens",
+  "@messageKnowledgeHitsTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeSources": "{count} KB sources",
+  "@messageKnowledgeSources": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePassed": "Passed",
+  "messageAttachment": "Attachment",
+  "messageSkillName": "Skill · {name}",
+  "@messageSkillName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "messageFullscreenInitFailed": "Failed to initialize fullscreen video. Go back and try again.",
+  "messageBackEsc": "Back (Esc)",
+  "messageAcceptance": "Acceptance",
+  "messageAndroidReverseRequest": "Android Reverse Request",
+  "messageCopyMedia": "Copy Media",
+  "messageEvidenceRules": "Evidence Rules",
+  "messageGoal": "Goal",
+  "messageOpenSystemApp": "Open with System App",
+  "messageOpenSystemPlayer": "Open with System Player",
+  "messagePreciseTarget": "Precise Target",
+  "messageSaveToDisk": "Save to disk",
+  "messageWebReverseRequest": "Web Reverse Request",
+  "messageExpandSummary": "Expand Summary",
+  "messageCollapseSummary": "Collapse Summary",
+  "messageShowFullContent": "Show Full Content",
+  "messageCollapseContent": "Collapse Content",
+  "messageImageMissing": "Image file not found or has been moved.",
+  "messageGeneratingHtml": "Generating HTML card",
+  "messageCharacterUnit": " chars",
+  "messageRole": "Role",
+  "messagePhase": "Phase",
+  "messageRoleReader": "Reader",
+  "messageRolePlanner": "Planner",
+  "messageRoleImplementer": "Implementer",
+  "messageRoleReviewer": "Reviewer",
+  "messagePhaseMetaCollection": "Meta Collection",
+  "messagePhaseReading": "Reading",
+  "messagePhasePlanning": "Planning",
+  "messagePhaseImplementing": "Implementing",
+  "messagePhaseReviewing": "Reviewing",
+  "messagePreviousResponse": "Previous response",
+  "messageNextResponse": "Next response",
+  "messageFileCopied": "Copied file to clipboard.",
+  "messageFilePathCopiedFallback": "Direct file copy is unavailable on this platform. Copied the file path.",
+  "messageImageCopied": "Copied image to clipboard.",
+  "messageImageFileCopied": "Copied image file to clipboard.",
+  "messageImagePathCopiedFallback": "Direct image file copy is unavailable on this platform. Copied the file path.",
+  "messageMediaFileCopied": "Copied media file to clipboard.",
+  "messageMediaPathCopiedFallback": "Direct media file copy is unavailable on this platform. Copied the file path.",
+  "messageCopyFailed": "Copy failed: {error}",
+  "@messageCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageSaving": "Saving…",
+  "messageSaveCancelled": "Save cancelled.",
+  "messageSaveTimedOut": "Save timed out: {error}",
+  "@messageSaveTimedOut": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageVideos": "Videos",
+  "messageAudio": "Audio"
 }

@@ -15913,6 +15913,642 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceRuntimeExpectedBuild => '预期构建版本';
+
+  @override
+  String get messageToolNameTask => '委派任务';
+
+  @override
+  String get messageToolNameBash => '执行命令';
+
+  @override
+  String get messageToolNameBashBackground => '后台命令';
+
+  @override
+  String get messageToolNameTaskOutput => '任务输出';
+
+  @override
+  String get messageToolNameTaskStop => '停止任务';
+
+  @override
+  String get messageToolNameGlob => '查找文件';
+
+  @override
+  String get messageToolNameGrep => '搜索内容';
+
+  @override
+  String get messageToolNameLs => '浏览目录';
+
+  @override
+  String get messageToolNameExitPlanMode => '提交计划';
+
+  @override
+  String get messageToolNameEndVoiceConversation => '结束语音会话';
+
+  @override
+  String get messageToolNameRead => '读取文件';
+
+  @override
+  String get messageToolNameEdit => '编辑文件';
+
+  @override
+  String get messageToolNameMultiEdit => '批量编辑';
+
+  @override
+  String get messageToolNameApplyFileDiffs => '应用文件补丁';
+
+  @override
+  String get messageToolNameWrite => '写入文件';
+
+  @override
+  String get messageToolNameNotebookEdit => '编辑笔记本';
+
+  @override
+  String get messageToolNameWebFetch => '读取网页';
+
+  @override
+  String get messageToolNameTodoWrite => '更新待办';
+
+  @override
+  String get messageToolNameWebSearch => '搜索网页';
+
+  @override
+  String get messageToolNameLsp => '代码导航';
+
+  @override
+  String get messageToolNameCodebaseSearch => '搜索代码库';
+
+  @override
+  String get messageToolNameGit => '版本管理';
+
+  @override
+  String get messageToolNameDeleteFile => '删除文件';
+
+  @override
+  String get messageToolNameReadLints => '检查代码诊断';
+
+  @override
+  String get messageToolNameAskUserChoice => '请求选择';
+
+  @override
+  String get messageToolNameSkillManager => '管理技能';
+
+  @override
+  String get messageToolNameToolSearch => '查找工具';
+
+  @override
+  String get messageToolNameMemory => '管理记忆';
+
+  @override
+  String get messageToolNameKnowledgeSearch => '搜索知识库';
+
+  @override
+  String get messageToolNameKnowledgeRead => '读取知识';
+
+  @override
+  String get messageToolNameWorkflowList => '浏览工作流';
+
+  @override
+  String get messageToolNameWorkflowDetail => '查看工作流';
+
+  @override
+  String get messageToolNameWorkflowExecute => '执行工作流';
+
+  @override
+  String get messageToolNameWorkflowExecutionStatus => '工作流状态';
+
+  @override
+  String get messageToolNameCronCreate => '创建定时任务';
+
+  @override
+  String get messageToolNameCronEdit => '编辑定时任务';
+
+  @override
+  String get messageToolNameCronDelete => '删除定时任务';
+
+  @override
+  String get messageToolNameCronEnable => '启用定时任务';
+
+  @override
+  String get messageToolNameCronDisable => '停用定时任务';
+
+  @override
+  String get messageToolNameMachineTerminalRead => '读取终端';
+
+  @override
+  String get messageToolNameMachineTerminalWrite => '写入终端';
+
+  @override
+  String get messageToolNameMachineTerminalExec => '执行终端命令';
+
+  @override
+  String get messageToolNameMachineTerminalControl => '控制终端';
+
+  @override
+  String get messageToolNameDingTalkToolSearch => '查找钉钉工具';
+
+  @override
+  String get messageToolNameDingtalkDws => '钉钉工作空间';
+
+  @override
+  String get messageToolNameDingtalkImageGeneration => '生成图片';
+
+  @override
+  String get messageToolNameDingtalkVideoGeneration => '生成视频';
+
+  @override
+  String get messageToolNameDingtalkAudioGeneration => '生成音频';
+
+  @override
+  String get messageToolNameDownloadFile => '下载文件';
+
+  @override
+  String get messageLoadFullContent => '加载完整内容';
+
+  @override
+  String get messageLoadingContent => '加载中';
+
+  @override
+  String get messageCacheHit => '缓存命中';
+
+  @override
+  String get messageFetchCacheHit => '抓取缓存命中';
+
+  @override
+  String get messageCache => '缓存';
+
+  @override
+  String get messageFetchCache => '抓取缓存';
+
+  @override
+  String get messageCacheStored => '已缓存';
+
+  @override
+  String get messageCacheDisabled => '缓存关闭';
+
+  @override
+  String get messageCachedAt => '缓存时间';
+
+  @override
+  String get messageExpiresAt => '过期时间';
+
+  @override
+  String get messageSandboxBlocked => '沙盒拦截';
+
+  @override
+  String get messageSandboxProxy => '沙盒代理';
+
+  @override
+  String get messageReasoning => '思考';
+
+  @override
+  String get fileMutationOpenDiffDialog => '打开 diff 对话框';
+
+  @override
+  String fileMutationUnchangedLines(int count) {
+    return '$count 行未修改';
+  }
+
+  @override
+  String fileMutationCollapseUnchangedLines(int count) {
+    return '收起 $count 行未修改';
+  }
+
+  @override
+  String get fileMutationExpandUnchanged => '展开未修改内容';
+
+  @override
+  String get fileMutationCollapseUnchanged => '折叠未修改内容';
+
+  @override
+  String get fileMutationCollapseDiff => '收起 Diff 预览';
+
+  @override
+  String fileMutationExpandRemainingDiff(int count) {
+    return '展开全部 Diff（还有 $count 行）';
+  }
+
+  @override
+  String get fileMutationRevealFile => '在系统文件浏览器中打开';
+
+  @override
+  String get fileMutationRevealFileFailed => '无法在系统文件浏览器中打开该路径';
+
+  @override
+  String get fileMutationJumpedBeforeCompression =>
+      '目标消息位于上下文压缩点之前，已跳转到最早可见消息。';
+
+  @override
+  String get fileMutationSourceMissing => '未能定位来源消息（可能已被删除）。';
+
+  @override
+  String fileMutationExportPickerFailed(String error) {
+    return '导出取消（无法打开文件选择器）：$error';
+  }
+
+  @override
+  String get fileMutationExportCancelled => '已取消导出。';
+
+  @override
+  String fileMutationSaveFailed(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String fileMutationSavedTo(String path) {
+    return '已保存到 $path';
+  }
+
+  @override
+  String get fileMutationRoundLoading => '正在汇总本轮文件变动…';
+
+  @override
+  String get fileMutationRoundEmpty => '本轮无文件变动。';
+
+  @override
+  String get fileMutationRoundTitle => '本轮文件变动汇总';
+
+  @override
+  String get fileMutationLineStats => '行级增删统计';
+
+  @override
+  String get fileMutationUndoRound => '撤销本轮全部变动';
+
+  @override
+  String get fileMutationExportRound => '导出本轮 JSON';
+
+  @override
+  String get fileMutationRefreshSummary => '刷新汇总';
+
+  @override
+  String fileMutationRemainingRows(int count) {
+    return '展开剩余 $count 行';
+  }
+
+  @override
+  String get fileMutationToggleDiff => '展开 / 收起 Diff 预览';
+
+  @override
+  String get fileMutationJumpToSource => '跳转到产生该变动的工具调用';
+
+  @override
+  String get fileMutationLoadingDiff => '加载 Diff…';
+
+  @override
+  String get fileMutationCreated => '新增';
+
+  @override
+  String get fileMutationModified => '修改';
+
+  @override
+  String get fileMutationDeleted => '删除';
+
+  @override
+  String get messageFullContentFailed => '完整内容加载失败，请重试。';
+
+  @override
+  String get messageStreaming => '生成中';
+
+  @override
+  String get messageReadAloud => '朗读';
+
+  @override
+  String get messageTranslating => '翻译中';
+
+  @override
+  String get messageOriginal => '查看原始';
+
+  @override
+  String get messageLike => '点赞';
+
+  @override
+  String get messageImprove => '需要改进';
+
+  @override
+  String get messageDeleteFromHere => '删除此条及后续';
+
+  @override
+  String get messageAudit => '审计';
+
+  @override
+  String get messageShowRendered => '显示渲染';
+
+  @override
+  String get messageShowRaw => '显示原始';
+
+  @override
+  String get messageOpenBrowser => '浏览器打开';
+
+  @override
+  String get messageAttachmentMissing => '附件文件不存在或已被移动。';
+
+  @override
+  String messageUnsafePath(String path) {
+    return '拒绝打开不安全的路径：$path';
+  }
+
+  @override
+  String messageOpenFileFailed(String error) {
+    return '打开文件失败：$error';
+  }
+
+  @override
+  String get messageCopyFile => '复制文件';
+
+  @override
+  String get messageCopying => '复制中…';
+
+  @override
+  String get messageCopyImage => '复制图片';
+
+  @override
+  String get messageCopyImageUrlFallback => '无法复制图片数据，已复制图片地址。';
+
+  @override
+  String get messageImageLoadFailed => '无法加载图片';
+
+  @override
+  String get messageMediaTimedOut => '载入超时，可使用系统播放器打开。';
+
+  @override
+  String get messageMediaInitFailed => '媒体预览初始化失败，可使用系统播放器打开。';
+
+  @override
+  String get messageFullscreenPlayback => '全屏沉浸播放';
+
+  @override
+  String get messageMediaUrlCopied => '已复制媒体地址。';
+
+  @override
+  String get messageSystemPlayer => '系统播放器';
+
+  @override
+  String get messageGoalAutoFollowUp => '目标自动推进';
+
+  @override
+  String get messageGoalEvaluationRequest => '目标评估请求';
+
+  @override
+  String get messageGoalEvaluationResponse => '目标评估响应';
+
+  @override
+  String get messageMachineExpertRequest => '机器专家请求';
+
+  @override
+  String get messageTerminalBound => '已绑定目标终端，会在指定会话中执行任务。';
+
+  @override
+  String get messageMachineExpert => '机器专家';
+
+  @override
+  String get messageTerminal => '终端应用';
+
+  @override
+  String get messageLocation => '打开位置';
+
+  @override
+  String get messageRequest => '需求';
+
+  @override
+  String get messageWebEnvironmentBound => '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。';
+
+  @override
+  String get messageWebReverse => 'Web 逆向';
+
+  @override
+  String get messageDeliverables => '任务产物';
+
+  @override
+  String get messageAndroidEnvironmentBound => '已绑定目标应用与分析边界，按静态优先取证流程推进。';
+
+  @override
+  String get messageAndroidReverse => 'Android 逆向';
+
+  @override
+  String get messagePackage => '目标包名';
+
+  @override
+  String get messageApkPath => 'APK 路径';
+
+  @override
+  String get messageAnalysisMode => '分析模式';
+
+  @override
+  String get messageAuthorizationScope => '授权范围';
+
+  @override
+  String get messageCardShortened => '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。';
+
+  @override
+  String get messageContinueGoal => '继续推进当前目标';
+
+  @override
+  String get messageVerifyGoal => '验证目标完成证据';
+
+  @override
+  String get messageGoalPassed => '目标证据已通过';
+
+  @override
+  String get messageGoalNeedsWork => '目标仍需推进';
+
+  @override
+  String get messageGoalFollowUpDescription => '运行时自动发送，用于在上一轮评估未通过后继续推进目标。';
+
+  @override
+  String get messageGoalEvaluatorDescription => '评估模型会基于当前目标和最近对话判断完成证据是否充分。';
+
+  @override
+  String get messageGoalEnoughEvidence => '评估模型认为当前证据足以完成目标。';
+
+  @override
+  String get messageGoalInsufficientEvidence => '评估模型认为证据仍不足，需要继续推进。';
+
+  @override
+  String get messageEvaluationSummary => '评估摘要';
+
+  @override
+  String get messageNextStep => '下一步';
+
+  @override
+  String get messageTokens => '令牌';
+
+  @override
+  String messageRecentCount(int count) {
+    return '最近 $count 条';
+  }
+
+  @override
+  String get messageTotalTokens => '总令牌';
+
+  @override
+  String get messageKnowledgeFailed => '知识库失败';
+
+  @override
+  String get messageKnowledgeNoHits => '知识库无命中';
+
+  @override
+  String messageKnowledgeHits(int count) {
+    return '知识库 $count 条';
+  }
+
+  @override
+  String messageKnowledgeHitsTokens(int count, int tokens) {
+    return '知识库 · $count 条 · $tokens 令牌';
+  }
+
+  @override
+  String messageKnowledgeSources(int count) {
+    return '引用 $count 篇知识库';
+  }
+
+  @override
+  String get messagePassed => '通过';
+
+  @override
+  String get messageAttachment => '附件';
+
+  @override
+  String messageSkillName(String name) {
+    return '技能 · $name';
+  }
+
+  @override
+  String get messageFullscreenInitFailed => '全屏视频初始化失败，请返回后重试。';
+
+  @override
+  String get messageBackEsc => '返回（Esc）';
+
+  @override
+  String get messageAcceptance => '验收标准';
+
+  @override
+  String get messageAndroidReverseRequest => 'Android 逆向请求';
+
+  @override
+  String get messageCopyMedia => '复制媒体';
+
+  @override
+  String get messageEvidenceRules => '取证纪律';
+
+  @override
+  String get messageGoal => '目标';
+
+  @override
+  String get messageOpenSystemApp => '使用系统应用打开';
+
+  @override
+  String get messageOpenSystemPlayer => '使用系统播放器打开';
+
+  @override
+  String get messagePreciseTarget => '精确定位';
+
+  @override
+  String get messageSaveToDisk => '保存到本地';
+
+  @override
+  String get messageWebReverseRequest => 'Web 逆向请求';
+
+  @override
+  String get messageExpandSummary => '展开摘要';
+
+  @override
+  String get messageCollapseSummary => '收起摘要';
+
+  @override
+  String get messageShowFullContent => '展开完整内容';
+
+  @override
+  String get messageCollapseContent => '收起长内容';
+
+  @override
+  String get messageImageMissing => '图片文件不存在或已被移动。';
+
+  @override
+  String get messageGeneratingHtml => '正在生成 HTML 卡片';
+
+  @override
+  String get messageCharacterUnit => ' 字符';
+
+  @override
+  String get messageRole => '角色';
+
+  @override
+  String get messagePhase => '阶段';
+
+  @override
+  String get messageRoleReader => '调查者';
+
+  @override
+  String get messageRolePlanner => '规划者';
+
+  @override
+  String get messageRoleImplementer => '实施者';
+
+  @override
+  String get messageRoleReviewer => '验收者';
+
+  @override
+  String get messagePhaseMetaCollection => '元数据采集';
+
+  @override
+  String get messagePhaseReading => '调查';
+
+  @override
+  String get messagePhasePlanning => '规划';
+
+  @override
+  String get messagePhaseImplementing => '实施';
+
+  @override
+  String get messagePhaseReviewing => '验收';
+
+  @override
+  String get messagePreviousResponse => '上一条回复';
+
+  @override
+  String get messageNextResponse => '下一条回复';
+
+  @override
+  String get messageFileCopied => '已复制文件到剪贴板。';
+
+  @override
+  String get messageFilePathCopiedFallback => '当前平台不支持直接复制文件，已复制文件路径。';
+
+  @override
+  String get messageImageCopied => '已复制图片到剪贴板。';
+
+  @override
+  String get messageImageFileCopied => '已复制图片文件到剪贴板。';
+
+  @override
+  String get messageImagePathCopiedFallback => '当前平台不支持直接复制图片文件，已复制文件路径。';
+
+  @override
+  String get messageMediaFileCopied => '已复制媒体文件到剪贴板。';
+
+  @override
+  String get messageMediaPathCopiedFallback => '当前平台不支持直接复制媒体文件，已复制文件路径。';
+
+  @override
+  String messageCopyFailed(String error) {
+    return '复制失败：$error';
+  }
+
+  @override
+  String get messageSaving => '正在保存…';
+
+  @override
+  String get messageSaveCancelled => '已取消保存。';
+
+  @override
+  String messageSaveTimedOut(String error) {
+    return '保存超时：$error';
+  }
+
+  @override
+  String get messageVideos => '视频';
+
+  @override
+  String get messageAudio => '音频';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -31808,4 +32444,639 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get maintenanceRuntimeExpectedBuild => '預期建置版本';
+
+  @override
+  String get messageToolNameTask => '委派任務';
+
+  @override
+  String get messageToolNameBash => '執行命令';
+
+  @override
+  String get messageToolNameBashBackground => '背景命令';
+
+  @override
+  String get messageToolNameTaskOutput => '任務輸出';
+
+  @override
+  String get messageToolNameTaskStop => '停止任務';
+
+  @override
+  String get messageToolNameGlob => '尋找檔案';
+
+  @override
+  String get messageToolNameGrep => '搜尋內容';
+
+  @override
+  String get messageToolNameLs => '瀏覽目錄';
+
+  @override
+  String get messageToolNameExitPlanMode => '提交計畫';
+
+  @override
+  String get messageToolNameEndVoiceConversation => '結束語音會話';
+
+  @override
+  String get messageToolNameRead => '讀取檔案';
+
+  @override
+  String get messageToolNameEdit => '編輯檔案';
+
+  @override
+  String get messageToolNameMultiEdit => '批次編輯';
+
+  @override
+  String get messageToolNameApplyFileDiffs => '套用檔案修補';
+
+  @override
+  String get messageToolNameWrite => '寫入檔案';
+
+  @override
+  String get messageToolNameNotebookEdit => '編輯筆記本';
+
+  @override
+  String get messageToolNameWebFetch => '讀取網頁';
+
+  @override
+  String get messageToolNameTodoWrite => '更新待辦';
+
+  @override
+  String get messageToolNameWebSearch => '搜尋網頁';
+
+  @override
+  String get messageToolNameLsp => '程式碼導覽';
+
+  @override
+  String get messageToolNameCodebaseSearch => '搜尋程式碼庫';
+
+  @override
+  String get messageToolNameGit => '版本管理';
+
+  @override
+  String get messageToolNameDeleteFile => '刪除檔案';
+
+  @override
+  String get messageToolNameReadLints => '檢查程式碼診斷';
+
+  @override
+  String get messageToolNameAskUserChoice => '請求選擇';
+
+  @override
+  String get messageToolNameSkillManager => '管理技能';
+
+  @override
+  String get messageToolNameToolSearch => '尋找工具';
+
+  @override
+  String get messageToolNameMemory => '管理記憶';
+
+  @override
+  String get messageToolNameKnowledgeSearch => '搜尋知識庫';
+
+  @override
+  String get messageToolNameKnowledgeRead => '讀取知識';
+
+  @override
+  String get messageToolNameWorkflowList => '瀏覽工作流程';
+
+  @override
+  String get messageToolNameWorkflowDetail => '檢視工作流程';
+
+  @override
+  String get messageToolNameWorkflowExecute => '執行工作流程';
+
+  @override
+  String get messageToolNameWorkflowExecutionStatus => '工作流程狀態';
+
+  @override
+  String get messageToolNameCronCreate => '建立排程任務';
+
+  @override
+  String get messageToolNameCronEdit => '編輯排程任務';
+
+  @override
+  String get messageToolNameCronDelete => '刪除排程任務';
+
+  @override
+  String get messageToolNameCronEnable => '啟用排程任務';
+
+  @override
+  String get messageToolNameCronDisable => '停用排程任務';
+
+  @override
+  String get messageToolNameMachineTerminalRead => '讀取終端機';
+
+  @override
+  String get messageToolNameMachineTerminalWrite => '寫入終端機';
+
+  @override
+  String get messageToolNameMachineTerminalExec => '執行終端機命令';
+
+  @override
+  String get messageToolNameMachineTerminalControl => '控制終端機';
+
+  @override
+  String get messageToolNameDingTalkToolSearch => '尋找釘釘工具';
+
+  @override
+  String get messageToolNameDingtalkDws => '釘釘工作空間';
+
+  @override
+  String get messageToolNameDingtalkImageGeneration => '產生圖片';
+
+  @override
+  String get messageToolNameDingtalkVideoGeneration => '產生影片';
+
+  @override
+  String get messageToolNameDingtalkAudioGeneration => '產生音訊';
+
+  @override
+  String get messageToolNameDownloadFile => '下載檔案';
+
+  @override
+  String get messageLoadFullContent => '載入完整內容';
+
+  @override
+  String get messageLoadingContent => '載入中';
+
+  @override
+  String get messageCacheHit => '快取命中';
+
+  @override
+  String get messageFetchCacheHit => '擷取快取命中';
+
+  @override
+  String get messageCache => '快取';
+
+  @override
+  String get messageFetchCache => '擷取快取';
+
+  @override
+  String get messageCacheStored => '已快取';
+
+  @override
+  String get messageCacheDisabled => '快取關閉';
+
+  @override
+  String get messageCachedAt => '快取時間';
+
+  @override
+  String get messageExpiresAt => '到期時間';
+
+  @override
+  String get messageSandboxBlocked => '沙盒攔截';
+
+  @override
+  String get messageSandboxProxy => '沙盒代理';
+
+  @override
+  String get messageReasoning => '思考';
+
+  @override
+  String get fileMutationOpenDiffDialog => '開啟差異對話框';
+
+  @override
+  String fileMutationUnchangedLines(int count) {
+    return '$count 行未修改';
+  }
+
+  @override
+  String fileMutationCollapseUnchangedLines(int count) {
+    return '收起 $count 行未修改';
+  }
+
+  @override
+  String get fileMutationExpandUnchanged => '展開未修改內容';
+
+  @override
+  String get fileMutationCollapseUnchanged => '摺疊未修改內容';
+
+  @override
+  String get fileMutationCollapseDiff => '收起差異預覽';
+
+  @override
+  String fileMutationExpandRemainingDiff(int count) {
+    return '展開全部差異（還有 $count 行）';
+  }
+
+  @override
+  String get fileMutationRevealFile => '在系統檔案瀏覽器中開啟';
+
+  @override
+  String get fileMutationRevealFileFailed => '無法在系統檔案瀏覽器中開啟此路徑';
+
+  @override
+  String get fileMutationJumpedBeforeCompression => '目標訊息位於上下文壓縮點之前，已跳至最早可見訊息。';
+
+  @override
+  String get fileMutationSourceMissing => '未能定位來源訊息（可能已被刪除）。';
+
+  @override
+  String fileMutationExportPickerFailed(String error) {
+    return '匯出取消（無法開啟檔案選擇器）：$error';
+  }
+
+  @override
+  String get fileMutationExportCancelled => '已取消匯出。';
+
+  @override
+  String fileMutationSaveFailed(String error) {
+    return '儲存失敗：$error';
+  }
+
+  @override
+  String fileMutationSavedTo(String path) {
+    return '已儲存至 $path';
+  }
+
+  @override
+  String get fileMutationRoundLoading => '正在彙整本輪檔案變動…';
+
+  @override
+  String get fileMutationRoundEmpty => '本輪無檔案變動。';
+
+  @override
+  String get fileMutationRoundTitle => '本輪檔案變動彙整';
+
+  @override
+  String get fileMutationLineStats => '行級增刪統計';
+
+  @override
+  String get fileMutationUndoRound => '復原本輪全部變動';
+
+  @override
+  String get fileMutationExportRound => '匯出本輪 JSON';
+
+  @override
+  String get fileMutationRefreshSummary => '重新整理彙整';
+
+  @override
+  String fileMutationRemainingRows(int count) {
+    return '展開剩餘 $count 行';
+  }
+
+  @override
+  String get fileMutationToggleDiff => '展開／收起差異預覽';
+
+  @override
+  String get fileMutationJumpToSource => '跳至產生此變動的工具呼叫';
+
+  @override
+  String get fileMutationLoadingDiff => '載入差異…';
+
+  @override
+  String get fileMutationCreated => '新增';
+
+  @override
+  String get fileMutationModified => '修改';
+
+  @override
+  String get fileMutationDeleted => '刪除';
+
+  @override
+  String get messageFullContentFailed => '完整內容載入失敗，請重試。';
+
+  @override
+  String get messageStreaming => '產生中';
+
+  @override
+  String get messageReadAloud => '朗讀';
+
+  @override
+  String get messageTranslating => '翻譯中';
+
+  @override
+  String get messageOriginal => '查看原始';
+
+  @override
+  String get messageLike => '讚好';
+
+  @override
+  String get messageImprove => '需要改進';
+
+  @override
+  String get messageDeleteFromHere => '刪除此則及後續';
+
+  @override
+  String get messageAudit => '稽核';
+
+  @override
+  String get messageShowRendered => '顯示呈現結果';
+
+  @override
+  String get messageShowRaw => '顯示原始內容';
+
+  @override
+  String get messageOpenBrowser => '瀏覽器開啟';
+
+  @override
+  String get messageAttachmentMissing => '附件檔案不存在或已被移動。';
+
+  @override
+  String messageUnsafePath(String path) {
+    return '拒絕開啟不安全的路徑：$path';
+  }
+
+  @override
+  String messageOpenFileFailed(String error) {
+    return '開啟檔案失敗：$error';
+  }
+
+  @override
+  String get messageCopyFile => '複製檔案';
+
+  @override
+  String get messageCopying => '複製中…';
+
+  @override
+  String get messageCopyImage => '複製圖片';
+
+  @override
+  String get messageCopyImageUrlFallback => '無法複製圖片資料，已複製圖片網址。';
+
+  @override
+  String get messageImageLoadFailed => '無法載入圖片';
+
+  @override
+  String get messageMediaTimedOut => '載入逾時，可使用系統播放器開啟。';
+
+  @override
+  String get messageMediaInitFailed => '媒體預覽初始化失敗，可使用系統播放器開啟。';
+
+  @override
+  String get messageFullscreenPlayback => '全螢幕播放';
+
+  @override
+  String get messageMediaUrlCopied => '已複製媒體網址。';
+
+  @override
+  String get messageSystemPlayer => '系統播放器';
+
+  @override
+  String get messageGoalAutoFollowUp => '目標自動推進';
+
+  @override
+  String get messageGoalEvaluationRequest => '目標評估請求';
+
+  @override
+  String get messageGoalEvaluationResponse => '目標評估回應';
+
+  @override
+  String get messageMachineExpertRequest => '機器專家請求';
+
+  @override
+  String get messageTerminalBound => '已綁定目標終端，將在指定工作階段中執行任務。';
+
+  @override
+  String get messageMachineExpert => '機器專家';
+
+  @override
+  String get messageTerminal => '終端應用程式';
+
+  @override
+  String get messageLocation => '開啟位置';
+
+  @override
+  String get messageRequest => '需求';
+
+  @override
+  String get messageWebEnvironmentBound => '已綁定目標頁面與 CDP 環境，依瀏覽器取證流程推進。';
+
+  @override
+  String get messageWebReverse => 'Web 逆向';
+
+  @override
+  String get messageDeliverables => '任務成果';
+
+  @override
+  String get messageAndroidEnvironmentBound => '已綁定目標應用程式與分析範圍，優先依靜態取證流程推進。';
+
+  @override
+  String get messageAndroidReverse => 'Android 逆向';
+
+  @override
+  String get messagePackage => '目標套件名稱';
+
+  @override
+  String get messageApkPath => 'APK 路徑';
+
+  @override
+  String get messageAnalysisMode => '分析模式';
+
+  @override
+  String get messageAuthorizationScope => '授權範圍';
+
+  @override
+  String get messageCardShortened => '卡片內容已截斷，完整原文仍保留於訊息稽核及複製內容。';
+
+  @override
+  String get messageContinueGoal => '繼續推進目前目標';
+
+  @override
+  String get messageVerifyGoal => '驗證目標完成證據';
+
+  @override
+  String get messageGoalPassed => '目標證據已通過';
+
+  @override
+  String get messageGoalNeedsWork => '目標仍需推進';
+
+  @override
+  String get messageGoalFollowUpDescription => '執行階段自動傳送，用於在上一輪評估未通過後繼續推進目標。';
+
+  @override
+  String get messageGoalEvaluatorDescription => '評估模型會依目前目標及最近對話判斷完成證據是否充分。';
+
+  @override
+  String get messageGoalEnoughEvidence => '評估模型認為目前證據足以完成目標。';
+
+  @override
+  String get messageGoalInsufficientEvidence => '評估模型認為證據仍不足，需要繼續推進。';
+
+  @override
+  String get messageEvaluationSummary => '評估摘要';
+
+  @override
+  String get messageNextStep => '下一步';
+
+  @override
+  String get messageTokens => '詞元';
+
+  @override
+  String messageRecentCount(int count) {
+    return '最近 $count 則';
+  }
+
+  @override
+  String get messageTotalTokens => '總詞元';
+
+  @override
+  String get messageKnowledgeFailed => '知識庫失敗';
+
+  @override
+  String get messageKnowledgeNoHits => '知識庫無命中';
+
+  @override
+  String messageKnowledgeHits(int count) {
+    return '知識庫 $count 筆';
+  }
+
+  @override
+  String messageKnowledgeHitsTokens(int count, int tokens) {
+    return '知識庫 · $count 筆 · $tokens 詞元';
+  }
+
+  @override
+  String messageKnowledgeSources(int count) {
+    return '引用 $count 篇知識庫';
+  }
+
+  @override
+  String get messagePassed => '通過';
+
+  @override
+  String get messageAttachment => '附件';
+
+  @override
+  String messageSkillName(String name) {
+    return '技能 · $name';
+  }
+
+  @override
+  String get messageFullscreenInitFailed => '全螢幕影片初始化失敗，請返回後重試。';
+
+  @override
+  String get messageBackEsc => '返回（Esc）';
+
+  @override
+  String get messageAcceptance => '驗收標準';
+
+  @override
+  String get messageAndroidReverseRequest => 'Android 逆向請求';
+
+  @override
+  String get messageCopyMedia => '複製媒體';
+
+  @override
+  String get messageEvidenceRules => '取證紀律';
+
+  @override
+  String get messageGoal => '目標';
+
+  @override
+  String get messageOpenSystemApp => '使用系統應用程式開啟';
+
+  @override
+  String get messageOpenSystemPlayer => '使用系統播放器開啟';
+
+  @override
+  String get messagePreciseTarget => '精確定位';
+
+  @override
+  String get messageSaveToDisk => '儲存到本機';
+
+  @override
+  String get messageWebReverseRequest => 'Web 逆向請求';
+
+  @override
+  String get messageExpandSummary => '展開摘要';
+
+  @override
+  String get messageCollapseSummary => '收起摘要';
+
+  @override
+  String get messageShowFullContent => '展開完整內容';
+
+  @override
+  String get messageCollapseContent => '收起長內容';
+
+  @override
+  String get messageImageMissing => '圖片檔案不存在或已被移動。';
+
+  @override
+  String get messageGeneratingHtml => '正在產生 HTML 卡片';
+
+  @override
+  String get messageCharacterUnit => ' 字元';
+
+  @override
+  String get messageRole => '角色';
+
+  @override
+  String get messagePhase => '階段';
+
+  @override
+  String get messageRoleReader => '調查者';
+
+  @override
+  String get messageRolePlanner => '規劃者';
+
+  @override
+  String get messageRoleImplementer => '實施者';
+
+  @override
+  String get messageRoleReviewer => '驗收者';
+
+  @override
+  String get messagePhaseMetaCollection => '中繼資料蒐集';
+
+  @override
+  String get messagePhaseReading => '調查';
+
+  @override
+  String get messagePhasePlanning => '規劃';
+
+  @override
+  String get messagePhaseImplementing => '實施';
+
+  @override
+  String get messagePhaseReviewing => '驗收';
+
+  @override
+  String get messagePreviousResponse => '上一則回覆';
+
+  @override
+  String get messageNextResponse => '下一則回覆';
+
+  @override
+  String get messageFileCopied => '已複製檔案至剪貼簿。';
+
+  @override
+  String get messageFilePathCopiedFallback => '目前平台不支援直接複製檔案，已複製檔案路徑。';
+
+  @override
+  String get messageImageCopied => '已複製圖片至剪貼簿。';
+
+  @override
+  String get messageImageFileCopied => '已複製圖片檔案至剪貼簿。';
+
+  @override
+  String get messageImagePathCopiedFallback => '目前平台不支援直接複製圖片檔案，已複製檔案路徑。';
+
+  @override
+  String get messageMediaFileCopied => '已複製媒體檔案至剪貼簿。';
+
+  @override
+  String get messageMediaPathCopiedFallback => '目前平台不支援直接複製媒體檔案，已複製檔案路徑。';
+
+  @override
+  String messageCopyFailed(String error) {
+    return '複製失敗：$error';
+  }
+
+  @override
+  String get messageSaving => '正在儲存…';
+
+  @override
+  String get messageSaveCancelled => '已取消儲存。';
+
+  @override
+  String messageSaveTimedOut(String error) {
+    return '儲存逾時：$error';
+  }
+
+  @override
+  String get messageVideos => '影片';
+
+  @override
+  String get messageAudio => '音訊';
 }

@@ -9,6 +9,7 @@
 
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
+import { toolDisplayName, fileMutationLabel } from '../shared/util/tool_display_name';
 import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
 import {
   booleanFromUnknown,
@@ -23,7 +24,6 @@ interface ExtractedMeta {
   filePath: string;
   mutationKind: string;
   writeReason: string;
-  command: string;
   argumentsStreaming: boolean;
   awaitingApproval: boolean;
   approved: boolean;
@@ -50,7 +50,6 @@ type ToolMetaIconName =
   | 'cancelled'
   | 'dot'
   | 'server'
-  | 'terminal'
   | 'file';
 
 function ToolMetaIcon({ name, size = 13 }: { name: ToolMetaIconName; size?: number }) {
@@ -74,8 +73,6 @@ function ToolMetaIcon({ name, size = 13 }: { name: ToolMetaIconName; size?: numb
       return <svg {...common}><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" /></svg>;
     case 'server':
       return <svg {...common}><rect x="5" y="4" width="14" height="6" rx="2" /><rect x="5" y="14" width="14" height="6" rx="2" /><path d="M8 7h.01M8 17h.01" /></svg>;
-    case 'terminal':
-      return <svg {...common}><path d="m5 8 4 4-4 4" /><path d="M11 17h8" /></svg>;
     case 'file':
       return <svg {...common}><path d="M7 3h6l4 4v14H7z" /><path d="M13 3v5h5" /></svg>;
   }
@@ -97,7 +94,6 @@ function extract(meta: Record<string, unknown> | undefined): ExtractedMeta {
         m['write_analysis_reason'] ??
         m['tool_execution_write_analysis_reason'],
     ),
-    command: stringFromUnknown(m['tool_execution_command']),
     argumentsStreaming: booleanFromUnknown(m['tool_arguments_streaming']),
     awaitingApproval: booleanFromUnknown(m['plan_mode_awaiting_approval']),
     approved: booleanFromUnknown(m['plan_mode_approved']),
@@ -126,7 +122,7 @@ function statusVisual(status: string): { color: string; label: string; icon: Too
   }
   if (s === 'success' || s === 'ok' || s === 'completed') {
     return {
-      color: 'var(--m3-secondary)',
+      color: 'var(--oh-status-success)',
       label: t('detail.tool.status.success', '成功'),
       icon: 'check',
     };
@@ -176,6 +172,9 @@ function statusVisual(status: string): { color: string; label: string; icon: Too
 export function MessageToolMeta({ message }: { message: SessionMessage }) {
   const ex = extract(message.metadata as Record<string, unknown> | undefined);
   const kind = message.kind;
+  const displayName = (!ex.toolSource || ex.toolSource === 'builtin') && !ex.mcpServerName
+    ? toolDisplayName(ex.toolName)
+    : ex.toolName;
   const showCard =
     kind === 'tool_call' ||
     kind === 'tool' ||
@@ -195,7 +194,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
     >
       {ex.toolName ? (
         <span
-          class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono"
+          class="oh-tool-meta-chip inline-flex items-center gap-1"
           style={{
             background: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
             color: 'var(--m3-primary)',
@@ -203,7 +202,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
           }}
           title={ex.toolName}
         >
-          {ex.toolName}
+          {displayName}
         </span>
       ) : null}
       {(ex.mcpServerName || ex.mcpToolName) ? (
@@ -229,7 +228,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             color: 'var(--m3-on-surface-variant)',
           }}
         >
-          {ex.toolSource}
+          {ex.toolSource === 'skill' ? t('detail.kind.skill') : ex.toolSource === 'hook' ? t('detail.kind.hook') : ex.toolSource}
         </span>
       ) : null}
       {(ex.sandboxApplied || ex.sandboxBlocked || ex.sandboxReason) ? (
@@ -284,27 +283,13 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
         <span
           class="oh-tool-meta-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm"
           style={{
-            border: `1px solid ${sv.color}`,
+            border: `1px solid color-mix(in srgb, ${sv.color} 28%, transparent)`,
             color: sv.color,
             background: `color-mix(in srgb, ${sv.color} 10%, transparent)`,
           }}
         >
           <ToolMetaIcon name={sv.icon} />
           {sv.label}
-        </span>
-      ) : null}
-      {ex.command ? (
-        <span
-          class="oh-tool-meta-chip oh-tool-meta-command inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm font-mono truncate max-w-[260px]"
-          style={{
-            border: '1px solid var(--m3-outline)',
-            color: 'var(--m3-on-surface-variant)',
-            background: 'var(--m3-surface)',
-          }}
-          title={ex.command}
-        >
-          <ToolMetaIcon name="terminal" />
-          {ex.command}
         </span>
       ) : null}
       {ex.filePath ? (
@@ -330,7 +315,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
             fontWeight: 600,
           }}
         >
-          {ex.mutationKind}
+          {fileMutationLabel(ex.mutationKind)}
         </span>
       ) : null}
       {ex.awaitingApproval ? (

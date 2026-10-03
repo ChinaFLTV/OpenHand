@@ -727,7 +727,10 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isReasoning
         ? OpenHandConsolePalette.terminalSurface
         : isToolCall
-        ? colorScheme.secondaryContainer
+        ? Color.alphaBlend(
+            colorScheme.secondary.withValues(alpha: 0.04),
+            colorScheme.surface,
+          )
         : isToolResult
         ? colorScheme.surfaceContainerHighest
         : isSelfLearning
@@ -742,7 +745,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isReasoning
         ? Colors.white
         : isToolCall
-        ? colorScheme.onSecondaryContainer
+        ? colorScheme.onSurface
         : isSelfLearning
         ? colorScheme.onTertiaryContainer
         : colorScheme.onSurface;
@@ -942,11 +945,9 @@ class _MessageBubbleState extends State<_MessageBubble>
             .loadFullSessionMessageContent(widget.sessionId, message.id);
         if (mounted && loaded == null) {
           setState(() {
-            _fullContentLoadError = openHandLocalizedText(
+            _fullContentLoadError = AppLocalizations.of(
               context,
-              zh: '完整内容加载失败，请重试。',
-              en: 'Unable to load the full content. Please retry.',
-            );
+            )!.messageFullContentFailed;
           });
         }
       } finally {
@@ -1036,7 +1037,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         border: isScrollHighlighted
             ? Border.all(color: highlightBorderColor, width: 1.8)
             : isToolCall
-            ? Border.all(color: colorScheme.secondary, width: 1.2)
+            ? Border.all(color: colorScheme.secondary.withValues(alpha: 0.24))
             : widget.isSelected
             ? Border.all(
                 color: colorScheme.primary.withValues(alpha: 0.38),
@@ -1047,22 +1048,6 @@ class _MessageBubbleState extends State<_MessageBubble>
                   alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10,
                 ),
               ),
-        boxShadow: [
-          if (isScrollHighlighted)
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.22),
-              blurRadius: 24,
-              spreadRadius: 1,
-              offset: const Offset(0, 4),
-            ),
-          BoxShadow(
-            color: colorScheme.shadow.withValues(
-              alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
-            ),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1104,11 +1089,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                     },
                   )
                 else if (isToolCall)
-                  _ToolCallMetaRow(
-                    key: _metaCapsuleKey,
-                    message: message,
-                    color: textColor,
-                  )
+                  _ToolCallMetaRow(key: _metaCapsuleKey, message: message)
                 else if (isToolResult)
                   _MessageMetaRow(
                     key: _metaCapsuleKey,
@@ -1360,11 +1341,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                             _TypewriterCaret(color: textColor),
                             kOpenHandHGap6,
                             Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '生成中',
-                                en: 'Streaming',
-                              ),
+                              AppLocalizations.of(context)!.messageStreaming,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: textColor.withValues(alpha: 0.72),
                               ),
@@ -1381,27 +1358,17 @@ class _MessageBubbleState extends State<_MessageBubble>
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      FilledButton.tonalIcon(
-                        onPressed: _loadingFullContent
-                            ? null
-                            : () => unawaited(loadFullContent()),
-                        icon: _loadingFullContent
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.unfold_more_rounded),
-                        label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: _loadingFullContent ? '加载中' : '加载完整内容',
-                            en: _loadingFullContent
-                                ? 'Loading'
-                                : 'Load full content',
-                          ),
-                        ),
+                      OpenHandMessageActionChip(
+                        onPressed: () => unawaited(loadFullContent()),
+                        busy: _loadingFullContent,
+                        icon: Icons.unfold_more_rounded,
+                        label: _loadingFullContent
+                            ? AppLocalizations.of(
+                                context,
+                              )!.messageLoadingContent
+                            : AppLocalizations.of(
+                                context,
+                              )!.messageLoadFullContent,
                       ),
                       if (_fullContentLoadError != null)
                         ConstrainedBox(
@@ -1477,7 +1444,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                 : Icons.record_voice_over_outlined,
             label: widget.speechPlaying
                 ? openHandStopLabel(context)
-                : openHandLocalizedText(context, zh: '朗读', en: 'Read'),
+                : AppLocalizations.of(context)!.messageReadAloud,
           ),
         if (!isGoalRuntimeMessage &&
             !message.isToolMessage &&
@@ -1495,9 +1462,9 @@ class _MessageBubbleState extends State<_MessageBubble>
                 ? Icons.visibility_outlined
                 : Icons.translate_rounded,
             label: widget.translationLoading
-                ? openHandLocalizedText(context, zh: '翻译中', en: 'Translating')
+                ? AppLocalizations.of(context)!.messageTranslating
                 : widget.translationVisible
-                ? openHandLocalizedText(context, zh: '查看原始', en: 'Original')
+                ? AppLocalizations.of(context)!.messageOriginal
                 : openHandTranslateLabel(context),
           ),
         if (isAiSideMessage && widget.onSetFeedback != null)
@@ -1511,7 +1478,7 @@ class _MessageBubbleState extends State<_MessageBubble>
             icon: selectedFeedback == AiSessionMessageFeedback.liked
                 ? Icons.thumb_up_alt_rounded
                 : Icons.thumb_up_alt_outlined,
-            label: openHandLocalizedText(context, zh: '点赞', en: 'Like'),
+            label: AppLocalizations.of(context)!.messageLike,
             selected: selectedFeedback == AiSessionMessageFeedback.liked,
           ),
         if (isAiSideMessage && widget.onSetFeedback != null)
@@ -1525,7 +1492,7 @@ class _MessageBubbleState extends State<_MessageBubble>
             icon: selectedFeedback == AiSessionMessageFeedback.needsImprovement
                 ? Icons.thumb_down_alt_rounded
                 : Icons.thumb_down_alt_outlined,
-            label: openHandLocalizedText(context, zh: '需要改进', en: 'Improve'),
+            label: AppLocalizations.of(context)!.messageImprove,
             selected:
                 selectedFeedback == AiSessionMessageFeedback.needsImprovement,
           ),
@@ -1564,18 +1531,14 @@ class _MessageBubbleState extends State<_MessageBubble>
             id: 'delete-from-here',
             onPressed: widget.onDeleteFromHere,
             icon: Icons.delete_sweep_outlined,
-            label: openHandLocalizedText(
-              context,
-              zh: '删除此条及后续',
-              en: 'Delete From Here',
-            ),
+            label: AppLocalizations.of(context)!.messageDeleteFromHere,
           ),
         if (widget.onAudit != null)
           _MessageActionSpec(
             id: 'audit',
             onPressed: () async => widget.onAudit!.call(),
             icon: Icons.fact_check_outlined,
-            label: openHandLocalizedText(context, zh: '审计', en: 'Audit'),
+            label: AppLocalizations.of(context)!.messageAudit,
           ),
         if (decisionMarkdown != null ||
             (!isUser &&
@@ -1598,12 +1561,8 @@ class _MessageBubbleState extends State<_MessageBubble>
                 ? Icons.code_off_outlined
                 : Icons.code_outlined,
             label: _showRawContent
-                ? openHandLocalizedText(
-                    context,
-                    zh: '显示渲染',
-                    en: 'Show Rendered',
-                  )
-                : openHandLocalizedText(context, zh: '显示原始', en: 'Show Raw'),
+                ? AppLocalizations.of(context)!.messageShowRendered
+                : AppLocalizations.of(context)!.messageShowRaw,
           ),
         if (!isUser &&
             !isToolCall &&
@@ -1632,11 +1591,7 @@ class _MessageBubbleState extends State<_MessageBubble>
               );
             },
             icon: Icons.open_in_browser_rounded,
-            label: openHandLocalizedText(
-              context,
-              zh: '浏览器打开',
-              en: 'Open in Browser',
-            ),
+            label: AppLocalizations.of(context)!.messageOpenBrowser,
           ),
       ],
     );
@@ -1842,8 +1797,8 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
       oldWidget.state != state;
 }
 
-const double _responseVariantChipHeight = 26;
-const double _responseVariantArrowWidth = 20;
+const double _responseVariantChipHeight = kOpenHandMessageActionChipHeight;
+const double _responseVariantArrowWidth = kOpenHandMessageActionChipHeight;
 const double _responseVariantLabelMinWidth = 28;
 const double _userAttachmentThumbnailExtent = 156;
 const double _assistantAttachmentThumbnailExtent = 220;
@@ -2239,11 +2194,9 @@ Future<File> _writeMediaPreviewTempPage({
 
 void _showMediaClipboardSnack(
   BuildContext context, {
-  required String zh,
-  required String en,
+  required String message,
   bool isError = false,
 }) {
-  final message = openHandLocalizedText(context, zh: zh, en: en);
   if (isError) {
     showOpenHandErrorSnack(context, message, maxLines: 2);
     return;
@@ -2408,11 +2361,7 @@ Future<void> _openAttachment(
     if (!context.mounted) return;
     showOpenHandErrorSnack(
       context,
-      openHandLocalizedText(
-        context,
-        zh: '附件文件不存在或已被移动。',
-        en: 'Attachment file not found or has been moved.',
-      ),
+      AppLocalizations.of(context)!.messageAttachmentMissing,
     );
     return;
   }
@@ -2490,11 +2439,7 @@ Future<void> _openLocalPathWithSystemApp(
     if (context.mounted) {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '拒绝打开不安全的路径：$normalizedPath',
-          en: 'Refused unsafe path: $normalizedPath',
-        ),
+        AppLocalizations.of(context)!.messageUnsafePath(normalizedPath),
         maxLines: 2,
       );
     }
@@ -2518,11 +2463,7 @@ Future<void> _openLocalPathWithSystemApp(
     }
     showOpenHandErrorSnack(
       context,
-      openHandLocalizedText(
-        context,
-        zh: '打开文件失败：$error',
-        en: 'Failed to open file: $error',
-      ),
+      AppLocalizations.of(context)!.messageOpenFileFailed(error.toString()),
       maxLines: 2,
     );
   }
@@ -2620,11 +2561,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         Icons.content_copy_outlined,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '复制文件',
-                        en: 'Copy File',
-                      ),
+                      tooltip: AppLocalizations.of(context)!.messageCopyFile,
                       onPressed: _copying ? null : () => _copyFile(context),
                     ),
                   ),
@@ -2735,11 +2672,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                           ),
                           label: Text(
                             _copying
-                                ? openHandLocalizedText(
-                                    context,
-                                    zh: '复制中…',
-                                    en: 'Copying…',
-                                  )
+                                ? AppLocalizations.of(context)!.messageCopying
                                 : openHandCopyLabel(context),
                           ),
                         ),
@@ -2772,19 +2705,17 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
       if (!context.mounted) return;
       _showMediaClipboardSnack(
         context,
-        zh: copied == OpenHandFileClipboardContent.file
-            ? '已复制文件到剪贴板。'
-            : '当前平台不支持直接复制文件，已复制文件路径。',
-        en: copied == OpenHandFileClipboardContent.file
-            ? 'Copied file to clipboard.'
-            : 'Direct file copy is unavailable on this platform. Copied the file path.',
+        message: copied == OpenHandFileClipboardContent.file
+            ? AppLocalizations.of(context)!.messageFileCopied
+            : AppLocalizations.of(context)!.messageFilePathCopiedFallback,
       );
     } catch (error) {
       if (!context.mounted) return;
       _showMediaClipboardSnack(
         context,
-        zh: '复制失败：$error',
-        en: 'Copy failed: $error',
+        message: AppLocalizations.of(
+          context,
+        )!.messageCopyFailed(error.toString()),
         isError: true,
       );
     } finally {
@@ -3191,11 +3122,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                               Icons.content_copy_outlined,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: openHandLocalizedText(
+                            tooltip: AppLocalizations.of(
                               context,
-                              zh: '复制图片',
-                              en: 'Copy Image',
-                            ),
+                            )!.messageCopyImage,
                             onPressed: _isCopying
                                 ? null
                                 : () => _copyImageToClipboard(context),
@@ -3319,8 +3248,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           if (!context.mounted) return;
           _showMediaClipboardSnack(
             context,
-            zh: '已复制图片到剪贴板。',
-            en: 'Copied image to clipboard.',
+            message: AppLocalizations.of(context)!.messageImageCopied,
           );
           return;
         } catch (_) {
@@ -3328,12 +3256,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           if (!context.mounted) return;
           _showMediaClipboardSnack(
             context,
-            zh: copied == OpenHandFileClipboardContent.file
-                ? '已复制图片文件到剪贴板。'
-                : '当前平台不支持直接复制图片文件，已复制文件路径。',
-            en: copied == OpenHandFileClipboardContent.file
-                ? 'Copied image file to clipboard.'
-                : 'Direct image file copy is unavailable on this platform. Copied the file path.',
+            message: copied == OpenHandFileClipboardContent.file
+                ? AppLocalizations.of(context)!.messageImageFileCopied
+                : AppLocalizations.of(context)!.messageImagePathCopiedFallback,
           );
           return;
         }
@@ -3355,8 +3280,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         if (!context.mounted) return;
         _showMediaClipboardSnack(
           context,
-          zh: '已复制图片到剪贴板。',
-          en: 'Copied image to clipboard.',
+          message: AppLocalizations.of(context)!.messageImageCopied,
         );
       } catch (_) {
         await copyOpenHandTextToClipboard(
@@ -3365,19 +3289,18 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           text: sourceUri.toString(),
           timeout: _mediaClipboardOperationTimeout,
           logAction: '复制远程图片地址兜底值',
-          successMessage: openHandLocalizedText(
+          successMessage: AppLocalizations.of(
             context,
-            zh: '无法复制图片数据，已复制图片地址。',
-            en: 'Unable to copy image data. Copied the image URL.',
-          ),
+          )!.messageCopyImageUrlFallback,
         );
       }
     } catch (error) {
       if (!context.mounted) return;
       _showMediaClipboardSnack(
         context,
-        zh: '复制失败：$error',
-        en: 'Copy failed: $error',
+        message: AppLocalizations.of(
+          context,
+        )!.messageCopyFailed(error.toString()),
         isError: true,
       );
     } finally {
@@ -3537,11 +3460,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
               ),
               kOpenHandGap12,
               Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '无法加载图片',
-                  en: 'Failed to load image',
-                ),
+                AppLocalizations.of(context)!.messageImageLoadFailed,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -3584,7 +3503,15 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         suggestedName: basename,
         acceptedTypeGroups: <XTypeGroup>[
           XTypeGroup(
-            label: 'Images',
+            label: openHandLocalizedText(
+              context,
+              zh: '图片',
+              zhHant: '圖片',
+              en: 'Images',
+              fr: 'Images',
+              de: 'Bilder',
+              ja: '画像',
+            ),
             mimeTypes: <String>[mimeType],
             extensions: <String>[extensionWithoutDot],
           ),
@@ -4064,11 +3991,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
       _loadTimeoutTimer = startSafeTimer(_mediaLoadTimeout, () {
         if (!mounted || _mediaReady) return;
         setState(() {
-          _loadError = openHandLocalizedText(
-            context,
-            zh: '载入超时，可使用系统播放器打开。',
-            en: 'Loading timed out. Open with the system player instead.',
-          );
+          _loadError = AppLocalizations.of(context)!.messageMediaTimedOut;
         });
       });
     } else {
@@ -4159,11 +4082,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
       if (!mounted) return;
       _loadTimeoutTimer?.cancel();
       setState(() {
-        _loadError = openHandLocalizedText(
-          context,
-          zh: '媒体预览初始化失败，可使用系统播放器打开。',
-          en: 'Failed to initialize the media preview. Open it with the system player instead.',
-        );
+        _loadError = AppLocalizations.of(context)!.messageMediaInitFailed;
       });
     }
   }
@@ -4568,11 +4487,9 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                           Icons.fullscreen_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: openHandLocalizedText(
+                        tooltip: AppLocalizations.of(
                           context,
-                          zh: '全屏沉浸播放',
-                          en: 'Fullscreen playback',
-                        ),
+                        )!.messageFullscreenPlayback,
                         onPressed: () => _enterFullscreen(context),
                       ),
                     ),
@@ -4678,15 +4595,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.surface.withValues(alpha: 0.14),
-            colorScheme.surface.withValues(alpha: 0.04),
-            Colors.transparent,
-          ],
-        ),
+        color: colorScheme.surface.withValues(alpha: 0.10),
       ),
       padding: const EdgeInsets.fromLTRB(18, 16, 12, 28),
       child: Row(
@@ -4751,12 +4660,9 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         if (!context.mounted) return;
         _showMediaClipboardSnack(
           context,
-          zh: copied == OpenHandFileClipboardContent.file
-              ? '已复制媒体文件到剪贴板。'
-              : '当前平台不支持直接复制媒体文件，已复制文件路径。',
-          en: copied == OpenHandFileClipboardContent.file
-              ? 'Copied media file to clipboard.'
-              : 'Direct media file copy is unavailable on this platform. Copied the file path.',
+          message: copied == OpenHandFileClipboardContent.file
+              ? AppLocalizations.of(context)!.messageMediaFileCopied
+              : AppLocalizations.of(context)!.messageMediaPathCopiedFallback,
         );
         return;
       }
@@ -4766,18 +4672,15 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         text: widget.source.uri.toString(),
         timeout: _mediaClipboardOperationTimeout,
         logAction: '复制生成媒体地址',
-        successMessage: openHandLocalizedText(
-          context,
-          zh: '已复制媒体地址。',
-          en: 'Copied media URL.',
-        ),
+        successMessage: AppLocalizations.of(context)!.messageMediaUrlCopied,
       );
     } catch (error) {
       if (!context.mounted) return;
       _showMediaClipboardSnack(
         context,
-        zh: '复制失败：$error',
-        en: 'Copy failed: $error',
+        message: AppLocalizations.of(
+          context,
+        )!.messageCopyFailed(error.toString()),
         isError: true,
       );
     } finally {
@@ -4850,13 +4753,12 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
   Future<void> _saveMediaAs(BuildContext context) async {
     if (_isSaving) return;
     _isSaving = true;
+    final l10n = AppLocalizations.of(context)!;
     void showSnack(
-      String zh,
-      String en, {
+      String message, {
       OpenHandSnackKind kind = OpenHandSnackKind.info,
     }) {
       if (!context.mounted) return;
-      final message = openHandLocalizedText(context, zh: zh, en: en);
       OpenHandGlobalSnackBarHost.hideCurrent();
       switch (kind) {
         case OpenHandSnackKind.success:
@@ -4879,15 +4781,15 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         acceptedTypeGroups: <XTypeGroup>[
           XTypeGroup(
             label: widget.source.kind == _GeneratedMessageMediaKind.video
-                ? 'Videos'
-                : 'Audio',
+                ? l10n.messageVideos
+                : l10n.messageAudio,
             mimeTypes: <String>[_mimeTypeForExtension(ext)],
             extensions: <String>[ext.replaceFirst('.', '')],
           ),
         ],
       );
       if (location == null) return;
-      showSnack('正在保存…', 'Saving…');
+      showSnack(l10n.messageSaving);
       final filePath = widget.source.filePath;
       if (filePath != null) {
         if (!await isRegularFilePath(filePath)) {
@@ -4899,8 +4801,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
           maxBytes: _maxBytesForGeneratedMediaKind(widget.source.kind),
         );
         showSnack(
-          '已保存到：${location.path}',
-          'Saved to: ${location.path}',
+          l10n.fileMutationSavedTo(location.path),
           kind: OpenHandSnackKind.success,
         );
         return;
@@ -4920,8 +4821,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             maxBytes: _maxBytesForGeneratedMediaKind(widget.source.kind),
           );
           showSnack(
-            '已保存到：${location.path}',
-            'Saved to: ${location.path}',
+            l10n.fileMutationSavedTo(location.path),
             kind: OpenHandSnackKind.success,
           );
           return;
@@ -4940,25 +4840,22 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
           ),
         );
         showSnack(
-          '已保存到：${location.path}',
-          'Saved to: ${location.path}',
+          l10n.fileMutationSavedTo(location.path),
           kind: OpenHandSnackKind.success,
         );
       } finally {
         if (identical(_saveCancel, cancel)) _saveCancel = null;
       }
     } on _MediaDownloadCancelled {
-      showSnack('已取消保存。', 'Save cancelled.');
+      showSnack(l10n.messageSaveCancelled);
     } on TimeoutException catch (error) {
       showSnack(
-        '保存超时：${error.message ?? ''}',
-        'Save timed out: ${error.message ?? ''}',
+        l10n.messageSaveTimedOut(error.message ?? ''),
         kind: OpenHandSnackKind.error,
       );
     } catch (error) {
       showSnack(
-        '保存失败：$error',
-        'Save failed: $error',
+        l10n.fileMutationSaveFailed(error.toString()),
         kind: OpenHandSnackKind.error,
       );
     } finally {
@@ -5034,13 +4931,7 @@ class _MediaLoadFallback extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onOpenExternal,
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '系统播放器',
-                  en: 'System Player',
-                ),
-              ),
+              label: Text(AppLocalizations.of(context)!.messageSystemPlayer),
             ),
           ],
         ),
@@ -5464,25 +5355,13 @@ class _GoalMessageViewData {
   String chipLabel(BuildContext context) {
     final round = roundIndex == null ? '' : ' · #$roundIndex';
     return switch (kind) {
-      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
+      _GoalMessageViewKind.autoFollowUp => AppLocalizations.of(
         context,
-        zh: '目标自动推进',
-        en: 'Goal Auto Follow-up',
-      ),
+      )!.messageGoalAutoFollowUp,
       _GoalMessageViewKind.evaluationRequest =>
-        openHandLocalizedText(
-              context,
-              zh: '目标评估请求',
-              en: 'Goal Evaluation Request',
-            ) +
-            round,
+        AppLocalizations.of(context)!.messageGoalEvaluationRequest + round,
       _GoalMessageViewKind.evaluationResponse =>
-        openHandLocalizedText(
-              context,
-              zh: '目标评估响应',
-              en: 'Goal Evaluation Response',
-            ) +
-            round,
+        AppLocalizations.of(context)!.messageGoalEvaluationResponse + round,
     };
   }
 
@@ -5519,16 +5398,8 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.terminal_rounded,
-      title: openHandLocalizedText(
-        context,
-        zh: '机器专家执行请求',
-        en: 'Machine Expert Request',
-      ),
-      description: openHandLocalizedText(
-        context,
-        zh: '已绑定目标终端，会在指定会话中执行任务。',
-        en: 'The target terminal is bound for this task.',
-      ),
+      title: AppLocalizations.of(context)!.messageMachineExpertRequest,
+      description: AppLocalizations.of(context)!.messageTerminalBound,
       textColor: textColor,
       chips: [
         const _ExpertRequestChipData(
@@ -5537,11 +5408,7 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.memory_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '机器专家',
-            en: 'Machine Expert',
-          ),
+          label: AppLocalizations.of(context)!.messageMachineExpert,
         ),
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
           _ExpertRequestChipData(
@@ -5552,12 +5419,12 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
       fields: [
         if (data.terminalApplication.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '终端应用', en: 'Terminal'),
+            label: AppLocalizations.of(context)!.messageTerminal,
             value: data.terminalApplication.trim(),
           ),
         if (data.terminalLocation.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '打开位置', en: 'Location'),
+            label: AppLocalizations.of(context)!.messageLocation,
             value: data.terminalLocation.trim(),
           ),
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
@@ -5567,7 +5434,7 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
           ),
         if (data.taskRequirement.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '需求', en: 'Request'),
+            label: AppLocalizations.of(context)!.messageRequest,
             value: data.taskRequirement.trim(),
           ),
       ],
@@ -5590,11 +5457,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
     return _ExpertRequestStructuredBody(
       icon: Icons.language_rounded,
       title: _homeMessageBubWebReverseRequestLabel(context),
-      description: openHandLocalizedText(
-        context,
-        zh: '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。',
-        en: 'The target page and CDP environment are bound for this task.',
-      ),
+      description: AppLocalizations.of(context)!.messageWebEnvironmentBound,
       textColor: textColor,
       chips: [
         const _ExpertRequestChipData(
@@ -5603,11 +5466,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.travel_explore_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: 'Web 逆向',
-            en: 'Web Reverse',
-          ),
+          label: AppLocalizations.of(context)!.messageWebReverse,
         ),
         if (data.cdpPort.trim().isNotEmpty)
           _ExpertRequestChipData(
@@ -5667,11 +5526,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.deliverables.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '任务产物',
-              en: 'Deliverables',
-            ),
+            label: AppLocalizations.of(context)!.messageDeliverables,
             value: data.deliverables.trim(),
           ),
         if (data.acceptanceCriteria.trim().isNotEmpty)
@@ -5699,11 +5554,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
     return _ExpertRequestStructuredBody(
       icon: Icons.android_rounded,
       title: _homeMessageBubAndroidReverseRequestLabel(context),
-      description: openHandLocalizedText(
-        context,
-        zh: '已绑定目标应用与分析边界，按静态优先取证流程推进。',
-        en: 'The target app and analysis boundary are bound for this task.',
-      ),
+      description: AppLocalizations.of(context)!.messageAndroidEnvironmentBound,
       textColor: textColor,
       chips: [
         const _ExpertRequestChipData(
@@ -5712,11 +5563,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.android_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: 'Android 逆向',
-            en: 'Android Reverse',
-          ),
+          label: AppLocalizations.of(context)!.messageAndroidReverse,
         ),
         if ((data.packageName ?? '').trim().isNotEmpty)
           _ExpertRequestChipData(
@@ -5737,12 +5584,12 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.packageName ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '目标包名', en: 'Package'),
+            label: AppLocalizations.of(context)!.messagePackage,
             value: data.packageName!.trim(),
           ),
         if ((data.apkPath ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: 'APK 路径', en: 'APK Path'),
+            label: AppLocalizations.of(context)!.messageApkPath,
             value: data.apkPath!.trim(),
           ),
         if (data.deviceDisplay.trim().isNotEmpty)
@@ -5752,20 +5599,12 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.analysisMode.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '分析模式',
-              en: 'Analysis Mode',
-            ),
+            label: AppLocalizations.of(context)!.messageAnalysisMode,
             value: data.analysisMode.trim(),
           ),
         if (data.authorizationScope.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '授权范围',
-              en: 'Authorization Scope',
-            ),
+            label: AppLocalizations.of(context)!.messageAuthorizationScope,
             value: data.authorizationScope.trim(),
           ),
         if (data.adbMcp.trim().isNotEmpty)
@@ -5895,11 +5734,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
               kOpenHandHGap6,
               Expanded(
                 child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。',
-                    en: 'Card content is shortened; the full source remains available for audit and copy.',
-                  ),
+                  AppLocalizations.of(context)!.messageCardShortened,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: textColor.withValues(alpha: 0.70),
                     height: 1.45,
@@ -5942,52 +5777,28 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = data.accentColor(theme);
     final title = switch (data.kind) {
-      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
+      _GoalMessageViewKind.autoFollowUp => AppLocalizations.of(
         context,
-        zh: '继续推进当前目标',
-        en: 'Continue Current Goal',
-      ),
-      _GoalMessageViewKind.evaluationRequest => openHandLocalizedText(
+      )!.messageContinueGoal,
+      _GoalMessageViewKind.evaluationRequest => AppLocalizations.of(
         context,
-        zh: '验证目标完成证据',
-        en: 'Verify Goal Evidence',
-      ),
+      )!.messageVerifyGoal,
       _GoalMessageViewKind.evaluationResponse =>
         data.passed == true
-            ? openHandLocalizedText(
-                context,
-                zh: '目标证据已通过',
-                en: 'Goal Evidence Passed',
-              )
-            : openHandLocalizedText(
-                context,
-                zh: '目标仍需推进',
-                en: 'Goal Still Needs Work',
-              ),
+            ? AppLocalizations.of(context)!.messageGoalPassed
+            : AppLocalizations.of(context)!.messageGoalNeedsWork,
     };
     final description = switch (data.kind) {
-      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
+      _GoalMessageViewKind.autoFollowUp => AppLocalizations.of(
         context,
-        zh: 'Agent Runtime 自动发送，用于在上一轮评估未通过后继续收敛目标。',
-        en: 'Agent Runtime sent this automatically after evaluation required more evidence.',
-      ),
-      _GoalMessageViewKind.evaluationRequest => openHandLocalizedText(
+      )!.messageGoalFollowUpDescription,
+      _GoalMessageViewKind.evaluationRequest => AppLocalizations.of(
         context,
-        zh: '评估模型会基于当前目标和最近对话判断完成证据是否充分。',
-        en: 'The evaluator checks the current goal and recent transcript for completion evidence.',
-      ),
+      )!.messageGoalEvaluatorDescription,
       _GoalMessageViewKind.evaluationResponse =>
         data.passed == true
-            ? openHandLocalizedText(
-                context,
-                zh: '评估模型认为当前证据足以完成目标。',
-                en: 'The evaluator found enough evidence to complete the goal.',
-              )
-            : openHandLocalizedText(
-                context,
-                zh: '评估模型认为证据仍不足，需要继续推进。',
-                en: 'The evaluator found the evidence insufficient and requested more work.',
-              ),
+            ? AppLocalizations.of(context)!.messageGoalEnoughEvidence
+            : AppLocalizations.of(context)!.messageGoalInsufficientEvidence,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6028,11 +5839,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if ((data.summary ?? '').trim().isNotEmpty) ...[
           kOpenHandGap12,
           _GoalMessageField(
-            label: openHandLocalizedText(
-              context,
-              zh: '评估摘要',
-              en: 'Evaluation Summary',
-            ),
+            label: AppLocalizations.of(context)!.messageEvaluationSummary,
             value: data.summary!.trim(),
             textColor: textColor,
           ),
@@ -6041,7 +5848,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
             data.kind != _GoalMessageViewKind.autoFollowUp) ...[
           kOpenHandGap12,
           _GoalMessageField(
-            label: openHandLocalizedText(context, zh: '下一步', en: 'Next Step'),
+            label: AppLocalizations.of(context)!.messageNextStep,
             value: data.followUpPrompt!.trim(),
             textColor: textColor,
           ),
@@ -6092,17 +5899,15 @@ class _GoalMessageStructuredBody extends StatelessWidget {
       final budget = data.tokenBudget == null ? '' : '/${data.tokenBudget}';
       add(
         Icons.speed_rounded,
-        '${data.tokensUsed}$budget ${openHandLocalizedText(context, zh: '令牌', en: 'tokens')}',
+        '${data.tokensUsed}$budget ${AppLocalizations.of(context)!.messageTokens}',
       );
     }
     if (data.recentMessageCount != null) {
       add(
         Icons.chat_bubble_outline_rounded,
-        openHandLocalizedText(
+        AppLocalizations.of(
           context,
-          zh: '最近 ${data.recentMessageCount} 条',
-          en: '${data.recentMessageCount} recent',
-        ),
+        )!.messageRecentCount(data.recentMessageCount!),
       );
     }
     if (data.confidence != null) {
@@ -6120,7 +5925,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     if (data.passed == true && data.totalTokens != null) {
       add(
         Icons.speed_rounded,
-        '${openHandLocalizedText(context, zh: '总令牌', en: 'Total tokens')} ${data.totalTokens}',
+        '${AppLocalizations.of(context)!.messageTotalTokens} ${data.totalTokens}',
       );
     }
     return chips;
@@ -6364,23 +6169,17 @@ String _knowledgeBaseMessageCapsuleLabel(
       : null;
   final status = '${metadata['status'] ?? ''}'.trim();
   if (status == 'failed') {
-    return openHandLocalizedText(context, zh: '知识库失败', en: 'KB failed');
+    return AppLocalizations.of(context)!.messageKnowledgeFailed;
   }
   if (hitCount <= 0) {
-    return openHandLocalizedText(context, zh: '知识库无命中', en: 'KB no hits');
+    return AppLocalizations.of(context)!.messageKnowledgeNoHits;
   }
   if (tokens == null) {
-    return openHandLocalizedText(
-      context,
-      zh: '知识库 $hitCount 条',
-      en: 'KB $hitCount hits',
-    );
+    return AppLocalizations.of(context)!.messageKnowledgeHits(hitCount);
   }
-  return openHandLocalizedText(
+  return AppLocalizations.of(
     context,
-    zh: '知识库 · $hitCount 条 · $tokens tokens',
-    en: 'KB · $hitCount hits · $tokens tokens',
-  );
+  )!.messageKnowledgeHitsTokens(hitCount, tokens);
 }
 
 String _knowledgeBaseCitationKey(Map<String, Object?> hit, String label) {
@@ -6441,69 +6240,16 @@ class _KnowledgeCitationChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 220),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: InkWell(
-          borderRadius: kOpenHandPillBorderRadius,
-          onTap: () {
-            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-            onPressed();
-          },
-          child: Ink(
-            height: 28,
-            padding: const EdgeInsetsDirectional.only(start: 6, end: 10),
-            decoration: BoxDecoration(
-              borderRadius: kOpenHandPillBorderRadius,
-              color: colorScheme.primaryContainer.withValues(alpha: 0.58),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.08),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 19,
-                  height: 19,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.62),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.auto_stories_rounded,
-                    size: 12,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                kOpenHandHGap6,
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: OpenHandMessageActionChip(
+        icon: Icons.auto_stories_rounded,
+        label: label,
+        foregroundColor: Theme.of(context).colorScheme.primary,
+        onPressed: () {
+          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+          onPressed();
+        },
       ),
     );
   }
@@ -6596,11 +6342,9 @@ class _SelectedMessageContextRow extends StatelessWidget {
           associatedKnowledgeBaseMetadata != null &&
           associatedKnowledgeBaseSourceCount > 0)
         _KnowledgeBaseContextCapsule(
-          label: openHandLocalizedText(
+          label: AppLocalizations.of(
             context,
-            zh: '引用 $associatedKnowledgeBaseSourceCount 篇知识库',
-            en: '$associatedKnowledgeBaseSourceCount KB sources',
-          ),
+          )!.messageKnowledgeSources(associatedKnowledgeBaseSourceCount),
           onPressed: () {
             unawaited(
               showKnowledgeRetrievalDetailDialog(
@@ -6654,38 +6398,39 @@ class _HarnessAnnotationContextCapsules {
       if (annotation.agentRole != null)
         _MessageContextCapsule(
           icon: Icons.person_pin_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '角色 · ${_roleLabel(annotation, isZh: true)}${_agentSuffix(annotation)}',
-            en: 'Role · ${_roleLabel(annotation, isZh: false)}${_agentSuffix(annotation)}',
-          ),
+          label:
+              '${AppLocalizations.of(context)!.messageRole} · ${_roleLabel(context, annotation)}${_agentSuffix(annotation)}',
         ),
       if (annotation.phase != null)
         _MessageContextCapsule(
           icon: _hePhaseIcons[annotation.phase] ?? Icons.timelapse_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '阶段 · ${_phaseLabel(annotation, isZh: true)}',
-            en: 'Phase · ${_phaseLabel(annotation, isZh: false)}',
-          ),
+          label:
+              '${AppLocalizations.of(context)!.messagePhase} · ${_phaseLabel(context, annotation)}',
         ),
     ];
   }
 
-  static String _roleLabel(_HeAnnotation annotation, {required bool isZh}) {
-    final role = annotation.agentRole;
-    if (role == null) return '';
-    return isZh
-        ? (_heRoleDisplayZh[role] ?? role)
-        : (_heRoleDisplayEn[role] ?? role);
+  static String _roleLabel(BuildContext context, _HeAnnotation annotation) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (annotation.agentRole) {
+      'reader' => l10n.messageRoleReader,
+      'planner' => l10n.messageRolePlanner,
+      'implementer' => l10n.messageRoleImplementer,
+      'reviewer' => l10n.messageRoleReviewer,
+      final role => role ?? '',
+    };
   }
 
-  static String _phaseLabel(_HeAnnotation annotation, {required bool isZh}) {
-    final phase = annotation.phase;
-    if (phase == null) return '';
-    return isZh
-        ? (_hePhaseDisplayZh[phase] ?? phase)
-        : (_hePhaseDisplayEn[phase] ?? phase);
+  static String _phaseLabel(BuildContext context, _HeAnnotation annotation) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (annotation.phase) {
+      'meta_collection' => l10n.messagePhaseMetaCollection,
+      'reading' => l10n.messagePhaseReading,
+      'planning' => l10n.messagePhasePlanning,
+      'implementing' => l10n.messagePhaseImplementing,
+      'reviewing' => l10n.messagePhaseReviewing,
+      final phase => phase ?? '',
+    };
   }
 
   static String _agentSuffix(_HeAnnotation annotation) {
@@ -6761,7 +6506,7 @@ class _GoalMessageContextCapsules {
     final label = data.passed == null
         ? data.chipLabel(context)
         : data.passed == true
-        ? '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '通过', en: 'Passed')}'
+        ? '${data.chipLabel(context)} · ${AppLocalizations.of(context)!.messagePassed}'
         : '${data.chipLabel(context)} · ${openHandContinueLabel(context)}';
     return <Widget>[_MessageContextCapsule(icon: data.icon, label: label)];
   }
@@ -6827,11 +6572,7 @@ class _MachineExpertRequestContextCapsules {
     return <Widget>[
       _MessageContextCapsule(
         icon: Icons.terminal_rounded,
-        label: openHandLocalizedText(
-          context,
-          zh: '机器专家请求',
-          en: 'Machine Expert Request',
-        ),
+        label: AppLocalizations.of(context)!.messageMachineExpertRequest,
       ),
       if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
         _MessageContextCapsule(
@@ -6943,7 +6684,10 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
     final label = '${widget.currentIndex + 1}/${widget.count}';
     return Material(
       color: Colors.transparent,
-      shape: StadiumBorder(side: side),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
+        side: side,
+      ),
       clipBehavior: Clip.antiAlias,
       textStyle: theme.textTheme.labelMedium?.copyWith(
         color: foreground,
@@ -7031,7 +6775,7 @@ class _ResponseVariantArrowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = color.withValues(alpha: enabled ? 0.92 : 0.28);
     return InkWell(
-      borderRadius: BorderRadius.circular(_responseVariantChipHeight / 2),
+      borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
       onTap: enabled
           ? () {
               _BubbleHtmlInteractiveScope.maybeOf(
@@ -7094,10 +6838,12 @@ class _MessageContextCapsule extends StatelessWidget {
           Icon(icon, size: kOpenHandMessageActionIconSize, color: iconColor),
       label: labelWidget,
     );
-    if (onPressed != null) {
-      return button;
-    }
-    return IgnorePointer(child: button);
+    return Tooltip(
+      message: label,
+      child: onPressed != null
+          ? MicroPressFeedback(scale: 0.96, child: button)
+          : IgnorePointer(child: button),
+    );
   }
 }
 
@@ -7154,7 +6900,7 @@ class _MessageAttachmentTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final rawName = attachment.name.trim();
     final name = rawName.isEmpty
-        ? openHandLocalizedText(context, zh: '附件', en: 'Attachment')
+        ? AppLocalizations.of(context)!.messageAttachment
         : rawName;
     final tooltip = '$name · ${formatByteSize(attachment.sizeBytes)}';
     final borderRadius = BorderRadius.circular(attachment.isImage ? 16 : 999);
@@ -7345,11 +7091,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
     final iconPath = (map['icon_path'] as String?)?.trim();
     final iconKind = (map['icon_kind'] as String?)?.trim();
     final leading = _buildLeading(emoji, iconPath, iconKind);
-    final label = openHandLocalizedText(
-      context,
-      zh: '技能 · $name',
-      en: 'Skill · $name',
-    );
+    final label = AppLocalizations.of(context)!.messageSkillName(name);
     return _MessageContextCapsule(
       icon: Icons.extension_rounded,
       label: label,
@@ -7499,11 +7241,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
       silentLog('home_message_bubble', '初始化全屏视频', error, stack);
       if (!mounted) return;
       setState(() {
-        _loadError = openHandLocalizedText(
-          context,
-          zh: '全屏视频初始化失败，请返回后重试。',
-          en: 'Failed to initialize fullscreen video. Go back and try again.',
-        );
+        _loadError = AppLocalizations.of(context)!.messageFullscreenInitFailed;
       });
     }
   }
@@ -7702,11 +7440,7 @@ updateVolume();
                     left: 12,
                     child: _FullscreenChromeButton(
                       icon: Icons.arrow_back_rounded,
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '返回（Esc）',
-                        en: 'Back (Esc)',
-                      ),
+                      tooltip: AppLocalizations.of(context)!.messageBackEsc,
                       onPressed: _exit,
                     ),
                   ),
@@ -7869,57 +7603,41 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
 }
 
 String _homeMessageBubAcceptanceLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance');
+  return AppLocalizations.of(context)!.messageAcceptance;
 }
 
 String _homeMessageBubAndroidReverseRequestLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: 'Android 逆向请求',
-    en: 'Android Reverse Request',
-  );
+  return AppLocalizations.of(context)!.messageAndroidReverseRequest;
 }
 
 String _homeMessageBubCopyMediaLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '复制媒体', en: 'Copy Media');
+  return AppLocalizations.of(context)!.messageCopyMedia;
 }
 
 String _homeMessageBubEvidenceRulesLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '取证纪律', en: 'Evidence Rules');
+  return AppLocalizations.of(context)!.messageEvidenceRules;
 }
 
 String _homeMessageBubGoalLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '目标', en: 'Goal');
+  return AppLocalizations.of(context)!.messageGoal;
 }
 
 String _homeMessageBubOpenWithSystemAppLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '使用系统应用打开',
-    en: 'Open with System App',
-  );
+  return AppLocalizations.of(context)!.messageOpenSystemApp;
 }
 
 String _homeMessageBubOpenWithSystemPlayerLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '使用系统播放器打开',
-    en: 'Open with System Player',
-  );
+  return AppLocalizations.of(context)!.messageOpenSystemPlayer;
 }
 
 String _homeMessageBubPreciseTargetLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '精确定位', en: 'Precise Target');
+  return AppLocalizations.of(context)!.messagePreciseTarget;
 }
 
 String _homeMessageBubSaveToDiskLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '保存到本地', en: 'Save to disk');
+  return AppLocalizations.of(context)!.messageSaveToDisk;
 }
 
 String _homeMessageBubWebReverseRequestLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: 'Web 逆向请求',
-    en: 'Web Reverse Request',
-  );
+  return AppLocalizations.of(context)!.messageWebReverseRequest;
 }

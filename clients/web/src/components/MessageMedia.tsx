@@ -1199,18 +1199,19 @@ function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCard
             <AudioControlIcon name="forward" />
           </button>
           <span class="oh-audio-time">{formatClockDuration(position)}</span>
-          <input
-            type="range"
-            min="0"
-            max={duration > 0 ? String(duration) : '0'}
-            step="0.01"
-            value={duration > 0 ? String(position) : '0'}
-            disabled={!canSeek}
-            onInput={handleProgressInput}
-            class="oh-audio-progress"
-            style={progressStyle}
-            aria-label={t('detail.media.audioProgress', '音频进度')}
-          />
+          <div class={`oh-audio-progress-shell${canSeek ? '' : ' is-disabled'}`} style={progressStyle}>
+            <input
+              type="range"
+              min="0"
+              max={duration > 0 ? String(duration) : '0'}
+              step="0.01"
+              value={duration > 0 ? String(position) : '0'}
+              disabled={!canSeek}
+              onInput={handleProgressInput}
+              class="oh-audio-progress"
+              aria-label={t('detail.media.audioProgress', '音频进度')}
+            />
+          </div>
           <span class="oh-audio-time">{formatClockDuration(duration)}</span>
         </div>
       </div>
@@ -1461,11 +1462,11 @@ export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose
           <p class="text-xs oh-text-muted">{mediaKindLabel(item.kind)}</p>
         </div>
         <div class="flex flex-wrap justify-end gap-2">
-          {onLocate ? <button type="button" class="oh-image-gallery-action oh-tap-press" title="定位到消息" aria-label="定位到消息"
+          {onLocate ? <button type="button" class="oh-image-gallery-action oh-tap-press" title={t('detail.media.locate', '定位到消息')} aria-label={t('detail.media.locate', '定位到消息')}
             onClick={() => requestCloseWithReason('locate')}>
             <svg {...svgIconProps({ size: 20 })}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3" /></svg>
           </button> : null}
-          <button type="button" class="oh-image-gallery-action oh-tap-press" title="在新窗口打开" aria-label="在新窗口打开"
+          <button type="button" class="oh-image-gallery-action oh-tap-press" title={t('detail.media.openWindow', '在新窗口打开')} aria-label={t('detail.media.openWindow', '在新窗口打开')}
             onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
             <svg {...svgIconProps({ size: 20 })}><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" /></svg>
           </button>
@@ -1490,11 +1491,11 @@ export function MediaPreviewDialog({ item: initialItem, url: initialUrl, onClose
         </div>
         {gallery ? <div class="oh-image-gallery-navigation">
           {gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-tap-press"
-            aria-label="上一张" title="上一张" disabled={index === 0 || saving || copying || closing}
+            aria-label={t('detail.media.previous', '上一张')} title={t('detail.media.previous', '上一张')} disabled={index === 0 || saving || copying || closing}
             onClick={() => setIndex(index - 1)}><svg {...svgIconProps({ size: 22 })}><path d="m15 6-6 6 6 6" /></svg></button> : <span />}
           <span class="text-sm text-center" aria-live="polite">{index + 1} / {gallery.length}</span>
           {gallery.length > 1 ? <button type="button" class="oh-image-gallery-action oh-tap-press"
-            aria-label="下一张" title="下一张" disabled={index === gallery.length - 1 || saving || copying || closing}
+            aria-label={t('detail.media.next', '下一张')} title={t('detail.media.next', '下一张')} disabled={index === gallery.length - 1 || saving || copying || closing}
             onClick={() => setIndex(index + 1)}><svg {...svgIconProps({ size: 22 })}><path d="m9 6 6 6-6 6" /></svg></button> : <span />}
         </div> : null}
       </header>

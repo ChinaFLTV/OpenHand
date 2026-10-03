@@ -73,25 +73,19 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
       child: widget.child,
       builder: (context, child) {
         final progress = _controller.value;
-        final gradient = LinearGradient(
-          begin: Alignment(-1.8 + progress * 2.8, 0),
-          end: Alignment(-0.9 + progress * 2.8, 0),
-          colors: [Colors.transparent, widget.sweepColor, Colors.transparent],
+        final opacity = (1 - (progress * 2 - 1).abs()) * 0.55;
+        final color = widget.sweepColor.withValues(
+          alpha: widget.sweepColor.a * opacity,
         );
         if (widget.maskToChildAlpha) {
-          return ShaderMask(
-            shaderCallback: gradient.createShader,
-            blendMode: BlendMode.srcATop,
+          return ColorFiltered(
+            colorFilter: ColorFilter.mode(color, BlendMode.srcATop),
             child: child,
           );
         }
         return Stack(
           children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(gradient: gradient),
-              ),
-            ),
+            Positioned.fill(child: ColoredBox(color: color)),
             child ?? const SizedBox.shrink(),
           ],
         );
@@ -100,10 +94,9 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
   }
 }
 
-/// 骨架屏占位块：在容器底色上左右扫过一道高光。
+/// 骨架屏占位块：通过纯色呼吸提示加载进度。
 ///
-/// 与 [OpenHandSweepShimmer] 的区别在于这里本身就是占位块，而不是给已有内容
-/// 叠一层扫光。
+/// 本身承载占位尺寸，与内容叠加提示共用动效偏好。
 class OpenHandSkeletonShimmer extends StatefulWidget {
   const OpenHandSkeletonShimmer({
     super.key,
@@ -161,7 +154,7 @@ class _OpenHandSkeletonShimmerState extends State<OpenHandSkeletonShimmer>
     final highlightColor = colorScheme.surfaceContainerLow;
     if (!openHandTickerMotionEnabled(context)) {
       _controller.stop();
-      // 关闭动效时停在高光居中的静态形态，仍能看出这是占位。
+      // 关闭动效时使用静态占位底色。
       return _buildBlock(baseColor, highlightColor, 0.5);
     }
     if (!_controller.isAnimating) _controller.repeat();
@@ -176,10 +169,10 @@ class _OpenHandSkeletonShimmerState extends State<OpenHandSkeletonShimmer>
     final block = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: widget.borderRadius,
-        gradient: LinearGradient(
-          begin: Alignment(-1.0 + 2.0 * progress, 0),
-          end: Alignment(2.0 * progress, 0),
-          colors: [baseColor, highlightColor, baseColor],
+        color: Color.lerp(
+          baseColor,
+          highlightColor,
+          1 - (progress * 2 - 1).abs(),
         ),
       ),
       child: widget.child,

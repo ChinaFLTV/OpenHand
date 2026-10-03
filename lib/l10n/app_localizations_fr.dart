@@ -16692,4 +16692,670 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get maintenanceRuntimeExpectedBuild => 'Build attendu';
+
+  @override
+  String get messageToolNameTask => 'Déléguer une tâche';
+
+  @override
+  String get messageToolNameBash => 'Exécuter une commande';
+
+  @override
+  String get messageToolNameBashBackground => 'Commande en arrière-plan';
+
+  @override
+  String get messageToolNameTaskOutput => 'Résultat de tâche';
+
+  @override
+  String get messageToolNameTaskStop => 'Arrêter la tâche';
+
+  @override
+  String get messageToolNameGlob => 'Rechercher des fichiers';
+
+  @override
+  String get messageToolNameGrep => 'Rechercher du contenu';
+
+  @override
+  String get messageToolNameLs => 'Parcourir le dossier';
+
+  @override
+  String get messageToolNameExitPlanMode => 'Soumettre le plan';
+
+  @override
+  String get messageToolNameEndVoiceConversation =>
+      'Terminer la conversation vocale';
+
+  @override
+  String get messageToolNameRead => 'Lire le fichier';
+
+  @override
+  String get messageToolNameEdit => 'Modifier le fichier';
+
+  @override
+  String get messageToolNameMultiEdit => 'Modification groupée';
+
+  @override
+  String get messageToolNameApplyFileDiffs => 'Appliquer les correctifs';
+
+  @override
+  String get messageToolNameWrite => 'Écrire le fichier';
+
+  @override
+  String get messageToolNameNotebookEdit => 'Modifier le notebook';
+
+  @override
+  String get messageToolNameWebFetch => 'Lire la page web';
+
+  @override
+  String get messageToolNameTodoWrite => 'Mettre à jour les tâches';
+
+  @override
+  String get messageToolNameWebSearch => 'Rechercher sur le web';
+
+  @override
+  String get messageToolNameLsp => 'Navigation dans le code';
+
+  @override
+  String get messageToolNameCodebaseSearch => 'Rechercher dans le code';
+
+  @override
+  String get messageToolNameGit => 'Gestion de versions';
+
+  @override
+  String get messageToolNameDeleteFile => 'Supprimer le fichier';
+
+  @override
+  String get messageToolNameReadLints => 'Lire les diagnostics';
+
+  @override
+  String get messageToolNameAskUserChoice => 'Demander un choix';
+
+  @override
+  String get messageToolNameSkillManager => 'Gérer les compétences';
+
+  @override
+  String get messageToolNameToolSearch => 'Rechercher des outils';
+
+  @override
+  String get messageToolNameMemory => 'Gérer la mémoire';
+
+  @override
+  String get messageToolNameKnowledgeSearch =>
+      'Rechercher dans les connaissances';
+
+  @override
+  String get messageToolNameKnowledgeRead => 'Lire les connaissances';
+
+  @override
+  String get messageToolNameWorkflowList => 'Parcourir les workflows';
+
+  @override
+  String get messageToolNameWorkflowDetail => 'Voir le workflow';
+
+  @override
+  String get messageToolNameWorkflowExecute => 'Exécuter le workflow';
+
+  @override
+  String get messageToolNameWorkflowExecutionStatus => 'État du workflow';
+
+  @override
+  String get messageToolNameCronCreate => 'Créer une planification';
+
+  @override
+  String get messageToolNameCronEdit => 'Modifier la planification';
+
+  @override
+  String get messageToolNameCronDelete => 'Supprimer la planification';
+
+  @override
+  String get messageToolNameCronEnable => 'Activer la planification';
+
+  @override
+  String get messageToolNameCronDisable => 'Désactiver la planification';
+
+  @override
+  String get messageToolNameMachineTerminalRead => 'Lire le terminal';
+
+  @override
+  String get messageToolNameMachineTerminalWrite => 'Écrire dans le terminal';
+
+  @override
+  String get messageToolNameMachineTerminalExec => 'Exécuter dans le terminal';
+
+  @override
+  String get messageToolNameMachineTerminalControl => 'Contrôler le terminal';
+
+  @override
+  String get messageToolNameDingTalkToolSearch =>
+      'Rechercher les outils DingTalk';
+
+  @override
+  String get messageToolNameDingtalkDws => 'Espace DingTalk';
+
+  @override
+  String get messageToolNameDingtalkImageGeneration => 'Générer une image';
+
+  @override
+  String get messageToolNameDingtalkVideoGeneration => 'Générer une vidéo';
+
+  @override
+  String get messageToolNameDingtalkAudioGeneration => 'Générer un audio';
+
+  @override
+  String get messageToolNameDownloadFile => 'Télécharger le fichier';
+
+  @override
+  String get messageLoadFullContent => 'Charger le contenu complet';
+
+  @override
+  String get messageLoadingContent => 'Chargement';
+
+  @override
+  String get messageCacheHit => 'Cache utilisé';
+
+  @override
+  String get messageFetchCacheHit => 'Cache de récupération utilisé';
+
+  @override
+  String get messageCache => 'Cache';
+
+  @override
+  String get messageFetchCache => 'Cache de récupération';
+
+  @override
+  String get messageCacheStored => 'Mis en cache';
+
+  @override
+  String get messageCacheDisabled => 'Cache désactivé';
+
+  @override
+  String get messageCachedAt => 'Mis en cache à';
+
+  @override
+  String get messageExpiresAt => 'Expire à';
+
+  @override
+  String get messageSandboxBlocked => 'Bloqué par le bac à sable';
+
+  @override
+  String get messageSandboxProxy => 'Proxy du bac à sable';
+
+  @override
+  String get messageReasoning => 'Réflexion';
+
+  @override
+  String get fileMutationOpenDiffDialog => 'Ouvrir les différences';
+
+  @override
+  String fileMutationUnchangedLines(int count) {
+    return '$count lignes inchangées';
+  }
+
+  @override
+  String fileMutationCollapseUnchangedLines(int count) {
+    return 'Replier $count lignes inchangées';
+  }
+
+  @override
+  String get fileMutationExpandUnchanged => 'Développer le contenu inchangé';
+
+  @override
+  String get fileMutationCollapseUnchanged => 'Replier le contenu inchangé';
+
+  @override
+  String get fileMutationCollapseDiff => 'Replier les différences';
+
+  @override
+  String fileMutationExpandRemainingDiff(int count) {
+    return 'Voir toutes les différences ($count lignes de plus)';
+  }
+
+  @override
+  String get fileMutationRevealFile =>
+      'Afficher dans le gestionnaire de fichiers';
+
+  @override
+  String get fileMutationRevealFileFailed =>
+      'Impossible d’afficher ce chemin dans le gestionnaire de fichiers.';
+
+  @override
+  String get fileMutationJumpedBeforeCompression =>
+      'Le message précède la compression. Le premier message visible est affiché.';
+
+  @override
+  String get fileMutationSourceMissing =>
+      'Message source introuvable (il a peut-être été supprimé).';
+
+  @override
+  String fileMutationExportPickerFailed(String error) {
+    return 'Export interrompu (sélecteur de fichiers indisponible) : $error';
+  }
+
+  @override
+  String get fileMutationExportCancelled => 'Export annulé.';
+
+  @override
+  String fileMutationSaveFailed(String error) {
+    return 'Échec de l’enregistrement : $error';
+  }
+
+  @override
+  String fileMutationSavedTo(String path) {
+    return 'Enregistré dans $path';
+  }
+
+  @override
+  String get fileMutationRoundLoading =>
+      'Récapitulatif des modifications en cours…';
+
+  @override
+  String get fileMutationRoundEmpty =>
+      'Aucune modification de fichier dans ce tour.';
+
+  @override
+  String get fileMutationRoundTitle => 'Modifications de fichiers du tour';
+
+  @override
+  String get fileMutationLineStats => 'Lignes ajoutées et supprimées';
+
+  @override
+  String get fileMutationUndoRound =>
+      'Annuler toutes les modifications du tour';
+
+  @override
+  String get fileMutationExportRound => 'Exporter le tour en JSON';
+
+  @override
+  String get fileMutationRefreshSummary => 'Actualiser le récapitulatif';
+
+  @override
+  String fileMutationRemainingRows(int count) {
+    return 'Afficher $count lignes de plus';
+  }
+
+  @override
+  String get fileMutationToggleDiff => 'Développer / replier les différences';
+
+  @override
+  String get fileMutationJumpToSource => 'Aller à l’appel d’outil source';
+
+  @override
+  String get fileMutationLoadingDiff => 'Chargement des différences…';
+
+  @override
+  String get fileMutationCreated => 'Créés';
+
+  @override
+  String get fileMutationModified => 'Modifiés';
+
+  @override
+  String get fileMutationDeleted => 'Supprimés';
+
+  @override
+  String get messageFullContentFailed =>
+      'Impossible de charger le contenu complet. Réessayez.';
+
+  @override
+  String get messageStreaming => 'Génération en cours';
+
+  @override
+  String get messageReadAloud => 'Lire à voix haute';
+
+  @override
+  String get messageTranslating => 'Traduction en cours';
+
+  @override
+  String get messageOriginal => 'Voir l’original';
+
+  @override
+  String get messageLike => 'J’aime';
+
+  @override
+  String get messageImprove => 'À améliorer';
+
+  @override
+  String get messageDeleteFromHere => 'Supprimer à partir d’ici';
+
+  @override
+  String get messageAudit => 'Audit';
+
+  @override
+  String get messageShowRendered => 'Afficher le rendu';
+
+  @override
+  String get messageShowRaw => 'Afficher la source';
+
+  @override
+  String get messageOpenBrowser => 'Ouvrir dans le navigateur';
+
+  @override
+  String get messageAttachmentMissing =>
+      'Pièce jointe introuvable ou déplacée.';
+
+  @override
+  String messageUnsafePath(String path) {
+    return 'Chemin non sûr refusé : $path';
+  }
+
+  @override
+  String messageOpenFileFailed(String error) {
+    return 'Impossible d’ouvrir le fichier : $error';
+  }
+
+  @override
+  String get messageCopyFile => 'Copier le fichier';
+
+  @override
+  String get messageCopying => 'Copie en cours…';
+
+  @override
+  String get messageCopyImage => 'Copier l’image';
+
+  @override
+  String get messageCopyImageUrlFallback =>
+      'Impossible de copier l’image. Son adresse a été copiée.';
+
+  @override
+  String get messageImageLoadFailed => 'Impossible de charger l’image';
+
+  @override
+  String get messageMediaTimedOut =>
+      'Chargement expiré. Ouvrez le média avec le lecteur système.';
+
+  @override
+  String get messageMediaInitFailed =>
+      'Impossible d’initialiser l’aperçu. Ouvrez le média avec le lecteur système.';
+
+  @override
+  String get messageFullscreenPlayback => 'Lecture plein écran';
+
+  @override
+  String get messageMediaUrlCopied => 'Adresse du média copiée.';
+
+  @override
+  String get messageSystemPlayer => 'Lecteur système';
+
+  @override
+  String get messageGoalAutoFollowUp => 'Suivi automatique de l’objectif';
+
+  @override
+  String get messageGoalEvaluationRequest =>
+      'Demande d’évaluation de l’objectif';
+
+  @override
+  String get messageGoalEvaluationResponse =>
+      'Réponse d’évaluation de l’objectif';
+
+  @override
+  String get messageMachineExpertRequest => 'Demande à l’expert machine';
+
+  @override
+  String get messageTerminalBound =>
+      'Le terminal cible est associé à cette tâche.';
+
+  @override
+  String get messageMachineExpert => 'Expert machine';
+
+  @override
+  String get messageTerminal => 'Terminal';
+
+  @override
+  String get messageLocation => 'Emplacement';
+
+  @override
+  String get messageRequest => 'Demande';
+
+  @override
+  String get messageWebEnvironmentBound =>
+      'La page cible et l’environnement CDP sont associés à cette tâche.';
+
+  @override
+  String get messageWebReverse => 'Analyse Web';
+
+  @override
+  String get messageDeliverables => 'Livrables';
+
+  @override
+  String get messageAndroidEnvironmentBound =>
+      'L’application cible et le périmètre d’analyse sont associés à cette tâche.';
+
+  @override
+  String get messageAndroidReverse => 'Analyse Android';
+
+  @override
+  String get messagePackage => 'Nom du paquet';
+
+  @override
+  String get messageApkPath => 'Chemin de l’APK';
+
+  @override
+  String get messageAnalysisMode => 'Mode d’analyse';
+
+  @override
+  String get messageAuthorizationScope => 'Périmètre autorisé';
+
+  @override
+  String get messageCardShortened =>
+      'Le contenu est abrégé ; la source complète reste disponible pour l’audit et la copie.';
+
+  @override
+  String get messageContinueGoal => 'Poursuivre l’objectif actuel';
+
+  @override
+  String get messageVerifyGoal => 'Vérifier les preuves de l’objectif';
+
+  @override
+  String get messageGoalPassed => 'Preuves de l’objectif validées';
+
+  @override
+  String get messageGoalNeedsWork => 'Objectif encore à poursuivre';
+
+  @override
+  String get messageGoalFollowUpDescription =>
+      'Le système a envoyé ce message pour poursuivre l’objectif après une évaluation insuffisante.';
+
+  @override
+  String get messageGoalEvaluatorDescription =>
+      'L’évaluateur vérifie l’objectif actuel et la conversation récente pour confirmer son achèvement.';
+
+  @override
+  String get messageGoalEnoughEvidence =>
+      'L’évaluateur a trouvé des preuves suffisantes pour valider l’objectif.';
+
+  @override
+  String get messageGoalInsufficientEvidence =>
+      'L’évaluateur a jugé les preuves insuffisantes et demandé de poursuivre.';
+
+  @override
+  String get messageEvaluationSummary => 'Résumé de l’évaluation';
+
+  @override
+  String get messageNextStep => 'Étape suivante';
+
+  @override
+  String get messageTokens => 'jetons';
+
+  @override
+  String messageRecentCount(int count) {
+    return '$count récents';
+  }
+
+  @override
+  String get messageTotalTokens => 'Total des jetons';
+
+  @override
+  String get messageKnowledgeFailed => 'Échec de la base de connaissances';
+
+  @override
+  String get messageKnowledgeNoHits => 'Aucun résultat dans la base';
+
+  @override
+  String messageKnowledgeHits(int count) {
+    return 'Base : $count résultats';
+  }
+
+  @override
+  String messageKnowledgeHitsTokens(int count, int tokens) {
+    return 'Base · $count résultats · $tokens jetons';
+  }
+
+  @override
+  String messageKnowledgeSources(int count) {
+    return '$count sources de la base';
+  }
+
+  @override
+  String get messagePassed => 'Validé';
+
+  @override
+  String get messageAttachment => 'Pièce jointe';
+
+  @override
+  String messageSkillName(String name) {
+    return 'Compétence · $name';
+  }
+
+  @override
+  String get messageFullscreenInitFailed =>
+      'Impossible d’initialiser la vidéo plein écran. Revenez et réessayez.';
+
+  @override
+  String get messageBackEsc => 'Retour (Échap)';
+
+  @override
+  String get messageAcceptance => 'Critères d’acceptation';
+
+  @override
+  String get messageAndroidReverseRequest => 'Demande d’analyse Android';
+
+  @override
+  String get messageCopyMedia => 'Copier le média';
+
+  @override
+  String get messageEvidenceRules => 'Règles de collecte des preuves';
+
+  @override
+  String get messageGoal => 'Objectif';
+
+  @override
+  String get messageOpenSystemApp => 'Ouvrir avec l’application système';
+
+  @override
+  String get messageOpenSystemPlayer => 'Ouvrir avec le lecteur système';
+
+  @override
+  String get messagePreciseTarget => 'Cible précise';
+
+  @override
+  String get messageSaveToDisk => 'Enregistrer sur le disque';
+
+  @override
+  String get messageWebReverseRequest => 'Demande d’analyse Web';
+
+  @override
+  String get messageExpandSummary => 'Développer le résumé';
+
+  @override
+  String get messageCollapseSummary => 'Replier le résumé';
+
+  @override
+  String get messageShowFullContent => 'Afficher le contenu complet';
+
+  @override
+  String get messageCollapseContent => 'Replier le contenu';
+
+  @override
+  String get messageImageMissing => 'Image introuvable ou déplacée.';
+
+  @override
+  String get messageGeneratingHtml => 'Génération de la carte HTML';
+
+  @override
+  String get messageCharacterUnit => ' caractères';
+
+  @override
+  String get messageRole => 'Rôle';
+
+  @override
+  String get messagePhase => 'Phase';
+
+  @override
+  String get messageRoleReader => 'Analyste';
+
+  @override
+  String get messageRolePlanner => 'Planificateur';
+
+  @override
+  String get messageRoleImplementer => 'Développeur';
+
+  @override
+  String get messageRoleReviewer => 'Évaluateur';
+
+  @override
+  String get messagePhaseMetaCollection => 'Collecte des métadonnées';
+
+  @override
+  String get messagePhaseReading => 'Analyse';
+
+  @override
+  String get messagePhasePlanning => 'Planification';
+
+  @override
+  String get messagePhaseImplementing => 'Mise en œuvre';
+
+  @override
+  String get messagePhaseReviewing => 'Vérification';
+
+  @override
+  String get messagePreviousResponse => 'Réponse précédente';
+
+  @override
+  String get messageNextResponse => 'Réponse suivante';
+
+  @override
+  String get messageFileCopied => 'Fichier copié dans le presse-papiers.';
+
+  @override
+  String get messageFilePathCopiedFallback =>
+      'La copie de fichiers n’est pas disponible. Le chemin a été copié.';
+
+  @override
+  String get messageImageCopied => 'Image copiée dans le presse-papiers.';
+
+  @override
+  String get messageImageFileCopied =>
+      'Fichier image copié dans le presse-papiers.';
+
+  @override
+  String get messageImagePathCopiedFallback =>
+      'La copie d’images n’est pas disponible. Le chemin a été copié.';
+
+  @override
+  String get messageMediaFileCopied =>
+      'Fichier média copié dans le presse-papiers.';
+
+  @override
+  String get messageMediaPathCopiedFallback =>
+      'La copie de médias n’est pas disponible. Le chemin a été copié.';
+
+  @override
+  String messageCopyFailed(String error) {
+    return 'Échec de la copie : $error';
+  }
+
+  @override
+  String get messageSaving => 'Enregistrement…';
+
+  @override
+  String get messageSaveCancelled => 'Enregistrement annulé.';
+
+  @override
+  String messageSaveTimedOut(String error) {
+    return 'Délai d’enregistrement dépassé : $error';
+  }
+
+  @override
+  String get messageVideos => 'Vidéos';
+
+  @override
+  String get messageAudio => 'Audio';
 }

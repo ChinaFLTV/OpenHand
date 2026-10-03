@@ -16445,4 +16445,659 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceRuntimeExpectedBuild => 'Expected build';
+
+  @override
+  String get messageToolNameTask => 'Delegate task';
+
+  @override
+  String get messageToolNameBash => 'Run command';
+
+  @override
+  String get messageToolNameBashBackground => 'Background command';
+
+  @override
+  String get messageToolNameTaskOutput => 'Task output';
+
+  @override
+  String get messageToolNameTaskStop => 'Stop task';
+
+  @override
+  String get messageToolNameGlob => 'Find files';
+
+  @override
+  String get messageToolNameGrep => 'Search content';
+
+  @override
+  String get messageToolNameLs => 'Browse directory';
+
+  @override
+  String get messageToolNameExitPlanMode => 'Submit plan';
+
+  @override
+  String get messageToolNameEndVoiceConversation => 'End voice conversation';
+
+  @override
+  String get messageToolNameRead => 'Read file';
+
+  @override
+  String get messageToolNameEdit => 'Edit file';
+
+  @override
+  String get messageToolNameMultiEdit => 'Batch edit';
+
+  @override
+  String get messageToolNameApplyFileDiffs => 'Apply file patches';
+
+  @override
+  String get messageToolNameWrite => 'Write file';
+
+  @override
+  String get messageToolNameNotebookEdit => 'Edit notebook';
+
+  @override
+  String get messageToolNameWebFetch => 'Fetch webpage';
+
+  @override
+  String get messageToolNameTodoWrite => 'Update tasks';
+
+  @override
+  String get messageToolNameWebSearch => 'Search web';
+
+  @override
+  String get messageToolNameLsp => 'Code navigation';
+
+  @override
+  String get messageToolNameCodebaseSearch => 'Search codebase';
+
+  @override
+  String get messageToolNameGit => 'Version control';
+
+  @override
+  String get messageToolNameDeleteFile => 'Delete file';
+
+  @override
+  String get messageToolNameReadLints => 'Read diagnostics';
+
+  @override
+  String get messageToolNameAskUserChoice => 'Request choice';
+
+  @override
+  String get messageToolNameSkillManager => 'Manage skills';
+
+  @override
+  String get messageToolNameToolSearch => 'Find tools';
+
+  @override
+  String get messageToolNameMemory => 'Manage memory';
+
+  @override
+  String get messageToolNameKnowledgeSearch => 'Search knowledge base';
+
+  @override
+  String get messageToolNameKnowledgeRead => 'Read knowledge';
+
+  @override
+  String get messageToolNameWorkflowList => 'Browse workflows';
+
+  @override
+  String get messageToolNameWorkflowDetail => 'View workflow';
+
+  @override
+  String get messageToolNameWorkflowExecute => 'Run workflow';
+
+  @override
+  String get messageToolNameWorkflowExecutionStatus => 'Workflow status';
+
+  @override
+  String get messageToolNameCronCreate => 'Create schedule';
+
+  @override
+  String get messageToolNameCronEdit => 'Edit schedule';
+
+  @override
+  String get messageToolNameCronDelete => 'Delete schedule';
+
+  @override
+  String get messageToolNameCronEnable => 'Enable schedule';
+
+  @override
+  String get messageToolNameCronDisable => 'Disable schedule';
+
+  @override
+  String get messageToolNameMachineTerminalRead => 'Read terminal';
+
+  @override
+  String get messageToolNameMachineTerminalWrite => 'Write to terminal';
+
+  @override
+  String get messageToolNameMachineTerminalExec => 'Run terminal command';
+
+  @override
+  String get messageToolNameMachineTerminalControl => 'Control terminal';
+
+  @override
+  String get messageToolNameDingTalkToolSearch => 'Find DingTalk tools';
+
+  @override
+  String get messageToolNameDingtalkDws => 'DingTalk workspace';
+
+  @override
+  String get messageToolNameDingtalkImageGeneration => 'Generate image';
+
+  @override
+  String get messageToolNameDingtalkVideoGeneration => 'Generate video';
+
+  @override
+  String get messageToolNameDingtalkAudioGeneration => 'Generate audio';
+
+  @override
+  String get messageToolNameDownloadFile => 'Download file';
+
+  @override
+  String get messageLoadFullContent => 'Load full content';
+
+  @override
+  String get messageLoadingContent => 'Loading';
+
+  @override
+  String get messageCacheHit => 'Cache hit';
+
+  @override
+  String get messageFetchCacheHit => 'Fetch cache hit';
+
+  @override
+  String get messageCache => 'Cache';
+
+  @override
+  String get messageFetchCache => 'Fetch cache';
+
+  @override
+  String get messageCacheStored => 'Cached';
+
+  @override
+  String get messageCacheDisabled => 'Cache disabled';
+
+  @override
+  String get messageCachedAt => 'Cached at';
+
+  @override
+  String get messageExpiresAt => 'Expires at';
+
+  @override
+  String get messageSandboxBlocked => 'Sandbox blocked';
+
+  @override
+  String get messageSandboxProxy => 'Sandbox proxy';
+
+  @override
+  String get messageReasoning => 'Reasoning';
+
+  @override
+  String get fileMutationOpenDiffDialog => 'Open diff dialog';
+
+  @override
+  String fileMutationUnchangedLines(int count) {
+    return '$count unmodified lines';
+  }
+
+  @override
+  String fileMutationCollapseUnchangedLines(int count) {
+    return 'Collapse $count unmodified lines';
+  }
+
+  @override
+  String get fileMutationExpandUnchanged => 'Expand unchanged content';
+
+  @override
+  String get fileMutationCollapseUnchanged => 'Collapse unchanged content';
+
+  @override
+  String get fileMutationCollapseDiff => 'Collapse diff';
+
+  @override
+  String fileMutationExpandRemainingDiff(int count) {
+    return 'Show full diff ($count more lines)';
+  }
+
+  @override
+  String get fileMutationRevealFile => 'Reveal file in file manager';
+
+  @override
+  String get fileMutationRevealFileFailed =>
+      'Could not reveal this path in the file manager.';
+
+  @override
+  String get fileMutationJumpedBeforeCompression =>
+      'Target message is before compression point. Jumped to earliest visible message.';
+
+  @override
+  String get fileMutationSourceMissing =>
+      'Could not locate source message (may have been deleted).';
+
+  @override
+  String fileMutationExportPickerFailed(String error) {
+    return 'Export aborted (file picker unavailable): $error';
+  }
+
+  @override
+  String get fileMutationExportCancelled => 'Export cancelled.';
+
+  @override
+  String fileMutationSaveFailed(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String fileMutationSavedTo(String path) {
+    return 'Saved to $path';
+  }
+
+  @override
+  String get fileMutationRoundLoading => 'Aggregating round mutations…';
+
+  @override
+  String get fileMutationRoundEmpty => 'No file mutations this round.';
+
+  @override
+  String get fileMutationRoundTitle => 'Round File Mutations';
+
+  @override
+  String get fileMutationLineStats => 'Line additions/deletions';
+
+  @override
+  String get fileMutationUndoRound => 'Undo all round mutations';
+
+  @override
+  String get fileMutationExportRound => 'Export round as JSON';
+
+  @override
+  String get fileMutationRefreshSummary => 'Refresh summary';
+
+  @override
+  String fileMutationRemainingRows(int count) {
+    return 'Show $count more';
+  }
+
+  @override
+  String get fileMutationToggleDiff => 'Expand / collapse diff preview';
+
+  @override
+  String get fileMutationJumpToSource => 'Jump to source tool-call message';
+
+  @override
+  String get fileMutationLoadingDiff => 'Loading diff…';
+
+  @override
+  String get fileMutationCreated => 'Created';
+
+  @override
+  String get fileMutationModified => 'Modified';
+
+  @override
+  String get fileMutationDeleted => 'Deleted';
+
+  @override
+  String get messageFullContentFailed =>
+      'Unable to load the full content. Please retry.';
+
+  @override
+  String get messageStreaming => 'Streaming';
+
+  @override
+  String get messageReadAloud => 'Read';
+
+  @override
+  String get messageTranslating => 'Translating';
+
+  @override
+  String get messageOriginal => 'Original';
+
+  @override
+  String get messageLike => 'Like';
+
+  @override
+  String get messageImprove => 'Improve';
+
+  @override
+  String get messageDeleteFromHere => 'Delete From Here';
+
+  @override
+  String get messageAudit => 'Audit';
+
+  @override
+  String get messageShowRendered => 'Show Rendered';
+
+  @override
+  String get messageShowRaw => 'Show Raw';
+
+  @override
+  String get messageOpenBrowser => 'Open in Browser';
+
+  @override
+  String get messageAttachmentMissing =>
+      'Attachment file not found or has been moved.';
+
+  @override
+  String messageUnsafePath(String path) {
+    return 'Refused unsafe path: $path';
+  }
+
+  @override
+  String messageOpenFileFailed(String error) {
+    return 'Failed to open file: $error';
+  }
+
+  @override
+  String get messageCopyFile => 'Copy File';
+
+  @override
+  String get messageCopying => 'Copying…';
+
+  @override
+  String get messageCopyImage => 'Copy Image';
+
+  @override
+  String get messageCopyImageUrlFallback =>
+      'Unable to copy image data. Copied the image URL.';
+
+  @override
+  String get messageImageLoadFailed => 'Failed to load image';
+
+  @override
+  String get messageMediaTimedOut =>
+      'Loading timed out. Open with the system player instead.';
+
+  @override
+  String get messageMediaInitFailed =>
+      'Failed to initialize the media preview. Open it with the system player instead.';
+
+  @override
+  String get messageFullscreenPlayback => 'Fullscreen playback';
+
+  @override
+  String get messageMediaUrlCopied => 'Copied media URL.';
+
+  @override
+  String get messageSystemPlayer => 'System Player';
+
+  @override
+  String get messageGoalAutoFollowUp => 'Goal Auto Follow-up';
+
+  @override
+  String get messageGoalEvaluationRequest => 'Goal Evaluation Request';
+
+  @override
+  String get messageGoalEvaluationResponse => 'Goal Evaluation Response';
+
+  @override
+  String get messageMachineExpertRequest => 'Machine Expert Request';
+
+  @override
+  String get messageTerminalBound =>
+      'The target terminal is bound for this task.';
+
+  @override
+  String get messageMachineExpert => 'Machine Expert';
+
+  @override
+  String get messageTerminal => 'Terminal';
+
+  @override
+  String get messageLocation => 'Location';
+
+  @override
+  String get messageRequest => 'Request';
+
+  @override
+  String get messageWebEnvironmentBound =>
+      'The target page and CDP environment are bound for this task.';
+
+  @override
+  String get messageWebReverse => 'Web Reverse';
+
+  @override
+  String get messageDeliverables => 'Deliverables';
+
+  @override
+  String get messageAndroidEnvironmentBound =>
+      'The target app and analysis boundary are bound for this task.';
+
+  @override
+  String get messageAndroidReverse => 'Android Reverse';
+
+  @override
+  String get messagePackage => 'Package';
+
+  @override
+  String get messageApkPath => 'APK Path';
+
+  @override
+  String get messageAnalysisMode => 'Analysis Mode';
+
+  @override
+  String get messageAuthorizationScope => 'Authorization Scope';
+
+  @override
+  String get messageCardShortened =>
+      'Card content is shortened; the full source remains available for audit and copy.';
+
+  @override
+  String get messageContinueGoal => 'Continue Current Goal';
+
+  @override
+  String get messageVerifyGoal => 'Verify Goal Evidence';
+
+  @override
+  String get messageGoalPassed => 'Goal Evidence Passed';
+
+  @override
+  String get messageGoalNeedsWork => 'Goal Still Needs Work';
+
+  @override
+  String get messageGoalFollowUpDescription =>
+      'Agent Runtime sent this automatically after evaluation required more evidence.';
+
+  @override
+  String get messageGoalEvaluatorDescription =>
+      'The evaluator checks the current goal and recent transcript for completion evidence.';
+
+  @override
+  String get messageGoalEnoughEvidence =>
+      'The evaluator found enough evidence to complete the goal.';
+
+  @override
+  String get messageGoalInsufficientEvidence =>
+      'The evaluator found the evidence insufficient and requested more work.';
+
+  @override
+  String get messageEvaluationSummary => 'Evaluation Summary';
+
+  @override
+  String get messageNextStep => 'Next Step';
+
+  @override
+  String get messageTokens => 'tokens';
+
+  @override
+  String messageRecentCount(int count) {
+    return '$count recent';
+  }
+
+  @override
+  String get messageTotalTokens => 'Total tokens';
+
+  @override
+  String get messageKnowledgeFailed => 'KB failed';
+
+  @override
+  String get messageKnowledgeNoHits => 'KB no hits';
+
+  @override
+  String messageKnowledgeHits(int count) {
+    return 'KB $count hits';
+  }
+
+  @override
+  String messageKnowledgeHitsTokens(int count, int tokens) {
+    return 'KB · $count hits · $tokens tokens';
+  }
+
+  @override
+  String messageKnowledgeSources(int count) {
+    return '$count KB sources';
+  }
+
+  @override
+  String get messagePassed => 'Passed';
+
+  @override
+  String get messageAttachment => 'Attachment';
+
+  @override
+  String messageSkillName(String name) {
+    return 'Skill · $name';
+  }
+
+  @override
+  String get messageFullscreenInitFailed =>
+      'Failed to initialize fullscreen video. Go back and try again.';
+
+  @override
+  String get messageBackEsc => 'Back (Esc)';
+
+  @override
+  String get messageAcceptance => 'Acceptance';
+
+  @override
+  String get messageAndroidReverseRequest => 'Android Reverse Request';
+
+  @override
+  String get messageCopyMedia => 'Copy Media';
+
+  @override
+  String get messageEvidenceRules => 'Evidence Rules';
+
+  @override
+  String get messageGoal => 'Goal';
+
+  @override
+  String get messageOpenSystemApp => 'Open with System App';
+
+  @override
+  String get messageOpenSystemPlayer => 'Open with System Player';
+
+  @override
+  String get messagePreciseTarget => 'Precise Target';
+
+  @override
+  String get messageSaveToDisk => 'Save to disk';
+
+  @override
+  String get messageWebReverseRequest => 'Web Reverse Request';
+
+  @override
+  String get messageExpandSummary => 'Expand Summary';
+
+  @override
+  String get messageCollapseSummary => 'Collapse Summary';
+
+  @override
+  String get messageShowFullContent => 'Show Full Content';
+
+  @override
+  String get messageCollapseContent => 'Collapse Content';
+
+  @override
+  String get messageImageMissing => 'Image file not found or has been moved.';
+
+  @override
+  String get messageGeneratingHtml => 'Generating HTML card';
+
+  @override
+  String get messageCharacterUnit => ' chars';
+
+  @override
+  String get messageRole => 'Role';
+
+  @override
+  String get messagePhase => 'Phase';
+
+  @override
+  String get messageRoleReader => 'Reader';
+
+  @override
+  String get messageRolePlanner => 'Planner';
+
+  @override
+  String get messageRoleImplementer => 'Implementer';
+
+  @override
+  String get messageRoleReviewer => 'Reviewer';
+
+  @override
+  String get messagePhaseMetaCollection => 'Meta Collection';
+
+  @override
+  String get messagePhaseReading => 'Reading';
+
+  @override
+  String get messagePhasePlanning => 'Planning';
+
+  @override
+  String get messagePhaseImplementing => 'Implementing';
+
+  @override
+  String get messagePhaseReviewing => 'Reviewing';
+
+  @override
+  String get messagePreviousResponse => 'Previous response';
+
+  @override
+  String get messageNextResponse => 'Next response';
+
+  @override
+  String get messageFileCopied => 'Copied file to clipboard.';
+
+  @override
+  String get messageFilePathCopiedFallback =>
+      'Direct file copy is unavailable on this platform. Copied the file path.';
+
+  @override
+  String get messageImageCopied => 'Copied image to clipboard.';
+
+  @override
+  String get messageImageFileCopied => 'Copied image file to clipboard.';
+
+  @override
+  String get messageImagePathCopiedFallback =>
+      'Direct image file copy is unavailable on this platform. Copied the file path.';
+
+  @override
+  String get messageMediaFileCopied => 'Copied media file to clipboard.';
+
+  @override
+  String get messageMediaPathCopiedFallback =>
+      'Direct media file copy is unavailable on this platform. Copied the file path.';
+
+  @override
+  String messageCopyFailed(String error) {
+    return 'Copy failed: $error';
+  }
+
+  @override
+  String get messageSaving => 'Saving…';
+
+  @override
+  String get messageSaveCancelled => 'Save cancelled.';
+
+  @override
+  String messageSaveTimedOut(String error) {
+    return 'Save timed out: $error';
+  }
+
+  @override
+  String get messageVideos => 'Videos';
+
+  @override
+  String get messageAudio => 'Audio';
 }

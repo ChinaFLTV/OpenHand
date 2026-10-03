@@ -16,14 +16,14 @@ class _MessageMetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: color),
+        Icon(icon, size: kOpenHandMessageActionIconSize, color: color),
         kOpenHandHGap8,
         Expanded(
           child: Text(
             label,
             style: Theme.of(
               context,
-            ).textTheme.labelLarge?.copyWith(color: color),
+            ).textTheme.labelMedium?.copyWith(color: color),
           ),
         ),
       ],
@@ -38,7 +38,6 @@ class _MetaCapsulePalette {
     required this.foregroundColor,
     required this.overlayColor,
     required this.sweepColor,
-    required this.shadowColor,
   });
 
   final Color backgroundColor;
@@ -46,7 +45,6 @@ class _MetaCapsulePalette {
   final Color foregroundColor;
   final Color overlayColor;
   final Color sweepColor;
-  final Color shadowColor;
 }
 
 _MetaCapsulePalette _responseMetaCapsulePalette(
@@ -72,7 +70,6 @@ _MetaCapsulePalette _responseMetaCapsulePalette(
     sweepColor: (dark ? colorScheme.onPrimaryContainer : accent).withValues(
       alpha: active ? 0.24 : 0.16,
     ),
-    shadowColor: accent.withValues(alpha: dark ? 0.20 : 0.12),
   );
 }
 
@@ -129,7 +126,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelText = openHandLocalizedText(context, zh: '思考', en: 'Reasoning');
+    final labelText = AppLocalizations.of(context)!.messageReasoning;
     final fixedElapsedMs = _reasoningFixedElapsedMs(widget.message);
     final elapsedMs = widget.showSweep
         ? _reasoningElapsedMs(widget.message)
@@ -142,7 +139,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
       children: [
         Icon(
           Icons.psychology_alt_outlined,
-          size: 18,
+          size: kOpenHandMessageActionIconSize,
           color: widget.color.withValues(alpha: widget.showSweep ? 0.94 : 0.88),
         ),
         kOpenHandHGap8,
@@ -151,7 +148,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
             '$labelText$elapsedText',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(
+            style: theme.textTheme.labelMedium?.copyWith(
               color: widget.color.withValues(
                 alpha: widget.showSweep ? 0.94 : 0.88,
               ),
@@ -166,24 +163,31 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
           child: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: widget.color.withValues(alpha: 0.78),
-            size: 18,
+            size: kOpenHandMessageActionIconSize,
           ),
         ),
       ],
     );
     final capsule = widget.showSweep
         ? _SweepBadge(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             backgroundColor: Colors.white.withValues(alpha: 0.08),
             borderColor: Colors.white.withValues(alpha: 0.14),
             sweepColor: const Color(0x33E5E7EB),
             child: pillContent,
           )
         : Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(
+              minHeight: kOpenHandMessageActionChipHeight,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: kOpenHandMessageActionChipHorizontalPadding,
+              vertical: kOpenHandMessageActionChipVerticalPadding,
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: kOpenHandPillBorderRadius,
+              borderRadius: BorderRadius.circular(
+                kOpenHandMessageActionChipRadius,
+              ),
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: pillContent,
@@ -192,7 +196,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: kOpenHandPillBorderRadius,
+        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
         overlayColor: WidgetStatePropertyAll<Color>(
           Colors.white.withValues(alpha: 0.03),
         ),
@@ -237,14 +241,18 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
     final pillContent = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.smart_toy_outlined, size: 18, color: effectiveColor),
+        Icon(
+          Icons.smart_toy_outlined,
+          size: kOpenHandMessageActionIconSize,
+          color: effectiveColor,
+        ),
         kOpenHandHGap8,
         Flexible(
           child: Text(
             '$labelText$elapsedText',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(color: effectiveColor),
+            style: theme.textTheme.labelMedium?.copyWith(color: effectiveColor),
           ),
         ),
         if (widget.onTap != null) ...[
@@ -259,7 +267,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
               color: palette.foregroundColor.withValues(alpha: 0.80),
-              size: 18,
+              size: kOpenHandMessageActionIconSize,
             ),
           ),
         ],
@@ -267,34 +275,27 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
     );
     final capsule = widget.showSweep
         ? _SweepBadge(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             backgroundColor: palette.backgroundColor,
             borderColor: palette.borderColor,
             sweepColor: palette.sweepColor,
-            boxShadow: [
-              BoxShadow(
-                color: palette.shadowColor,
-                blurRadius: 14,
-                offset: const Offset(0, 3),
-              ),
-            ],
             child: pillContent,
           )
         : AnimatedContainer(
+            constraints: const BoxConstraints(
+              minHeight: kOpenHandMessageActionChipHeight,
+            ),
             duration: cardMotionDurationFor(context, expanding: false),
             curve: kCardDecorationMotionCurve,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: kOpenHandMessageActionChipHorizontalPadding,
+              vertical: kOpenHandMessageActionChipVerticalPadding,
+            ),
             decoration: BoxDecoration(
               color: palette.backgroundColor,
-              borderRadius: kOpenHandPillBorderRadius,
+              borderRadius: BorderRadius.circular(
+                kOpenHandMessageActionChipRadius,
+              ),
               border: Border.all(color: palette.borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadowColor,
-                  blurRadius: 12,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: pillContent,
           );
@@ -302,7 +303,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: kOpenHandPillBorderRadius,
+        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
         overlayColor: WidgetStatePropertyAll<Color>(palette.overlayColor),
         child: capsule,
       ),
@@ -364,13 +365,7 @@ mixin _ForegroundElapsedTicker<T extends _ElapsedMessageWidget>
 }
 
 class _ToolCallMetaRow extends _ElapsedMessageWidget {
-  const _ToolCallMetaRow({
-    super.key,
-    required super.message,
-    required this.color,
-  });
-
-  final Color color;
+  const _ToolCallMetaRow({super.key, required super.message});
 
   @override
   bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(message);
@@ -391,20 +386,35 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
     final data = _ToolCallStatusViewData.from(context, widget.message);
     final theme = Theme.of(context);
     final showSweep = data.shouldSweepBadge;
-    final effectiveColor = showSweep
-        ? theme.colorScheme.onSurfaceVariant
-        : widget.color;
+    final status = _toolExecutionStatus(widget.message).toLowerCase();
+    final effectiveColor = _isFailureStatus(status)
+        ? theme.colorScheme.error
+        : showSweep
+        ? theme.colorScheme.primary
+        : const {'success', 'ok', 'completed'}.contains(status)
+        ? Color.alphaBlend(
+            theme.colorScheme.onSurface.withValues(alpha: 0.35),
+            OpenHandStatusColors.success,
+          )
+        : theme.colorScheme.onSurfaceVariant;
     final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(data.statusIcon, size: 18, color: effectiveColor),
+        Icon(
+          data.statusIcon,
+          size: kOpenHandMessageActionIconSize,
+          color: effectiveColor,
+        ),
         kOpenHandHGap8,
         Flexible(
           child: Text(
             data.statusLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(color: effectiveColor),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: effectiveColor,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -413,10 +423,16 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
       return _SweepBadge(child: row);
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      constraints: const BoxConstraints(
+        minHeight: kOpenHandMessageActionChipHeight,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: kOpenHandMessageActionChipHorizontalPadding,
+        vertical: kOpenHandMessageActionChipVerticalPadding,
+      ),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.08),
-        borderRadius: kOpenHandPillBorderRadius,
+        color: effectiveColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
       ),
       child: row,
     );
@@ -457,11 +473,13 @@ class _ToolCallStatusViewData {
 class _SweepBadge extends StatelessWidget {
   const _SweepBadge({
     required this.child,
-    this.padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: kOpenHandMessageActionChipHorizontalPadding,
+      vertical: kOpenHandMessageActionChipVerticalPadding,
+    ),
     this.backgroundColor,
     this.borderColor,
     this.sweepColor,
-    this.boxShadow,
   });
 
   final Widget child;
@@ -469,7 +487,6 @@ class _SweepBadge extends StatelessWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? sweepColor;
-  final List<BoxShadow>? boxShadow;
 
   @override
   Widget build(BuildContext context) {
@@ -478,7 +495,9 @@ class _SweepBadge extends StatelessWidget {
 
   Widget _buildBadge(BuildContext context) {
     final theme = Theme.of(context);
-    const borderRadius = kOpenHandPillBorderRadius;
+    final borderRadius = BorderRadius.circular(
+      kOpenHandMessageActionChipRadius,
+    );
     final backgroundColor =
         this.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
     final borderColor =
@@ -488,10 +507,7 @@ class _SweepBadge extends StatelessWidget {
         this.sweepColor ??
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2);
     return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        boxShadow: boxShadow,
-      ),
+      decoration: BoxDecoration(borderRadius: borderRadius),
       child: ClipRRect(
         borderRadius: borderRadius,
         child: DecoratedBox(
@@ -502,7 +518,12 @@ class _SweepBadge extends StatelessWidget {
           ),
           child: OpenHandSweepShimmer(
             sweepColor: sweepColor,
-            child: Padding(padding: padding, child: child),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: kOpenHandMessageActionChipHeight,
+              ),
+              child: Padding(padding: padding, child: child),
+            ),
           ),
         ),
       ),

@@ -29776,6 +29776,1212 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'预期构建版本'**
   String get maintenanceRuntimeExpectedBuild;
+
+  /// No description provided for @messageToolNameTask.
+  ///
+  /// In zh, this message translates to:
+  /// **'委派任务'**
+  String get messageToolNameTask;
+
+  /// No description provided for @messageToolNameBash.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行命令'**
+  String get messageToolNameBash;
+
+  /// No description provided for @messageToolNameBashBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台命令'**
+  String get messageToolNameBashBackground;
+
+  /// No description provided for @messageToolNameTaskOutput.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务输出'**
+  String get messageToolNameTaskOutput;
+
+  /// No description provided for @messageToolNameTaskStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止任务'**
+  String get messageToolNameTaskStop;
+
+  /// No description provided for @messageToolNameGlob.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找文件'**
+  String get messageToolNameGlob;
+
+  /// No description provided for @messageToolNameGrep.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索内容'**
+  String get messageToolNameGrep;
+
+  /// No description provided for @messageToolNameLs.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览目录'**
+  String get messageToolNameLs;
+
+  /// No description provided for @messageToolNameExitPlanMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交计划'**
+  String get messageToolNameExitPlanMode;
+
+  /// No description provided for @messageToolNameEndVoiceConversation.
+  ///
+  /// In zh, this message translates to:
+  /// **'结束语音会话'**
+  String get messageToolNameEndVoiceConversation;
+
+  /// No description provided for @messageToolNameRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取文件'**
+  String get messageToolNameRead;
+
+  /// No description provided for @messageToolNameEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑文件'**
+  String get messageToolNameEdit;
+
+  /// No description provided for @messageToolNameMultiEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量编辑'**
+  String get messageToolNameMultiEdit;
+
+  /// No description provided for @messageToolNameApplyFileDiffs.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用文件补丁'**
+  String get messageToolNameApplyFileDiffs;
+
+  /// No description provided for @messageToolNameWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'写入文件'**
+  String get messageToolNameWrite;
+
+  /// No description provided for @messageToolNameNotebookEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑笔记本'**
+  String get messageToolNameNotebookEdit;
+
+  /// No description provided for @messageToolNameWebFetch.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取网页'**
+  String get messageToolNameWebFetch;
+
+  /// No description provided for @messageToolNameTodoWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新待办'**
+  String get messageToolNameTodoWrite;
+
+  /// No description provided for @messageToolNameWebSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索网页'**
+  String get messageToolNameWebSearch;
+
+  /// No description provided for @messageToolNameLsp.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码导航'**
+  String get messageToolNameLsp;
+
+  /// No description provided for @messageToolNameCodebaseSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索代码库'**
+  String get messageToolNameCodebaseSearch;
+
+  /// No description provided for @messageToolNameGit.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本管理'**
+  String get messageToolNameGit;
+
+  /// No description provided for @messageToolNameDeleteFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除文件'**
+  String get messageToolNameDeleteFile;
+
+  /// No description provided for @messageToolNameReadLints.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查代码诊断'**
+  String get messageToolNameReadLints;
+
+  /// No description provided for @messageToolNameAskUserChoice.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求选择'**
+  String get messageToolNameAskUserChoice;
+
+  /// No description provided for @messageToolNameSkillManager.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理技能'**
+  String get messageToolNameSkillManager;
+
+  /// No description provided for @messageToolNameToolSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找工具'**
+  String get messageToolNameToolSearch;
+
+  /// No description provided for @messageToolNameMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理记忆'**
+  String get messageToolNameMemory;
+
+  /// No description provided for @messageToolNameKnowledgeSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索知识库'**
+  String get messageToolNameKnowledgeSearch;
+
+  /// No description provided for @messageToolNameKnowledgeRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取知识'**
+  String get messageToolNameKnowledgeRead;
+
+  /// No description provided for @messageToolNameWorkflowList.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览工作流'**
+  String get messageToolNameWorkflowList;
+
+  /// No description provided for @messageToolNameWorkflowDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看工作流'**
+  String get messageToolNameWorkflowDetail;
+
+  /// No description provided for @messageToolNameWorkflowExecute.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行工作流'**
+  String get messageToolNameWorkflowExecute;
+
+  /// No description provided for @messageToolNameWorkflowExecutionStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作流状态'**
+  String get messageToolNameWorkflowExecutionStatus;
+
+  /// No description provided for @messageToolNameCronCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建定时任务'**
+  String get messageToolNameCronCreate;
+
+  /// No description provided for @messageToolNameCronEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑定时任务'**
+  String get messageToolNameCronEdit;
+
+  /// No description provided for @messageToolNameCronDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除定时任务'**
+  String get messageToolNameCronDelete;
+
+  /// No description provided for @messageToolNameCronEnable.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用定时任务'**
+  String get messageToolNameCronEnable;
+
+  /// No description provided for @messageToolNameCronDisable.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用定时任务'**
+  String get messageToolNameCronDisable;
+
+  /// No description provided for @messageToolNameMachineTerminalRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取终端'**
+  String get messageToolNameMachineTerminalRead;
+
+  /// No description provided for @messageToolNameMachineTerminalWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'写入终端'**
+  String get messageToolNameMachineTerminalWrite;
+
+  /// No description provided for @messageToolNameMachineTerminalExec.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行终端命令'**
+  String get messageToolNameMachineTerminalExec;
+
+  /// No description provided for @messageToolNameMachineTerminalControl.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制终端'**
+  String get messageToolNameMachineTerminalControl;
+
+  /// No description provided for @messageToolNameDingTalkToolSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找钉钉工具'**
+  String get messageToolNameDingTalkToolSearch;
+
+  /// No description provided for @messageToolNameDingtalkDws.
+  ///
+  /// In zh, this message translates to:
+  /// **'钉钉工作空间'**
+  String get messageToolNameDingtalkDws;
+
+  /// No description provided for @messageToolNameDingtalkImageGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成图片'**
+  String get messageToolNameDingtalkImageGeneration;
+
+  /// No description provided for @messageToolNameDingtalkVideoGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成视频'**
+  String get messageToolNameDingtalkVideoGeneration;
+
+  /// No description provided for @messageToolNameDingtalkAudioGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成音频'**
+  String get messageToolNameDingtalkAudioGeneration;
+
+  /// No description provided for @messageToolNameDownloadFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载文件'**
+  String get messageToolNameDownloadFile;
+
+  /// No description provided for @messageLoadFullContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载完整内容'**
+  String get messageLoadFullContent;
+
+  /// No description provided for @messageLoadingContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中'**
+  String get messageLoadingContent;
+
+  /// No description provided for @messageCacheHit.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存命中'**
+  String get messageCacheHit;
+
+  /// No description provided for @messageFetchCacheHit.
+  ///
+  /// In zh, this message translates to:
+  /// **'抓取缓存命中'**
+  String get messageFetchCacheHit;
+
+  /// No description provided for @messageCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存'**
+  String get messageCache;
+
+  /// No description provided for @messageFetchCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'抓取缓存'**
+  String get messageFetchCache;
+
+  /// No description provided for @messageCacheStored.
+  ///
+  /// In zh, this message translates to:
+  /// **'已缓存'**
+  String get messageCacheStored;
+
+  /// No description provided for @messageCacheDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存关闭'**
+  String get messageCacheDisabled;
+
+  /// No description provided for @messageCachedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存时间'**
+  String get messageCachedAt;
+
+  /// No description provided for @messageExpiresAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'过期时间'**
+  String get messageExpiresAt;
+
+  /// No description provided for @messageSandboxBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'沙盒拦截'**
+  String get messageSandboxBlocked;
+
+  /// No description provided for @messageSandboxProxy.
+  ///
+  /// In zh, this message translates to:
+  /// **'沙盒代理'**
+  String get messageSandboxProxy;
+
+  /// No description provided for @messageReasoning.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考'**
+  String get messageReasoning;
+
+  /// No description provided for @fileMutationOpenDiffDialog.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 diff 对话框'**
+  String get fileMutationOpenDiffDialog;
+
+  /// No description provided for @fileMutationUnchangedLines.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 行未修改'**
+  String fileMutationUnchangedLines(int count);
+
+  /// No description provided for @fileMutationCollapseUnchangedLines.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起 {count} 行未修改'**
+  String fileMutationCollapseUnchangedLines(int count);
+
+  /// No description provided for @fileMutationExpandUnchanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开未修改内容'**
+  String get fileMutationExpandUnchanged;
+
+  /// No description provided for @fileMutationCollapseUnchanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'折叠未修改内容'**
+  String get fileMutationCollapseUnchanged;
+
+  /// No description provided for @fileMutationCollapseDiff.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起 Diff 预览'**
+  String get fileMutationCollapseDiff;
+
+  /// No description provided for @fileMutationExpandRemainingDiff.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开全部 Diff（还有 {count} 行）'**
+  String fileMutationExpandRemainingDiff(int count);
+
+  /// No description provided for @fileMutationRevealFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'在系统文件浏览器中打开'**
+  String get fileMutationRevealFile;
+
+  /// No description provided for @fileMutationRevealFileFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法在系统文件浏览器中打开该路径'**
+  String get fileMutationRevealFileFailed;
+
+  /// No description provided for @fileMutationJumpedBeforeCompression.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标消息位于上下文压缩点之前，已跳转到最早可见消息。'**
+  String get fileMutationJumpedBeforeCompression;
+
+  /// No description provided for @fileMutationSourceMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能定位来源消息（可能已被删除）。'**
+  String get fileMutationSourceMissing;
+
+  /// No description provided for @fileMutationExportPickerFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出取消（无法打开文件选择器）：{error}'**
+  String fileMutationExportPickerFailed(String error);
+
+  /// No description provided for @fileMutationExportCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消导出。'**
+  String get fileMutationExportCancelled;
+
+  /// No description provided for @fileMutationSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：{error}'**
+  String fileMutationSaveFailed(String error);
+
+  /// No description provided for @fileMutationSavedTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到 {path}'**
+  String fileMutationSavedTo(String path);
+
+  /// No description provided for @fileMutationRoundLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在汇总本轮文件变动…'**
+  String get fileMutationRoundLoading;
+
+  /// No description provided for @fileMutationRoundEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'本轮无文件变动。'**
+  String get fileMutationRoundEmpty;
+
+  /// No description provided for @fileMutationRoundTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本轮文件变动汇总'**
+  String get fileMutationRoundTitle;
+
+  /// No description provided for @fileMutationLineStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'行级增删统计'**
+  String get fileMutationLineStats;
+
+  /// No description provided for @fileMutationUndoRound.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销本轮全部变动'**
+  String get fileMutationUndoRound;
+
+  /// No description provided for @fileMutationExportRound.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出本轮 JSON'**
+  String get fileMutationExportRound;
+
+  /// No description provided for @fileMutationRefreshSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新汇总'**
+  String get fileMutationRefreshSummary;
+
+  /// No description provided for @fileMutationRemainingRows.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开剩余 {count} 行'**
+  String fileMutationRemainingRows(int count);
+
+  /// No description provided for @fileMutationToggleDiff.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开 / 收起 Diff 预览'**
+  String get fileMutationToggleDiff;
+
+  /// No description provided for @fileMutationJumpToSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到产生该变动的工具调用'**
+  String get fileMutationJumpToSource;
+
+  /// No description provided for @fileMutationLoadingDiff.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载 Diff…'**
+  String get fileMutationLoadingDiff;
+
+  /// No description provided for @fileMutationCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增'**
+  String get fileMutationCreated;
+
+  /// No description provided for @fileMutationModified.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改'**
+  String get fileMutationModified;
+
+  /// No description provided for @fileMutationDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get fileMutationDeleted;
+
+  /// No description provided for @messageFullContentFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整内容加载失败，请重试。'**
+  String get messageFullContentFailed;
+
+  /// No description provided for @messageStreaming.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中'**
+  String get messageStreaming;
+
+  /// No description provided for @messageReadAloud.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读'**
+  String get messageReadAloud;
+
+  /// No description provided for @messageTranslating.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译中'**
+  String get messageTranslating;
+
+  /// No description provided for @messageOriginal.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看原始'**
+  String get messageOriginal;
+
+  /// No description provided for @messageLike.
+  ///
+  /// In zh, this message translates to:
+  /// **'点赞'**
+  String get messageLike;
+
+  /// No description provided for @messageImprove.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要改进'**
+  String get messageImprove;
+
+  /// No description provided for @messageDeleteFromHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除此条及后续'**
+  String get messageDeleteFromHere;
+
+  /// No description provided for @messageAudit.
+  ///
+  /// In zh, this message translates to:
+  /// **'审计'**
+  String get messageAudit;
+
+  /// No description provided for @messageShowRendered.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示渲染'**
+  String get messageShowRendered;
+
+  /// No description provided for @messageShowRaw.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示原始'**
+  String get messageShowRaw;
+
+  /// No description provided for @messageOpenBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览器打开'**
+  String get messageOpenBrowser;
+
+  /// No description provided for @messageAttachmentMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'附件文件不存在或已被移动。'**
+  String get messageAttachmentMissing;
+
+  /// No description provided for @messageUnsafePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'拒绝打开不安全的路径：{path}'**
+  String messageUnsafePath(String path);
+
+  /// No description provided for @messageOpenFileFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开文件失败：{error}'**
+  String messageOpenFileFailed(String error);
+
+  /// No description provided for @messageCopyFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制文件'**
+  String get messageCopyFile;
+
+  /// No description provided for @messageCopying.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制中…'**
+  String get messageCopying;
+
+  /// No description provided for @messageCopyImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制图片'**
+  String get messageCopyImage;
+
+  /// No description provided for @messageCopyImageUrlFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法复制图片数据，已复制图片地址。'**
+  String get messageCopyImageUrlFallback;
+
+  /// No description provided for @messageImageLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法加载图片'**
+  String get messageImageLoadFailed;
+
+  /// No description provided for @messageMediaTimedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'载入超时，可使用系统播放器打开。'**
+  String get messageMediaTimedOut;
+
+  /// No description provided for @messageMediaInitFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体预览初始化失败，可使用系统播放器打开。'**
+  String get messageMediaInitFailed;
+
+  /// No description provided for @messageFullscreenPlayback.
+  ///
+  /// In zh, this message translates to:
+  /// **'全屏沉浸播放'**
+  String get messageFullscreenPlayback;
+
+  /// No description provided for @messageMediaUrlCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制媒体地址。'**
+  String get messageMediaUrlCopied;
+
+  /// No description provided for @messageSystemPlayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统播放器'**
+  String get messageSystemPlayer;
+
+  /// No description provided for @messageGoalAutoFollowUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标自动推进'**
+  String get messageGoalAutoFollowUp;
+
+  /// No description provided for @messageGoalEvaluationRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标评估请求'**
+  String get messageGoalEvaluationRequest;
+
+  /// No description provided for @messageGoalEvaluationResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标评估响应'**
+  String get messageGoalEvaluationResponse;
+
+  /// No description provided for @messageMachineExpertRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'机器专家请求'**
+  String get messageMachineExpertRequest;
+
+  /// No description provided for @messageTerminalBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定目标终端，会在指定会话中执行任务。'**
+  String get messageTerminalBound;
+
+  /// No description provided for @messageMachineExpert.
+  ///
+  /// In zh, this message translates to:
+  /// **'机器专家'**
+  String get messageMachineExpert;
+
+  /// No description provided for @messageTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端应用'**
+  String get messageTerminal;
+
+  /// No description provided for @messageLocation.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开位置'**
+  String get messageLocation;
+
+  /// No description provided for @messageRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'需求'**
+  String get messageRequest;
+
+  /// No description provided for @messageWebEnvironmentBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定目标页面与 CDP 环境，按浏览器取证流程推进。'**
+  String get messageWebEnvironmentBound;
+
+  /// No description provided for @messageWebReverse.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 逆向'**
+  String get messageWebReverse;
+
+  /// No description provided for @messageDeliverables.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务产物'**
+  String get messageDeliverables;
+
+  /// No description provided for @messageAndroidEnvironmentBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已绑定目标应用与分析边界，按静态优先取证流程推进。'**
+  String get messageAndroidEnvironmentBound;
+
+  /// No description provided for @messageAndroidReverse.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android 逆向'**
+  String get messageAndroidReverse;
+
+  /// No description provided for @messagePackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标包名'**
+  String get messagePackage;
+
+  /// No description provided for @messageApkPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'APK 路径'**
+  String get messageApkPath;
+
+  /// No description provided for @messageAnalysisMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析模式'**
+  String get messageAnalysisMode;
+
+  /// No description provided for @messageAuthorizationScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'授权范围'**
+  String get messageAuthorizationScope;
+
+  /// No description provided for @messageCardShortened.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡片内容已截断，完整原文仍保留在消息审计与复制内容中。'**
+  String get messageCardShortened;
+
+  /// No description provided for @messageContinueGoal.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续推进当前目标'**
+  String get messageContinueGoal;
+
+  /// No description provided for @messageVerifyGoal.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证目标完成证据'**
+  String get messageVerifyGoal;
+
+  /// No description provided for @messageGoalPassed.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标证据已通过'**
+  String get messageGoalPassed;
+
+  /// No description provided for @messageGoalNeedsWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标仍需推进'**
+  String get messageGoalNeedsWork;
+
+  /// No description provided for @messageGoalFollowUpDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时自动发送，用于在上一轮评估未通过后继续推进目标。'**
+  String get messageGoalFollowUpDescription;
+
+  /// No description provided for @messageGoalEvaluatorDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'评估模型会基于当前目标和最近对话判断完成证据是否充分。'**
+  String get messageGoalEvaluatorDescription;
+
+  /// No description provided for @messageGoalEnoughEvidence.
+  ///
+  /// In zh, this message translates to:
+  /// **'评估模型认为当前证据足以完成目标。'**
+  String get messageGoalEnoughEvidence;
+
+  /// No description provided for @messageGoalInsufficientEvidence.
+  ///
+  /// In zh, this message translates to:
+  /// **'评估模型认为证据仍不足，需要继续推进。'**
+  String get messageGoalInsufficientEvidence;
+
+  /// No description provided for @messageEvaluationSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'评估摘要'**
+  String get messageEvaluationSummary;
+
+  /// No description provided for @messageNextStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get messageNextStep;
+
+  /// No description provided for @messageTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'令牌'**
+  String get messageTokens;
+
+  /// No description provided for @messageRecentCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近 {count} 条'**
+  String messageRecentCount(int count);
+
+  /// No description provided for @messageTotalTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'总令牌'**
+  String get messageTotalTokens;
+
+  /// No description provided for @messageKnowledgeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'知识库失败'**
+  String get messageKnowledgeFailed;
+
+  /// No description provided for @messageKnowledgeNoHits.
+  ///
+  /// In zh, this message translates to:
+  /// **'知识库无命中'**
+  String get messageKnowledgeNoHits;
+
+  /// No description provided for @messageKnowledgeHits.
+  ///
+  /// In zh, this message translates to:
+  /// **'知识库 {count} 条'**
+  String messageKnowledgeHits(int count);
+
+  /// No description provided for @messageKnowledgeHitsTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'知识库 · {count} 条 · {tokens} 令牌'**
+  String messageKnowledgeHitsTokens(int count, int tokens);
+
+  /// No description provided for @messageKnowledgeSources.
+  ///
+  /// In zh, this message translates to:
+  /// **'引用 {count} 篇知识库'**
+  String messageKnowledgeSources(int count);
+
+  /// No description provided for @messagePassed.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过'**
+  String get messagePassed;
+
+  /// No description provided for @messageAttachment.
+  ///
+  /// In zh, this message translates to:
+  /// **'附件'**
+  String get messageAttachment;
+
+  /// No description provided for @messageSkillName.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能 · {name}'**
+  String messageSkillName(String name);
+
+  /// No description provided for @messageFullscreenInitFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'全屏视频初始化失败，请返回后重试。'**
+  String get messageFullscreenInitFailed;
+
+  /// No description provided for @messageBackEsc.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回（Esc）'**
+  String get messageBackEsc;
+
+  /// No description provided for @messageAcceptance.
+  ///
+  /// In zh, this message translates to:
+  /// **'验收标准'**
+  String get messageAcceptance;
+
+  /// No description provided for @messageAndroidReverseRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android 逆向请求'**
+  String get messageAndroidReverseRequest;
+
+  /// No description provided for @messageCopyMedia.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制媒体'**
+  String get messageCopyMedia;
+
+  /// No description provided for @messageEvidenceRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'取证纪律'**
+  String get messageEvidenceRules;
+
+  /// No description provided for @messageGoal.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标'**
+  String get messageGoal;
+
+  /// No description provided for @messageOpenSystemApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用系统应用打开'**
+  String get messageOpenSystemApp;
+
+  /// No description provided for @messageOpenSystemPlayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用系统播放器打开'**
+  String get messageOpenSystemPlayer;
+
+  /// No description provided for @messagePreciseTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'精确定位'**
+  String get messagePreciseTarget;
+
+  /// No description provided for @messageSaveToDisk.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到本地'**
+  String get messageSaveToDisk;
+
+  /// No description provided for @messageWebReverseRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 逆向请求'**
+  String get messageWebReverseRequest;
+
+  /// No description provided for @messageExpandSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开摘要'**
+  String get messageExpandSummary;
+
+  /// No description provided for @messageCollapseSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起摘要'**
+  String get messageCollapseSummary;
+
+  /// No description provided for @messageShowFullContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开完整内容'**
+  String get messageShowFullContent;
+
+  /// No description provided for @messageCollapseContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起长内容'**
+  String get messageCollapseContent;
+
+  /// No description provided for @messageImageMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片文件不存在或已被移动。'**
+  String get messageImageMissing;
+
+  /// No description provided for @messageGeneratingHtml.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成 HTML 卡片'**
+  String get messageGeneratingHtml;
+
+  /// No description provided for @messageCharacterUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **' 字符'**
+  String get messageCharacterUnit;
+
+  /// No description provided for @messageRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get messageRole;
+
+  /// No description provided for @messagePhase.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段'**
+  String get messagePhase;
+
+  /// No description provided for @messageRoleReader.
+  ///
+  /// In zh, this message translates to:
+  /// **'调查者'**
+  String get messageRoleReader;
+
+  /// No description provided for @messageRolePlanner.
+  ///
+  /// In zh, this message translates to:
+  /// **'规划者'**
+  String get messageRolePlanner;
+
+  /// No description provided for @messageRoleImplementer.
+  ///
+  /// In zh, this message translates to:
+  /// **'实施者'**
+  String get messageRoleImplementer;
+
+  /// No description provided for @messageRoleReviewer.
+  ///
+  /// In zh, this message translates to:
+  /// **'验收者'**
+  String get messageRoleReviewer;
+
+  /// No description provided for @messagePhaseMetaCollection.
+  ///
+  /// In zh, this message translates to:
+  /// **'元数据采集'**
+  String get messagePhaseMetaCollection;
+
+  /// No description provided for @messagePhaseReading.
+  ///
+  /// In zh, this message translates to:
+  /// **'调查'**
+  String get messagePhaseReading;
+
+  /// No description provided for @messagePhasePlanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'规划'**
+  String get messagePhasePlanning;
+
+  /// No description provided for @messagePhaseImplementing.
+  ///
+  /// In zh, this message translates to:
+  /// **'实施'**
+  String get messagePhaseImplementing;
+
+  /// No description provided for @messagePhaseReviewing.
+  ///
+  /// In zh, this message translates to:
+  /// **'验收'**
+  String get messagePhaseReviewing;
+
+  /// No description provided for @messagePreviousResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一条回复'**
+  String get messagePreviousResponse;
+
+  /// No description provided for @messageNextResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一条回复'**
+  String get messageNextResponse;
+
+  /// No description provided for @messageFileCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制文件到剪贴板。'**
+  String get messageFileCopied;
+
+  /// No description provided for @messageFilePathCopiedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前平台不支持直接复制文件，已复制文件路径。'**
+  String get messageFilePathCopiedFallback;
+
+  /// No description provided for @messageImageCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制图片到剪贴板。'**
+  String get messageImageCopied;
+
+  /// No description provided for @messageImageFileCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制图片文件到剪贴板。'**
+  String get messageImageFileCopied;
+
+  /// No description provided for @messageImagePathCopiedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前平台不支持直接复制图片文件，已复制文件路径。'**
+  String get messageImagePathCopiedFallback;
+
+  /// No description provided for @messageMediaFileCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制媒体文件到剪贴板。'**
+  String get messageMediaFileCopied;
+
+  /// No description provided for @messageMediaPathCopiedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前平台不支持直接复制媒体文件，已复制文件路径。'**
+  String get messageMediaPathCopiedFallback;
+
+  /// No description provided for @messageCopyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制失败：{error}'**
+  String messageCopyFailed(String error);
+
+  /// No description provided for @messageSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存…'**
+  String get messageSaving;
+
+  /// No description provided for @messageSaveCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消保存。'**
+  String get messageSaveCancelled;
+
+  /// No description provided for @messageSaveTimedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存超时：{error}'**
+  String messageSaveTimedOut(String error);
+
+  /// No description provided for @messageVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get messageVideos;
+
+  /// No description provided for @messageAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频'**
+  String get messageAudio;
 }
 
 class _AppLocalizationsDelegate

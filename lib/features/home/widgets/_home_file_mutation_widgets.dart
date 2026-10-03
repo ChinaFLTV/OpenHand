@@ -799,16 +799,26 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      constraints: const BoxConstraints(
+        minHeight: kOpenHandMessageActionChipHeight,
+        maxWidth: 360,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: kOpenHandMessageActionChipHorizontalPadding,
+        vertical: kOpenHandMessageActionChipVerticalPadding,
+      ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: kOpenHandPillBorderRadius,
+        borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Text(
         label,
-        style: theme.textTheme.labelSmall?.copyWith(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelMedium?.copyWith(
           color: color,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -892,18 +902,21 @@ class _IconActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        borderRadius: kOpenHandPillBorderRadius,
-        onTap: () {
-          _markToolCardInteractiveTap(context);
-          onTap();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: cs.onSurfaceVariant),
+      child: MicroPressFeedback(
+        scale: 0.96,
+        child: IconButton(
+          onPressed: () {
+            _markToolCardInteractiveTap(context);
+            onTap();
+          },
+          style: openHandMessageActionChipStyle(context).copyWith(
+            fixedSize: const WidgetStatePropertyAll(
+              Size.square(kOpenHandMessageActionChipHeight),
+            ),
+          ),
+          icon: Icon(icon, size: kOpenHandMessageActionIconSize),
         ),
       ),
     );
@@ -1048,13 +1061,7 @@ class _FileMutationCardRow extends StatelessWidget {
             children: [
               const Icon(Icons.open_in_new_rounded, size: 16),
               kOpenHandHGap8,
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '打开 diff 对话框',
-                  en: 'Open diff dialog',
-                ),
-              ),
+              Text(AppLocalizations.of(context)!.fileMutationOpenDiffDialog),
             ],
           ),
         ),
@@ -1281,7 +1288,7 @@ class _FileMutationCardRow extends StatelessWidget {
                 ),
               ),
             ),
-            AnimatedSize(
+            OpenHandMotionAnimatedSize(
               duration: rowStateDuration,
               curve: kOpenHandSwitchInCurve,
               alignment: Alignment.topCenter,
@@ -1781,7 +1788,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AnimatedSize(
+                OpenHandMotionAnimatedSize(
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
                   curve: kOpenHandSwitchInCurve,
                   alignment: Alignment.topCenter,
@@ -2089,13 +2096,11 @@ class _CodexDiffFoldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = openHandLocalizedText(
-      context,
-      zh: expanded ? '收起 $count 行未修改' : '$count 行未修改',
-      en: expanded
-          ? 'Collapse $count unmodified lines'
-          : '$count unmodified lines',
-    );
+    final label = expanded
+        ? AppLocalizations.of(
+            context,
+          )!.fileMutationCollapseUnchangedLines(count)
+        : AppLocalizations.of(context)!.fileMutationUnchangedLines(count);
     final row = ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
       child: DecoratedBox(
@@ -2137,13 +2142,9 @@ class _CodexDiffFoldRow extends StatelessWidget {
         child: InkWell(
           onTap: onToggle,
           child: Tooltip(
-            message: openHandLocalizedText(
-              context,
-              zh: expanded ? '折叠未修改内容' : '展开未修改内容',
-              en: expanded
-                  ? 'Collapse unchanged content'
-                  : 'Expand unchanged content',
-            ),
+            message: expanded
+                ? AppLocalizations.of(context)!.fileMutationCollapseUnchanged
+                : AppLocalizations.of(context)!.fileMutationExpandUnchanged,
             waitDuration: kOpenHandTooltipWait,
             child: row,
           ),
@@ -2169,12 +2170,10 @@ class _CodexDiffFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = showFull
-        ? openHandLocalizedText(context, zh: '收起 Diff 预览', en: 'Collapse diff')
-        : openHandLocalizedText(
+        ? AppLocalizations.of(context)!.fileMutationCollapseDiff
+        : AppLocalizations.of(
             context,
-            zh: '展开全部 Diff（还有 $hiddenCount 行）',
-            en: 'Show full diff ($hiddenCount more lines)',
-          );
+          )!.fileMutationExpandRemainingDiff(hiddenCount);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.footerSurface,
@@ -2183,10 +2182,8 @@ class _CodexDiffFooter extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
-          style: TextButton.styleFrom(
-            foregroundColor: palette.footerForeground,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            visualDensity: VisualDensity.compact,
+          style: openHandMessageActionChipStyle(context).copyWith(
+            foregroundColor: WidgetStatePropertyAll(palette.footerForeground),
           ),
           onPressed: onToggle,
           icon: Icon(
@@ -2271,18 +2268,10 @@ Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
 }
 
 String _fileMutationRevealPathLabel(BuildContext context) =>
-    openHandLocalizedText(
-      context,
-      zh: '在系统文件浏览器中打开',
-      en: 'Reveal file in file manager',
-    );
+    AppLocalizations.of(context)!.fileMutationRevealFile;
 
 String _fileMutationRevealPathFailedLabel(BuildContext context) =>
-    openHandLocalizedText(
-      context,
-      zh: '无法在系统文件浏览器中打开该路径',
-      en: 'Could not reveal this path in the file manager.',
-    );
+    AppLocalizations.of(context)!.fileMutationRevealFileFailed;
 
 Future<void> _revealFileMutationPath(
   BuildContext context,
@@ -2610,11 +2599,7 @@ class _RevealMoreRow extends StatelessWidget {
             ),
             TextButton(
               onPressed: onRevealAll,
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: const Size(0, 28),
-              ),
+              style: openHandMessageActionChipStyle(context),
               child: Text(l10n.fileMutationRevealAll),
             ),
           ],
@@ -3057,7 +3042,7 @@ class _InspectorEntryRow extends StatelessWidget {
             kOpenHandHGap8,
             Expanded(
               child: Text(
-                view.record.toolName,
+                openHandToolDisplayName(context, view.record.toolName),
                 style: theme.textTheme.bodySmall,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -3518,11 +3503,7 @@ class _RoundFileMutationSummaryCardState
           if (fallbackOk && mounted) {
             showOpenHandInfoSnack(
               context,
-              openHandLocalizedText(
-                context,
-                zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
-                en: 'Target message is before compression point. Jumped to earliest visible message.',
-              ),
+              AppLocalizations.of(context)!.fileMutationJumpedBeforeCompression,
               duration: _kFileMutationNoticeSnackDuration,
             );
             return;
@@ -3534,11 +3515,7 @@ class _RoundFileMutationSummaryCardState
     if (!mounted) return;
     showOpenHandInfoSnack(
       context,
-      openHandLocalizedText(
-        context,
-        zh: '未能定位来源消息（可能已被删除）。',
-        en: 'Could not locate source message (may have been deleted).',
-      ),
+      AppLocalizations.of(context)!.fileMutationSourceMissing,
       duration: kOpenHandMotion2200,
     );
   }
@@ -3656,11 +3633,9 @@ class _RoundFileMutationSummaryCardState
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
+        AppLocalizations.of(
           context,
-          zh: '导出取消（无法打开文件选择器）：$error',
-          en: 'Export aborted (file picker unavailable): $error',
-        ),
+        )!.fileMutationExportPickerFailed(error.toString()),
         duration: kOpenHandMotion2400,
       );
       return;
@@ -3669,7 +3644,7 @@ class _RoundFileMutationSummaryCardState
       if (!mounted) return;
       showOpenHandInfoSnack(
         context,
-        openHandLocalizedText(context, zh: '已取消导出。', en: 'Export cancelled.'),
+        AppLocalizations.of(context)!.fileMutationExportCancelled,
         duration: kOpenHandMotion1600,
       );
       return;
@@ -3681,11 +3656,7 @@ class _RoundFileMutationSummaryCardState
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败：$error',
-          en: 'Save failed: $error',
-        ),
+        AppLocalizations.of(context)!.fileMutationSaveFailed(error.toString()),
         duration: _kFileMutationNoticeSnackDuration,
       );
       return;
@@ -3694,11 +3665,7 @@ class _RoundFileMutationSummaryCardState
     _pulseSignal.value += 1;
     showOpenHandSuccessSnack(
       context,
-      openHandLocalizedText(
-        context,
-        zh: '已保存到 ${location.path}',
-        en: 'Saved to ${location.path}',
-      ),
+      AppLocalizations.of(context)!.fileMutationSavedTo(location.path),
       duration: kOpenHandMotion2400,
       maxLines: 2,
     );
@@ -3749,11 +3716,9 @@ class _RoundFileMutationSummaryCardState
                             ),
                             kOpenHandHGap8,
                             Text(
-                              openHandLocalizedText(
+                              AppLocalizations.of(
                                 context,
-                                zh: '正在汇总本轮文件变动…',
-                                en: 'Aggregating round mutations…',
-                              ),
+                              )!.fileMutationRoundLoading,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
@@ -3765,11 +3730,7 @@ class _RoundFileMutationSummaryCardState
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
                         child: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '本轮无文件变动。',
-                            en: 'No file mutations this round.',
-                          ),
+                          AppLocalizations.of(context)!.fileMutationRoundEmpty,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -3845,22 +3806,19 @@ class _RoundFileMutationSummaryCardState
           cs.surfaceContainerHigh,
         ),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Icon(Icons.auto_awesome_motion_rounded, size: 18, color: cs.primary),
-          kOpenHandHGap8,
           Text(
-            openHandLocalizedText(
-              context,
-              zh: '本轮文件变动汇总',
-              en: 'Round File Mutations',
-            ),
+            AppLocalizations.of(context)!.fileMutationRoundTitle,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurface,
             ),
           ),
-          kOpenHandHGap10,
           if (rows.isNotEmpty)
             _StatPill(
               label: AppLocalizations.of(
@@ -3870,39 +3828,34 @@ class _RoundFileMutationSummaryCardState
               bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
             ),
           if (created > 0) ...[
-            kOpenHandHGap6,
             _StatPill(
-              label: 'C $created',
+              label:
+                  '${AppLocalizations.of(context)!.fileMutationCreated} $created',
               color: _kFileMutationAddedColor,
               bg: _kFileMutationAddedColor.withValues(alpha: 0.12),
             ),
           ],
           if (modified > 0) ...[
-            kOpenHandHGap6,
             _StatPill(
-              label: 'M $modified',
+              label:
+                  '${AppLocalizations.of(context)!.fileMutationModified} $modified',
               color: cs.primary,
               bg: cs.primary.withValues(alpha: 0.12),
             ),
           ],
           if (deleted > 0) ...[
-            kOpenHandHGap6,
             _StatPill(
-              label: 'D $deleted',
+              label:
+                  '${AppLocalizations.of(context)!.fileMutationDeleted} $deleted',
               color: cs.error,
               bg: cs.errorContainer.withValues(alpha: 0.55),
             ),
           ],
-          const Spacer(),
           if (totalLineDelta.available && totalLineDelta.hasChanges)
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Tooltip(
-                message: openHandLocalizedText(
-                  context,
-                  zh: '行级增删统计',
-                  en: 'Line additions/deletions',
-                ),
+                message: AppLocalizations.of(context)!.fileMutationLineStats,
                 child: _FileMutationLineDeltaBadge(
                   delta: totalLineDelta,
                   style: _FileMutationLineDeltaStyle.text,
@@ -3927,14 +3880,12 @@ class _RoundFileMutationSummaryCardState
                               : unitRatio(_bulkUndoDone, _bulkUndoTotal),
                         ),
                       ),
-                      kOpenHandHGap6,
                       Text(
                         '$_bulkUndoDone/$_bulkUndoTotal',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                       ),
-                      kOpenHandHGap6,
                     ],
                   )
                 : null,
@@ -3946,30 +3897,18 @@ class _RoundFileMutationSummaryCardState
               !_bulkUndoBusy)
             _IconActionButton(
               icon: Icons.undo_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '撤销本轮全部变动',
-                en: 'Undo all round mutations',
-              ),
+              tooltip: AppLocalizations.of(context)!.fileMutationUndoRound,
               onTap: () => _undoAllRound(rows),
             ),
           if (rows.isNotEmpty)
             _IconActionButton(
               icon: Icons.data_object_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '导出本轮 JSON',
-                en: 'Export round as JSON',
-              ),
+              tooltip: AppLocalizations.of(context)!.fileMutationExportRound,
               onTap: () => _exportRoundJson(rows),
             ),
           _IconActionButton(
             icon: Icons.refresh_rounded,
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '刷新汇总',
-              en: 'Refresh summary',
-            ),
+            tooltip: AppLocalizations.of(context)!.fileMutationRefreshSummary,
             // 注意：_load 返回 Future，箭头函数 `() => x = _load(...)` 会把
             // 这个 Future 作为 closure 的返回值传给 setState，被框架 assert 拦截
             // （setState callback must not return Future）。这里要用 block，
@@ -4083,21 +4022,14 @@ class _RoundFileMutationSummaryCardState
           child: Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                foregroundColor: cs.primary,
-                visualDensity: VisualDensity.compact,
-              ),
+              style: openHandMessageActionChipStyle(
+                context,
+              ).copyWith(foregroundColor: WidgetStatePropertyAll(cs.primary)),
               icon: const Icon(Icons.unfold_more_rounded, size: 16),
               label: Text(
-                openHandLocalizedText(
+                AppLocalizations.of(
                   context,
-                  zh: '展开剩余 $remaining 行',
-                  en: 'Show $remaining more',
-                ),
+                )!.fileMutationRemainingRows(remaining),
                 style: theme.textTheme.labelMedium,
               ),
               onPressed: () {
@@ -4116,13 +4048,8 @@ class _RoundFileMutationSummaryCardState
           child: Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                foregroundColor: cs.onSurfaceVariant,
-                visualDensity: VisualDensity.compact,
+              style: openHandMessageActionChipStyle(context).copyWith(
+                foregroundColor: WidgetStatePropertyAll(cs.onSurfaceVariant),
               ),
               icon: const Icon(Icons.unfold_less_rounded, size: 16),
               label: Text(
@@ -4138,7 +4065,7 @@ class _RoundFileMutationSummaryCardState
       );
     }
 
-    return AnimatedSize(
+    return OpenHandMotionAnimatedSize(
       duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
       curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topCenter,
@@ -4326,11 +4253,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
               row.view.record.afterSha != null) ...[
             kOpenHandHGap4,
             Tooltip(
-              message: openHandLocalizedText(
-                context,
-                zh: '展开 / 收起 Diff 预览',
-                en: 'Expand / collapse diff preview',
-              ),
+              message: AppLocalizations.of(context)!.fileMutationToggleDiff,
               child: MicroPressFeedback(
                 child: InkWell(
                   onTap: onToggleDiff,
@@ -4365,7 +4288,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           tile,
-          AnimatedSize(
+          OpenHandMotionAnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
@@ -4392,11 +4315,7 @@ class _RoundSummarySourceJumpButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Tooltip(
-      message: openHandLocalizedText(
-        context,
-        zh: '跳转到产生该变动的工具调用',
-        en: 'Jump to source tool-call message',
-      ),
+      message: AppLocalizations.of(context)!.fileMutationJumpToSource,
       child: MicroPressFeedback(
         child: InkResponse(
           onTap: onTap,
@@ -4450,7 +4369,9 @@ class _GroupHeader extends StatelessWidget {
               ),
               kOpenHandHGap4,
               Text(
-                toolName.isEmpty ? '·' : toolName,
+                toolName.isEmpty
+                    ? '·'
+                    : openHandToolDisplayName(context, toolName),
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: cs.onSurface,
                   fontWeight: FontWeight.w700,
@@ -4660,11 +4581,7 @@ class _DiffLoadingPlaceholder extends StatelessWidget {
             ),
             kOpenHandHGap8,
             Text(
-              openHandLocalizedText(
-                context,
-                zh: '加载 Diff…',
-                en: 'Loading diff…',
-              ),
+              AppLocalizations.of(context)!.fileMutationLoadingDiff,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),

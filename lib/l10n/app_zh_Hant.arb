@@ -9995,5 +9995,321 @@
   "maintenanceRuntimeMappedContainerId": "容器端起始 ID",
   "maintenanceRuntimeMappedHostId": "主機端起始 ID",
   "maintenanceRuntimeMappedIdCount": "映射 ID 數量",
-  "maintenanceRuntimeExpectedBuild": "預期建置版本"
+  "maintenanceRuntimeExpectedBuild": "預期建置版本",
+  "messageToolNameTask": "委派任務",
+  "messageToolNameBash": "執行命令",
+  "messageToolNameBashBackground": "背景命令",
+  "messageToolNameTaskOutput": "任務輸出",
+  "messageToolNameTaskStop": "停止任務",
+  "messageToolNameGlob": "尋找檔案",
+  "messageToolNameGrep": "搜尋內容",
+  "messageToolNameLs": "瀏覽目錄",
+  "messageToolNameExitPlanMode": "提交計畫",
+  "messageToolNameEndVoiceConversation": "結束語音會話",
+  "messageToolNameRead": "讀取檔案",
+  "messageToolNameEdit": "編輯檔案",
+  "messageToolNameMultiEdit": "批次編輯",
+  "messageToolNameApplyFileDiffs": "套用檔案修補",
+  "messageToolNameWrite": "寫入檔案",
+  "messageToolNameNotebookEdit": "編輯筆記本",
+  "messageToolNameWebFetch": "讀取網頁",
+  "messageToolNameTodoWrite": "更新待辦",
+  "messageToolNameWebSearch": "搜尋網頁",
+  "messageToolNameLsp": "程式碼導覽",
+  "messageToolNameCodebaseSearch": "搜尋程式碼庫",
+  "messageToolNameGit": "版本管理",
+  "messageToolNameDeleteFile": "刪除檔案",
+  "messageToolNameReadLints": "檢查程式碼診斷",
+  "messageToolNameAskUserChoice": "請求選擇",
+  "messageToolNameSkillManager": "管理技能",
+  "messageToolNameToolSearch": "尋找工具",
+  "messageToolNameMemory": "管理記憶",
+  "messageToolNameKnowledgeSearch": "搜尋知識庫",
+  "messageToolNameKnowledgeRead": "讀取知識",
+  "messageToolNameWorkflowList": "瀏覽工作流程",
+  "messageToolNameWorkflowDetail": "檢視工作流程",
+  "messageToolNameWorkflowExecute": "執行工作流程",
+  "messageToolNameWorkflowExecutionStatus": "工作流程狀態",
+  "messageToolNameCronCreate": "建立排程任務",
+  "messageToolNameCronEdit": "編輯排程任務",
+  "messageToolNameCronDelete": "刪除排程任務",
+  "messageToolNameCronEnable": "啟用排程任務",
+  "messageToolNameCronDisable": "停用排程任務",
+  "messageToolNameMachineTerminalRead": "讀取終端機",
+  "messageToolNameMachineTerminalWrite": "寫入終端機",
+  "messageToolNameMachineTerminalExec": "執行終端機命令",
+  "messageToolNameMachineTerminalControl": "控制終端機",
+  "messageToolNameDingTalkToolSearch": "尋找釘釘工具",
+  "messageToolNameDingtalkDws": "釘釘工作空間",
+  "messageToolNameDingtalkImageGeneration": "產生圖片",
+  "messageToolNameDingtalkVideoGeneration": "產生影片",
+  "messageToolNameDingtalkAudioGeneration": "產生音訊",
+  "messageToolNameDownloadFile": "下載檔案",
+  "messageLoadFullContent": "載入完整內容",
+  "messageLoadingContent": "載入中",
+  "messageCacheHit": "快取命中",
+  "messageFetchCacheHit": "擷取快取命中",
+  "messageCache": "快取",
+  "messageFetchCache": "擷取快取",
+  "messageCacheStored": "已快取",
+  "messageCacheDisabled": "快取關閉",
+  "messageCachedAt": "快取時間",
+  "messageExpiresAt": "到期時間",
+  "messageSandboxBlocked": "沙盒攔截",
+  "messageSandboxProxy": "沙盒代理",
+  "messageReasoning": "思考",
+  "fileMutationOpenDiffDialog": "開啟差異對話框",
+  "fileMutationUnchangedLines": "{count} 行未修改",
+  "@fileMutationUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationCollapseUnchangedLines": "收起 {count} 行未修改",
+  "@fileMutationCollapseUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationExpandUnchanged": "展開未修改內容",
+  "fileMutationCollapseUnchanged": "摺疊未修改內容",
+  "fileMutationCollapseDiff": "收起差異預覽",
+  "fileMutationExpandRemainingDiff": "展開全部差異（還有 {count} 行）",
+  "@fileMutationExpandRemainingDiff": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationRevealFile": "在系統檔案瀏覽器中開啟",
+  "fileMutationRevealFileFailed": "無法在系統檔案瀏覽器中開啟此路徑",
+  "fileMutationJumpedBeforeCompression": "目標訊息位於上下文壓縮點之前，已跳至最早可見訊息。",
+  "fileMutationSourceMissing": "未能定位來源訊息（可能已被刪除）。",
+  "fileMutationExportPickerFailed": "匯出取消（無法開啟檔案選擇器）：{error}",
+  "@fileMutationExportPickerFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationExportCancelled": "已取消匯出。",
+  "fileMutationSaveFailed": "儲存失敗：{error}",
+  "@fileMutationSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationSavedTo": "已儲存至 {path}",
+  "@fileMutationSavedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationRoundLoading": "正在彙整本輪檔案變動…",
+  "fileMutationRoundEmpty": "本輪無檔案變動。",
+  "fileMutationRoundTitle": "本輪檔案變動彙整",
+  "fileMutationLineStats": "行級增刪統計",
+  "fileMutationUndoRound": "復原本輪全部變動",
+  "fileMutationExportRound": "匯出本輪 JSON",
+  "fileMutationRefreshSummary": "重新整理彙整",
+  "fileMutationRemainingRows": "展開剩餘 {count} 行",
+  "@fileMutationRemainingRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationToggleDiff": "展開／收起差異預覽",
+  "fileMutationJumpToSource": "跳至產生此變動的工具呼叫",
+  "fileMutationLoadingDiff": "載入差異…",
+  "fileMutationCreated": "新增",
+  "fileMutationModified": "修改",
+  "fileMutationDeleted": "刪除",
+  "messageFullContentFailed": "完整內容載入失敗，請重試。",
+  "messageStreaming": "產生中",
+  "messageReadAloud": "朗讀",
+  "messageTranslating": "翻譯中",
+  "messageOriginal": "查看原始",
+  "messageLike": "讚好",
+  "messageImprove": "需要改進",
+  "messageDeleteFromHere": "刪除此則及後續",
+  "messageAudit": "稽核",
+  "messageShowRendered": "顯示呈現結果",
+  "messageShowRaw": "顯示原始內容",
+  "messageOpenBrowser": "瀏覽器開啟",
+  "messageAttachmentMissing": "附件檔案不存在或已被移動。",
+  "messageUnsafePath": "拒絕開啟不安全的路徑：{path}",
+  "@messageUnsafePath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "messageOpenFileFailed": "開啟檔案失敗：{error}",
+  "@messageOpenFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageCopyFile": "複製檔案",
+  "messageCopying": "複製中…",
+  "messageCopyImage": "複製圖片",
+  "messageCopyImageUrlFallback": "無法複製圖片資料，已複製圖片網址。",
+  "messageImageLoadFailed": "無法載入圖片",
+  "messageMediaTimedOut": "載入逾時，可使用系統播放器開啟。",
+  "messageMediaInitFailed": "媒體預覽初始化失敗，可使用系統播放器開啟。",
+  "messageFullscreenPlayback": "全螢幕播放",
+  "messageMediaUrlCopied": "已複製媒體網址。",
+  "messageSystemPlayer": "系統播放器",
+  "messageGoalAutoFollowUp": "目標自動推進",
+  "messageGoalEvaluationRequest": "目標評估請求",
+  "messageGoalEvaluationResponse": "目標評估回應",
+  "messageMachineExpertRequest": "機器專家請求",
+  "messageTerminalBound": "已綁定目標終端，將在指定工作階段中執行任務。",
+  "messageMachineExpert": "機器專家",
+  "messageTerminal": "終端應用程式",
+  "messageLocation": "開啟位置",
+  "messageRequest": "需求",
+  "messageWebEnvironmentBound": "已綁定目標頁面與 CDP 環境，依瀏覽器取證流程推進。",
+  "messageWebReverse": "Web 逆向",
+  "messageDeliverables": "任務成果",
+  "messageAndroidEnvironmentBound": "已綁定目標應用程式與分析範圍，優先依靜態取證流程推進。",
+  "messageAndroidReverse": "Android 逆向",
+  "messagePackage": "目標套件名稱",
+  "messageApkPath": "APK 路徑",
+  "messageAnalysisMode": "分析模式",
+  "messageAuthorizationScope": "授權範圍",
+  "messageCardShortened": "卡片內容已截斷，完整原文仍保留於訊息稽核及複製內容。",
+  "messageContinueGoal": "繼續推進目前目標",
+  "messageVerifyGoal": "驗證目標完成證據",
+  "messageGoalPassed": "目標證據已通過",
+  "messageGoalNeedsWork": "目標仍需推進",
+  "messageGoalFollowUpDescription": "執行階段自動傳送，用於在上一輪評估未通過後繼續推進目標。",
+  "messageGoalEvaluatorDescription": "評估模型會依目前目標及最近對話判斷完成證據是否充分。",
+  "messageGoalEnoughEvidence": "評估模型認為目前證據足以完成目標。",
+  "messageGoalInsufficientEvidence": "評估模型認為證據仍不足，需要繼續推進。",
+  "messageEvaluationSummary": "評估摘要",
+  "messageNextStep": "下一步",
+  "messageTokens": "詞元",
+  "messageRecentCount": "最近 {count} 則",
+  "@messageRecentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageTotalTokens": "總詞元",
+  "messageKnowledgeFailed": "知識庫失敗",
+  "messageKnowledgeNoHits": "知識庫無命中",
+  "messageKnowledgeHits": "知識庫 {count} 筆",
+  "@messageKnowledgeHits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeHitsTokens": "知識庫 · {count} 筆 · {tokens} 詞元",
+  "@messageKnowledgeHitsTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeSources": "引用 {count} 篇知識庫",
+  "@messageKnowledgeSources": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePassed": "通過",
+  "messageAttachment": "附件",
+  "messageSkillName": "技能 · {name}",
+  "@messageSkillName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "messageFullscreenInitFailed": "全螢幕影片初始化失敗，請返回後重試。",
+  "messageBackEsc": "返回（Esc）",
+  "messageAcceptance": "驗收標準",
+  "messageAndroidReverseRequest": "Android 逆向請求",
+  "messageCopyMedia": "複製媒體",
+  "messageEvidenceRules": "取證紀律",
+  "messageGoal": "目標",
+  "messageOpenSystemApp": "使用系統應用程式開啟",
+  "messageOpenSystemPlayer": "使用系統播放器開啟",
+  "messagePreciseTarget": "精確定位",
+  "messageSaveToDisk": "儲存到本機",
+  "messageWebReverseRequest": "Web 逆向請求",
+  "messageExpandSummary": "展開摘要",
+  "messageCollapseSummary": "收起摘要",
+  "messageShowFullContent": "展開完整內容",
+  "messageCollapseContent": "收起長內容",
+  "messageImageMissing": "圖片檔案不存在或已被移動。",
+  "messageGeneratingHtml": "正在產生 HTML 卡片",
+  "messageCharacterUnit": " 字元",
+  "messageRole": "角色",
+  "messagePhase": "階段",
+  "messageRoleReader": "調查者",
+  "messageRolePlanner": "規劃者",
+  "messageRoleImplementer": "實施者",
+  "messageRoleReviewer": "驗收者",
+  "messagePhaseMetaCollection": "中繼資料蒐集",
+  "messagePhaseReading": "調查",
+  "messagePhasePlanning": "規劃",
+  "messagePhaseImplementing": "實施",
+  "messagePhaseReviewing": "驗收",
+  "messagePreviousResponse": "上一則回覆",
+  "messageNextResponse": "下一則回覆",
+  "messageFileCopied": "已複製檔案至剪貼簿。",
+  "messageFilePathCopiedFallback": "目前平台不支援直接複製檔案，已複製檔案路徑。",
+  "messageImageCopied": "已複製圖片至剪貼簿。",
+  "messageImageFileCopied": "已複製圖片檔案至剪貼簿。",
+  "messageImagePathCopiedFallback": "目前平台不支援直接複製圖片檔案，已複製檔案路徑。",
+  "messageMediaFileCopied": "已複製媒體檔案至剪貼簿。",
+  "messageMediaPathCopiedFallback": "目前平台不支援直接複製媒體檔案，已複製檔案路徑。",
+  "messageCopyFailed": "複製失敗：{error}",
+  "@messageCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageSaving": "正在儲存…",
+  "messageSaveCancelled": "已取消儲存。",
+  "messageSaveTimedOut": "儲存逾時：{error}",
+  "@messageSaveTimedOut": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageVideos": "影片",
+  "messageAudio": "音訊"
 }

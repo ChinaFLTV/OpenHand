@@ -9995,5 +9995,321 @@
   "maintenanceRuntimeMappedContainerId": "ID initial du conteneur",
   "maintenanceRuntimeMappedHostId": "ID initial de l’hôte",
   "maintenanceRuntimeMappedIdCount": "Nombre d’ID mappés",
-  "maintenanceRuntimeExpectedBuild": "Build attendu"
+  "maintenanceRuntimeExpectedBuild": "Build attendu",
+  "messageToolNameTask": "Déléguer une tâche",
+  "messageToolNameBash": "Exécuter une commande",
+  "messageToolNameBashBackground": "Commande en arrière-plan",
+  "messageToolNameTaskOutput": "Résultat de tâche",
+  "messageToolNameTaskStop": "Arrêter la tâche",
+  "messageToolNameGlob": "Rechercher des fichiers",
+  "messageToolNameGrep": "Rechercher du contenu",
+  "messageToolNameLs": "Parcourir le dossier",
+  "messageToolNameExitPlanMode": "Soumettre le plan",
+  "messageToolNameEndVoiceConversation": "Terminer la conversation vocale",
+  "messageToolNameRead": "Lire le fichier",
+  "messageToolNameEdit": "Modifier le fichier",
+  "messageToolNameMultiEdit": "Modification groupée",
+  "messageToolNameApplyFileDiffs": "Appliquer les correctifs",
+  "messageToolNameWrite": "Écrire le fichier",
+  "messageToolNameNotebookEdit": "Modifier le notebook",
+  "messageToolNameWebFetch": "Lire la page web",
+  "messageToolNameTodoWrite": "Mettre à jour les tâches",
+  "messageToolNameWebSearch": "Rechercher sur le web",
+  "messageToolNameLsp": "Navigation dans le code",
+  "messageToolNameCodebaseSearch": "Rechercher dans le code",
+  "messageToolNameGit": "Gestion de versions",
+  "messageToolNameDeleteFile": "Supprimer le fichier",
+  "messageToolNameReadLints": "Lire les diagnostics",
+  "messageToolNameAskUserChoice": "Demander un choix",
+  "messageToolNameSkillManager": "Gérer les compétences",
+  "messageToolNameToolSearch": "Rechercher des outils",
+  "messageToolNameMemory": "Gérer la mémoire",
+  "messageToolNameKnowledgeSearch": "Rechercher dans les connaissances",
+  "messageToolNameKnowledgeRead": "Lire les connaissances",
+  "messageToolNameWorkflowList": "Parcourir les workflows",
+  "messageToolNameWorkflowDetail": "Voir le workflow",
+  "messageToolNameWorkflowExecute": "Exécuter le workflow",
+  "messageToolNameWorkflowExecutionStatus": "État du workflow",
+  "messageToolNameCronCreate": "Créer une planification",
+  "messageToolNameCronEdit": "Modifier la planification",
+  "messageToolNameCronDelete": "Supprimer la planification",
+  "messageToolNameCronEnable": "Activer la planification",
+  "messageToolNameCronDisable": "Désactiver la planification",
+  "messageToolNameMachineTerminalRead": "Lire le terminal",
+  "messageToolNameMachineTerminalWrite": "Écrire dans le terminal",
+  "messageToolNameMachineTerminalExec": "Exécuter dans le terminal",
+  "messageToolNameMachineTerminalControl": "Contrôler le terminal",
+  "messageToolNameDingTalkToolSearch": "Rechercher les outils DingTalk",
+  "messageToolNameDingtalkDws": "Espace DingTalk",
+  "messageToolNameDingtalkImageGeneration": "Générer une image",
+  "messageToolNameDingtalkVideoGeneration": "Générer une vidéo",
+  "messageToolNameDingtalkAudioGeneration": "Générer un audio",
+  "messageToolNameDownloadFile": "Télécharger le fichier",
+  "messageLoadFullContent": "Charger le contenu complet",
+  "messageLoadingContent": "Chargement",
+  "messageCacheHit": "Cache utilisé",
+  "messageFetchCacheHit": "Cache de récupération utilisé",
+  "messageCache": "Cache",
+  "messageFetchCache": "Cache de récupération",
+  "messageCacheStored": "Mis en cache",
+  "messageCacheDisabled": "Cache désactivé",
+  "messageCachedAt": "Mis en cache à",
+  "messageExpiresAt": "Expire à",
+  "messageSandboxBlocked": "Bloqué par le bac à sable",
+  "messageSandboxProxy": "Proxy du bac à sable",
+  "messageReasoning": "Réflexion",
+  "fileMutationOpenDiffDialog": "Ouvrir les différences",
+  "fileMutationUnchangedLines": "{count} lignes inchangées",
+  "@fileMutationUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationCollapseUnchangedLines": "Replier {count} lignes inchangées",
+  "@fileMutationCollapseUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationExpandUnchanged": "Développer le contenu inchangé",
+  "fileMutationCollapseUnchanged": "Replier le contenu inchangé",
+  "fileMutationCollapseDiff": "Replier les différences",
+  "fileMutationExpandRemainingDiff": "Voir toutes les différences ({count} lignes de plus)",
+  "@fileMutationExpandRemainingDiff": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationRevealFile": "Afficher dans le gestionnaire de fichiers",
+  "fileMutationRevealFileFailed": "Impossible d’afficher ce chemin dans le gestionnaire de fichiers.",
+  "fileMutationJumpedBeforeCompression": "Le message précède la compression. Le premier message visible est affiché.",
+  "fileMutationSourceMissing": "Message source introuvable (il a peut-être été supprimé).",
+  "fileMutationExportPickerFailed": "Export interrompu (sélecteur de fichiers indisponible) : {error}",
+  "@fileMutationExportPickerFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationExportCancelled": "Export annulé.",
+  "fileMutationSaveFailed": "Échec de l’enregistrement : {error}",
+  "@fileMutationSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationSavedTo": "Enregistré dans {path}",
+  "@fileMutationSavedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationRoundLoading": "Récapitulatif des modifications en cours…",
+  "fileMutationRoundEmpty": "Aucune modification de fichier dans ce tour.",
+  "fileMutationRoundTitle": "Modifications de fichiers du tour",
+  "fileMutationLineStats": "Lignes ajoutées et supprimées",
+  "fileMutationUndoRound": "Annuler toutes les modifications du tour",
+  "fileMutationExportRound": "Exporter le tour en JSON",
+  "fileMutationRefreshSummary": "Actualiser le récapitulatif",
+  "fileMutationRemainingRows": "Afficher {count} lignes de plus",
+  "@fileMutationRemainingRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationToggleDiff": "Développer / replier les différences",
+  "fileMutationJumpToSource": "Aller à l’appel d’outil source",
+  "fileMutationLoadingDiff": "Chargement des différences…",
+  "fileMutationCreated": "Créés",
+  "fileMutationModified": "Modifiés",
+  "fileMutationDeleted": "Supprimés",
+  "messageFullContentFailed": "Impossible de charger le contenu complet. Réessayez.",
+  "messageStreaming": "Génération en cours",
+  "messageReadAloud": "Lire à voix haute",
+  "messageTranslating": "Traduction en cours",
+  "messageOriginal": "Voir l’original",
+  "messageLike": "J’aime",
+  "messageImprove": "À améliorer",
+  "messageDeleteFromHere": "Supprimer à partir d’ici",
+  "messageAudit": "Audit",
+  "messageShowRendered": "Afficher le rendu",
+  "messageShowRaw": "Afficher la source",
+  "messageOpenBrowser": "Ouvrir dans le navigateur",
+  "messageAttachmentMissing": "Pièce jointe introuvable ou déplacée.",
+  "messageUnsafePath": "Chemin non sûr refusé : {path}",
+  "@messageUnsafePath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "messageOpenFileFailed": "Impossible d’ouvrir le fichier : {error}",
+  "@messageOpenFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageCopyFile": "Copier le fichier",
+  "messageCopying": "Copie en cours…",
+  "messageCopyImage": "Copier l’image",
+  "messageCopyImageUrlFallback": "Impossible de copier l’image. Son adresse a été copiée.",
+  "messageImageLoadFailed": "Impossible de charger l’image",
+  "messageMediaTimedOut": "Chargement expiré. Ouvrez le média avec le lecteur système.",
+  "messageMediaInitFailed": "Impossible d’initialiser l’aperçu. Ouvrez le média avec le lecteur système.",
+  "messageFullscreenPlayback": "Lecture plein écran",
+  "messageMediaUrlCopied": "Adresse du média copiée.",
+  "messageSystemPlayer": "Lecteur système",
+  "messageGoalAutoFollowUp": "Suivi automatique de l’objectif",
+  "messageGoalEvaluationRequest": "Demande d’évaluation de l’objectif",
+  "messageGoalEvaluationResponse": "Réponse d’évaluation de l’objectif",
+  "messageMachineExpertRequest": "Demande à l’expert machine",
+  "messageTerminalBound": "Le terminal cible est associé à cette tâche.",
+  "messageMachineExpert": "Expert machine",
+  "messageTerminal": "Terminal",
+  "messageLocation": "Emplacement",
+  "messageRequest": "Demande",
+  "messageWebEnvironmentBound": "La page cible et l’environnement CDP sont associés à cette tâche.",
+  "messageWebReverse": "Analyse Web",
+  "messageDeliverables": "Livrables",
+  "messageAndroidEnvironmentBound": "L’application cible et le périmètre d’analyse sont associés à cette tâche.",
+  "messageAndroidReverse": "Analyse Android",
+  "messagePackage": "Nom du paquet",
+  "messageApkPath": "Chemin de l’APK",
+  "messageAnalysisMode": "Mode d’analyse",
+  "messageAuthorizationScope": "Périmètre autorisé",
+  "messageCardShortened": "Le contenu est abrégé ; la source complète reste disponible pour l’audit et la copie.",
+  "messageContinueGoal": "Poursuivre l’objectif actuel",
+  "messageVerifyGoal": "Vérifier les preuves de l’objectif",
+  "messageGoalPassed": "Preuves de l’objectif validées",
+  "messageGoalNeedsWork": "Objectif encore à poursuivre",
+  "messageGoalFollowUpDescription": "Le système a envoyé ce message pour poursuivre l’objectif après une évaluation insuffisante.",
+  "messageGoalEvaluatorDescription": "L’évaluateur vérifie l’objectif actuel et la conversation récente pour confirmer son achèvement.",
+  "messageGoalEnoughEvidence": "L’évaluateur a trouvé des preuves suffisantes pour valider l’objectif.",
+  "messageGoalInsufficientEvidence": "L’évaluateur a jugé les preuves insuffisantes et demandé de poursuivre.",
+  "messageEvaluationSummary": "Résumé de l’évaluation",
+  "messageNextStep": "Étape suivante",
+  "messageTokens": "jetons",
+  "messageRecentCount": "{count} récents",
+  "@messageRecentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageTotalTokens": "Total des jetons",
+  "messageKnowledgeFailed": "Échec de la base de connaissances",
+  "messageKnowledgeNoHits": "Aucun résultat dans la base",
+  "messageKnowledgeHits": "Base : {count} résultats",
+  "@messageKnowledgeHits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeHitsTokens": "Base · {count} résultats · {tokens} jetons",
+  "@messageKnowledgeHitsTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeSources": "{count} sources de la base",
+  "@messageKnowledgeSources": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePassed": "Validé",
+  "messageAttachment": "Pièce jointe",
+  "messageSkillName": "Compétence · {name}",
+  "@messageSkillName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "messageFullscreenInitFailed": "Impossible d’initialiser la vidéo plein écran. Revenez et réessayez.",
+  "messageBackEsc": "Retour (Échap)",
+  "messageAcceptance": "Critères d’acceptation",
+  "messageAndroidReverseRequest": "Demande d’analyse Android",
+  "messageCopyMedia": "Copier le média",
+  "messageEvidenceRules": "Règles de collecte des preuves",
+  "messageGoal": "Objectif",
+  "messageOpenSystemApp": "Ouvrir avec l’application système",
+  "messageOpenSystemPlayer": "Ouvrir avec le lecteur système",
+  "messagePreciseTarget": "Cible précise",
+  "messageSaveToDisk": "Enregistrer sur le disque",
+  "messageWebReverseRequest": "Demande d’analyse Web",
+  "messageExpandSummary": "Développer le résumé",
+  "messageCollapseSummary": "Replier le résumé",
+  "messageShowFullContent": "Afficher le contenu complet",
+  "messageCollapseContent": "Replier le contenu",
+  "messageImageMissing": "Image introuvable ou déplacée.",
+  "messageGeneratingHtml": "Génération de la carte HTML",
+  "messageCharacterUnit": " caractères",
+  "messageRole": "Rôle",
+  "messagePhase": "Phase",
+  "messageRoleReader": "Analyste",
+  "messageRolePlanner": "Planificateur",
+  "messageRoleImplementer": "Développeur",
+  "messageRoleReviewer": "Évaluateur",
+  "messagePhaseMetaCollection": "Collecte des métadonnées",
+  "messagePhaseReading": "Analyse",
+  "messagePhasePlanning": "Planification",
+  "messagePhaseImplementing": "Mise en œuvre",
+  "messagePhaseReviewing": "Vérification",
+  "messagePreviousResponse": "Réponse précédente",
+  "messageNextResponse": "Réponse suivante",
+  "messageFileCopied": "Fichier copié dans le presse-papiers.",
+  "messageFilePathCopiedFallback": "La copie de fichiers n’est pas disponible. Le chemin a été copié.",
+  "messageImageCopied": "Image copiée dans le presse-papiers.",
+  "messageImageFileCopied": "Fichier image copié dans le presse-papiers.",
+  "messageImagePathCopiedFallback": "La copie d’images n’est pas disponible. Le chemin a été copié.",
+  "messageMediaFileCopied": "Fichier média copié dans le presse-papiers.",
+  "messageMediaPathCopiedFallback": "La copie de médias n’est pas disponible. Le chemin a été copié.",
+  "messageCopyFailed": "Échec de la copie : {error}",
+  "@messageCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageSaving": "Enregistrement…",
+  "messageSaveCancelled": "Enregistrement annulé.",
+  "messageSaveTimedOut": "Délai d’enregistrement dépassé : {error}",
+  "@messageSaveTimedOut": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageVideos": "Vidéos",
+  "messageAudio": "Audio"
 }

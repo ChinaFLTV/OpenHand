@@ -13,33 +13,23 @@ const Curve _kToolCardMotionCurve = kOpenHandSwitchInCurve;
 const double _kToolStructureSlideOffsetY = 0.06;
 const int _kToolFullContentMaxBytes = 32 * kBytesPerMiB;
 
-class _ToolCallBody extends _ElapsedMessageWidget {
+class _ToolCallBody extends StatefulWidget {
   const _ToolCallBody({
-    required super.message,
+    required this.message,
     required this.sessionId,
     required this.selectable,
   });
 
+  final AiSessionMessage message;
   final String sessionId;
   final bool selectable;
-
-  @override
-  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(message);
-
-  @override
-  bool elapsedTimingChanged(covariant _ToolCallBody oldWidget) {
-    return _toolExecutionTimingChanged(oldWidget.message, message);
-  }
 
   @override
   State<_ToolCallBody> createState() => _ToolCallBodyState();
 }
 
 class _ToolCallBodyState extends State<_ToolCallBody>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        _ForegroundElapsedTicker<_ToolCallBody> {
+    with TickerProviderStateMixin {
   bool? _argumentsExpandedOverride;
   bool? _resultExpandedOverride;
   _ToolCallViewData? _cachedViewData;
@@ -176,7 +166,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
         : Colors.transparent;
     return ClipRect(
-      child: AnimatedSize(
+      child: OpenHandMotionAnimatedSize(
         duration: preExecutionMotionDuration,
         curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,
@@ -247,10 +237,6 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OpenHandToolChip(
-                    icon: toolCall.presentation.icon,
-                    label: toolCall.primaryChipLabel,
-                  ),
                   // 构造与提交阶段平滑切换；执行后移除子项，避免空组件产生双倍间距。
                   if (isPreExecution)
                     AnimatedSwitcher(
@@ -295,44 +281,27 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       label:
                           '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
                     ),
-                  if (toolCall.status.isNotEmpty)
-                    OpenHandToolChip(
-                      icon: toolCall.statusIcon,
-                      label: toolCall.outcomeLabel,
-                    ),
                   if (message.metadata['sandbox_applied'] == true ||
                       message.metadata['sandbox_blocked'] == true ||
                       '${message.metadata['sandbox_unavailable_reason'] ?? ''}'
                           .trim()
                           .isNotEmpty)
-                    Tooltip(
-                      message:
+                    OpenHandToolChip(
+                      tooltip:
                           '${message.metadata['sandbox_unavailable_reason'] ?? message.metadata['sandbox_backend'] ?? ''}',
-                      child: OpenHandToolChip(
-                        icon: message.metadata['sandbox_blocked'] == true
-                            ? Icons.lock_outline_rounded
-                            : Icons.security_rounded,
-                        label: message.metadata['sandbox_blocked'] == true
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '沙盒拦截',
-                                en: 'Sandbox blocked',
-                              )
-                            : '${openHandSandboxLabel(context)}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
-                      ),
+                      icon: message.metadata['sandbox_blocked'] == true
+                          ? Icons.lock_outline_rounded
+                          : Icons.security_rounded,
+                      label: message.metadata['sandbox_blocked'] == true
+                          ? AppLocalizations.of(context)!.messageSandboxBlocked
+                          : '${openHandSandboxLabel(context)}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
                     ),
                   if (message.metadata['sandbox_proxy_enabled'] == true)
-                    Tooltip(
-                      message:
+                    OpenHandToolChip(
+                      tooltip:
                           'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
-                      child: OpenHandToolChip(
-                        icon: Icons.hub_outlined,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '沙盒代理',
-                          en: 'Sandbox proxy',
-                        ),
-                      ),
+                      icon: Icons.hub_outlined,
+                      label: AppLocalizations.of(context)!.messageSandboxProxy,
                     ),
                   if (message.metadata['websearch_cache'] is String)
                     _ToolCacheChip(
@@ -343,8 +312,10 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       expiresAt:
                           message.metadata['websearch_cache_expires_at']
                               as String?,
-                      hitLabel: '缓存命中',
-                      unknownLabelPrefix: '缓存',
+                      hitLabel: AppLocalizations.of(context)!.messageCacheHit,
+                      unknownLabelPrefix: AppLocalizations.of(
+                        context,
+                      )!.messageCache,
                     ),
                   if (message.metadata['webfetch_cache'] is String)
                     _ToolCacheChip(
@@ -355,14 +326,12 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       expiresAt:
                           message.metadata['webfetch_cache_expires_at']
                               as String?,
-                      hitLabel: '抓取缓存命中',
-                      unknownLabelPrefix: '抓取缓存',
-                    ),
-                  if (toolCall.durationMs > 0 || toolCall.status == 'running')
-                    OpenHandToolChip(
-                      icon: Icons.timer_outlined,
-                      label:
-                          '${AppLocalizations.of(context)!.tlCallElapsed}: ${formatCompactDurationMs(toolCall.durationMs)}',
+                      hitLabel: AppLocalizations.of(
+                        context,
+                      )!.messageFetchCacheHit,
+                      unknownLabelPrefix: AppLocalizations.of(
+                        context,
+                      )!.messageFetchCache,
                     ),
                   if (toolCall.exitCode != null)
                     OpenHandToolChip(
@@ -379,21 +348,19 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                           .trim()
                           .isNotEmpty &&
                       toolCall.status == 'running')
-                    Tooltip(
-                      message:
+                    OpenHandToolChip(
+                      tooltip:
                           message.metadata['tool_execution_stall_warning']
                               as String,
-                      child: OpenHandToolChip(
-                        icon: Icons.warning_amber_outlined,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '可能停滞',
-                          zhHant: '可能停滯',
-                          en: 'Possibly stalled',
-                          fr: 'Possiblement bloqué',
-                          de: 'Möglicherweise blockiert',
-                          ja: '停止している可能性',
-                        ),
+                      icon: Icons.warning_amber_outlined,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '可能停滞',
+                        zhHant: '可能停滯',
+                        en: 'Possibly stalled',
+                        fr: 'Possiblement bloqué',
+                        de: 'Möglicherweise blockiert',
+                        ja: '停止している可能性',
                       ),
                     ),
                   // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
@@ -585,9 +552,6 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       message.metadata['tool_execution_exit_code'],
       message.metadata['tool_execution_elapsed_ms'] ??
           message.metadata['tool_execution_duration_ms'],
-      _shouldTickToolExecutionElapsed(message)
-          ? DateTime.now().millisecondsSinceEpoch ~/ 1000
-          : '',
       argumentsExpanded,
       resultExpanded,
     );
@@ -631,21 +595,27 @@ class _ExpandableToolSection extends StatelessWidget {
     final hasPreview = preview.trim().isNotEmpty;
     final motionDuration = cardMotionDurationFor(context, expanding: expanded);
     return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: kOpenHandBorderRadius16,
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius12,
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           _markToolCardInteractiveTap(context);
           onToggle();
         },
-        borderRadius: kOpenHandBorderRadius16,
+        borderRadius: kOpenHandBorderRadius12,
         // 整卡共用同一高度曲线，统一箭头和正文过渡。
-        child: AnimatedSize(
+        child: OpenHandMotionAnimatedSize(
           duration: motionDuration,
           curve: kCardMotionCurve,
           alignment: Alignment.topLeft,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -665,7 +635,7 @@ class _ExpandableToolSection extends StatelessWidget {
                       child: Text(
                         title,
                         style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -700,7 +670,7 @@ class _ExpandableToolSection extends StatelessWidget {
                             preview,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                            style: theme.textTheme.bodySmall?.copyWith(
                               fontFamily: kOpenHandMonospaceFontFamily,
                               height: 1.35,
                             ),
@@ -785,69 +755,35 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: Text(
-                widget.label,
-                style: widget.theme.textTheme.labelLarge?.copyWith(
-                  color: widget.isError
-                      ? widget.theme.colorScheme.error
-                      : widget.theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              widget.label,
+              style: widget.theme.textTheme.labelMedium?.copyWith(
+                color: widget.isError
+                    ? widget.theme.colorScheme.error
+                    : widget.theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (isLong)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    onPressed: _toggleExpanded,
-                    icon: Icon(
-                      _isExpanded
-                          ? Icons.close_fullscreen_rounded
-                          : Icons.open_in_full_rounded,
-                      size: 14,
-                    ),
-                    label: Text(
-                      _isExpanded
-                          ? AppLocalizations.of(
-                              context,
-                            )!.tlCallViewCompressedContent
-                          : AppLocalizations.of(context)!.tlCallViewFullContent,
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(0, 28),
-                      foregroundColor: widget.theme.colorScheme.primary,
-                      textStyle: widget.theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (_isExpanded) ...[
-                    kOpenHandHGap8,
-                    TextButton.icon(
-                      onPressed: () => _showFullContentDialog(context),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                      label: Text(
-                        AppLocalizations.of(context)!.tlCallViewInDialog,
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        minimumSize: const Size(0, 28),
-                        foregroundColor: widget.theme.colorScheme.tertiary,
-                        textStyle: widget.theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              OpenHandMessageActionChip(
+                onPressed: _toggleExpanded,
+                icon: _isExpanded
+                    ? Icons.close_fullscreen_rounded
+                    : Icons.open_in_full_rounded,
+                label: _isExpanded
+                    ? AppLocalizations.of(context)!.tlCallViewCompressedContent
+                    : AppLocalizations.of(context)!.tlCallViewFullContent,
+              ),
+            if (isLong && _isExpanded)
+              OpenHandMessageActionChip(
+                onPressed: () => _showFullContentDialog(context),
+                icon: Icons.open_in_new_rounded,
+                label: AppLocalizations.of(context)!.tlCallViewInDialog,
               ),
           ],
         ),
@@ -869,8 +805,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
 const int _toolOutputPreviewMaxLines = 15;
 const int _toolOutputPreviewMaxChars = 800;
-const String _toolOutputPreviewCollapsedNotice =
-    '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]';
+const String _toolOutputPreviewCollapsedNotice = '\n…';
 
 class _ToolOutputPreview {
   const _ToolOutputPreview({required this.isLong, required this.collapsedText});
@@ -1807,11 +1742,11 @@ class _ToolCacheChip extends StatelessWidget {
         tint = cs.primary;
       case 'miss-stored':
         icon = Icons.cloud_download_outlined;
-        label = '已落盘';
+        label = AppLocalizations.of(context)!.messageCacheStored;
         tint = cs.tertiary;
       case 'disabled':
         icon = Icons.do_disturb_alt_outlined;
-        label = '缓存关闭';
+        label = AppLocalizations.of(context)!.messageCacheDisabled;
         tint = cs.onSurfaceVariant;
       default:
         icon = Icons.help_outline;
@@ -1821,35 +1756,19 @@ class _ToolCacheChip extends StatelessWidget {
     final tooltip = StringBuffer(label);
     if (cachedAt != null && cachedAt!.isNotEmpty) {
       tooltip
-        ..write('\n命中时间：')
+        ..write('\n${AppLocalizations.of(context)!.messageCachedAt}: ')
         ..write(cachedAt);
     }
     if (expiresAt != null && expiresAt!.isNotEmpty) {
       tooltip
-        ..write('\n过期时间：')
+        ..write('\n${AppLocalizations.of(context)!.messageExpiresAt}: ')
         ..write(expiresAt);
     }
-    return Tooltip(
-      message: tooltip.toString(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: tint.withValues(alpha: 0.12),
-          borderRadius: kOpenHandPillBorderRadius,
-          border: Border.all(color: tint.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: tint),
-            kOpenHandHGap6,
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(color: tint),
-            ),
-          ],
-        ),
-      ),
+    return OpenHandToolChip(
+      tooltip: tooltip.toString(),
+      icon: icon,
+      label: label,
+      color: tint,
     );
   }
 }
@@ -1910,32 +1829,13 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
       toolCallId: id,
     );
     if (record == null) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Tooltip(
-      message: AppLocalizations.of(context)!.tlCallStopRequest,
-      child: InkWell(
-        onTap: _busy ? null : _onTap,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: cs.errorContainer.withValues(alpha: 0.55),
-            borderRadius: kOpenHandPillBorderRadius,
-            border: Border.all(color: cs.error.withValues(alpha: 0.45)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _busy ? Icons.hourglass_top : Icons.stop_circle_outlined,
-                size: 14,
-                color: cs.error,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return OpenHandMessageActionChip(
+      onPressed: _onTap,
+      busy: _busy,
+      icon: Icons.stop_circle_outlined,
+      label: openHandStopLabel(context),
+      tooltip: AppLocalizations.of(context)!.tlCallStopRequest,
+      foregroundColor: Theme.of(context).colorScheme.error,
     );
   }
 }
@@ -1997,10 +1897,16 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
       return AnimatedContainer(
         duration: badgeMotionDuration,
         curve: _kToolCardMotionCurve,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        constraints: const BoxConstraints(
+          minHeight: kOpenHandMessageActionChipHeight,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: kOpenHandMessageActionChipHorizontalPadding,
+          vertical: kOpenHandMessageActionChipVerticalPadding,
+        ),
         decoration: BoxDecoration(
           color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
-          borderRadius: kOpenHandPillBorderRadius,
+          borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
           border: Border.all(
             color: baseBorder.withValues(alpha: 0.3 + 0.25 * t),
           ),
@@ -2009,8 +1915,8 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 12,
-              height: 12,
+              width: kOpenHandMessageActionIconSize,
+              height: kOpenHandMessageActionIconSize,
               child: CircularProgressIndicator(
                 strokeWidth: 1.6,
                 value: animationsEnabled ? null : 1,
@@ -2018,9 +1924,16 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
               ),
             ),
             kOpenHandHGap6,
-            Text(
-              widget.label,
-              style: theme.textTheme.labelMedium?.copyWith(color: fg),
+            Flexible(
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
@@ -2142,14 +2055,12 @@ class _ToolCallPresentation {
 
 class _ToolCallViewData {
   const _ToolCallViewData({
-    required this.presentation,
     required this.status,
     required this.command,
     required this.workingDirectory,
     required this.stdout,
     required this.stderr,
     required this.exitCode,
-    required this.durationMs,
     required this.argumentsPreview,
     required this.argumentKeys,
     required this.formattedCommand,
@@ -2159,9 +2070,6 @@ class _ToolCallViewData {
     required this.formattedResult,
     required this.showResultText,
     required this.hasResultContent,
-    required this.statusIcon,
-    required this.primaryChipLabel,
-    required this.outcomeLabel,
     required this.resultPreview,
     this.stdoutFile,
     this.stderrFile,
@@ -2173,15 +2081,6 @@ class _ToolCallViewData {
     bool includeArgumentsContent = true,
     bool includeResultContent = true,
   }) {
-    final presentation = _toolCallPresentation(context, message);
-    final isPreparing = message.metadata['tool_preparing'] == true;
-    final effectivePresentation = isPreparing
-        ? _ToolCallPresentation(
-            categoryLabel: AppLocalizations.of(context)!.tlCallTool,
-            displayName: AppLocalizations.of(context)!.tlCallPreparing,
-            icon: Icons.hourglass_empty_rounded,
-          )
-        : presentation;
     final status = _toolExecutionStatus(message);
     final command = _toolExecutionCommand(message);
     final workingDirectory = _toolExecutionWorkingDirectory(message);
@@ -2189,7 +2088,6 @@ class _ToolCallViewData {
     final stderr = _toolExecutionStderr(message).trimRight();
     final resultText = _toolExecutionResult(message).trimRight();
     final exitCode = _toolExecutionExitCode(message);
-    final durationMs = _toolExecutionDurationMs(message);
     final argumentsPreview = _toolArgumentsPreview(message);
     final argumentKeys = _parseArgumentKeys(
       '${message.metadata['tool_arguments'] ?? ''}',
@@ -2232,14 +2130,12 @@ class _ToolCallViewData {
     final stderrFile = '${message.metadata['tool_execution_stderr_file'] ?? ''}'
         .trim();
     final viewData = _ToolCallViewData(
-      presentation: effectivePresentation,
       status: status,
       command: command,
       workingDirectory: workingDirectory,
       stdout: stdout,
       stderr: stderr,
       exitCode: exitCode,
-      durationMs: durationMs,
       argumentsPreview: argumentsPreview,
       argumentKeys: argumentKeys,
       formattedCommand: formattedCommand,
@@ -2251,9 +2147,6 @@ class _ToolCallViewData {
       hasResultContent: hasResultContent,
       stdoutFile: stdoutFile.isNotEmpty ? stdoutFile : null,
       stderrFile: stderrFile.isNotEmpty ? stderrFile : null,
-      statusIcon: _toolExecutionStatusIcon(status),
-      primaryChipLabel: _buildPrimaryChipLabel(context, effectivePresentation),
-      outcomeLabel: _toolExecutionOutcomeLabel(context, status),
       resultPreview: _toolExecutionPreviewText(
         context,
         status: status,
@@ -2265,14 +2158,12 @@ class _ToolCallViewData {
     return viewData;
   }
 
-  final _ToolCallPresentation presentation;
   final String status;
   final String command;
   final String workingDirectory;
   final String stdout;
   final String stderr;
   final int? exitCode;
-  final int durationMs;
   final String argumentsPreview;
 
   /// 流式构造期间已解析的顶层参数名。
@@ -2284,9 +2175,6 @@ class _ToolCallViewData {
   final _FormattedToolContent formattedResult;
   final bool showResultText;
   final bool hasResultContent;
-  final IconData statusIcon;
-  final String primaryChipLabel;
-  final String outcomeLabel;
   final String resultPreview;
 
   /// 标准输出被截断时保存完整内容的文件路径。
@@ -2522,23 +2410,6 @@ IconData _toolExecutionStatusIcon(String status) {
   };
 }
 
-/// 构建紧凑工具标签，去除相同名称及通用“工具”前缀的重复展示。
-String _buildPrimaryChipLabel(
-  BuildContext context,
-  _ToolCallPresentation presentation,
-) {
-  final category = presentation.categoryLabel.trim();
-  final display = presentation.displayName.trim();
-  if (category.isEmpty || category == display) {
-    return display.isEmpty ? category : display;
-  }
-  final genericCategory = AppLocalizations.of(context)!.tlCallTool;
-  if (category == genericCategory) {
-    return display.isEmpty ? category : display;
-  }
-  return '$category: $display';
-}
-
 _ToolCallPresentation _toolCallPresentation(
   BuildContext context,
   AiSessionMessage message,
@@ -2586,96 +2457,44 @@ _ToolCallPresentation _toolCallPresentation(
       icon: Icons.account_tree_outlined,
     );
   }
-  return switch (normalizedToolName) {
-    'bash' => const _ToolCallPresentation(
-      categoryLabel: 'Bash',
-      displayName: 'Bash',
-      icon: Icons.terminal_rounded,
-      isCommandLike: true,
-    ),
-    'grep' => const _ToolCallPresentation(
-      categoryLabel: 'Grep',
-      displayName: 'Grep',
-      icon: Icons.manage_search_rounded,
-    ),
-    'ls' => const _ToolCallPresentation(
-      categoryLabel: 'LS',
-      displayName: 'LS',
-      icon: Icons.folder_open_rounded,
-    ),
-    'read' => const _ToolCallPresentation(
-      categoryLabel: 'Read',
-      displayName: 'Read',
-      icon: Icons.article_outlined,
-    ),
-    'write' => const _ToolCallPresentation(
-      categoryLabel: 'Write',
-      displayName: 'Write',
-      icon: Icons.edit_note_rounded,
-    ),
-    'edit' => const _ToolCallPresentation(
-      categoryLabel: 'Edit',
-      displayName: 'Edit',
-      icon: Icons.edit_outlined,
-    ),
-    'multiedit' => const _ToolCallPresentation(
-      categoryLabel: 'MultiEdit',
-      displayName: 'MultiEdit',
-      icon: Icons.edit_note_outlined,
-    ),
-    'notebookedit' => const _ToolCallPresentation(
-      categoryLabel: 'NotebookEdit',
-      displayName: 'NotebookEdit',
-      icon: Icons.menu_book_outlined,
-    ),
-    'webfetch' => const _ToolCallPresentation(
-      categoryLabel: 'WebFetch',
-      displayName: 'WebFetch',
-      icon: Icons.language_rounded,
-    ),
-    'websearch' => const _ToolCallPresentation(
-      categoryLabel: 'WebSearch',
-      displayName: 'WebSearch',
-      icon: Icons.travel_explore_rounded,
-    ),
-    'todowrite' => const _ToolCallPresentation(
-      categoryLabel: 'TodoWrite',
-      displayName: 'TodoWrite',
-      icon: Icons.checklist_rounded,
-    ),
-    'task' => const _ToolCallPresentation(
-      categoryLabel: 'Task',
-      displayName: 'Task',
-      icon: Icons.hub_outlined,
-    ),
-    'glob' => const _ToolCallPresentation(
-      categoryLabel: 'Glob',
-      displayName: 'Glob',
-      icon: Icons.filter_alt_outlined,
-    ),
-    'exitplanmode' => const _ToolCallPresentation(
-      categoryLabel: 'ExitPlanMode',
-      displayName: 'ExitPlanMode',
-      icon: Icons.assignment_turned_in_outlined,
-    ),
-    'askuserchoice' => const _ToolCallPresentation(
-      categoryLabel: 'AskUserChoice',
-      displayName: 'AskUserChoice',
-      icon: Icons.quiz_outlined,
-    ),
-    'toolsearch' => const _ToolCallPresentation(
-      categoryLabel: 'ToolSearch',
-      displayName: 'ToolSearch',
-      icon: Icons.search_rounded,
-    ),
-    _ => _ToolCallPresentation(
-      categoryLabel: AppLocalizations.of(context)!.tlCallTool,
-      displayName: rawToolName.isEmpty
-          ? AppLocalizations.of(context)!.tlCallTool
-          : rawToolName,
-      icon: Icons.build_circle_outlined,
-    ),
-  };
+  final displayName = openHandToolDisplayName(context, rawToolName);
+  return _ToolCallPresentation(
+    categoryLabel: displayName,
+    displayName: displayName,
+    isCommandLike:
+        normalizedToolName == 'bash' ||
+        normalizedToolName == 'machineterminalexec' ||
+        normalizedToolName == 'terminalexec',
+    icon: switch (normalizedToolName) {
+      'bash' ||
+      'bashbackground' ||
+      'machineterminalexec' ||
+      'terminalexec' ||
+      'machineterminalwrite' ||
+      'terminalwrite' ||
+      'machineterminalread' ||
+      'terminalread' ||
+      'machineterminalcontrol' ||
+      'terminalcontrol' => Icons.terminal_rounded,
+      'grep' ||
+      'glob' ||
+      'codebasesearch' ||
+      'toolsearch' => Icons.manage_search_rounded,
+      'ls' => Icons.folder_open_rounded,
+      'read' || 'knowledgeread' => Icons.article_outlined,
+      'write' ||
+      'edit' ||
+      'multiedit' ||
+      'applyfilediffs' => Icons.edit_note_rounded,
+      'notebookedit' => Icons.menu_book_outlined,
+      'webfetch' || 'websearch' => Icons.language_rounded,
+      'todowrite' => Icons.checklist_rounded,
+      'task' => Icons.hub_outlined,
+      'exitplanmode' => Icons.assignment_turned_in_outlined,
+      'askuserchoice' => Icons.quiz_outlined,
+      _ => Icons.build_circle_outlined,
+    },
+  );
 }
 
 class _FormattedToolContent {
@@ -3109,28 +2928,6 @@ String _toolCallStatusActionLabel(
           : AppLocalizations.of(context)!.tlCallFailedAlt),
     'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
     _ => AppLocalizations.of(context)!.tlCallToolCall,
-  };
-}
-
-String _toolExecutionOutcomeLabel(BuildContext context, String status) {
-  return switch (status.toLowerCase()) {
-    'running' ||
-    'pending' ||
-    'in_progress' => AppLocalizations.of(context)!.tlCallRunning,
-    'cancelled' ||
-    'canceled' ||
-    'aborted' => AppLocalizations.of(context)!.tlCallStopped,
-    'success' ||
-    'ok' ||
-    'completed' => AppLocalizations.of(context)!.tlCallSucceeded,
-    'denied' || 'blocked' => AppLocalizations.of(context)!.tlCallDenied,
-    'rejected' => AppLocalizations.of(context)!.tlCallRejected,
-    'timed_out' => AppLocalizations.of(context)!.tlCallTimedOut,
-    'failed' ||
-    'failure' ||
-    'error' => AppLocalizations.of(context)!.tlCallFailed,
-    'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
-    _ => status,
   };
 }
 
@@ -3735,7 +3532,7 @@ class _SelfLearningMarkdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ClipRect(
-      child: AnimatedSize(
+      child: OpenHandMotionAnimatedSize(
         duration: openHandMotionDuration(context, _kToolCompactMotionDuration),
         curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,

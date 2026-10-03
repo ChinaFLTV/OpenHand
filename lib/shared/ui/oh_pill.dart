@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'micro_press_feedback.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'openhand_message_action_chip.dart';
 import 'openhand_spacing.dart';
 
 const Radius kOpenHandPillRadius = Radius.circular(999);
@@ -371,63 +372,94 @@ class OpenHandRowEditDeleteActions extends StatelessWidget {
 
 /// 工具执行状态胶囊；图标随状态平滑切换。
 class OpenHandToolChip extends StatelessWidget {
-  const OpenHandToolChip({super.key, required this.icon, required this.label});
+  const OpenHandToolChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.color,
+    this.tooltip,
+  });
 
   final IconData icon;
   final String label;
+  final Color? color;
+  final String? tooltip;
 
   /// 图标切换时长：状态在 preparing → running → done 之间流转，硬切会很跳。
   static const Duration _kIconMorphDuration = kOpenHandMotion220;
 
-  static const double _kIconSize = 14;
+  static const double _kIconSize = kOpenHandMessageActionIconSize;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 淡入 + 90° 旋转的同位切换，让状态流转看起来是一次形变而不是硬切。
-          // key 取图标码点，AnimatedSwitcher 才认得出「换了一个图标」。
-          AnimatedSwitcher(
-            duration: openHandMotionDuration(context, _kIconMorphDuration),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: RotationTransition(
-                turns: Tween<double>(begin: -0.25, end: 0).animate(animation),
-                child: child,
+    final colors = theme.colorScheme;
+    final foreground = color ?? colors.onSurfaceVariant;
+    return Tooltip(
+      message: tooltip ?? label,
+      child: Container(
+        constraints: const BoxConstraints(
+          minHeight: kOpenHandMessageActionChipHeight,
+          maxWidth: 360,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: kOpenHandMessageActionChipHorizontalPadding,
+          vertical: kOpenHandMessageActionChipVerticalPadding,
+        ),
+        decoration: BoxDecoration(
+          color: color == null
+              ? colors.surfaceContainerLow
+              : foreground.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(kOpenHandMessageActionChipRadius),
+          border: Border.all(
+            color: color == null
+                ? colors.outlineVariant.withValues(alpha: 0.55)
+                : foreground.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 淡入 + 90° 旋转的同位切换，让状态流转看起来是一次形变而不是硬切。
+            // key 取图标码点，AnimatedSwitcher 才认得出「换了一个图标」。
+            AnimatedSwitcher(
+              duration: openHandMotionDuration(context, _kIconMorphDuration),
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: RotationTransition(
+                  turns: Tween<double>(begin: -0.25, end: 0).animate(animation),
+                  child: child,
+                ),
+              ),
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.center,
+                children: <Widget>[...previous, if (current != null) current],
+              ),
+              child: Icon(
+                icon,
+                size: _kIconSize,
+                color: foreground,
+                key: ValueKey<int>(icon.codePoint),
               ),
             ),
-            layoutBuilder: (current, previous) => Stack(
-              alignment: Alignment.center,
-              children: <Widget>[...previous, if (current != null) current],
+            kOpenHandHGap6,
+            // 工作目录、耗时这类长文案在窄 Wrap 行里会撑爆 chip 触发 RenderFlex
+            // 溢出；缩略展示并让上层 Wrap 自行换行。
+            Flexible(
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            child: Icon(
-              icon,
-              size: _kIconSize,
-              key: ValueKey<int>(icon.codePoint),
-            ),
-          ),
-          kOpenHandHGap6,
-          // 工作目录、耗时这类长文案在窄 Wrap 行里会撑爆 chip 触发 RenderFlex
-          // 溢出；缩略展示并让上层 Wrap 自行换行。
-          Flexible(
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

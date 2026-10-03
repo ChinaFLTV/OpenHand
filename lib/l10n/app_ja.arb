@@ -9995,5 +9995,321 @@
   "maintenanceRuntimeMappedContainerId": "コンテナ側の開始 ID",
   "maintenanceRuntimeMappedHostId": "ホスト側の開始 ID",
   "maintenanceRuntimeMappedIdCount": "マッピングする ID 数",
-  "maintenanceRuntimeExpectedBuild": "想定ビルド"
+  "maintenanceRuntimeExpectedBuild": "想定ビルド",
+  "messageToolNameTask": "タスクを委任",
+  "messageToolNameBash": "コマンド実行",
+  "messageToolNameBashBackground": "バックグラウンド実行",
+  "messageToolNameTaskOutput": "タスク出力",
+  "messageToolNameTaskStop": "タスク停止",
+  "messageToolNameGlob": "ファイル検索",
+  "messageToolNameGrep": "内容検索",
+  "messageToolNameLs": "ディレクトリ閲覧",
+  "messageToolNameExitPlanMode": "計画を提出",
+  "messageToolNameEndVoiceConversation": "音声会話を終了",
+  "messageToolNameRead": "ファイル読取",
+  "messageToolNameEdit": "ファイル編集",
+  "messageToolNameMultiEdit": "一括編集",
+  "messageToolNameApplyFileDiffs": "ファイルパッチ適用",
+  "messageToolNameWrite": "ファイル書込",
+  "messageToolNameNotebookEdit": "ノートブック編集",
+  "messageToolNameWebFetch": "ウェブページ取得",
+  "messageToolNameTodoWrite": "タスク更新",
+  "messageToolNameWebSearch": "ウェブ検索",
+  "messageToolNameLsp": "コードナビゲーション",
+  "messageToolNameCodebaseSearch": "コードベース検索",
+  "messageToolNameGit": "バージョン管理",
+  "messageToolNameDeleteFile": "ファイル削除",
+  "messageToolNameReadLints": "診断を確認",
+  "messageToolNameAskUserChoice": "選択を依頼",
+  "messageToolNameSkillManager": "スキル管理",
+  "messageToolNameToolSearch": "ツール検索",
+  "messageToolNameMemory": "メモリ管理",
+  "messageToolNameKnowledgeSearch": "ナレッジ検索",
+  "messageToolNameKnowledgeRead": "ナレッジ読取",
+  "messageToolNameWorkflowList": "ワークフロー一覧",
+  "messageToolNameWorkflowDetail": "ワークフロー詳細",
+  "messageToolNameWorkflowExecute": "ワークフロー実行",
+  "messageToolNameWorkflowExecutionStatus": "ワークフロー状態",
+  "messageToolNameCronCreate": "スケジュール作成",
+  "messageToolNameCronEdit": "スケジュール編集",
+  "messageToolNameCronDelete": "スケジュール削除",
+  "messageToolNameCronEnable": "スケジュール有効化",
+  "messageToolNameCronDisable": "スケジュール無効化",
+  "messageToolNameMachineTerminalRead": "ターミナル読取",
+  "messageToolNameMachineTerminalWrite": "ターミナル入力",
+  "messageToolNameMachineTerminalExec": "ターミナル実行",
+  "messageToolNameMachineTerminalControl": "ターミナル操作",
+  "messageToolNameDingTalkToolSearch": "DingTalkツール検索",
+  "messageToolNameDingtalkDws": "DingTalkワークスペース",
+  "messageToolNameDingtalkImageGeneration": "画像生成",
+  "messageToolNameDingtalkVideoGeneration": "動画生成",
+  "messageToolNameDingtalkAudioGeneration": "音声生成",
+  "messageToolNameDownloadFile": "ファイルダウンロード",
+  "messageLoadFullContent": "全文を読み込む",
+  "messageLoadingContent": "読込中",
+  "messageCacheHit": "キャッシュヒット",
+  "messageFetchCacheHit": "取得キャッシュヒット",
+  "messageCache": "キャッシュ",
+  "messageFetchCache": "取得キャッシュ",
+  "messageCacheStored": "キャッシュ済み",
+  "messageCacheDisabled": "キャッシュ無効",
+  "messageCachedAt": "キャッシュ日時",
+  "messageExpiresAt": "有効期限",
+  "messageSandboxBlocked": "サンドボックスでブロック",
+  "messageSandboxProxy": "サンドボックスプロキシ",
+  "messageReasoning": "思考",
+  "fileMutationOpenDiffDialog": "差分をダイアログで開く",
+  "fileMutationUnchangedLines": "未変更の {count} 行",
+  "@fileMutationUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationCollapseUnchangedLines": "未変更の {count} 行を折りたたむ",
+  "@fileMutationCollapseUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationExpandUnchanged": "未変更の内容を展開",
+  "fileMutationCollapseUnchanged": "未変更の内容を折りたたむ",
+  "fileMutationCollapseDiff": "差分を折りたたむ",
+  "fileMutationExpandRemainingDiff": "差分をすべて表示（残り {count} 行）",
+  "@fileMutationExpandRemainingDiff": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationRevealFile": "ファイルマネージャーで表示",
+  "fileMutationRevealFileFailed": "このパスをファイルマネージャーで表示できません。",
+  "fileMutationJumpedBeforeCompression": "対象メッセージは圧縮点より前です。最も古い表示可能なメッセージに移動しました。",
+  "fileMutationSourceMissing": "元のメッセージが見つかりません（削除された可能性があります）。",
+  "fileMutationExportPickerFailed": "書き出しを中止しました（ファイル選択が利用できません）：{error}",
+  "@fileMutationExportPickerFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationExportCancelled": "書き出しをキャンセルしました。",
+  "fileMutationSaveFailed": "保存に失敗しました：{error}",
+  "@fileMutationSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationSavedTo": "{path} に保存しました",
+  "@fileMutationSavedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationRoundLoading": "このラウンドのファイル変更を集計中…",
+  "fileMutationRoundEmpty": "このラウンドのファイル変更はありません。",
+  "fileMutationRoundTitle": "このラウンドのファイル変更",
+  "fileMutationLineStats": "行の追加・削除数",
+  "fileMutationUndoRound": "このラウンドの変更をすべて元に戻す",
+  "fileMutationExportRound": "このラウンドを JSON で書き出す",
+  "fileMutationRefreshSummary": "集計を更新",
+  "fileMutationRemainingRows": "残り {count} 行を表示",
+  "@fileMutationRemainingRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationToggleDiff": "差分プレビューを展開／折りたたむ",
+  "fileMutationJumpToSource": "この変更を生成したツール呼び出しに移動",
+  "fileMutationLoadingDiff": "差分を読み込み中…",
+  "fileMutationCreated": "作成",
+  "fileMutationModified": "変更",
+  "fileMutationDeleted": "削除",
+  "messageFullContentFailed": "全文を読み込めませんでした。再試行してください。",
+  "messageStreaming": "生成中",
+  "messageReadAloud": "読み上げ",
+  "messageTranslating": "翻訳中",
+  "messageOriginal": "原文を表示",
+  "messageLike": "高評価",
+  "messageImprove": "改善が必要",
+  "messageDeleteFromHere": "ここから先を削除",
+  "messageAudit": "監査",
+  "messageShowRendered": "レンダリングを表示",
+  "messageShowRaw": "ソースを表示",
+  "messageOpenBrowser": "ブラウザーで開く",
+  "messageAttachmentMissing": "添付ファイルが見つからないか、移動されています。",
+  "messageUnsafePath": "安全でないパスを拒否しました：{path}",
+  "@messageUnsafePath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "messageOpenFileFailed": "ファイルを開けませんでした：{error}",
+  "@messageOpenFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageCopyFile": "ファイルをコピー",
+  "messageCopying": "コピー中…",
+  "messageCopyImage": "画像をコピー",
+  "messageCopyImageUrlFallback": "画像データをコピーできないため、画像の URL をコピーしました。",
+  "messageImageLoadFailed": "画像を読み込めませんでした",
+  "messageMediaTimedOut": "読み込みがタイムアウトしました。システムプレーヤーで開いてください。",
+  "messageMediaInitFailed": "メディアプレビューを初期化できませんでした。システムプレーヤーで開いてください。",
+  "messageFullscreenPlayback": "全画面再生",
+  "messageMediaUrlCopied": "メディアの URL をコピーしました。",
+  "messageSystemPlayer": "システムプレーヤー",
+  "messageGoalAutoFollowUp": "目標の自動継続",
+  "messageGoalEvaluationRequest": "目標評価のリクエスト",
+  "messageGoalEvaluationResponse": "目標評価の応答",
+  "messageMachineExpertRequest": "マシンエキスパートへのリクエスト",
+  "messageTerminalBound": "対象のターミナルがこのタスクに接続されています。",
+  "messageMachineExpert": "マシンエキスパート",
+  "messageTerminal": "ターミナル",
+  "messageLocation": "場所",
+  "messageRequest": "リクエスト",
+  "messageWebEnvironmentBound": "対象ページと CDP 環境がこのタスクに接続されています。",
+  "messageWebReverse": "Web 解析",
+  "messageDeliverables": "成果物",
+  "messageAndroidEnvironmentBound": "対象アプリと解析範囲がこのタスクに設定されています。",
+  "messageAndroidReverse": "Android 解析",
+  "messagePackage": "パッケージ名",
+  "messageApkPath": "APK のパス",
+  "messageAnalysisMode": "解析モード",
+  "messageAuthorizationScope": "許可範囲",
+  "messageCardShortened": "カードの内容は省略されています。監査とコピーでは全文を確認できます。",
+  "messageContinueGoal": "現在の目標を継続",
+  "messageVerifyGoal": "目標の達成証拠を検証",
+  "messageGoalPassed": "目標の証拠を確認済み",
+  "messageGoalNeedsWork": "目標にはさらなる作業が必要",
+  "messageGoalFollowUpDescription": "評価で証拠が不足していたため、ランタイムが目標を継続するメッセージを自動送信しました。",
+  "messageGoalEvaluatorDescription": "評価モデルは現在の目標と最近の会話を確認し、達成の証拠が十分か判断します。",
+  "messageGoalEnoughEvidence": "評価モデルは目標達成の証拠が十分と判断しました。",
+  "messageGoalInsufficientEvidence": "評価モデルは証拠が不足していると判断し、継続作業を要求しました。",
+  "messageEvaluationSummary": "評価の要約",
+  "messageNextStep": "次のステップ",
+  "messageTokens": "トークン",
+  "messageRecentCount": "最近の {count} 件",
+  "@messageRecentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageTotalTokens": "合計トークン数",
+  "messageKnowledgeFailed": "ナレッジベースの取得に失敗",
+  "messageKnowledgeNoHits": "ナレッジベースの該当なし",
+  "messageKnowledgeHits": "ナレッジベース {count} 件",
+  "@messageKnowledgeHits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeHitsTokens": "ナレッジベース · {count} 件 · {tokens} トークン",
+  "@messageKnowledgeHitsTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeSources": "ナレッジベースの参照 {count} 件",
+  "@messageKnowledgeSources": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePassed": "合格",
+  "messageAttachment": "添付",
+  "messageSkillName": "スキル · {name}",
+  "@messageSkillName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "messageFullscreenInitFailed": "全画面動画を初期化できませんでした。戻って再試行してください。",
+  "messageBackEsc": "戻る（Esc）",
+  "messageAcceptance": "受け入れ基準",
+  "messageAndroidReverseRequest": "Android 解析のリクエスト",
+  "messageCopyMedia": "メディアをコピー",
+  "messageEvidenceRules": "証拠収集のルール",
+  "messageGoal": "目標",
+  "messageOpenSystemApp": "システムアプリで開く",
+  "messageOpenSystemPlayer": "システムプレーヤーで開く",
+  "messagePreciseTarget": "正確な対象",
+  "messageSaveToDisk": "ローカルに保存",
+  "messageWebReverseRequest": "Web 解析のリクエスト",
+  "messageExpandSummary": "要約を展開",
+  "messageCollapseSummary": "要約を折りたたむ",
+  "messageShowFullContent": "全文を表示",
+  "messageCollapseContent": "内容を折りたたむ",
+  "messageImageMissing": "画像ファイルが見つからないか、移動されています。",
+  "messageGeneratingHtml": "HTML カードを生成中",
+  "messageCharacterUnit": " 文字",
+  "messageRole": "役割",
+  "messagePhase": "段階",
+  "messageRoleReader": "調査担当",
+  "messageRolePlanner": "計画担当",
+  "messageRoleImplementer": "実装担当",
+  "messageRoleReviewer": "検証担当",
+  "messagePhaseMetaCollection": "メタデータ収集",
+  "messagePhaseReading": "調査",
+  "messagePhasePlanning": "計画",
+  "messagePhaseImplementing": "実装",
+  "messagePhaseReviewing": "検証",
+  "messagePreviousResponse": "前の応答",
+  "messageNextResponse": "次の応答",
+  "messageFileCopied": "ファイルをクリップボードにコピーしました。",
+  "messageFilePathCopiedFallback": "ファイルの直接コピーに対応していないため、パスをコピーしました。",
+  "messageImageCopied": "画像をクリップボードにコピーしました。",
+  "messageImageFileCopied": "画像ファイルをクリップボードにコピーしました。",
+  "messageImagePathCopiedFallback": "画像ファイルの直接コピーに対応していないため、パスをコピーしました。",
+  "messageMediaFileCopied": "メディアファイルをクリップボードにコピーしました。",
+  "messageMediaPathCopiedFallback": "メディアファイルの直接コピーに対応していないため、パスをコピーしました。",
+  "messageCopyFailed": "コピーに失敗しました：{error}",
+  "@messageCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageSaving": "保存中…",
+  "messageSaveCancelled": "保存をキャンセルしました。",
+  "messageSaveTimedOut": "保存がタイムアウトしました：{error}",
+  "@messageSaveTimedOut": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageVideos": "動画",
+  "messageAudio": "音声"
 }

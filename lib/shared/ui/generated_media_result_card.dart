@@ -305,6 +305,10 @@ class _GeneratedVideoResultCard extends StatelessWidget {
           context,
           zh: '打开视频预览：$title',
           en: 'Open video preview: $title',
+          zhHant: '開啟影片預覽：$title',
+          fr: 'Ouvrir l’aperçu vidéo : $title',
+          de: 'Videovorschau öffnen: $title',
+          ja: '動画プレビューを開く：$title',
         ),
         child: Material(
           color: Colors.transparent,
@@ -347,27 +351,13 @@ class _GeneratedVideoResultCard extends StatelessWidget {
                                 )
                               : const DecoratedBox(
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xC7000000),
-                                        Color(0xEB000000),
-                                      ],
-                                    ),
+                                    color: Color(0xEB000000),
                                   ),
                                 ),
                         ),
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0),
-                                Colors.black.withValues(alpha: 0.35),
-                              ],
-                            ),
+                            color: Colors.black.withValues(alpha: 0.12),
                           ),
                         ),
                         Center(
@@ -488,9 +478,7 @@ class _GeneratedAudioCardStyle {
     required this.surface,
     required this.border,
     required this.borderHover,
-    required this.bannerStart,
     required this.bannerMid,
-    required this.bannerEnd,
     required this.bannerStroke,
     required this.bannerPattern,
     required this.coverForeground,
@@ -525,16 +513,8 @@ class _GeneratedAudioCardStyle {
       surface: surface,
       border: colors.outlineVariant.withValues(alpha: isDark ? 0.36 : 0.62),
       borderHover: colors.primary.withValues(alpha: isDark ? 0.54 : 0.42),
-      bannerStart: Color.alphaBlend(
-        meta.primaryColor.withValues(alpha: isDark ? 0.18 : 0.12),
-        colors.surfaceContainerHighest,
-      ),
       bannerMid: Color.alphaBlend(
         meta.accentColor.withValues(alpha: isDark ? 0.13 : 0.10),
-        colors.surfaceContainerHigh,
-      ),
-      bannerEnd: Color.alphaBlend(
-        colors.primary.withValues(alpha: isDark ? 0.08 : 0.045),
         colors.surfaceContainerHigh,
       ),
       bannerStroke: colors.outlineVariant.withValues(
@@ -556,9 +536,7 @@ class _GeneratedAudioCardStyle {
   final Color surface;
   final Color border;
   final Color borderHover;
-  final Color bannerStart;
   final Color bannerMid;
-  final Color bannerEnd;
   final Color bannerStroke;
   final Color bannerPattern;
   final Color coverForeground;
@@ -638,6 +616,10 @@ class _GeneratedAudioResultCardState extends State<_GeneratedAudioResultCard>
             context,
             zh: '打开音频预览：${widget.title}',
             en: 'Open audio preview: ${widget.title}',
+            zhHant: '開啟音訊預覽：${widget.title}',
+            fr: 'Ouvrir l’aperçu audio : ${widget.title}',
+            de: 'Audiovorschau öffnen: ${widget.title}',
+            ja: '音声プレビューを開く：${widget.title}',
           ),
           child: AnimatedBuilder(
             animation: _hoverController,
@@ -703,15 +685,7 @@ class _GeneratedAudioResultCardState extends State<_GeneratedAudioResultCard>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [style.bannerStart, style.bannerMid, style.bannerEnd],
-              ),
-            ),
-          ),
+          DecoratedBox(decoration: BoxDecoration(color: style.bannerMid)),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -846,23 +820,9 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: radius,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.alphaBlend(
-                  meta.primaryColor.withValues(alpha: 0.12),
-                  colors.surfaceContainerHighest,
-                ),
-                Color.alphaBlend(
-                  meta.accentColor.withValues(alpha: 0.10),
-                  colors.surfaceContainerHighest,
-                ),
-                Color.alphaBlend(
-                  colors.primary.withValues(alpha: 0.045),
-                  colors.surfaceContainerHigh,
-                ),
-              ],
+            color: Color.alphaBlend(
+              meta.primaryColor.withValues(alpha: 0.10),
+              colors.surfaceContainerHighest,
             ),
           ),
           child: Stack(

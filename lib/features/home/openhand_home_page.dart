@@ -87,6 +87,7 @@ import '../../shared/ui/markdown_surface_tones.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
+import '../../shared/ui/motion_animated_size.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
@@ -166,6 +167,7 @@ import '../../shared/util/text_fingerprint.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/text_search.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/tool_display_name.dart';
 import '../../shared/util/tool_name_normalization.dart';
 import '../../shared/util/transcript_list_windowing.dart';
 import '../../shared/util/unified_diff.dart'

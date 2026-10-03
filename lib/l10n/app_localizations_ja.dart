@@ -16073,4 +16073,647 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maintenanceRuntimeExpectedBuild => '想定ビルド';
+
+  @override
+  String get messageToolNameTask => 'タスクを委任';
+
+  @override
+  String get messageToolNameBash => 'コマンド実行';
+
+  @override
+  String get messageToolNameBashBackground => 'バックグラウンド実行';
+
+  @override
+  String get messageToolNameTaskOutput => 'タスク出力';
+
+  @override
+  String get messageToolNameTaskStop => 'タスク停止';
+
+  @override
+  String get messageToolNameGlob => 'ファイル検索';
+
+  @override
+  String get messageToolNameGrep => '内容検索';
+
+  @override
+  String get messageToolNameLs => 'ディレクトリ閲覧';
+
+  @override
+  String get messageToolNameExitPlanMode => '計画を提出';
+
+  @override
+  String get messageToolNameEndVoiceConversation => '音声会話を終了';
+
+  @override
+  String get messageToolNameRead => 'ファイル読取';
+
+  @override
+  String get messageToolNameEdit => 'ファイル編集';
+
+  @override
+  String get messageToolNameMultiEdit => '一括編集';
+
+  @override
+  String get messageToolNameApplyFileDiffs => 'ファイルパッチ適用';
+
+  @override
+  String get messageToolNameWrite => 'ファイル書込';
+
+  @override
+  String get messageToolNameNotebookEdit => 'ノートブック編集';
+
+  @override
+  String get messageToolNameWebFetch => 'ウェブページ取得';
+
+  @override
+  String get messageToolNameTodoWrite => 'タスク更新';
+
+  @override
+  String get messageToolNameWebSearch => 'ウェブ検索';
+
+  @override
+  String get messageToolNameLsp => 'コードナビゲーション';
+
+  @override
+  String get messageToolNameCodebaseSearch => 'コードベース検索';
+
+  @override
+  String get messageToolNameGit => 'バージョン管理';
+
+  @override
+  String get messageToolNameDeleteFile => 'ファイル削除';
+
+  @override
+  String get messageToolNameReadLints => '診断を確認';
+
+  @override
+  String get messageToolNameAskUserChoice => '選択を依頼';
+
+  @override
+  String get messageToolNameSkillManager => 'スキル管理';
+
+  @override
+  String get messageToolNameToolSearch => 'ツール検索';
+
+  @override
+  String get messageToolNameMemory => 'メモリ管理';
+
+  @override
+  String get messageToolNameKnowledgeSearch => 'ナレッジ検索';
+
+  @override
+  String get messageToolNameKnowledgeRead => 'ナレッジ読取';
+
+  @override
+  String get messageToolNameWorkflowList => 'ワークフロー一覧';
+
+  @override
+  String get messageToolNameWorkflowDetail => 'ワークフロー詳細';
+
+  @override
+  String get messageToolNameWorkflowExecute => 'ワークフロー実行';
+
+  @override
+  String get messageToolNameWorkflowExecutionStatus => 'ワークフロー状態';
+
+  @override
+  String get messageToolNameCronCreate => 'スケジュール作成';
+
+  @override
+  String get messageToolNameCronEdit => 'スケジュール編集';
+
+  @override
+  String get messageToolNameCronDelete => 'スケジュール削除';
+
+  @override
+  String get messageToolNameCronEnable => 'スケジュール有効化';
+
+  @override
+  String get messageToolNameCronDisable => 'スケジュール無効化';
+
+  @override
+  String get messageToolNameMachineTerminalRead => 'ターミナル読取';
+
+  @override
+  String get messageToolNameMachineTerminalWrite => 'ターミナル入力';
+
+  @override
+  String get messageToolNameMachineTerminalExec => 'ターミナル実行';
+
+  @override
+  String get messageToolNameMachineTerminalControl => 'ターミナル操作';
+
+  @override
+  String get messageToolNameDingTalkToolSearch => 'DingTalkツール検索';
+
+  @override
+  String get messageToolNameDingtalkDws => 'DingTalkワークスペース';
+
+  @override
+  String get messageToolNameDingtalkImageGeneration => '画像生成';
+
+  @override
+  String get messageToolNameDingtalkVideoGeneration => '動画生成';
+
+  @override
+  String get messageToolNameDingtalkAudioGeneration => '音声生成';
+
+  @override
+  String get messageToolNameDownloadFile => 'ファイルダウンロード';
+
+  @override
+  String get messageLoadFullContent => '全文を読み込む';
+
+  @override
+  String get messageLoadingContent => '読込中';
+
+  @override
+  String get messageCacheHit => 'キャッシュヒット';
+
+  @override
+  String get messageFetchCacheHit => '取得キャッシュヒット';
+
+  @override
+  String get messageCache => 'キャッシュ';
+
+  @override
+  String get messageFetchCache => '取得キャッシュ';
+
+  @override
+  String get messageCacheStored => 'キャッシュ済み';
+
+  @override
+  String get messageCacheDisabled => 'キャッシュ無効';
+
+  @override
+  String get messageCachedAt => 'キャッシュ日時';
+
+  @override
+  String get messageExpiresAt => '有効期限';
+
+  @override
+  String get messageSandboxBlocked => 'サンドボックスでブロック';
+
+  @override
+  String get messageSandboxProxy => 'サンドボックスプロキシ';
+
+  @override
+  String get messageReasoning => '思考';
+
+  @override
+  String get fileMutationOpenDiffDialog => '差分をダイアログで開く';
+
+  @override
+  String fileMutationUnchangedLines(int count) {
+    return '未変更の $count 行';
+  }
+
+  @override
+  String fileMutationCollapseUnchangedLines(int count) {
+    return '未変更の $count 行を折りたたむ';
+  }
+
+  @override
+  String get fileMutationExpandUnchanged => '未変更の内容を展開';
+
+  @override
+  String get fileMutationCollapseUnchanged => '未変更の内容を折りたたむ';
+
+  @override
+  String get fileMutationCollapseDiff => '差分を折りたたむ';
+
+  @override
+  String fileMutationExpandRemainingDiff(int count) {
+    return '差分をすべて表示（残り $count 行）';
+  }
+
+  @override
+  String get fileMutationRevealFile => 'ファイルマネージャーで表示';
+
+  @override
+  String get fileMutationRevealFileFailed => 'このパスをファイルマネージャーで表示できません。';
+
+  @override
+  String get fileMutationJumpedBeforeCompression =>
+      '対象メッセージは圧縮点より前です。最も古い表示可能なメッセージに移動しました。';
+
+  @override
+  String get fileMutationSourceMissing => '元のメッセージが見つかりません（削除された可能性があります）。';
+
+  @override
+  String fileMutationExportPickerFailed(String error) {
+    return '書き出しを中止しました（ファイル選択が利用できません）：$error';
+  }
+
+  @override
+  String get fileMutationExportCancelled => '書き出しをキャンセルしました。';
+
+  @override
+  String fileMutationSaveFailed(String error) {
+    return '保存に失敗しました：$error';
+  }
+
+  @override
+  String fileMutationSavedTo(String path) {
+    return '$path に保存しました';
+  }
+
+  @override
+  String get fileMutationRoundLoading => 'このラウンドのファイル変更を集計中…';
+
+  @override
+  String get fileMutationRoundEmpty => 'このラウンドのファイル変更はありません。';
+
+  @override
+  String get fileMutationRoundTitle => 'このラウンドのファイル変更';
+
+  @override
+  String get fileMutationLineStats => '行の追加・削除数';
+
+  @override
+  String get fileMutationUndoRound => 'このラウンドの変更をすべて元に戻す';
+
+  @override
+  String get fileMutationExportRound => 'このラウンドを JSON で書き出す';
+
+  @override
+  String get fileMutationRefreshSummary => '集計を更新';
+
+  @override
+  String fileMutationRemainingRows(int count) {
+    return '残り $count 行を表示';
+  }
+
+  @override
+  String get fileMutationToggleDiff => '差分プレビューを展開／折りたたむ';
+
+  @override
+  String get fileMutationJumpToSource => 'この変更を生成したツール呼び出しに移動';
+
+  @override
+  String get fileMutationLoadingDiff => '差分を読み込み中…';
+
+  @override
+  String get fileMutationCreated => '作成';
+
+  @override
+  String get fileMutationModified => '変更';
+
+  @override
+  String get fileMutationDeleted => '削除';
+
+  @override
+  String get messageFullContentFailed => '全文を読み込めませんでした。再試行してください。';
+
+  @override
+  String get messageStreaming => '生成中';
+
+  @override
+  String get messageReadAloud => '読み上げ';
+
+  @override
+  String get messageTranslating => '翻訳中';
+
+  @override
+  String get messageOriginal => '原文を表示';
+
+  @override
+  String get messageLike => '高評価';
+
+  @override
+  String get messageImprove => '改善が必要';
+
+  @override
+  String get messageDeleteFromHere => 'ここから先を削除';
+
+  @override
+  String get messageAudit => '監査';
+
+  @override
+  String get messageShowRendered => 'レンダリングを表示';
+
+  @override
+  String get messageShowRaw => 'ソースを表示';
+
+  @override
+  String get messageOpenBrowser => 'ブラウザーで開く';
+
+  @override
+  String get messageAttachmentMissing => '添付ファイルが見つからないか、移動されています。';
+
+  @override
+  String messageUnsafePath(String path) {
+    return '安全でないパスを拒否しました：$path';
+  }
+
+  @override
+  String messageOpenFileFailed(String error) {
+    return 'ファイルを開けませんでした：$error';
+  }
+
+  @override
+  String get messageCopyFile => 'ファイルをコピー';
+
+  @override
+  String get messageCopying => 'コピー中…';
+
+  @override
+  String get messageCopyImage => '画像をコピー';
+
+  @override
+  String get messageCopyImageUrlFallback => '画像データをコピーできないため、画像の URL をコピーしました。';
+
+  @override
+  String get messageImageLoadFailed => '画像を読み込めませんでした';
+
+  @override
+  String get messageMediaTimedOut => '読み込みがタイムアウトしました。システムプレーヤーで開いてください。';
+
+  @override
+  String get messageMediaInitFailed =>
+      'メディアプレビューを初期化できませんでした。システムプレーヤーで開いてください。';
+
+  @override
+  String get messageFullscreenPlayback => '全画面再生';
+
+  @override
+  String get messageMediaUrlCopied => 'メディアの URL をコピーしました。';
+
+  @override
+  String get messageSystemPlayer => 'システムプレーヤー';
+
+  @override
+  String get messageGoalAutoFollowUp => '目標の自動継続';
+
+  @override
+  String get messageGoalEvaluationRequest => '目標評価のリクエスト';
+
+  @override
+  String get messageGoalEvaluationResponse => '目標評価の応答';
+
+  @override
+  String get messageMachineExpertRequest => 'マシンエキスパートへのリクエスト';
+
+  @override
+  String get messageTerminalBound => '対象のターミナルがこのタスクに接続されています。';
+
+  @override
+  String get messageMachineExpert => 'マシンエキスパート';
+
+  @override
+  String get messageTerminal => 'ターミナル';
+
+  @override
+  String get messageLocation => '場所';
+
+  @override
+  String get messageRequest => 'リクエスト';
+
+  @override
+  String get messageWebEnvironmentBound => '対象ページと CDP 環境がこのタスクに接続されています。';
+
+  @override
+  String get messageWebReverse => 'Web 解析';
+
+  @override
+  String get messageDeliverables => '成果物';
+
+  @override
+  String get messageAndroidEnvironmentBound => '対象アプリと解析範囲がこのタスクに設定されています。';
+
+  @override
+  String get messageAndroidReverse => 'Android 解析';
+
+  @override
+  String get messagePackage => 'パッケージ名';
+
+  @override
+  String get messageApkPath => 'APK のパス';
+
+  @override
+  String get messageAnalysisMode => '解析モード';
+
+  @override
+  String get messageAuthorizationScope => '許可範囲';
+
+  @override
+  String get messageCardShortened => 'カードの内容は省略されています。監査とコピーでは全文を確認できます。';
+
+  @override
+  String get messageContinueGoal => '現在の目標を継続';
+
+  @override
+  String get messageVerifyGoal => '目標の達成証拠を検証';
+
+  @override
+  String get messageGoalPassed => '目標の証拠を確認済み';
+
+  @override
+  String get messageGoalNeedsWork => '目標にはさらなる作業が必要';
+
+  @override
+  String get messageGoalFollowUpDescription =>
+      '評価で証拠が不足していたため、ランタイムが目標を継続するメッセージを自動送信しました。';
+
+  @override
+  String get messageGoalEvaluatorDescription =>
+      '評価モデルは現在の目標と最近の会話を確認し、達成の証拠が十分か判断します。';
+
+  @override
+  String get messageGoalEnoughEvidence => '評価モデルは目標達成の証拠が十分と判断しました。';
+
+  @override
+  String get messageGoalInsufficientEvidence =>
+      '評価モデルは証拠が不足していると判断し、継続作業を要求しました。';
+
+  @override
+  String get messageEvaluationSummary => '評価の要約';
+
+  @override
+  String get messageNextStep => '次のステップ';
+
+  @override
+  String get messageTokens => 'トークン';
+
+  @override
+  String messageRecentCount(int count) {
+    return '最近の $count 件';
+  }
+
+  @override
+  String get messageTotalTokens => '合計トークン数';
+
+  @override
+  String get messageKnowledgeFailed => 'ナレッジベースの取得に失敗';
+
+  @override
+  String get messageKnowledgeNoHits => 'ナレッジベースの該当なし';
+
+  @override
+  String messageKnowledgeHits(int count) {
+    return 'ナレッジベース $count 件';
+  }
+
+  @override
+  String messageKnowledgeHitsTokens(int count, int tokens) {
+    return 'ナレッジベース · $count 件 · $tokens トークン';
+  }
+
+  @override
+  String messageKnowledgeSources(int count) {
+    return 'ナレッジベースの参照 $count 件';
+  }
+
+  @override
+  String get messagePassed => '合格';
+
+  @override
+  String get messageAttachment => '添付';
+
+  @override
+  String messageSkillName(String name) {
+    return 'スキル · $name';
+  }
+
+  @override
+  String get messageFullscreenInitFailed => '全画面動画を初期化できませんでした。戻って再試行してください。';
+
+  @override
+  String get messageBackEsc => '戻る（Esc）';
+
+  @override
+  String get messageAcceptance => '受け入れ基準';
+
+  @override
+  String get messageAndroidReverseRequest => 'Android 解析のリクエスト';
+
+  @override
+  String get messageCopyMedia => 'メディアをコピー';
+
+  @override
+  String get messageEvidenceRules => '証拠収集のルール';
+
+  @override
+  String get messageGoal => '目標';
+
+  @override
+  String get messageOpenSystemApp => 'システムアプリで開く';
+
+  @override
+  String get messageOpenSystemPlayer => 'システムプレーヤーで開く';
+
+  @override
+  String get messagePreciseTarget => '正確な対象';
+
+  @override
+  String get messageSaveToDisk => 'ローカルに保存';
+
+  @override
+  String get messageWebReverseRequest => 'Web 解析のリクエスト';
+
+  @override
+  String get messageExpandSummary => '要約を展開';
+
+  @override
+  String get messageCollapseSummary => '要約を折りたたむ';
+
+  @override
+  String get messageShowFullContent => '全文を表示';
+
+  @override
+  String get messageCollapseContent => '内容を折りたたむ';
+
+  @override
+  String get messageImageMissing => '画像ファイルが見つからないか、移動されています。';
+
+  @override
+  String get messageGeneratingHtml => 'HTML カードを生成中';
+
+  @override
+  String get messageCharacterUnit => ' 文字';
+
+  @override
+  String get messageRole => '役割';
+
+  @override
+  String get messagePhase => '段階';
+
+  @override
+  String get messageRoleReader => '調査担当';
+
+  @override
+  String get messageRolePlanner => '計画担当';
+
+  @override
+  String get messageRoleImplementer => '実装担当';
+
+  @override
+  String get messageRoleReviewer => '検証担当';
+
+  @override
+  String get messagePhaseMetaCollection => 'メタデータ収集';
+
+  @override
+  String get messagePhaseReading => '調査';
+
+  @override
+  String get messagePhasePlanning => '計画';
+
+  @override
+  String get messagePhaseImplementing => '実装';
+
+  @override
+  String get messagePhaseReviewing => '検証';
+
+  @override
+  String get messagePreviousResponse => '前の応答';
+
+  @override
+  String get messageNextResponse => '次の応答';
+
+  @override
+  String get messageFileCopied => 'ファイルをクリップボードにコピーしました。';
+
+  @override
+  String get messageFilePathCopiedFallback =>
+      'ファイルの直接コピーに対応していないため、パスをコピーしました。';
+
+  @override
+  String get messageImageCopied => '画像をクリップボードにコピーしました。';
+
+  @override
+  String get messageImageFileCopied => '画像ファイルをクリップボードにコピーしました。';
+
+  @override
+  String get messageImagePathCopiedFallback =>
+      '画像ファイルの直接コピーに対応していないため、パスをコピーしました。';
+
+  @override
+  String get messageMediaFileCopied => 'メディアファイルをクリップボードにコピーしました。';
+
+  @override
+  String get messageMediaPathCopiedFallback =>
+      'メディアファイルの直接コピーに対応していないため、パスをコピーしました。';
+
+  @override
+  String messageCopyFailed(String error) {
+    return 'コピーに失敗しました：$error';
+  }
+
+  @override
+  String get messageSaving => '保存中…';
+
+  @override
+  String get messageSaveCancelled => '保存をキャンセルしました。';
+
+  @override
+  String messageSaveTimedOut(String error) {
+    return '保存がタイムアウトしました：$error';
+  }
+
+  @override
+  String get messageVideos => '動画';
+
+  @override
+  String get messageAudio => '音声';
 }

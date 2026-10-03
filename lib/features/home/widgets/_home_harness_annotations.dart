@@ -80,36 +80,6 @@ _HeAnnotation? _computeHeAnnotation(String content) {
   );
 }
 
-const Map<String, String> _heRoleDisplayZh = {
-  'reader': '调查者',
-  'planner': '规划者',
-  'implementer': '实施者',
-  'reviewer': '验收者',
-};
-
-const Map<String, String> _heRoleDisplayEn = {
-  'reader': 'Reader',
-  'planner': 'Planner',
-  'implementer': 'Implementer',
-  'reviewer': 'Reviewer',
-};
-
-const Map<String, String> _hePhaseDisplayZh = {
-  'meta_collection': '元数据采集',
-  'reading': '调查',
-  'planning': '规划',
-  'implementing': '实施',
-  'reviewing': '验收',
-};
-
-const Map<String, String> _hePhaseDisplayEn = {
-  'meta_collection': 'Meta Collection',
-  'reading': 'Reading',
-  'planning': 'Planning',
-  'implementing': 'Implementing',
-  'reviewing': 'Reviewing',
-};
-
 const Map<String, IconData> _hePhaseIcons = {
   'meta_collection': Icons.manage_search_rounded,
   'reading': Icons.menu_book_rounded,

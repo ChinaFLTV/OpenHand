@@ -11219,5 +11219,321 @@
   "maintenanceRuntimeMappedContainerId": "容器侧起始 ID",
   "maintenanceRuntimeMappedHostId": "主机侧起始 ID",
   "maintenanceRuntimeMappedIdCount": "映射 ID 数量",
-  "maintenanceRuntimeExpectedBuild": "预期构建版本"
+  "maintenanceRuntimeExpectedBuild": "预期构建版本",
+  "messageToolNameTask": "委派任务",
+  "messageToolNameBash": "执行命令",
+  "messageToolNameBashBackground": "后台命令",
+  "messageToolNameTaskOutput": "任务输出",
+  "messageToolNameTaskStop": "停止任务",
+  "messageToolNameGlob": "查找文件",
+  "messageToolNameGrep": "搜索内容",
+  "messageToolNameLs": "浏览目录",
+  "messageToolNameExitPlanMode": "提交计划",
+  "messageToolNameEndVoiceConversation": "结束语音会话",
+  "messageToolNameRead": "读取文件",
+  "messageToolNameEdit": "编辑文件",
+  "messageToolNameMultiEdit": "批量编辑",
+  "messageToolNameApplyFileDiffs": "应用文件补丁",
+  "messageToolNameWrite": "写入文件",
+  "messageToolNameNotebookEdit": "编辑笔记本",
+  "messageToolNameWebFetch": "读取网页",
+  "messageToolNameTodoWrite": "更新待办",
+  "messageToolNameWebSearch": "搜索网页",
+  "messageToolNameLsp": "代码导航",
+  "messageToolNameCodebaseSearch": "搜索代码库",
+  "messageToolNameGit": "版本管理",
+  "messageToolNameDeleteFile": "删除文件",
+  "messageToolNameReadLints": "检查代码诊断",
+  "messageToolNameAskUserChoice": "请求选择",
+  "messageToolNameSkillManager": "管理技能",
+  "messageToolNameToolSearch": "查找工具",
+  "messageToolNameMemory": "管理记忆",
+  "messageToolNameKnowledgeSearch": "搜索知识库",
+  "messageToolNameKnowledgeRead": "读取知识",
+  "messageToolNameWorkflowList": "浏览工作流",
+  "messageToolNameWorkflowDetail": "查看工作流",
+  "messageToolNameWorkflowExecute": "执行工作流",
+  "messageToolNameWorkflowExecutionStatus": "工作流状态",
+  "messageToolNameCronCreate": "创建定时任务",
+  "messageToolNameCronEdit": "编辑定时任务",
+  "messageToolNameCronDelete": "删除定时任务",
+  "messageToolNameCronEnable": "启用定时任务",
+  "messageToolNameCronDisable": "停用定时任务",
+  "messageToolNameMachineTerminalRead": "读取终端",
+  "messageToolNameMachineTerminalWrite": "写入终端",
+  "messageToolNameMachineTerminalExec": "执行终端命令",
+  "messageToolNameMachineTerminalControl": "控制终端",
+  "messageToolNameDingTalkToolSearch": "查找钉钉工具",
+  "messageToolNameDingtalkDws": "钉钉工作空间",
+  "messageToolNameDingtalkImageGeneration": "生成图片",
+  "messageToolNameDingtalkVideoGeneration": "生成视频",
+  "messageToolNameDingtalkAudioGeneration": "生成音频",
+  "messageToolNameDownloadFile": "下载文件",
+  "messageLoadFullContent": "加载完整内容",
+  "messageLoadingContent": "加载中",
+  "messageCacheHit": "缓存命中",
+  "messageFetchCacheHit": "抓取缓存命中",
+  "messageCache": "缓存",
+  "messageFetchCache": "抓取缓存",
+  "messageCacheStored": "已缓存",
+  "messageCacheDisabled": "缓存关闭",
+  "messageCachedAt": "缓存时间",
+  "messageExpiresAt": "过期时间",
+  "messageSandboxBlocked": "沙盒拦截",
+  "messageSandboxProxy": "沙盒代理",
+  "messageReasoning": "思考",
+  "fileMutationOpenDiffDialog": "打开 diff 对话框",
+  "fileMutationUnchangedLines": "{count} 行未修改",
+  "@fileMutationUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationCollapseUnchangedLines": "收起 {count} 行未修改",
+  "@fileMutationCollapseUnchangedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationExpandUnchanged": "展开未修改内容",
+  "fileMutationCollapseUnchanged": "折叠未修改内容",
+  "fileMutationCollapseDiff": "收起 Diff 预览",
+  "fileMutationExpandRemainingDiff": "展开全部 Diff（还有 {count} 行）",
+  "@fileMutationExpandRemainingDiff": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationRevealFile": "在系统文件浏览器中打开",
+  "fileMutationRevealFileFailed": "无法在系统文件浏览器中打开该路径",
+  "fileMutationJumpedBeforeCompression": "目标消息位于上下文压缩点之前，已跳转到最早可见消息。",
+  "fileMutationSourceMissing": "未能定位来源消息（可能已被删除）。",
+  "fileMutationExportPickerFailed": "导出取消（无法打开文件选择器）：{error}",
+  "@fileMutationExportPickerFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationExportCancelled": "已取消导出。",
+  "fileMutationSaveFailed": "保存失败：{error}",
+  "@fileMutationSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationSavedTo": "已保存到 {path}",
+  "@fileMutationSavedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileMutationRoundLoading": "正在汇总本轮文件变动…",
+  "fileMutationRoundEmpty": "本轮无文件变动。",
+  "fileMutationRoundTitle": "本轮文件变动汇总",
+  "fileMutationLineStats": "行级增删统计",
+  "fileMutationUndoRound": "撤销本轮全部变动",
+  "fileMutationExportRound": "导出本轮 JSON",
+  "fileMutationRefreshSummary": "刷新汇总",
+  "fileMutationRemainingRows": "展开剩余 {count} 行",
+  "@fileMutationRemainingRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileMutationToggleDiff": "展开 / 收起 Diff 预览",
+  "fileMutationJumpToSource": "跳转到产生该变动的工具调用",
+  "fileMutationLoadingDiff": "加载 Diff…",
+  "fileMutationCreated": "新增",
+  "fileMutationModified": "修改",
+  "fileMutationDeleted": "删除",
+  "messageFullContentFailed": "完整内容加载失败，请重试。",
+  "messageStreaming": "生成中",
+  "messageReadAloud": "朗读",
+  "messageTranslating": "翻译中",
+  "messageOriginal": "查看原始",
+  "messageLike": "点赞",
+  "messageImprove": "需要改进",
+  "messageDeleteFromHere": "删除此条及后续",
+  "messageAudit": "审计",
+  "messageShowRendered": "显示渲染",
+  "messageShowRaw": "显示原始",
+  "messageOpenBrowser": "浏览器打开",
+  "messageAttachmentMissing": "附件文件不存在或已被移动。",
+  "messageUnsafePath": "拒绝打开不安全的路径：{path}",
+  "@messageUnsafePath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "messageOpenFileFailed": "打开文件失败：{error}",
+  "@messageOpenFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageCopyFile": "复制文件",
+  "messageCopying": "复制中…",
+  "messageCopyImage": "复制图片",
+  "messageCopyImageUrlFallback": "无法复制图片数据，已复制图片地址。",
+  "messageImageLoadFailed": "无法加载图片",
+  "messageMediaTimedOut": "载入超时，可使用系统播放器打开。",
+  "messageMediaInitFailed": "媒体预览初始化失败，可使用系统播放器打开。",
+  "messageFullscreenPlayback": "全屏沉浸播放",
+  "messageMediaUrlCopied": "已复制媒体地址。",
+  "messageSystemPlayer": "系统播放器",
+  "messageGoalAutoFollowUp": "目标自动推进",
+  "messageGoalEvaluationRequest": "目标评估请求",
+  "messageGoalEvaluationResponse": "目标评估响应",
+  "messageMachineExpertRequest": "机器专家请求",
+  "messageTerminalBound": "已绑定目标终端，会在指定会话中执行任务。",
+  "messageMachineExpert": "机器专家",
+  "messageTerminal": "终端应用",
+  "messageLocation": "打开位置",
+  "messageRequest": "需求",
+  "messageWebEnvironmentBound": "已绑定目标页面与 CDP 环境，按浏览器取证流程推进。",
+  "messageWebReverse": "Web 逆向",
+  "messageDeliverables": "任务产物",
+  "messageAndroidEnvironmentBound": "已绑定目标应用与分析边界，按静态优先取证流程推进。",
+  "messageAndroidReverse": "Android 逆向",
+  "messagePackage": "目标包名",
+  "messageApkPath": "APK 路径",
+  "messageAnalysisMode": "分析模式",
+  "messageAuthorizationScope": "授权范围",
+  "messageCardShortened": "卡片内容已截断，完整原文仍保留在消息审计与复制内容中。",
+  "messageContinueGoal": "继续推进当前目标",
+  "messageVerifyGoal": "验证目标完成证据",
+  "messageGoalPassed": "目标证据已通过",
+  "messageGoalNeedsWork": "目标仍需推进",
+  "messageGoalFollowUpDescription": "运行时自动发送，用于在上一轮评估未通过后继续推进目标。",
+  "messageGoalEvaluatorDescription": "评估模型会基于当前目标和最近对话判断完成证据是否充分。",
+  "messageGoalEnoughEvidence": "评估模型认为当前证据足以完成目标。",
+  "messageGoalInsufficientEvidence": "评估模型认为证据仍不足，需要继续推进。",
+  "messageEvaluationSummary": "评估摘要",
+  "messageNextStep": "下一步",
+  "messageTokens": "令牌",
+  "messageRecentCount": "最近 {count} 条",
+  "@messageRecentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageTotalTokens": "总令牌",
+  "messageKnowledgeFailed": "知识库失败",
+  "messageKnowledgeNoHits": "知识库无命中",
+  "messageKnowledgeHits": "知识库 {count} 条",
+  "@messageKnowledgeHits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeHitsTokens": "知识库 · {count} 条 · {tokens} 令牌",
+  "@messageKnowledgeHitsTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "messageKnowledgeSources": "引用 {count} 篇知识库",
+  "@messageKnowledgeSources": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePassed": "通过",
+  "messageAttachment": "附件",
+  "messageSkillName": "技能 · {name}",
+  "@messageSkillName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "messageFullscreenInitFailed": "全屏视频初始化失败，请返回后重试。",
+  "messageBackEsc": "返回（Esc）",
+  "messageAcceptance": "验收标准",
+  "messageAndroidReverseRequest": "Android 逆向请求",
+  "messageCopyMedia": "复制媒体",
+  "messageEvidenceRules": "取证纪律",
+  "messageGoal": "目标",
+  "messageOpenSystemApp": "使用系统应用打开",
+  "messageOpenSystemPlayer": "使用系统播放器打开",
+  "messagePreciseTarget": "精确定位",
+  "messageSaveToDisk": "保存到本地",
+  "messageWebReverseRequest": "Web 逆向请求",
+  "messageExpandSummary": "展开摘要",
+  "messageCollapseSummary": "收起摘要",
+  "messageShowFullContent": "展开完整内容",
+  "messageCollapseContent": "收起长内容",
+  "messageImageMissing": "图片文件不存在或已被移动。",
+  "messageGeneratingHtml": "正在生成 HTML 卡片",
+  "messageCharacterUnit": " 字符",
+  "messageRole": "角色",
+  "messagePhase": "阶段",
+  "messageRoleReader": "调查者",
+  "messageRolePlanner": "规划者",
+  "messageRoleImplementer": "实施者",
+  "messageRoleReviewer": "验收者",
+  "messagePhaseMetaCollection": "元数据采集",
+  "messagePhaseReading": "调查",
+  "messagePhasePlanning": "规划",
+  "messagePhaseImplementing": "实施",
+  "messagePhaseReviewing": "验收",
+  "messagePreviousResponse": "上一条回复",
+  "messageNextResponse": "下一条回复",
+  "messageFileCopied": "已复制文件到剪贴板。",
+  "messageFilePathCopiedFallback": "当前平台不支持直接复制文件，已复制文件路径。",
+  "messageImageCopied": "已复制图片到剪贴板。",
+  "messageImageFileCopied": "已复制图片文件到剪贴板。",
+  "messageImagePathCopiedFallback": "当前平台不支持直接复制图片文件，已复制文件路径。",
+  "messageMediaFileCopied": "已复制媒体文件到剪贴板。",
+  "messageMediaPathCopiedFallback": "当前平台不支持直接复制媒体文件，已复制文件路径。",
+  "messageCopyFailed": "复制失败：{error}",
+  "@messageCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageSaving": "正在保存…",
+  "messageSaveCancelled": "已取消保存。",
+  "messageSaveTimedOut": "保存超时：{error}",
+  "@messageSaveTimedOut": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messageVideos": "视频",
+  "messageAudio": "音频"
 }

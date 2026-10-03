@@ -256,16 +256,7 @@ class _CollapsedPreviewFade extends StatelessWidget {
           curve: kOpenHandSwitchInCurve,
           child: Container(
             height: _collapsedMessageFadeHeight,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  fadeColor.withValues(alpha: 0),
-                  fadeColor.withValues(alpha: _collapsedMessageFadeOpacity),
-                ],
-              ),
-            ),
+            color: fadeColor.withValues(alpha: _collapsedMessageFadeOpacity),
           ),
         ),
       ),
@@ -305,11 +296,9 @@ class _CompressionCheckpointBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final toggleLabel = openHandLocalizedText(
-      context,
-      zh: expanded ? '收起摘要' : '展开摘要',
-      en: expanded ? 'Collapse Summary' : 'Expand Summary',
-    );
+    final toggleLabel = expanded
+        ? AppLocalizations.of(context)!.messageCollapseSummary
+        : AppLocalizations.of(context)!.messageExpandSummary;
     final previewBody = KeyedSubtree(
       key: const ValueKey<String>('compression-preview'),
       child: _MarkdownPreviewBody(
@@ -972,8 +961,8 @@ class _MessageCollapseToggleCapsuleState
     final theme = Theme.of(context);
     final effectiveColor = widget.color.withValues(alpha: 0.88);
     final label = widget.collapsed
-        ? openHandLocalizedText(context, zh: '展开完整内容', en: 'Show Full Content')
-        : openHandLocalizedText(context, zh: '收起长内容', en: 'Collapse Content');
+        ? AppLocalizations.of(context)!.messageShowFullContent
+        : AppLocalizations.of(context)!.messageCollapseContent;
     final unitText = _homeMessageConCharsLabel(context);
     final textStyle =
         theme.textTheme.labelLarge?.copyWith(
@@ -1359,11 +1348,7 @@ class _RichContentPendingPreview extends StatelessWidget {
         .ceil()
         .clamp(1, _richContentPlaceholderMaxLines);
     return Semantics(
-      label: openHandLocalizedText(
-        context,
-        zh: '正在加载内容',
-        en: 'Loading content',
-      ),
+      label: AppLocalizations.of(context)!.messageLoadingContent,
       child: ExcludeSemantics(
         child: OpenHandSweepShimmer(
           sweepColor: colors.primary.withValues(alpha: 0.15),
@@ -1931,11 +1916,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '图片文件不存在或已被移动。',
-          en: 'Image file not found or has been moved.',
-        ),
+        AppLocalizations.of(context)!.messageImageMissing,
       );
       return;
     }
@@ -3782,11 +3763,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                     kOpenHandHGap6,
                     Flexible(
                       child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '正在生成 HTML 卡片',
-                          en: 'Generating HTML card',
-                        ),
+                        AppLocalizations.of(context)!.messageGeneratingHtml,
                         style: captionStyle,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -6062,7 +6039,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 }
 
 String _homeMessageConCharsLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: ' 字符', en: ' chars');
+  return AppLocalizations.of(context)!.messageCharacterUnit;
 }
 
 String? _resolveGalleryImageFilePath(Uri uri, List<String> pathRoots) {
