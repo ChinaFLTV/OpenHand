@@ -286,6 +286,11 @@ class _RenderTranscriptViewport extends RenderViewport {
   @override
   double get anchor => _layoutAnchor;
 
+  // 历史段重建可能先于下一次布局；未测量节点不参与命中，保留原有命中顺序。
+  @override
+  Iterable<RenderSliver> get childrenInHitTestOrder =>
+      super.childrenInHitTestOrder.where((child) => child.geometry != null);
+
   @override
   void performLayout() {
     final position = offset;

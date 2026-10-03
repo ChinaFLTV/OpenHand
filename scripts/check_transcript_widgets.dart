@@ -1711,6 +1711,113 @@ void main() {
     }, variant: TargetPlatformVariant({platform}));
   }
 
+  testWidgets('会话加载：历史段重建与鼠标输入交错不访问未布局节点', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = ScrollController();
+    final centerKey = GlobalKey();
+    var showHistory = false;
+    var pressed = 0;
+    late StateSetter rebuild;
+    await tester.pumpWidget(MaterialApp(
+      scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
+      home: Scaffold(body: StatefulBuilder(
+      builder: (context, setState) {
+        rebuild = setState;
+        return _TranscriptScrollView(controller: controller,
+          center: showHistory ? centerKey : null,
+          slivers: [
+            if (showHistory) _TranscriptSliverList(anchorsBottom: () => false,
+              scrollActive: () => false,
+              delegate: SliverChildBuilderDelegate((_, index) =>
+                SizedBox(height: 60, child: Text('历史卡片$index')), childCount: 3)),
+            SliverPadding(key: centerKey, padding: const EdgeInsets.only(bottom: 12),
+              sliver: _TranscriptSliverList(anchorsBottom: () => false,
+                scrollActive: () => false,
+                delegate: SliverChildBuilderDelegate((_, index) =>
+                  SizedBox(height: 80, child: TextButton(onPressed: () => pressed++,
+                    child: Text('当前卡片$index'))), childCount: 3))),
+          ]);
+      },
+    ))));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    });
+    await tester.pumpAndSettle();
+    final viewport = tester.renderObject<RenderViewport>(find.byType(_TranscriptViewport));
+    for (var cycle = 0; cycle < 4; cycle++) {
+      rebuild(() => showHistory = true);
+      // 只完成元素重建，模拟新增 Sliver 尚未布局时平台鼠标数据到达。
+      tester.binding.buildOwner!.buildScope(tester.binding.rootElement!);
+      expect(viewport.firstChild!.geometry, isNull);
+      await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(400, 550)));
+      await tester.sendEventToBinding(const PointerScrollEvent(
+        position: Offset(400, 550), scrollDelta: Offset(0, 40)));
+      await tester.tapAt(const Offset(400, 40));
+      expect(tester.takeException(), isNull, reason: '新历史段尚未布局时不能空值解引用');
+      expect(pressed, cycle * 2 + 1, reason: '已完成布局的当前段仍能点击');
+      await tester.pump();
+      for (var child = viewport.firstChild; child != null; child = viewport.childAfter(child)) {
+        expect(child.geometry, isNotNull);
+      }
+      await tester.tap(find.text('当前卡片0'));
+      expect(tester.takeException(), isNull);
+      expect(pressed, cycle * 2 + 2);
+      expect(find.text('当前卡片0'), findsOneWidget);
+      expect(tester.getRect(find.text('当前卡片0')).overlaps(Offset.zero & viewport.size), true,
+        reason: '恢复布局后消息必须真正位于可见视口');
+      rebuild(() => showHistory = false);
+      await tester.pumpAndSettle();
+    }
+    expect(tester.binding.hasScheduledFrame, false, reason: '重建结束后不能持续空转');
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+
+  for (final animated in [false, true]) {
+    testWidgets('会话加载：快速切换未完成首屏的会话后消息和鼠标交互恢复，动画=$animated', (tester) async {
+      final probe = _TranscriptProbe(tester, _probeSession('快速切换起点', 2));
+      await probe.mount(animated: animated, size: const Size(1000, 600));
+      AiSession? latest;
+      for (var cycle = 0; cycle < 12; cycle++) {
+        final full = _probeSession('快速切换$cycle', 30, mixed: true);
+        latest = full;
+        probe.update(full.copyWith(messages: const [],
+          messageLoadState: AiSessionMessageLoadState.header));
+        await tester.pump(const Duration(milliseconds: 16));
+        await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
+        probe.update(full.copyWith(messages: full.messages.sublist(24),
+          messageLoadState: AiSessionMessageLoadState.windowed, messageWindowStartIndex: 24));
+        for (var frame = 0; frame < 3; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          await tester.sendEventToBinding(const PointerHoverEvent(position: Offset(500, 300)));
+          expect(tester.takeException(), isNull);
+        }
+      }
+      probe.update(latest!);
+      await probe.settle();
+      probe.expectFilled();
+      expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+      expect(find.text('短消息29'), findsOneWidget);
+      final viewportRect = tester.getRect(find.byType(_TranscriptViewport));
+      for (final placeholder in find.byType(_RichContentPendingPreview).evaluate()) {
+        expect(tester.getRect(find.byWidget(placeholder.widget)).overlaps(viewportRect), false,
+          reason: '可见正文不能一直停留在占位状态');
+      }
+      await tester.tapAt(const Offset(500, 300));
+      await tester.sendEventToBinding(const PointerScrollEvent(
+        position: Offset(900, 300), scrollDelta: Offset(0, -120)));
+      await probe.settle();
+      expect(tester.takeException(), isNull);
+      expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
+      // 缓存范围内的占位微光有持续动效，暂停后单独检查加载与定位任务是否结束。
+      probe.rebuild(() => probe.tickerEnabled = false);
+      await probe.settle();
+      expect(probe.state._viewportFillQueued, false);
+      expect(tester.binding.hasScheduledFrame, false, reason: '旧会话回调不能让当前窗口无限重建');
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
   testWidgets('历史段与当前段的显露坐标包含视口锚点', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('显露坐标', 8));
     await probe.mount(size: const Size(800, 500));

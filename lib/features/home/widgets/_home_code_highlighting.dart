@@ -1498,8 +1498,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final content = widget.actionContent ?? widget.content;
     try {
       await setOpenHandClipboardText(content);
-      if (!mounted || content != (widget.actionContent ?? widget.content))
+      if (!mounted || content != (widget.actionContent ?? widget.content)) {
         return;
+      }
       setState(() => _copied = true);
       replaceOpenHandSnack(
         context,
