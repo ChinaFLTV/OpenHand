@@ -1,6 +1,17 @@
 // 英文字典，键必须与 dict_zh 一一对应。
 
 export const dict_en: Record<string, string> = {
+  "codeBlock.plainText": "Plain text",
+  "codeBlock.shell": "Shell",
+  "codeBlock.diffLabel": "Diff",
+  "codeBlock.line": "{count} line",
+  "codeBlock.lines": "{count} lines",
+  "codeBlock.saved": "Code downloaded",
+  "codeBlock.saveFailed": "Could not download code",
+  "codeBlock.diffEmpty": "Content is identical or cannot be compared.",
+  "codeBlock.diffUnchanged": "{count} unchanged lines",
+  "codeBlock.diffExpand": "Show full diff ({count} more lines)",
+  "codeBlock.diffCollapse": "Collapse diff",
   'app.brand': 'OpenHand · Web Messaging Platform',
   'common.copy': 'Copy',
   'common.copied': 'Copied',
@@ -8,10 +19,6 @@ export const dict_en: Record<string, string> = {
   'codeBlock.unwrap': 'Unwrap lines',
   'codeBlock.copySuccess': 'Code copied',
   'codeBlock.copyFailed': 'Copy failed. Check browser clipboard permission.',
-  'codeBlock.diffCopied': 'Diff copied',
-  'codeBlock.diffCopyFailed': 'Failed to copy diff. Check browser clipboard permission.',
-  'codeBlock.diffDownloaded': 'Diff downloaded',
-  'codeBlock.diffDownloadFailed': 'Failed to download diff',
   'codeBlock.download': 'Download',
   'codeBlock.downloaded': 'Downloaded',
   'codeBlock.view': 'View',

@@ -1,6 +1,8 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import type { SessionMessage } from '../src/api/sessions';
+import { Markdown } from '../src/components/Markdown';
+import { codeLanguageLabel } from '../src/shared/util/code_block';
 import { MessageMedia } from '../src/components/MessageMedia';
 import { MessageCard, markMessagesAsAppeared } from '../src/components/MessageCard';
 import { syncLangFromAppPreferences, t } from '../src/i18n';
@@ -22,6 +24,7 @@ const message: SessionMessage = {
   metadata: {
     tool_name: 'MachineTerminalExec', tool_execution_status: 'success',
     tool_execution_command: 'systemctl status openhand',
+    tool_arguments: JSON.stringify({ command: 'systemctl status openhand', timeout_ms: 30000, purpose: '检查服务运行状态' }),
     tool_execution_working_directory: `/workspace/${'服务项目目录/'.repeat(12)}`,
     tool_execution_stdout: '服务已启动，健康检查通过。\n'.repeat(80),
     tool_execution_exit_code: 0, tool_execution_duration_ms: 1450,
@@ -39,6 +42,15 @@ const mutation: SessionMessage = {
   id: '文件变更检查', kind: 'file_mutation_summary', role: 'assistant', content: '', created_at: message.created_at, character_count: 0,
   metadata: { file_mutation_kind: 'delete', file_mutation_path: `/workspace/${'很长的目录/'.repeat(10)}file.dart`, round_summary_record_count: 12 },
 };
+let clipboardText = '';
+let downloadedBlob: Blob | null = null;
+Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { clipboardText = text; } } });
+const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+URL.createObjectURL = (blob: Blob | MediaSource) => {
+  if (blob instanceof Blob) downloadedBlob = blob;
+  return originalCreateObjectURL(blob);
+};
+const fenceSource = ['```shell', 'systemctl status openhand', '```', '```', '服务检查通过', '```', '```json', '{"status":"running"}', '```', '```diff', '@@ -1 +1 @@', '-旧内容', '+新内容', '```'].join('\n');
 let copied = 0;
 let loaded = 0;
 function mount(width: number, loading = false) {
@@ -46,6 +58,7 @@ function mount(width: number, loading = false) {
     <MessageCard message={message} active onCopy={() => { copied++; }} />
     <MessageCard message={preview} fullContentLoading={loading} onLoadFullContent={() => { loaded++; }} />
     <MessageCard message={mutation} />
+    <div class="qa-markdown"><Markdown source={fenceSource} streaming /></div>
     <MessageMedia message={audio} sessionId="控件检查" />
   </div>, root);
 }
@@ -79,11 +92,33 @@ try {
         const load = root.querySelector<HTMLButtonElement>('.oh-message-content-preview-action')!;
         verify(load.textContent === t('message.contentPreview.load'), `${lang} 完整内容按钮按当前语言显示`);
         verify(load.getBoundingClientRect().height >= 28 && load.getBoundingClientRect().height <= 32, `${width}px 完整内容按钮使用紧凑尺寸`);
-        verify(getComputedStyle(load).borderRadius === getComputedStyle(toggle).borderRadius, '完整内容按钮沿用原有操作圆角');
+        verify(getComputedStyle(load).borderRadius === getComputedStyle(document.documentElement).getPropertyValue('--m3-radius-sm').trim(), '完整内容按钮沿用原有操作圆角');
         verify([...card.querySelectorAll<HTMLElement>('.oh-tool-meta-chip')].every((node) => Math.abs(node.getBoundingClientRect().height - 24) < 1), '工具状态保持原有紧凑尺寸');
         const audioButtons = [...root.querySelectorAll<HTMLElement>('.oh-audio-icon-button')];
         verify(audioButtons.every((node) => node.getBoundingClientRect().height === (node.classList.contains('is-primary') ? 34 : 28)), '音频操作保持原有圆形尺寸');
-        verify(getComputedStyle(root.querySelector<HTMLElement>('.oh-tool-section')!).backgroundColor === 'rgba(0, 0, 0, 0)', '工具分区保留原有轻量布局');
+        const sections = [...root.querySelectorAll<HTMLElement>('.oh-tool-section')];
+        const stdoutSection = sections.find((section) => section.querySelector('strong')?.textContent === t('detail.tool.stdout'))!;
+        const stdout = stdoutSection.querySelector<HTMLElement>('pre')!;
+        const toolbarButtons = [...root.querySelectorAll<HTMLButtonElement>('.oh-tool-section-header button, .oh-code-block-header button')];
+        verify(toolbarButtons.every((button) => Math.abs(button.getBoundingClientRect().height - 28) < 1), '工具分区与代码工具栏按钮高度统一');
+        verify(sections.every((section) => getComputedStyle(section).backgroundColor !== 'rgba(0, 0, 0, 0)'), '工具分区使用主题纯色背景');
+        verify(stdoutSection.textContent?.includes(codeLanguageLabel('text')) === true, `${lang} 输出类型按当前语言显示`);
+        verify(sections.some((section) => section.textContent?.includes(codeLanguageLabel('shell'))), `${lang} 命令类型按当前语言显示`);
+        const stdoutCopy = stdoutSection.querySelector<HTMLButtonElement>(`button[aria-label="${t('common.copy')}"]`)!;
+        await act(async () => { stdoutCopy.click(); });
+        verify(clipboardText === (message.metadata!.tool_execution_stdout as string).trim(), '折叠输出复制完整原文');
+        await act(async () => { stdoutSection.querySelector<HTMLButtonElement>(`button[aria-label="${t('codeBlock.download')}"]`)!.click(); });
+        verify(await downloadedBlob!.text() === (message.metadata!.tool_execution_stdout as string).trim(), '折叠输出下载完整原文');
+        const wrapButton = stdoutSection.querySelector<HTMLButtonElement>('button[aria-pressed]')!;
+        await act(async () => { wrapButton.click(); });
+        verify(getComputedStyle(stdout).whiteSpace === 'pre', '关闭换行后正文可横向滚动');
+        const expandedBefore = stdoutSection.querySelector('button[aria-expanded]')!.getAttribute('aria-expanded');
+        await act(async () => { stdout.click(); });
+        verify(stdoutSection.querySelector('button[aria-expanded]')!.getAttribute('aria-expanded') === expandedBefore, '点击正文不会触发折叠');
+        verify([...root.querySelectorAll<HTMLElement>('.oh-code-block, .oh-tool-section')].every((node) => node.scrollWidth <= node.clientWidth + 1), `${width}px 内部代码工具栏不溢出`);
+        verify([...root.querySelectorAll<HTMLElement>('.oh-code-block, .oh-tool-section')].every((node) => getComputedStyle(node).boxShadow === 'none'), '内部卡片不使用阴影');
+        const codeLabels = [...root.querySelectorAll('.qa-markdown .oh-code-block-lang')].map((node) => node.textContent);
+        verify(codeLabels.includes(codeLanguageLabel('text')) && codeLabels.includes(codeLanguageLabel('shell')) && codeLabels.includes('JSON'), `${lang} 普通围栏、终端及 JSON 标签正确显示`);
         const loadsBefore = loaded;
         await act(async () => { load.click(); mount(width, true); });
         const busyLoad = root.querySelector<HTMLButtonElement>('.oh-message-content-preview-action')!;

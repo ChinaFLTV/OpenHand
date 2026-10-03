@@ -6315,11 +6315,8 @@ button.oh-message-context-capsule {
 .oh-tool-section-pre,
 .oh-tool-result-pre {
   transition:
-    max-height 420ms var(--oh-motion-spring),
-    border-color 240ms var(--oh-motion-emphasized),
-    background-color 240ms var(--oh-motion-emphasized),
-    box-shadow 260ms var(--oh-motion-emphasized);
-  will-change: max-height;
+    max-height var(--oh-motion-duration-slow) var(--oh-motion-spring),
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
 }
 
 .oh-tool-toggle-button {
@@ -8309,7 +8306,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-tool-section-header {
     flex-wrap: wrap;
   }
-  .oh-tool-section-pre,
   .oh-tool-result-pre {
     max-height: min(28dvh, 190px) !important;
     overflow: auto !important;
@@ -8623,7 +8619,6 @@ button.oh-composer-pill:not(:disabled):hover {
     width: 100%;
     justify-content: center;
   }
-  .oh-tool-section-pre,
   .oh-tool-result-pre {
     max-height: min(24dvh, 150px) !important;
   }
@@ -9774,67 +9769,116 @@ button.oh-composer-pill:not(:disabled):hover {
 .hljs-deletion { color: #b31d28; background: #ffeef0; }
 .hljs-addition { color: #22863a; background: #f0fff4; }
 
-/* Code block container (Markdown.tsx) */
-.oh-code-block {
+/* 会话代码与工具输出共用工具栏密度，使用主题纯色和描边。 */
+.oh-code-block,
+.oh-tool-section {
+  --oh-code-accent: var(--m3-primary);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.3));
-  margin: 0.5rem 0;
-  background: var(--m3-surface-container, rgba(0,0,0,0.03));
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 60%, transparent);
+  background: var(--m3-surface-container-low);
+  box-shadow: none;
+  min-width: 0;
 }
-.oh-code-block-header {
+.oh-code-block { margin: 0.5rem 0; }
+.oh-tool-section { --oh-code-accent: var(--m3-secondary); }
+.oh-tool-section.is-error { --oh-code-accent: var(--m3-error); }
+.oh-code-block-header,
+.oh-tool-section-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 6px 8px;
-  background: var(--m3-surface-container-high, rgba(0,0,0,0.05));
-  border-bottom: 1px solid var(--m3-outline-variant, rgba(127,127,127,0.2));
-  gap: 4px;
+  padding: 10px;
+  gap: 8px;
+  background: color-mix(in srgb, var(--oh-code-accent) 3%, var(--m3-surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 50%, transparent);
 }
-.oh-code-block-lang {
-  font-size: 0.78em;
-  font-weight: 700;
-  color: var(--m3-on-surface-variant, #666);
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--m3-primary-container, rgba(0,100,200,0.08));
+.oh-code-block-heading {
+  display: flex;
+  flex: 1 1 100px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--m3-on-surface);
+  font-size: 12px;
 }
-.oh-code-block-copy {
-  font-size: 0.78em;
-  font-weight: 700;
-  color: var(--m3-on-surface-variant, #666);
-  /* 水平 padding 由 8px → 6px，让代码块 header 内的"代码 / 复制"
-     按钮之间与到边沿的视觉间隙严格相等。 */
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
-  border: none;
-  cursor: pointer;
-  transition: background 150ms ease;
+.oh-code-block-heading > strong,
+.oh-code-block-lang,
+.oh-code-block-count {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.oh-code-block-copy:hover {
-  background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
+.oh-code-block-lang { font-weight: 700; }
+.oh-code-block-count { font-size: 11px; color: var(--m3-on-surface-variant); }
+.oh-code-block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-inline-start: auto;
+  max-width: 100%;
+  min-width: 0;
 }
-.oh-code-block-icon-btn {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
+.oh-code-block-copy,
+.oh-code-block-icon-btn,
+.oh-tool-toggle-button {
+  box-sizing: border-box;
+  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--m3-on-surface-variant, #666);
-  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
+  min-height: 28px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container-high);
   cursor: pointer;
+  box-shadow: none;
+  transition: background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    transform var(--oh-motion-duration-fast) var(--oh-motion-spring);
 }
-.oh-code-block-icon-btn:hover {
-  background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
-}
+.oh-code-block-icon-btn { width: 28px; height: 28px; padding: 0; flex: none; }
+.oh-code-block-copy:hover,
+.oh-code-block-icon-btn:hover,
+.oh-tool-toggle-button:hover { background: var(--m3-surface-container-highest); }
 .oh-code-block-icon-btn.is-active {
-  color: var(--m3-on-primary-container, var(--m3-on-surface, #202124));
-  background: var(--m3-primary-container, rgba(0,100,200,0.16));
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
 }
+.oh-code-block-copy:focus-visible,
+.oh-code-block-icon-btn:focus-visible { outline: 2px solid var(--m3-primary); outline-offset: -2px; }
+.oh-tool-section-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex: none;
+  color: var(--oh-code-accent);
+  background: color-mix(in srgb, var(--oh-code-accent) 12%, transparent);
+}
+.oh-tool-section-pre {
+  display: block;
+  margin: 0;
+  padding: 12px;
+  border: none;
+  font-size: 12px;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--m3-on-surface);
+  background: transparent;
+}
+.oh-tool-section-pre.is-wrap { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.oh-tool-section-pre.is-scroll { white-space: pre; }
 .oh-code-block-body {
   display: block;
   padding: 0.75rem 1rem;

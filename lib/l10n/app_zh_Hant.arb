@@ -1,4 +1,13 @@
 {
+  "codeBlockDownload": "下載",
+  "codeBlockDownloaded": "已下載",
+  "codeBlockCode": "程式碼",
+  "codeBlockView": "檢視",
+  "codeBlockLines": "{count} 行",
+  "codeBlockCopiedMessage": "程式碼內容已複製。",
+  "codeBlockCopyFailed": "複製程式碼失敗。",
+  "codeBlockSavedMessage": "程式碼已儲存為 {fileName}",
+  "codeBlockSaveFailed": "儲存程式碼失敗。",
   "maintenanceProcessId": "程序 ID",
   "maintenanceEgressAddress": "出口位址",
   "maintenanceEgressCopyAddress": "複製出口位址",

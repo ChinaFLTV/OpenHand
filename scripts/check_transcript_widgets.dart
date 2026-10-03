@@ -442,10 +442,64 @@ void main() {
         await tester.tap(find.text(l10n.tlCallViewFullContent));
         await tester.pumpAndSettle();
         expect(find.text(l10n.tlCallViewInDialog), findsOneWidget);
+        expect(find.byTooltip(l10n.codeBlockDownload), findsWidgets);
         expect(tester.takeException(), isNull, reason: '${locale.toLanguageTag()} / ${brightness.name} 不得溢出');
       }
     }
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('工具子板块：折叠复制原文、正文点击与工具栏尺寸', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    expect(_getFileExtensionForLanguage('../../异常路径'), '.txt');
+    expect(_getFileExtensionForLanguage('patch'), '.patch');
+    final source = List.generate(40, (index) => '日志第 $index 行：服务运行正常').join('\n');
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copiedText = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    var toggles = 0;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fr'), supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: Scaffold(body: Builder(builder: (context) => SingleChildScrollView(
+        child: Padding(padding: const EdgeInsets.all(12), child: _ExpandableToolSection(
+          title: AppLocalizations.of(context)!.tlCallToolOutput,
+          preview: '', expanded: true, onToggle: () => toggles++,
+          expandedBuilder: (context) => _ToolOutputPanel(
+            label: AppLocalizations.of(context)!.tlCallStdout,
+            content: _FormattedToolContent(text: source, language: 'text'),
+            theme: Theme.of(context), selectable: false,
+          ),
+        )),
+      ))),
+    ));
+    await tester.pumpAndSettle();
+    final l10n = lookupAppLocalizations(const Locale('fr'));
+    expect(find.byTooltip(l10n.codeBlockDownload), findsOneWidget);
+    expect(find.textContaining('Texte brut'), findsOneWidget);
+    final panel = tester.widget<_HighlightedCodePanel>(find.byType(_HighlightedCodePanel));
+    expect(panel.content.length, lessThan(source.length));
+    await tester.tap(find.byTooltip('Copier'));
+    await tester.pumpAndSettle();
+    expect(copiedText, source, reason: '折叠复制必须保留后续日志');
+    final actions = find.byType(_CodeBlockToolbarAction);
+    final sizes = List.generate(actions.evaluate().length, (index) => tester.getSize(actions.at(index)));
+    expect(sizes.every((size) => size.height == sizes.first.height), isTrue);
+    expect(sizes.first.height, 28);
+    final body = find.descendant(of: find.byType(_HighlightedCodePanel), matching: find.byType(RichText)).last;
+    await tester.tap(body);
+    expect(toggles, 0, reason: '正文点击不能传递给分区折叠操作');
+    await tester.ensureVisible(find.text(l10n.tlCallToolOutput));
+    await tester.tap(find.text(l10n.tlCallToolOutput));
+    expect(toggles, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('消息控件：忙碌态阻止重复点击，外部工具保留原名', (tester) async {

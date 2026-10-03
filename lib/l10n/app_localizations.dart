@@ -105,6 +105,60 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// No description provided for @codeBlockDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get codeBlockDownload;
+
+  /// No description provided for @codeBlockDownloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载'**
+  String get codeBlockDownloaded;
+
+  /// No description provided for @codeBlockCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码'**
+  String get codeBlockCode;
+
+  /// No description provided for @codeBlockView.
+  ///
+  /// In zh, this message translates to:
+  /// **'视图'**
+  String get codeBlockView;
+
+  /// 代码块行数
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 行'**
+  String codeBlockLines(int count);
+
+  /// No description provided for @codeBlockCopiedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码块内容已复制。'**
+  String get codeBlockCopiedMessage;
+
+  /// No description provided for @codeBlockCopyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制代码块失败。'**
+  String get codeBlockCopyFailed;
+
+  /// 代码保存成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'代码已保存为 {fileName}'**
+  String codeBlockSavedMessage(String fileName);
+
+  /// No description provided for @codeBlockSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存代码失败。'**
+  String get codeBlockSaveFailed;
+
   /// No description provided for @maintenanceProcessId.
   ///
   /// In zh, this message translates to:

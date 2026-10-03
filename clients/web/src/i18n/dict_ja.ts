@@ -1,6 +1,17 @@
 // 日文字典，键必须与 dict_zh 一一对应。
 
 export const dict_ja: Record<string, string> = {
+  "codeBlock.plainText": "プレーンテキスト",
+  "codeBlock.shell": "シェル",
+  "codeBlock.diffLabel": "差分",
+  "codeBlock.line": "{count} 行",
+  "codeBlock.lines": "{count} 行",
+  "codeBlock.saved": "コードを保存しました",
+  "codeBlock.saveFailed": "コードを保存できませんでした",
+  "codeBlock.diffEmpty": "内容が同じか比較できません。",
+  "codeBlock.diffUnchanged": "変更なし {count} 行",
+  "codeBlock.diffExpand": "差分をすべて表示（残り {count} 行）",
+  "codeBlock.diffCollapse": "差分を折りたたむ",
   'app.brand': 'OpenHand · Web メッセージングプラットフォーム',
   'common.copy': 'コピー',
   'common.copied': 'コピーしました',
@@ -8,10 +19,6 @@ export const dict_ja: Record<string, string> = {
   'codeBlock.unwrap': '折り返しを解除',
   'codeBlock.copySuccess': 'コードをコピーしました',
   'codeBlock.copyFailed': 'コピーに失敗しました。ブラウザの権限を確認してください。',
-  'codeBlock.diffCopied': 'Diff をコピーしました',
-  'codeBlock.diffCopyFailed': 'Diff のコピーに失敗しました。ブラウザの権限を確認してください。',
-  'codeBlock.diffDownloaded': 'Diff をダウンロードしました',
-  'codeBlock.diffDownloadFailed': 'Diff のダウンロードに失敗しました',
   'codeBlock.download': 'ダウンロード',
   'codeBlock.downloaded': '保存済み',
   'codeBlock.view': 'ビュー',

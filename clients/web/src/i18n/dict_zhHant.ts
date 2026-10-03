@@ -1,6 +1,17 @@
 // 繁体中文字典，键必须与 dict_zh 一一对应。
 
 export const dict_zhHant: Record<string, string> = {
+  "codeBlock.plainText": "純文字",
+  "codeBlock.shell": "終端",
+  "codeBlock.diffLabel": "差異",
+  "codeBlock.line": "{count} 行",
+  "codeBlock.lines": "{count} 行",
+  "codeBlock.saved": "程式碼已下載",
+  "codeBlock.saveFailed": "下載程式碼失敗",
+  "codeBlock.diffEmpty": "內容相同或無法比較。",
+  "codeBlock.diffUnchanged": "{count} 行未修改",
+  "codeBlock.diffExpand": "展開全部差異（還有 {count} 行）",
+  "codeBlock.diffCollapse": "收起差異預覽",
   'app.brand': 'OpenHand · Web 通用訊息平台',
   'common.copy': '複製',
   'common.copied': '已複製',
@@ -8,10 +19,6 @@ export const dict_zhHant: Record<string, string> = {
   'codeBlock.unwrap': '取消換行',
   'codeBlock.copySuccess': '程式碼已複製',
   'codeBlock.copyFailed': '複製失敗，請檢查瀏覽器權限',
-  'codeBlock.diffCopied': 'Diff 內容已複製',
-  'codeBlock.diffCopyFailed': '複製 Diff 失敗，請檢查瀏覽器權限',
-  'codeBlock.diffDownloaded': 'Diff 已下載',
-  'codeBlock.diffDownloadFailed': '下載 Diff 失敗',
   'codeBlock.download': '下載',
   'codeBlock.downloaded': '已下載',
   'codeBlock.view': '視圖',

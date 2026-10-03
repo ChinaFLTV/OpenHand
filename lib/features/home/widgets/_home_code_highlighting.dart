@@ -9,7 +9,8 @@ const int _highlightSkipThresholdChars = 80 * kBytesPerKiB;
 /// （首帧纯文本，后续帧补色），避免多 tool_call 同帧 mount 时把主线程撑爆。
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
 const int _highlightDeferThresholdChars = 256;
-const double _kCodeBlockToolbarActionSize = 30;
+const double _kCodeBlockToolbarActionSize = 28;
+const double _kCodeBlockToolbarInlineMinWidth = 520;
 const double _kCodeBlockToolbarIconSize = 16;
 const Duration _tempPreviewCleanupTotalTimeout = Duration(seconds: 20);
 const Duration _tempPreviewWriteTimeout = Duration(seconds: 30);
@@ -616,7 +617,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     setState(() => _copied = true);
     replaceOpenHandSnack(
       context,
-      openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
+      AppLocalizations.of(context)!.codeBlockCopiedMessage,
       kind: OpenHandSnackKind.success,
     );
     _copiedResetTimer = startSafeTimer(_actionResetDelay, () {
@@ -636,11 +637,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       setState(() => _copied = false);
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '复制 Diff 失败。',
-          en: 'Failed to copy diff.',
-        ),
+        AppLocalizations.of(context)!.codeBlockCopyFailed,
         kind: OpenHandSnackKind.error,
       );
     }
@@ -668,11 +665,9 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       setState(() => _downloaded = true);
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(
+        AppLocalizations.of(
           context,
-          zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
-          en: 'Diff downloaded as ${p.basename(selectedPath)}',
-        ),
+        )!.codeBlockSavedMessage(p.basename(selectedPath)),
         kind: OpenHandSnackKind.success,
       );
       _downloadedResetTimer = startSafeTimer(_actionResetDelay, () {
@@ -684,11 +679,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       if (!mounted) return;
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '下载 Diff 失败。',
-          en: 'Download failed.',
-        ),
+        AppLocalizations.of(context)!.codeBlockSaveFailed,
         kind: OpenHandSnackKind.error,
       );
     }
@@ -726,13 +717,13 @@ class _InlineCodexDiffHeader extends StatelessWidget {
         child: Row(
           children: [
             _InlineDiffPill(
-              label: 'diff',
+              label: openHandCodeFenceLanguageLabel(context, 'diff'),
               icon: Icons.difference_rounded,
               backgroundColor: palette.foldedBackground,
               foregroundColor: palette.mutedText,
             ),
             const Spacer(),
-            _CodeBlockCircularAction(
+            _CodeBlockToolbarAction(
               label: openHandCodeWrapToggleLabel(context, wrapLines: wrapLines),
               icon: wrapLines ? Icons.wrap_text_rounded : Icons.segment_rounded,
               backgroundColor: wrapLines
@@ -744,7 +735,7 @@ class _InlineCodexDiffHeader extends StatelessWidget {
               onTap: onToggleWrap,
             ),
             kOpenHandHGap4,
-            _InlineDiffPill(
+            _CodeBlockToolbarAction(
               label: copied
                   ? openHandCopiedLabel(context)
                   : openHandCopyLabel(context),
@@ -753,13 +744,11 @@ class _InlineCodexDiffHeader extends StatelessWidget {
               foregroundColor: palette.footerForeground,
               onTap: onCopy,
             ),
-            kOpenHandHGap8,
-            _InlineDiffPill(
-              label: openHandLocalizedText(
-                context,
-                zh: downloaded ? '已下载' : '下载',
-                en: downloaded ? 'Downloaded' : 'Download',
-              ),
+            kOpenHandHGap4,
+            _CodeBlockToolbarAction(
+              label: downloaded
+                  ? AppLocalizations.of(context)!.codeBlockDownloaded
+                  : AppLocalizations.of(context)!.codeBlockDownload,
               icon: downloaded ? Icons.check_rounded : Icons.download_rounded,
               backgroundColor: palette.footerBorder,
               foregroundColor: palette.footerForeground,
@@ -829,13 +818,15 @@ class _InlineDiffPill extends StatelessWidget {
   }
 }
 
-class _CodeBlockCircularAction extends StatelessWidget {
-  const _CodeBlockCircularAction({
+class _CodeBlockToolbarAction extends StatelessWidget {
+  const _CodeBlockToolbarAction({
     required this.label,
     required this.icon,
     required this.backgroundColor,
     required this.foregroundColor,
     required this.onTap,
+    this.showLabel = false,
+    this.selected,
   });
 
   final String label;
@@ -843,47 +834,76 @@ class _CodeBlockCircularAction extends StatelessWidget {
   final Color backgroundColor;
   final Color foregroundColor;
   final VoidCallback onTap;
+  final bool showLabel;
+  final bool? selected;
 
   @override
   Widget build(BuildContext context) {
-    final button = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: _kCodeBlockToolbarActionSize,
-          height: _kCodeBlockToolbarActionSize,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion160),
-              switchInCurve: kOpenHandEntranceCurve,
-              switchOutCurve: kOpenHandSwitchOutCurve,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(scale: animation, child: child),
-              ),
-              child: Icon(
-                icon,
-                key: ValueKey<IconData>(icon),
-                size: _kCodeBlockToolbarIconSize,
-                color: foregroundColor,
-              ),
-            ),
-          ),
-        ),
-      ),
+    final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: foregroundColor,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+    );
+    final height = math.max(
+      _kCodeBlockToolbarActionSize,
+      MediaQuery.textScalerOf(context).scale(textStyle?.fontSize ?? 11) * 1.25 +
+          8,
     );
     return Tooltip(
       message: label,
       child: Semantics(
         button: true,
         label: label,
-        child: MicroPressFeedback(scale: 0.9, child: button),
+        toggled: selected,
+        child: MicroPressFeedback(
+          scale: 0.96,
+          child: Material(
+            color: backgroundColor,
+            borderRadius: kOpenHandBorderRadius8,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: kOpenHandBorderRadius8,
+              child: Container(
+                height: height,
+                width: showLabel ? null : height,
+                padding: showLabel
+                    ? const EdgeInsets.symmetric(horizontal: 8)
+                    : EdgeInsets.zero,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion160,
+                      ),
+                      switchInCurve: kOpenHandSwitchInCurve,
+                      switchOutCurve: kOpenHandSwitchOutCurve,
+                      child: Icon(
+                        icon,
+                        key: ValueKey(icon),
+                        size: _kCodeBlockToolbarIconSize,
+                        color: foregroundColor,
+                      ),
+                    ),
+                    if (showLabel) ...[
+                      kOpenHandHGap6,
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textStyle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -901,6 +921,9 @@ class _HighlightedCodePanel extends StatefulWidget {
     this.wrapLines = false,
     this.showToolbar = true,
     this.internalVerticalScroll = false,
+    this.title,
+    this.actionContent,
+    this.toolbarActionsBuilder,
   });
 
   final String content;
@@ -913,6 +936,9 @@ class _HighlightedCodePanel extends StatefulWidget {
   final bool wrapLines;
   final bool showToolbar;
   final bool internalVerticalScroll;
+  final String? title;
+  final String? actionContent;
+  final List<Widget> Function(_CodeBlockPalette)? toolbarActionsBuilder;
 
   @override
   State<_HighlightedCodePanel> createState() => _HighlightedCodePanelState();
@@ -987,6 +1013,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     }
     if (oldWidget.content != widget.content) {
       _lineCount = _countLines(widget.content);
+    }
+    if (oldWidget.content != widget.content ||
+        oldWidget.actionContent != widget.actionContent) {
       _copiedResetTimer?.cancel();
       _copied = false;
       _downloadedResetTimer?.cancel();
@@ -1053,10 +1082,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
     final paletteSignature = Object.hash(
-      widget.theme.colorScheme.primary.toARGB32(),
-      widget.theme.brightness.index,
+      widget.theme.colorScheme,
       useDarkPalette,
-      widget.accentColor?.toARGB32(),
+      widget.accentColor,
     );
     if (_cachedPalette == null || _cachedPaletteSignature != paletteSignature) {
       _cachedPalette = _CodeBlockPalette.fromTheme(
@@ -1070,35 +1098,71 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final copyLabel = _copied
         ? openHandCopiedLabel(context)
         : openHandCopyLabel(context);
-    final downloadLabel = openHandLocalizedText(
-      context,
-      zh: _downloaded ? '已下载' : '下载',
-      en: _downloaded ? 'Downloaded' : 'Download',
-    );
-    final runLabel = openHandLocalizedText(context, zh: '运行', en: 'Run');
+    final l10n = AppLocalizations.of(context)!;
+    final downloadLabel = _downloaded
+        ? l10n.codeBlockDownloaded
+        : l10n.codeBlockDownload;
+    final runLabel = openHandRunLabel(context);
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
     final isMermaidLanguage = _isMermaidLanguage(effectiveLanguage);
-    final viewLabel = openHandLocalizedText(
-      context,
-      zh: _mermaidViewActive ? '代码' : '视图',
-      en: _mermaidViewActive ? 'Code' : 'View',
-    );
-    final lineCountLabel = openHandLocalizedText(
-      context,
-      zh: '$_lineCount 行',
-      en: '$_lineCount lines',
-    );
+    final viewLabel = _mermaidViewActive
+        ? l10n.codeBlockCode
+        : l10n.codeBlockView;
+    final lineCountLabel = l10n.codeBlockLines(_lineCount);
+    final toolbarActions = <Widget>[
+      ...?widget.toolbarActionsBuilder?.call(palette),
+      if (isMermaidLanguage)
+        _buildToolbarAction(
+          label: viewLabel,
+          icon: _mermaidViewActive
+              ? Icons.code_rounded
+              : Icons.visibility_outlined,
+          palette: palette,
+          active: _mermaidViewActive,
+          onTap: _toggleMermaidView,
+        ),
+      _buildToolbarAction(
+        label: openHandCodeWrapToggleLabel(context, wrapLines: _wrapLines),
+        icon: _wrapLines ? Icons.wrap_text_rounded : Icons.segment_rounded,
+        palette: palette,
+        active: _wrapLines,
+        onTap: _toggleWrapLines,
+      ),
+      _buildToolbarAction(
+        label: copyLabel,
+        icon: _copied ? Icons.check_rounded : Icons.content_copy_rounded,
+        palette: palette,
+        active: _copied,
+        onTap: () {
+          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+          _copyCodeBlock();
+        },
+      ),
+      _buildToolbarAction(
+        label: downloadLabel,
+        icon: _downloaded ? Icons.check_rounded : Icons.download_rounded,
+        palette: palette,
+        active: _downloaded,
+        onTap: () {
+          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+          _downloadCodeBlock(effectiveLanguage);
+        },
+      ),
+      if (isHtmlLanguage)
+        _buildToolbarAction(
+          label: runLabel,
+          icon: Icons.play_arrow_rounded,
+          palette: palette,
+          onTap: () {
+            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+            _runHtmlPreview();
+          },
+        ),
+    ];
     return Container(
       decoration: BoxDecoration(
         color: palette.containerColor,
         borderRadius: _markdownCodeBlockRadius,
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: palette.shadowColor,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       foregroundDecoration: BoxDecoration(
         borderRadius: _markdownCodeBlockRadius,
@@ -1110,108 +1174,80 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         children: [
           if (widget.showToolbar)
             Container(
-              padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: palette.headerColor,
                 border: Border(bottom: BorderSide(color: palette.dividerColor)),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.code_rounded,
-                          size: 15,
-                          color: palette.badgeTextColor.withValues(alpha: 0.8),
-                        ),
-                        kOpenHandHGap7,
-                        Flexible(
-                          child: Text(
-                            '$displayLanguage · $lineCountLabel',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: widget.theme.textTheme.labelMedium?.copyWith(
-                              color: palette.badgeTextColor.withValues(
-                                alpha: 0.82,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final heading = Row(
+                    children: [
+                      Icon(
+                        effectiveLanguage == 'shell'
+                            ? Icons.terminal_rounded
+                            : Icons.code_rounded,
+                        size: _kCodeBlockToolbarIconSize,
+                        color: palette.badgeTextColor.withValues(alpha: 0.72),
+                      ),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (widget.title != null)
+                              Text(
+                                widget.title!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: widget.theme.textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: palette.badgeTextColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                               ),
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.12,
+                            Text(
+                              '$displayLanguage · $lineCountLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: widget.theme.textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: palette.badgeTextColor.withValues(
+                                      alpha: 0.72,
+                                    ),
+                                  ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  if (isMermaidLanguage) ...[
-                    _buildToolbarAction(
-                      label: viewLabel,
-                      icon: _mermaidViewActive
-                          ? Icons.code_rounded
-                          : Icons.visibility_outlined,
-                      palette: palette,
-                      active: _mermaidViewActive,
-                      onTap: _toggleMermaidView,
-                    ),
-                    kOpenHandHGap4,
-                  ],
-                  _buildToolbarAction(
-                    label: openHandCodeWrapToggleLabel(
-                      context,
-                      wrapLines: _wrapLines,
-                    ),
-                    icon: _wrapLines
-                        ? Icons.wrap_text_rounded
-                        : Icons.segment_rounded,
-                    palette: palette,
-                    active: _wrapLines,
-                    onTap: _toggleWrapLines,
-                  ),
-                  kOpenHandHGap4,
-                  _buildToolbarAction(
-                    label: copyLabel,
-                    icon: _copied
-                        ? Icons.check_rounded
-                        : Icons.content_copy_rounded,
-                    palette: palette,
-                    active: _copied,
-                    onTap: () {
-                      _BubbleHtmlInteractiveScope.maybeOf(
-                        context,
-                      )?.markInteractiveTap();
-                      _copyCodeBlock();
-                    },
-                  ),
-                  kOpenHandHGap4,
-                  _buildToolbarAction(
-                    label: downloadLabel,
-                    icon: _downloaded
-                        ? Icons.check_rounded
-                        : Icons.download_rounded,
-                    palette: palette,
-                    active: _downloaded,
-                    onTap: () {
-                      _BubbleHtmlInteractiveScope.maybeOf(
-                        context,
-                      )?.markInteractiveTap();
-                      _downloadCodeBlock(effectiveLanguage);
-                    },
-                  ),
-                  if (isHtmlLanguage) ...[
-                    kOpenHandHGap4,
-                    _buildToolbarAction(
-                      label: runLabel,
-                      icon: Icons.play_arrow_rounded,
-                      palette: palette,
-                      onTap: () {
-                        _BubbleHtmlInteractiveScope.maybeOf(
-                          context,
-                        )?.markInteractiveTap();
-                        _runHtmlPreview();
-                      },
-                    ),
-                  ],
-                ],
+                      ),
+                    ],
+                  );
+                  final actions = Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: toolbarActions,
+                  );
+                  return constraints.maxWidth < _kCodeBlockToolbarInlineMinWidth
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [heading, kOpenHandGap8, actions],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: heading),
+                            kOpenHandHGap8,
+                            Flexible(
+                              flex: 2,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: actions,
+                              ),
+                            ),
+                          ],
+                        );
+                },
               ),
             ),
           _buildPanelBody(palette, isMermaidLanguage),
@@ -1439,7 +1475,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     required VoidCallback onTap,
     bool active = false,
   }) {
-    return _CodeBlockCircularAction(
+    return _CodeBlockToolbarAction(
       label: label,
       icon: icon,
       backgroundColor: active ? palette.badgeColor : palette.actionColor,
@@ -1458,13 +1494,15 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   Future<void> _performCodeBlockCopy() async {
     if (_copying) return;
     _copying = true;
+    final content = widget.actionContent ?? widget.content;
     try {
-      await setOpenHandClipboardText(widget.content);
-      if (!mounted) return;
+      await setOpenHandClipboardText(content);
+      if (!mounted || content != (widget.actionContent ?? widget.content))
+        return;
       setState(() => _copied = true);
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
+        AppLocalizations.of(context)!.codeBlockCopiedMessage,
         kind: OpenHandSnackKind.success,
       );
       _copiedResetTimer = startSafeTimer(_codeActionResetDelay, () {
@@ -1478,11 +1516,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       if (_copied) setState(() => _copied = false);
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '复制代码块失败。',
-          en: 'Failed to copy code.',
-        ),
+        AppLocalizations.of(context)!.codeBlockCopyFailed,
         kind: OpenHandSnackKind.error,
       );
     } finally {
@@ -1500,6 +1534,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     _downloading = true;
     final extension = _getFileExtensionForLanguage(language);
     final suggestedName = 'code_block$extension';
+    final content = widget.actionContent ?? widget.content;
     try {
       final selectedLocation = await getSaveLocation(
         suggestedName: suggestedName,
@@ -1509,7 +1544,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         return;
       }
       final file = File(selectedPath);
-      await writeFileAtomically(file, widget.content);
+      await writeFileAtomically(file, content);
       if (!mounted) {
         return;
       }
@@ -1518,11 +1553,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       });
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(
+        AppLocalizations.of(
           context,
-          zh: '代码已下载为 ${p.basename(selectedPath)}',
-          en: 'Code downloaded as ${p.basename(selectedPath)}',
-        ),
+        )!.codeBlockSavedMessage(p.basename(selectedPath)),
         kind: OpenHandSnackKind.success,
       );
       _downloadedResetTimer = startSafeTimer(_codeActionResetDelay, () {
@@ -1540,7 +1573,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       }
       replaceOpenHandSnack(
         context,
-        openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
+        AppLocalizations.of(context)!.codeBlockSaveFailed,
         kind: OpenHandSnackKind.error,
       );
     } finally {
@@ -1588,10 +1621,10 @@ class _CodeBlockPalette {
           tint.withValues(alpha: 0.05),
           darkScheme.surfaceContainerHigh,
         ),
-        borderColor: darkScheme.outlineVariant.withValues(alpha: 0.78),
+        borderColor: darkScheme.outlineVariant.withValues(alpha: 0.55),
         headerColor: Color.alphaBlend(
           tint.withValues(alpha: 0.08),
-          darkScheme.surfaceContainerHighest,
+          darkScheme.surfaceContainerLow,
         ),
         dividerColor: darkScheme.outlineVariant.withValues(alpha: 0.52),
         bodyColor: Color.alphaBlend(
@@ -1608,7 +1641,6 @@ class _CodeBlockPalette {
           darkScheme.surfaceContainerHighest,
         ),
         actionTextColor: darkScheme.onSurface,
-        shadowColor: Colors.black.withValues(alpha: 0.18),
       );
     }
     return _CodeBlockPalette(
@@ -1618,11 +1650,11 @@ class _CodeBlockPalette {
       ),
       borderColor: Color.alphaBlend(
         tint.withValues(alpha: 0.08),
-        colorScheme.outlineVariant.withValues(alpha: 0.85),
+        colorScheme.outlineVariant.withValues(alpha: 0.55),
       ),
       headerColor: Color.alphaBlend(
-        tint.withValues(alpha: 0.05),
-        colorScheme.surfaceContainer,
+        tint.withValues(alpha: 0.03),
+        colorScheme.surface,
       ),
       dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.62),
       bodyColor: Colors.white.withValues(alpha: 0.45),
@@ -1636,7 +1668,6 @@ class _CodeBlockPalette {
         colorScheme.surfaceContainerHighest,
       ),
       actionTextColor: colorScheme.onSurface,
-      shadowColor: colorScheme.shadow.withValues(alpha: 0.03),
     );
   }
   const _CodeBlockPalette({
@@ -1649,7 +1680,6 @@ class _CodeBlockPalette {
     required this.badgeTextColor,
     required this.actionColor,
     required this.actionTextColor,
-    required this.shadowColor,
   });
 
   // 缓存开销较高的深色动态配色。
@@ -1665,7 +1695,6 @@ class _CodeBlockPalette {
   final Color badgeTextColor;
   final Color actionColor;
   final Color actionTextColor;
-  final Color shadowColor;
 }
 
 final RegExp _markdownCodeFencePattern = RegExp(r'(^|\n)[ ]{0,3}(`{3,}|~{3,})');
@@ -1774,7 +1803,10 @@ String _getFileExtensionForLanguage(String? language) {
     'cmake' => '.cmake',
     'nginx' => '.conf',
     'apache' => '.conf',
-    _ => '.$normalized',
+    'diff' => '.diff',
+    'patch' => '.patch',
+    'mermaid' => '.mmd',
+    _ => '.txt',
   };
 }
 

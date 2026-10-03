@@ -1,4 +1,13 @@
 {
+  "codeBlockDownload": "Télécharger",
+  "codeBlockDownloaded": "Téléchargé",
+  "codeBlockCode": "Code",
+  "codeBlockView": "Vue",
+  "codeBlockLines": "{count, plural, one{{count} ligne} other{{count} lignes}}",
+  "codeBlockCopiedMessage": "Code copié.",
+  "codeBlockCopyFailed": "Impossible de copier le code.",
+  "codeBlockSavedMessage": "Code enregistré sous {fileName}",
+  "codeBlockSaveFailed": "Impossible d’enregistrer le code.",
   "maintenanceProcessId": "ID du processus",
   "maintenanceEgressAddress": "Adresse publique",
   "maintenanceEgressCopyAddress": "Copier l’adresse publique",

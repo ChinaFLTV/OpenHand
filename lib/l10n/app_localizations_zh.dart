@@ -9,6 +9,37 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get codeBlockDownload => '下载';
+
+  @override
+  String get codeBlockDownloaded => '已下载';
+
+  @override
+  String get codeBlockCode => '代码';
+
+  @override
+  String get codeBlockView => '视图';
+
+  @override
+  String codeBlockLines(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String get codeBlockCopiedMessage => '代码块内容已复制。';
+
+  @override
+  String get codeBlockCopyFailed => '复制代码块失败。';
+
+  @override
+  String codeBlockSavedMessage(String fileName) {
+    return '代码已保存为 $fileName';
+  }
+
+  @override
+  String get codeBlockSaveFailed => '保存代码失败。';
+
+  @override
   String get maintenanceProcessId => '进程 ID';
 
   @override
@@ -16554,6 +16585,37 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get codeBlockDownload => '下載';
+
+  @override
+  String get codeBlockDownloaded => '已下載';
+
+  @override
+  String get codeBlockCode => '程式碼';
+
+  @override
+  String get codeBlockView => '檢視';
+
+  @override
+  String codeBlockLines(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String get codeBlockCopiedMessage => '程式碼內容已複製。';
+
+  @override
+  String get codeBlockCopyFailed => '複製程式碼失敗。';
+
+  @override
+  String codeBlockSavedMessage(String fileName) {
+    return '程式碼已儲存為 $fileName';
+  }
+
+  @override
+  String get codeBlockSaveFailed => '儲存程式碼失敗。';
 
   @override
   String get maintenanceProcessId => '程序 ID';

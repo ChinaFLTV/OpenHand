@@ -9,6 +9,37 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get codeBlockDownload => '保存';
+
+  @override
+  String get codeBlockDownloaded => '保存済み';
+
+  @override
+  String get codeBlockCode => 'コード';
+
+  @override
+  String get codeBlockView => '表示';
+
+  @override
+  String codeBlockLines(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String get codeBlockCopiedMessage => 'コードをコピーしました。';
+
+  @override
+  String get codeBlockCopyFailed => 'コードをコピーできませんでした。';
+
+  @override
+  String codeBlockSavedMessage(String fileName) {
+    return 'コードを $fileName に保存しました';
+  }
+
+  @override
+  String get codeBlockSaveFailed => 'コードを保存できませんでした。';
+
+  @override
   String get maintenanceProcessId => 'プロセス ID';
 
   @override

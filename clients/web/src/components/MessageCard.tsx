@@ -16,7 +16,8 @@ import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
 import { fileMutationLabel } from '../shared/util/tool_display_name';
 import { formatCreationOptionDetail } from '../shared/ui/creation_option_labels';
-import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
+import { Markdown, CodeBlockActions, CodeBlockWrapButton, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
+import { codeLanguageLabel, codeLineCount, codeLineCountLabel } from '../shared/util/code_block';
 import { decisionRequestToMarkdown } from '../shared/util/decision_request_markdown';
 import { decisionResultInfoItems, isStructuredDecisionMessage } from '../shared/util/decision';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
@@ -4812,7 +4813,7 @@ function ToolExecutionCard({
       </div>
       <ToolArgumentsBlock metadata={metadata} autoFollow={argumentsStreaming || autoFollowToolOutput} />
       {command ? (
-        <ToolSection title={t('detail.tool.command', '执行命令')} content={command} defaultExpanded autoFollow={autoFollowToolOutput} />
+        <ToolSection title={t('detail.tool.command', '执行命令')} language="shell" content={command} defaultExpanded autoFollow={autoFollowToolOutput} />
       ) : null}
       {stdout ? (
         <ToolSection title={t('detail.tool.stdout', '标准输出')} content={stdout} autoFollow={autoFollowToolOutput} />
@@ -4920,8 +4921,10 @@ function ToolSection({
   danger,
   defaultExpanded = false,
   autoFollow = false,
+  language,
 }: {
   title: string;
+  language?: string;
   content: string;
   danger?: boolean;
   defaultExpanded?: boolean;
@@ -4940,36 +4943,28 @@ function ToolSection({
     [formattedContent],
   );
   const [expanded, setExpanded] = useState(defaultExpanded || !long);
+  const [wrapLines, setWrapLines] = useState(true);
+  const lineCount = useMemo(() => codeLineCount(formattedContent), [formattedContent]);
+  const lineLabel = codeLineCountLabel(lineCount);
   const preRef = useStickyBottom<HTMLPreElement>(formattedContent, autoFollow);
   return (
-    <section class="oh-tool-section">
-      <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px] oh-text-muted">
-        <span style={{ fontWeight: 600, color: danger ? 'var(--m3-error)' : undefined }}>{title}</span>
-        {long ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
-            style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface-variant)', background: 'var(--m3-surface)', fontSize: 10 }}
-          >
-            {expanded ? t('detail.tool.body.collapse', '折叠') : t('detail.tool.body.expand', '展开全部 ')}
-          </button>
-        ) : null}
+    <section class={`oh-tool-section${danger ? ' is-error' : ''}`}>
+      <div class="oh-tool-section-header">
+        <span class="oh-tool-section-symbol" aria-hidden><MessageIcon name={danger ? 'status' : 'toolCall'} size={16} /></span>
+        <span class="oh-code-block-heading"><strong>{title}</strong><span class="oh-code-block-count">{codeLanguageLabel(language)} · {lineLabel}</span></span>
+        <div class="oh-code-block-actions">
+          {long ? <button type="button" class="oh-tool-toggle-button oh-tap-press" aria-expanded={expanded}
+            onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }}>
+            {expanded ? t('detail.tool.body.collapse') : t('detail.tool.body.expand')}
+          </button> : null}
+          <CodeBlockWrapButton wrapLines={wrapLines} onToggle={() => setWrapLines((value) => !value)} />
+          <CodeBlockActions source={content} language={language} />
+        </div>
       </div>
       <pre
         ref={preRef}
-        class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
-        style={{
-          background: 'var(--m3-surface)',
-          color: danger ? 'var(--m3-error)' : 'var(--m3-on-surface)',
-          border: `1px solid ${danger ? 'color-mix(in srgb, var(--m3-error) 45%, transparent)' : 'var(--m3-outline)'}`,
-          wordBreak: 'break-word',
-          maxHeight: long ? (expanded ? 'min(70dvh, 720px)' : '160px') : undefined,
-          overflow: long ? 'auto' : 'visible',
-        }}
+        class={`oh-tool-section-pre${wrapLines ? ' is-wrap' : ' is-scroll'}`}
+        style={{ maxHeight: long ? (expanded ? 'min(70dvh, 720px)' : '160px') : undefined, overflow: 'auto' }}
       >
         {formattedContent}
       </pre>
@@ -5134,54 +5129,6 @@ function ToolArgumentsBlock({
     }
     return stringifyJsonSafely(raw, 2) ?? String(raw);
   }, [raw]);
-  const [expanded, setExpanded] = useState(false);
-  const overflow = useMemo(
-    () => pretty != null && (pretty.length > 200 || newlineCountAtLeast(pretty, 4)),
-    [pretty],
-  );
-  const preRef = useStickyBottom<HTMLPreElement>(pretty ?? '', autoFollow);
   if (pretty == null) return null;
-  return (
-    <div class="mb-2">
-      <div
-        class="text-[11px] mb-1 flex items-center gap-2 oh-text-muted"
-      >
-        <span style={{ fontWeight: 600 }}>{t('detail.tool.argumentsTitle', '工具入参')}</span>
-        {overflow ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            class="oh-tap-press oh-tool-toggle-button px-1.5 py-0.5 rounded-m3-sm"
-            style={{
-              border: '1px solid var(--m3-outline)',
-              color: 'var(--m3-on-surface-variant)',
-              background: 'var(--m3-surface)',
-              fontSize: 10,
-            }}
-          >
-            {expanded
-              ? t('detail.tool.body.collapse', '折叠')
-              : t('detail.tool.body.expand', '展开全部 ')}
-          </button>
-        ) : null}
-      </div>
-      <pre
-        ref={preRef}
-        class="oh-tool-section-pre text-[11px] leading-snug whitespace-pre-wrap font-mono rounded-m3-sm p-2 m-0"
-        style={{
-          background: 'var(--m3-surface)',
-          color: 'var(--m3-on-surface)',
-          border: '1px solid var(--m3-outline)',
-          wordBreak: 'break-word',
-          maxHeight: overflow ? (expanded ? 'min(64dvh, 640px)' : '88px') : undefined,
-          overflow: overflow ? 'auto' : 'visible',
-        }}
-      >
-        {pretty}
-      </pre>
-    </div>
-  );
+  return <ToolSection title={t('detail.tool.argumentsTitle')} content={pretty} language="json" autoFollow={autoFollow} />;
 }

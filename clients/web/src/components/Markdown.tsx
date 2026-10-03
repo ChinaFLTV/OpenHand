@@ -1,5 +1,5 @@
 import { DecisionCard, DecisionRequestCard } from './DecisionCard';
-import { DECISION_REQUEST, DECISION_RESULT, containsDecisionFence, decisionFenceLanguageLabel } from '../shared/util/decision';
+import { DECISION_REQUEST, DECISION_RESULT, containsDecisionFence } from '../shared/util/decision';
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
@@ -22,6 +22,7 @@ import {
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
 import { t } from '../i18n';
+import { codeLanguageLabel, codeFileExtension, codeLineCount, codeLineCountLabel } from '../shared/util/code_block';
 import {
   downloadBlobWithAnchor,
   revokeObjectUrlQuietly,
@@ -728,7 +729,7 @@ function WrapLinesIcon({ wrapped }: { wrapped: boolean }) {
   );
 }
 
-function CodeBlockWrapButton({
+export function CodeBlockWrapButton({
   wrapLines,
   onToggle,
 }: {
@@ -750,6 +751,49 @@ function CodeBlockWrapButton({
       <WrapLinesIcon wrapped={wrapLines} />
     </button>
   );
+}
+
+export function CodeBlockActions({ source, language }: { source: string; language?: string | null }) {
+  const copying = useRef(false);
+  const generation = useRef(0);
+  const { active: copied, trigger: showCopied, reset: resetCopied } = useTransientFlag();
+  const { active: downloaded, trigger: showDownloaded, reset: resetDownloaded } = useTransientFlag();
+  useEffect(() => {
+    generation.current++;
+    resetCopied();
+    resetDownloaded();
+    return () => { generation.current++; };
+  }, [source, resetCopied, resetDownloaded]);
+  const copyLabel = copied ? t('common.copied') : t('common.copy');
+  const downloadLabel = downloaded ? t('codeBlock.downloaded') : t('codeBlock.download');
+  return <>
+    <button type="button" class={`oh-code-block-icon-btn oh-tap-press${copied ? ' is-active' : ''}`}
+      title={copyLabel} aria-label={copyLabel} onClick={async (event) => {
+        event.stopPropagation();
+        if (copying.current) return;
+        copying.current = true;
+        const token = generation.current;
+        try {
+          const success = await copyTextToClipboard(source);
+          if (token !== generation.current) return;
+          if (success) showCopied();
+          showSnackbar(t(success ? 'codeBlock.copySuccess' : 'codeBlock.copyFailed'), { tone: success ? 'success' : 'error' });
+        } finally { copying.current = false; }
+      }}>
+      <svg {...svgIconProps({ size: 16 })}>{copied ? <path d="m5 12 4 4L19 6" /> : <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4" /></>}</svg>
+    </button>
+    <button type="button" class={`oh-code-block-icon-btn oh-tap-press${downloaded ? ' is-active' : ''}`}
+      title={downloadLabel} aria-label={downloadLabel} onClick={(event) => {
+        event.stopPropagation();
+        try {
+          downloadBlobWithAnchor(new Blob([source], { type: 'text/plain;charset=utf-8' }), `code_block.${codeFileExtension(language)}`);
+          showDownloaded();
+          showSnackbar(t('codeBlock.saved'), { tone: 'success' });
+        } catch { showSnackbar(t('codeBlock.saveFailed'), { tone: 'error' }); }
+      }}>
+      <svg {...svgIconProps({ size: 16 })}>{downloaded ? <path d="m5 12 4 4L19 6" /> : <><path d="M12 3v12m-5-5 5 5 5-5M5 20h14" /></>}</svg>
+    </button>
+  </>;
 }
 
 type InlineDiffLineKind = 'context' | 'addition' | 'deletion' | 'folded';
@@ -892,29 +936,9 @@ function inlineDiffLines(source: string): InlineDiffLine[] {
   return out;
 }
 
-function downloadInlineDiff(source: string, lang: string | null): boolean {
-  const normalized = (lang ?? '').trim().toLowerCase();
-  const ext = normalized === 'patch' || normalized.startsWith('patch-') ? 'patch' : 'diff';
-  try {
-    const blob = new Blob([source], { type: 'text/x-diff;charset=utf-8' });
-    downloadBlobWithAnchor(blob, `diff_block.${ext}`);
-    showSnackbar(t('codeBlock.diffDownloaded', 'Diff 已下载'), { tone: 'success' });
-    return true;
-  } catch {
-    showSnackbar(t('codeBlock.diffDownloadFailed', '下载 Diff 失败'), { tone: 'error' });
-    return false;
-  }
-}
-
 function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: string }) {
   const [showFull, setShowFull] = useState(false);
   const [wrapLines, setWrapLines] = useState(false);
-  const { active: copied, trigger: showCopied, reset: resetCopied } = useTransientFlag();
-  const {
-    active: downloaded,
-    trigger: showDownloaded,
-    reset: resetDownloaded,
-  } = useTransientFlag();
   const lines = useMemo(() => inlineDiffLines(plainText), [plainText]);
   const visibleLines = !showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT
     ? lines.slice(0, INLINE_DIFF_PREVIEW_LINE_LIMIT)
@@ -924,44 +948,22 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
   const showFooter = clipped || (showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT);
 
   useEffect(() => {
-    resetCopied();
-    resetDownloaded();
     setShowFull(false);
-  }, [plainText, resetCopied, resetDownloaded]);
+  }, [plainText]);
 
   return (
     <div class="oh-inline-diff-block">
       <div class="oh-inline-diff-header">
-        <span class="oh-inline-diff-chip">diff</span>
+        <span class="oh-inline-diff-chip">{codeLanguageLabel('diff')}</span>
         <span style={{ flex: 1 }} />
         <CodeBlockWrapButton
           wrapLines={wrapLines}
           onToggle={() => setWrapLines((value) => !value)}
         />
-        <button
-          type="button"
-          class="oh-code-block-copy oh-tap-press"
-          onClick={async () => {
-            if (await copyTextToClipboard(plainText)) {
-              showCopied();
-              showSnackbar(t('codeBlock.diffCopied', 'Diff 内容已复制'), { tone: 'success' });
-            } else {
-              showSnackbar(t('codeBlock.diffCopyFailed', '复制 Diff 失败，请检查浏览器权限'), { tone: 'error' });
-            }
-          }}
-        >{copied ? t('common.copied', '已复制') : t('common.copy', '复制')}</button>
-        <button
-          type="button"
-          class="oh-code-block-copy oh-tap-press"
-          onClick={() => {
-            if (downloadInlineDiff(plainText, lang)) {
-              showDownloaded();
-            }
-          }}
-        >{downloaded ? t('codeBlock.downloaded', '已下载') : t('codeBlock.download', '下载')}</button>
+        <CodeBlockActions source={plainText} language={lang?.trim().toLowerCase().startsWith('patch') ? 'patch' : 'diff'} />
       </div>
       {lines.length === 0 ? (
-        <div class="oh-inline-diff-empty">内容相同或不可对比。</div>
+        <div class="oh-inline-diff-empty">{t('codeBlock.diffEmpty')}</div>
       ) : (
         <div
           class={`oh-inline-diff-body${wrapLines ? ' is-wrap' : ''}`}
@@ -974,7 +976,7 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
                 {line.kind === 'folded' ? '⋯' : line.lineNumber ?? ''}
               </span>
               <span class="oh-inline-diff-code">
-                {line.kind === 'folded' ? `${line.foldedCount ?? 0} 行未修改` : line.text || ' '}
+                {line.kind === 'folded' ? t('codeBlock.diffUnchanged').replace('{count}', String(line.foldedCount ?? 0)) : line.text || ' '}
               </span>
             </div>
           ))}
@@ -986,7 +988,7 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
           class="oh-inline-diff-footer"
           onClick={() => setShowFull((value) => !value)}
         >
-          {showFull ? '收起 Diff 预览' : `展开全部 Diff（还有 ${hiddenCount} 行）`}
+          {showFull ? t('codeBlock.diffCollapse') : t('codeBlock.diffExpand').replace('{count}', String(hiddenCount))}
         </button>
       ) : null}
     </div>
@@ -1008,6 +1010,8 @@ function CodeBlockSurface({
   const isMermaid = (lang ?? '').trim().toLowerCase() === 'mermaid';
   const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
   const effectivePlainText = plainText.replace(/\n$/, '');
+  const lineCount = useMemo(() => codeLineCount(effectivePlainText), [effectivePlainText]);
+  const lineLabel = codeLineCountLabel(lineCount);
   if (looksLikeInlineDiffCodeBlock(lang, effectivePlainText)) {
     return <InlineDiffBlock lang={lang} plainText={effectivePlainText} />;
   }
@@ -1019,8 +1023,8 @@ function CodeBlockSurface({
   return (
     <div class="oh-code-block">
       <div class="oh-code-block-header">
-        {lang && <span class="oh-code-block-lang">{decisionFenceLanguageLabel(lang) ?? lang}</span>}
-        <span style={{ flex: 1 }} />
+        <span class="oh-code-block-heading"><span class="oh-code-block-lang">{codeLanguageLabel(lang)}</span><span class="oh-code-block-count">{lineLabel}</span></span>
+        <div class="oh-code-block-actions">
         {isMermaid ? (
           <button
             type="button"
@@ -1039,17 +1043,8 @@ function CodeBlockSurface({
           wrapLines={wrapLines}
           onToggle={() => setWrapLines((value) => !value)}
         />
-        <button
-          type="button"
-          class="oh-code-block-copy oh-tap-press"
-          onClick={async () => {
-            if (await copyTextToClipboard(effectivePlainText)) {
-              showSnackbar(t('codeBlock.copySuccess', '代码已复制'), { tone: 'success' });
-            } else {
-              showSnackbar(t('codeBlock.copyFailed', '复制失败，请检查浏览器权限'), { tone: 'error' });
-            }
-          }}
-        >{t('common.copy', '复制')}</button>
+        <CodeBlockActions source={effectivePlainText} language={lang} />
+        </div>
       </div>
       {isMermaid && mermaidViewActive ? (
         <MermaidView source={effectivePlainText} />
@@ -1295,7 +1290,7 @@ const MarkdownBody = memo(function MarkdownBody({ source, raw = false, mono = fa
         const hasElementChildren = Array.isArray(children) && children.some(
           (c: unknown) => c != null && typeof c === 'object',
         );
-        const isBlock = parentTag === 'code' && (hasHljsClass || hasElementChildren);
+        const isBlock = parentTag === 'code' && (hasHljsClass || hasElementChildren || extractMarkdownCodeText(children).endsWith('\n'));
         if (isBlock) {
           const lang = className
             ?.split(' ')

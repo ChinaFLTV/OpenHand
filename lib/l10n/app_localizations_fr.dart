@@ -9,6 +9,43 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get codeBlockDownload => 'Télécharger';
+
+  @override
+  String get codeBlockDownloaded => 'Téléchargé';
+
+  @override
+  String get codeBlockCode => 'Code';
+
+  @override
+  String get codeBlockView => 'Vue';
+
+  @override
+  String codeBlockLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lignes',
+      one: '$count ligne',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get codeBlockCopiedMessage => 'Code copié.';
+
+  @override
+  String get codeBlockCopyFailed => 'Impossible de copier le code.';
+
+  @override
+  String codeBlockSavedMessage(String fileName) {
+    return 'Code enregistré sous $fileName';
+  }
+
+  @override
+  String get codeBlockSaveFailed => 'Impossible d’enregistrer le code.';
+
+  @override
   String get maintenanceProcessId => 'ID du processus';
 
   @override

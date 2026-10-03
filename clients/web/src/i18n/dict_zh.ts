@@ -2,6 +2,17 @@
 // 维护原则：与 dict_en 同 key 一一对应；新增 key 必须两边同时补齐。
 
 export const dict_zh: Record<string, string> = {
+  "codeBlock.plainText": "纯文本",
+  "codeBlock.shell": "终端",
+  "codeBlock.diffLabel": "差异",
+  "codeBlock.line": "{count} 行",
+  "codeBlock.lines": "{count} 行",
+  "codeBlock.saved": "代码已下载",
+  "codeBlock.saveFailed": "下载代码失败",
+  "codeBlock.diffEmpty": "内容相同或不可对比。",
+  "codeBlock.diffUnchanged": "{count} 行未修改",
+  "codeBlock.diffExpand": "展开全部差异（还有 {count} 行）",
+  "codeBlock.diffCollapse": "收起差异预览",
   'app.brand': 'OpenHand · Web 通用消息平台',
   'common.copy': '复制',
   'common.copied': '已复制',
@@ -9,10 +20,6 @@ export const dict_zh: Record<string, string> = {
   'codeBlock.unwrap': '取消换行',
   'codeBlock.copySuccess': '代码已复制',
   'codeBlock.copyFailed': '复制失败，请检查浏览器权限',
-  'codeBlock.diffCopied': 'Diff 内容已复制',
-  'codeBlock.diffCopyFailed': '复制 Diff 失败，请检查浏览器权限',
-  'codeBlock.diffDownloaded': 'Diff 已下载',
-  'codeBlock.diffDownloadFailed': '下载 Diff 失败',
   'codeBlock.download': '下载',
   'codeBlock.downloaded': '已下载',
   'codeBlock.view': '视图',

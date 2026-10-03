@@ -1,4 +1,29 @@
 {
+  "codeBlockDownload": "下载",
+  "codeBlockDownloaded": "已下载",
+  "codeBlockCode": "代码",
+  "codeBlockView": "视图",
+  "codeBlockLines": "{count} 行",
+  "codeBlockCopiedMessage": "代码块内容已复制。",
+  "codeBlockCopyFailed": "复制代码块失败。",
+  "codeBlockSavedMessage": "代码已保存为 {fileName}",
+  "codeBlockSaveFailed": "保存代码失败。",
+  "@codeBlockLines": {
+    "description": "代码块行数",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@codeBlockSavedMessage": {
+    "description": "代码保存成功提示",
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
   "maintenanceProcessId": "进程 ID",
   "maintenanceEgressAddress": "出口地址",
   "maintenanceEgressCopyAddress": "复制出口地址",

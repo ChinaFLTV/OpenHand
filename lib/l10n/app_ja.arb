@@ -1,4 +1,13 @@
 {
+  "codeBlockDownload": "保存",
+  "codeBlockDownloaded": "保存済み",
+  "codeBlockCode": "コード",
+  "codeBlockView": "表示",
+  "codeBlockLines": "{count} 行",
+  "codeBlockCopiedMessage": "コードをコピーしました。",
+  "codeBlockCopyFailed": "コードをコピーできませんでした。",
+  "codeBlockSavedMessage": "コードを {fileName} に保存しました",
+  "codeBlockSaveFailed": "コードを保存できませんでした。",
   "maintenanceProcessId": "プロセス ID",
   "maintenanceEgressAddress": "外部アドレス",
   "maintenanceEgressCopyAddress": "外部アドレスをコピー",

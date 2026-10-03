@@ -1569,10 +1569,22 @@ String openHandPlainTextLabel(BuildContext context) {
 
 String openHandCodeFenceLanguageLabel(BuildContext context, String? language) {
   final normalized = language?.trim().toLowerCase() ?? '';
-  if (normalized.isEmpty || normalized == 'plaintext') {
+  if (normalized.isEmpty ||
+      normalized == 'plaintext' ||
+      normalized == 'text' ||
+      normalized == 'txt') {
     return openHandPlainTextLabel(context);
   }
   return switch (normalized) {
+    'diff' || 'patch' => openHandLocalizedText(
+      context,
+      zh: '差异',
+      zhHant: '差異',
+      en: 'Diff',
+      fr: 'Diff',
+      de: 'Diff',
+      ja: '差分',
+    ),
     'yaml' || 'yml' => 'YAML',
     'json' => 'JSON',
     'javascript' || 'js' => 'JavaScript',

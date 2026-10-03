@@ -425,6 +425,8 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                               title: AppLocalizations.of(
                                 context,
                               )!.tlCallToolInput,
+                              icon: Icons.input_rounded,
+                              accentColor: cs.secondary,
                               preview: toolCall.argumentsPreview,
                               expanded: argumentsExpanded,
                               onToggle: () {
@@ -463,6 +465,8 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                               title: AppLocalizations.of(
                                 context,
                               )!.tlCallToolOutput,
+                              icon: Icons.output_rounded,
+                              accentColor: cs.tertiary,
                               preview: toolCall.hasResultContent
                                   ? toolCall.resultPreview
                                   : AppLocalizations.of(
@@ -607,6 +611,8 @@ class _ExpandableToolSection extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.expandedBuilder,
+    this.icon = Icons.segment_rounded,
+    this.accentColor,
   });
 
   final String title;
@@ -614,93 +620,113 @@ class _ExpandableToolSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final WidgetBuilder expandedBuilder;
+  final IconData icon;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasPreview = preview.trim().isNotEmpty;
+    final colors = theme.colorScheme;
+    final accent = accentColor ?? colors.secondary;
     final motionDuration = cardMotionDurationFor(context, expanding: expanded);
     return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: kOpenHandBorderRadius16,
-      child: InkWell(
-        onTap: () {
-          _markToolCardInteractiveTap(context);
-          onToggle();
-        },
+      color: Color.alphaBlend(accent.withValues(alpha: 0.03), colors.surface),
+      shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius16,
-        // 整卡共用同一高度曲线，统一箭头和正文过渡。
-        child: OpenHandMotionAnimatedSize(
-          duration: motionDuration,
-          curve: kCardMotionCurve,
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    AnimatedRotation(
-                      turns: expanded ? 0.25 : 0.0,
-                      duration: motionDuration,
-                      curve: kCardMotionCurve,
-                      child: const Icon(
-                        Icons.keyboard_arrow_right_rounded,
-                        size: 18,
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: OpenHandMotionAnimatedSize(
+        duration: motionDuration,
+        curve: kCardMotionCurve,
+        alignment: Alignment.topLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              button: true,
+              expanded: expanded,
+              child: InkWell(
+                onTap: () {
+                  _markToolCardInteractiveTap(context);
+                  onToggle();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: kOpenHandBorderRadius8,
+                        ),
+                        child: Icon(icon, size: 16, color: accent),
                       ),
-                    ),
-                    kOpenHandHGap8,
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                      kOpenHandHGap10,
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                // 折叠预览与展开正文交叉淡化，外层负责高度变化。
-                AnimatedSwitcher(
-                  duration: motionDuration,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, if (current != null) current],
+                      kOpenHandHGap8,
+                      AnimatedRotation(
+                        turns: expanded ? 0.25 : 0,
+                        duration: motionDuration,
+                        curve: kCardMotionCurve,
+                        child: Icon(
+                          Icons.keyboard_arrow_right_rounded,
+                          size: 18,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: openHandBoundedCurveAnimation(
-                      parent: animation,
-                      curve: kOpenHandSwitchInCurve,
-                      reverseCurve: kOpenHandSwitchOutCurve,
-                    ),
-                    child: child,
-                  ),
-                  child: expanded
-                      ? Padding(
-                          key: const ValueKey<String>('expanded'),
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Builder(builder: expandedBuilder),
-                        )
-                      : hasPreview
-                      ? Padding(
-                          key: const ValueKey<String>('preview'),
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              height: 1.35,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(key: ValueKey<String>('empty')),
                 ),
-              ],
+              ),
             ),
-          ),
+            AnimatedSwitcher(
+              duration: motionDuration,
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.topLeft,
+                children: [...previous, if (current != null) current],
+              ),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: openHandBoundedCurveAnimation(
+                  parent: animation,
+                  curve: kOpenHandSwitchInCurve,
+                  reverseCurve: kOpenHandSwitchOutCurve,
+                ),
+                child: child,
+              ),
+              child: expanded
+                  ? Padding(
+                      key: const ValueKey('expanded'),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Builder(builder: expandedBuilder),
+                    )
+                  : preview.trim().isNotEmpty
+                  ? Padding(
+                      key: const ValueKey('preview'),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Text(
+                        preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFamily: kOpenHandMonospaceFontFamily,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('empty')),
+            ),
+          ],
         ),
       ),
     );
@@ -772,80 +798,43 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
         ? preview.collapsedText
         : widget.content.text;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              widget.label,
-              style: widget.theme.textTheme.labelLarge?.copyWith(
-                color: widget.isError
-                    ? widget.theme.colorScheme.error
-                    : widget.theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+    return _HighlightedCodePanel(
+      title: widget.label,
+      actionContent: widget.content.text,
+      content: displayContent,
+      theme: widget.theme,
+      language: widget.content.language,
+      selectable: widget.selectable,
+      baseColor: widget.theme.colorScheme.onSurface,
+      accentColor: widget.isError
+          ? widget.theme.colorScheme.error
+          : widget.theme.colorScheme.secondary,
+      toolbarActionsBuilder: isLong
+          ? (palette) => [
+              _CodeBlockToolbarAction(
+                label: _isExpanded
+                    ? AppLocalizations.of(context)!.tlCallViewCompressedContent
+                    : AppLocalizations.of(context)!.tlCallViewFullContent,
+                icon: _isExpanded
+                    ? Icons.close_fullscreen_rounded
+                    : Icons.open_in_full_rounded,
+                backgroundColor: palette.actionColor,
+                foregroundColor: palette.actionTextColor,
+                showLabel: true,
+                selected: _isExpanded,
+                onTap: _toggleExpanded,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (isLong) ...[
-              TextButton.icon(
-                onPressed: _toggleExpanded,
-                icon: Icon(
-                  _isExpanded
-                      ? Icons.close_fullscreen_rounded
-                      : Icons.open_in_full_rounded,
-                  size: 14,
+              if (_isExpanded)
+                _CodeBlockToolbarAction(
+                  label: AppLocalizations.of(context)!.tlCallViewInDialog,
+                  icon: Icons.open_in_new_rounded,
+                  backgroundColor: palette.actionColor,
+                  foregroundColor: palette.actionTextColor,
+                  showLabel: true,
+                  onTap: () => _showFullContentDialog(context),
                 ),
-                label: Text(
-                  _isExpanded
-                      ? AppLocalizations.of(
-                          context,
-                        )!.tlCallViewCompressedContent
-                      : AppLocalizations.of(context)!.tlCallViewFullContent,
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: const Size(0, 28),
-                  foregroundColor: widget.theme.colorScheme.primary,
-                  textStyle: widget.theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (_isExpanded) ...[
-                TextButton.icon(
-                  onPressed: () => _showFullContentDialog(context),
-                  icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                  label: Text(AppLocalizations.of(context)!.tlCallViewInDialog),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(0, 28),
-                    foregroundColor: widget.theme.colorScheme.tertiary,
-                    textStyle: widget.theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ],
-        ),
-        kOpenHandGap8,
-        _HighlightedCodePanel(
-          content: displayContent,
-          theme: widget.theme,
-          language: widget.content.language,
-          selectable: widget.selectable,
-          baseColor: widget.isError
-              ? widget.theme.colorScheme.onErrorContainer
-              : widget.theme.colorScheme.onSurface,
-          accentColor: widget.isError ? widget.theme.colorScheme.error : null,
-        ),
-      ],
+            ]
+          : null,
     );
   }
 }
@@ -1163,17 +1152,10 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     final text = content.text;
     final stats = _statsFor(text);
     final normalizedLanguage = normalizeOpenHandCodeLanguage(content.language);
-    final languageLabel =
-        normalizedLanguage ??
-        openHandLocalizedText(
-          context,
-          zh: '纯文本',
-          zhHant: '純文字',
-          en: 'Plain text',
-          fr: 'Texte brut',
-          de: 'Klartext',
-          ja: 'プレーンテキスト',
-        );
+    final languageLabel = openHandCodeFenceLanguageLabel(
+      context,
+      normalizedLanguage,
+    );
     final sourceLabel = _loadingFile
         ? openHandLocalizedText(
             context,
