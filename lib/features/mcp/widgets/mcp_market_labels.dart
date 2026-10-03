@@ -4,28 +4,9 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../model/mcp_market.dart';
 
-typedef _McpMarketCopy = ({
-  String zh,
-  String zhHant,
-  String en,
-  String fr,
-  String de,
-  String ja,
-});
-
+typedef _McpMarketCopy = OpenHandLocalizedCopy;
+const _copy = openHandLocalizedCopy;
 final RegExp _cjkPattern = RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]');
-
-String _copy(BuildContext context, _McpMarketCopy text) {
-  return openHandLocalizedText(
-    context,
-    zh: text.zh,
-    zhHant: text.zhHant,
-    en: text.en,
-    fr: text.fr,
-    de: text.de,
-    ja: text.ja,
-  );
-}
 
 String mcpMarketSummary(BuildContext context, McpMarketServer server) {
   final zh = server.summaryZh.trim().isNotEmpty

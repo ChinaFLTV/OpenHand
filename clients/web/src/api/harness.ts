@@ -1,5 +1,4 @@
-// Harness 持久化会话 API: 拉取本机最近一次 Harness Engineering 会话的快照。
-// App 同时只跑一个会话, 故服务端简单返回 `{record: HarnessRecord | null}`。
+// 读取本机最近保存的 Harness 会话快照。
 
 import { apiRequest, type ApiRequestSignalOptions } from './client';
 

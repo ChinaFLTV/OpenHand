@@ -11,6 +11,7 @@ import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
@@ -1232,7 +1233,7 @@ class AiModelProxyDispatcher {
       final endpoint = snapshot.httpsProxy ?? snapshot.httpProxy;
       return (
         mode: endpoint == null ? _kProxyRouteDirect : _kProxyRouteSystem,
-        endpoint: endpoint == null ? '' : _maskProxyEndpoint(endpoint),
+        endpoint: endpoint == null ? '' : maskUriUserInfo(endpoint),
         remoteHost: remoteHost,
         remotePort: remotePort,
         selected: null,
@@ -1528,12 +1529,6 @@ String _clientPort(Map<String, String> headers) {
   );
   if (hasServerPort) return _headerValue(headers, const ['x-client-port']);
   return _headerValue(headers, const ['x-forwarded-port']);
-}
-
-String _maskProxyEndpoint(String value) {
-  final uri = Uri.tryParse(value);
-  if (uri == null || uri.userInfo.isEmpty) return value;
-  return uri.replace(userInfo: '******').toString();
 }
 
 class AiModelProxyException implements Exception {

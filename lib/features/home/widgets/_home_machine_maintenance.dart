@@ -7341,43 +7341,6 @@ class _MaintenanceCard extends StatelessWidget {
 
 const _maintenanceChartLimit = 6;
 
-// ignore: unused_element
-class _MaintenanceGauge extends StatelessWidget {
-  const _MaintenanceGauge({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String label;
-  final double? value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: (value ?? 0).clamp(0, 1)),
-      duration: motion.disablesAnimation
-          ? Duration.zero
-          : motion.entranceDuration,
-      curve: motion.curve.curve,
-      builder: (_, current, _) => OpenHandOperationalMeter(
-        label: label,
-        value: current,
-        color: color,
-        gaugeSize: 92,
-        unavailable: value == null,
-        valueLabel: value == null
-            ? '—'
-            : '${(current.clamp(0, 1) * 100).toStringAsFixed(1)}%',
-      ),
-    );
-  }
-}
-
 class _MaintenanceSeriesTween extends Tween<Map<String, double>> {
   _MaintenanceSeriesTween({required Map<String, double> end}) : super(end: end);
   @override

@@ -6265,7 +6265,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final top = sorted.take(5).toList(growable: false);
     final total = values.values.fold<int>(0, (sum, value) => sum + value);
-    final palette = _mcpOpsChartPalette(cs);
+    final palette = openHandOperationalChartPalette(cs);
     return _McpOpsPanel(
       icon: icon,
       title: title,
@@ -6400,17 +6400,6 @@ class _McpOpsDistributionRow extends StatelessWidget {
       ),
     );
   }
-}
-
-List<Color> _mcpOpsChartPalette(ColorScheme cs) {
-  return <Color>[
-    cs.primary,
-    cs.tertiary,
-    OpenHandStatusColors.success,
-    OpenHandStatusColors.warning,
-    cs.error,
-    cs.secondary,
-  ];
 }
 
 class _McpOpsResponsiveFields extends StatelessWidget {
@@ -18396,7 +18385,7 @@ class _McpOpsBarPanel extends StatelessWidget {
     final sorted = values.entries.where((entry) => entry.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = sorted.fold<int>(0, (sum, entry) => sum + entry.value);
-    final palette = _mcpOpsChartPalette(cs);
+    final palette = openHandOperationalChartPalette(cs);
     return _McpOpsPanel(
       icon: icon,
       title: title,

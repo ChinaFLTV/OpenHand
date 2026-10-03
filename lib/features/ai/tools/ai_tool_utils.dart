@@ -688,8 +688,6 @@ class AiToolUtils {
       replaceAll
           ? content.replaceAll(actualOldString, actualNewString)
           : content.replaceFirst(actualOldString, actualNewString),
-      appliedNewString: actualNewString,
-      matchedOldString: actualOldString,
       replacementCount: replaceAll ? matchCount : 1,
     );
   }
@@ -714,10 +712,7 @@ class AiToolUtils {
           'old_string 为空时不能启用 replace_all。',
         );
       }
-      return ReplacementResult.success(
-        normalizedNewString,
-        appliedNewString: normalizedNewString,
-      );
+      return ReplacementResult.success(normalizedNewString);
     }
     if (normalizedOldString == normalizedNewString) {
       return const ReplacementResult.failure('old_string 和 new_string 必须不同。');
@@ -2154,25 +2149,17 @@ class AiEditableTextFileTooLargeException implements Exception {
 }
 
 class ReplacementResult {
-  const ReplacementResult.success(
-    this.content, {
-    this.appliedNewString = '',
-    this.matchedOldString = '',
-    this.replacementCount = 1,
-  }) : success = true,
-       errorMessage = '';
+  const ReplacementResult.success(this.content, {this.replacementCount = 1})
+    : success = true,
+      errorMessage = '';
 
   const ReplacementResult.failure(this.errorMessage)
     : success = false,
       content = '',
-      appliedNewString = '',
-      matchedOldString = '',
       replacementCount = 0;
 
   final bool success;
   final String content;
   final String errorMessage;
-  final String appliedNewString;
-  final String matchedOldString;
   final int replacementCount;
 }

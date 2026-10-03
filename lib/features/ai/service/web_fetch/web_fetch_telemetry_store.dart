@@ -180,7 +180,6 @@ class WebFetchEngineStat extends WebEngineStatBase {
     required this.totalBytes,
     super.lastError,
     super.lastFailureAt,
-    super.lastInvokedAt,
     super.consecutiveFailures,
     super.cooldownUntilMs,
     super.lastQuotaError,

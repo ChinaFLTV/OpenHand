@@ -28,7 +28,7 @@ const int _posixFileTypeMask = 0xF000;
 const int _posixRegularFileType = 0x8000;
 final Set<String> _activeTemporaryFilePaths = <String>{};
 
-/// 识别当前平台文件锁竞争，供数据库实例锁与原子文件写入共用。
+/// 识别当前平台文件锁竞争。
 bool isFileLockContention(FileSystemException error) {
   final code = error.osError?.errorCode;
   if (Platform.isWindows) return code == 33 || code == 36;

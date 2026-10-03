@@ -3,14 +3,8 @@ import 'package:flutter/widgets.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_normalization.dart';
 
-typedef _SkillMarketCopy = ({
-  String zh,
-  String zhHant,
-  String en,
-  String fr,
-  String de,
-  String ja,
-});
+typedef _SkillMarketCopy = OpenHandLocalizedCopy;
+const _copy = openHandLocalizedCopy;
 
 final RegExp _cjkPattern = RegExp(r'[\u3400-\u9FFF\uF900-\uFAFF]');
 final RegExp _bilingualNamePattern = RegExp(
@@ -18,18 +12,6 @@ final RegExp _bilingualNamePattern = RegExp(
 );
 final RegExp _latinBrandPattern = RegExp(r'^[A-Z0-9]+$');
 final RegExp _latinBrandNoise = RegExp(r'[\s.&/+_-]');
-
-String _copy(BuildContext context, _SkillMarketCopy text) {
-  return openHandLocalizedText(
-    context,
-    zh: text.zh,
-    zhHant: text.zhHant,
-    en: text.en,
-    fr: text.fr,
-    de: text.de,
-    ja: text.ja,
-  );
-}
 
 String _lookup(
   BuildContext context,

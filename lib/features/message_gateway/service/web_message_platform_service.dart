@@ -3568,10 +3568,7 @@ class WebMessagePlatformService {
     };
   }
 
-  /// Toolbox: 持久化的 Harness Engineering 会话快照 (单实例)。
-  /// App 同时只跑一个 Harness session, 持久化在 SQLite 的 harness_sessions 表;
-  /// orchestrator 是 home page 内部状态, 不直接暴露到 service, 故 web 走 store
-  /// 的最近一次写入。返回 `{record: null}` 表示尚未运行过 Harness。
+  /// 读取最近保存的 Harness 会话快照。
   Future<shelf.Response> _harnessSessionHandler() async {
     try {
       final record = await HarnessSessionStore().load();
@@ -3587,12 +3584,7 @@ class WebMessagePlatformService {
     }
   }
 
-  /// Settings: 暴露一组 Web 远程可读 / 可改的核心 prefs。
-  /// 字段精挑细选: reduce_motion (动画) / locale (UI 语言) /
-  /// dialog_animation_settings (只读弹窗动画同步) /
-  /// memory_enabled (是否在 prompt 注入用户记忆) /
-  /// ai_message_compression_threshold_chars (单消息压缩阈值)。
-  /// 其余设置仍只能在 App 端修改 (避免 Web 误改影响本机正在跑的会话)。
+  /// 返回 Web 可读取的设置与运行状态。
   Future<shelf.Response> _getPreferencesHandler() async {
     return _json(HttpStatus.ok, _preferencesPayload());
   }

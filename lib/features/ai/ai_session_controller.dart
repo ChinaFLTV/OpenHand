@@ -10148,7 +10148,7 @@ class AiSessionController extends ChangeNotifier {
     final decodedArguments = stringKeyedMapFromValueOrJsonText(
       toolCall.arguments,
     );
-    return _readBool(decodedArguments['run_in_background']) == true;
+    return optionalBoolFromValue(decodedArguments['run_in_background']) == true;
   }
 
   String _toolCallWorkingDirectory(AiToolCall toolCall) {
@@ -12877,7 +12877,7 @@ $tail''';
 
     final nextEnvironment = _environmentFromRuntime(runtimeContext);
     if (!_environmentEquals(previousEnvironment, nextEnvironment) ||
-        _readBool(previousPromptMetadata['memory_enabled']) !=
+        optionalBoolFromValue(previousPromptMetadata['memory_enabled']) !=
             runtimeContext.memoryEnabled) {
       await _safeRunHook(
         eventName: 'ConfigChange',
@@ -13193,10 +13193,6 @@ $tail''';
       separator: '',
       ignoreLiteralNull: true,
     );
-  }
-
-  bool? _readBool(Object? rawValue) {
-    return optionalBoolFromValue(rawValue);
   }
 
   AiSession _mergeLiveSessionState(

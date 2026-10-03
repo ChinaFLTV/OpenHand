@@ -122,7 +122,7 @@ docker() {
       terminal.writeInput('export PATH="${bin.path}:\$PATH" TASK_STORE="${store.path}"\n');
       await Future<void>.delayed(const Duration(milliseconds:300));
       Future<String> run(String command) => files.runMaintenanceCommand(sessionId:'tasks',terminalId:terminal.id,command:command,
-        commandShell:MachineTerminalCommandShell.posix,maxOutputCharacters:machineScheduledTaskOutputLimit,timeout:machineScheduledTaskTimeout);
+        commandShell:MachineTerminalCommandShell.posix,maxOutputCharacters:machineScheduledTaskOutputLimit,timeout:const Duration(seconds: 45));
       String record(String kind,List<String> values) => '__OH_TASK__\t$kind\t${values.map((v)=>base64Encode(utf8.encode(v))).join('\t')}\n';
       final data=MachineScheduledTaskSnapshot.parse('${record('meta',['tester','UTC','2026-09-30'])}${record('cron',['user:tester','tester',original,'1'])}__OH_TASK_END__');
       final client=MachineScheduledTaskClient(platform:'Linux',run:run);

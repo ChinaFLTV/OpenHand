@@ -3,28 +3,9 @@ import 'package:flutter/widgets.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/instruction_market.dart';
 
-typedef _Copy = ({
-  String zh,
-  String zhHant,
-  String en,
-  String fr,
-  String de,
-  String ja,
-});
-
+typedef _Copy = OpenHandLocalizedCopy;
+const _copy = openHandLocalizedCopy;
 typedef _Profile = ({_Copy name, _Copy description, _Copy interpretation});
-
-String _copy(BuildContext context, _Copy text) {
-  return openHandLocalizedText(
-    context,
-    zh: text.zh,
-    zhHant: text.zhHant,
-    en: text.en,
-    fr: text.fr,
-    de: text.de,
-    ja: text.ja,
-  );
-}
 
 String _flatten(_Copy text) =>
     '${text.zh} ${text.zhHant} ${text.en} ${text.fr} ${text.de} ${text.ja}'

@@ -2334,7 +2334,7 @@ void main() {
   });
 
 
-  testWidgets('运维可视化组合适配浅深主题并保留空值状态', (tester) async {
+  testWidgets('运维可视化组合适配浅深主题', (tester) async {
     await tester.binding.setSurfaceSize(const Size(960, 1000));
     if (Platform.environment['MAINTENANCE_FONT'] != null) {
       await tester.runAsync(() async {
@@ -2350,11 +2350,6 @@ void main() {
         home: Builder(builder: (context) => Scaffold(body: RepaintBoundary(key: const ValueKey('可视化预览'),
           child: ColoredBox(color: Theme.of(context).colorScheme.surface,
             child: Padding(padding: const EdgeInsets.all(16), child: _MaintenanceGrid(minWidth: 380, children: [
-              const _MaintenanceCard(title: 'Resource gauges', child: Wrap(spacing: 20, runSpacing: 12, children: [
-                _MaintenanceGauge(label: 'CPU', value: .63, color: Colors.teal),
-                _MaintenanceGauge(label: 'Memory', value: .42, color: Colors.indigo),
-                _MaintenanceGauge(label: 'Swap', value: null, color: Colors.purple),
-              ])),
               const _MaintenanceCard(title: 'Memory allocation', child: _MaintenanceVisual(donut: true, centerLabel: '32 GB', segments: [
                 OpenHandChartSegment(label: 'Used', value: 42, valueLabel: '13.4 GB', color: Colors.teal),
                 OpenHandChartSegment(label: 'Available', value: 58, valueLabel: '18.6 GB', color: Colors.indigo),
@@ -2376,7 +2371,6 @@ void main() {
             ]))))))));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('—'), findsOneWidget);
       if (Platform.environment['MAINTENANCE_VISUAL_PREVIEW'] != null) {
         final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('可视化预览')));
         await tester.runAsync(() async {

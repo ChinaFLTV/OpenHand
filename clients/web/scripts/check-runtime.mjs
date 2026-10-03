@@ -146,7 +146,7 @@ try {
         '错误类型、缺失和多余答案不得显示成成功结果');
     }
   }
-  const { MessageHeightIndex, buildHeightPrefix, resolveVirtualMessageRange, clampMessageRowHeight,
+  const { MessageHeightIndex, resolveVirtualMessageRange, clampMessageRowHeight,
     virtualMessageTop, virtualMessageTotalHeight } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
   const indexedHeights = Array.from({ length: 10000 }, (_, index) => 44 + index % 300);
   const dynamicHeights = new MessageHeightIndex([...indexedHeights]);
@@ -155,15 +155,20 @@ try {
     const height = update % 2 ? 44 : 80000;
     indexedHeights[index] = height;
     dynamicHeights.setHeight(index, height);
-    const prefix = buildHeightPrefix(indexedHeights);
-    assert.equal(virtualMessageTop(dynamicHeights, index), virtualMessageTop(prefix, index), '万条历史局部测高后坐标与全量计算一致');
-    assert.equal(virtualMessageTotalHeight(dynamicHeights, indexedHeights.length), virtualMessageTotalHeight(prefix, indexedHeights.length));
-    const viewportTop = virtualMessageTop(prefix, index) + 20;
-    assert.deepEqual(resolveVirtualMessageRange({ messageCount: indexedHeights.length,
-      heights: dynamicHeights.heights, prefix: dynamicHeights, viewportTop, viewportBottom: viewportTop + 600 }),
-      resolveVirtualMessageRange({ messageCount: indexedHeights.length,
-        heights: indexedHeights, prefix, viewportTop, viewportBottom: viewportTop + 600 }),
-      '索引更新后虚拟窗口仍覆盖完整视口');
+    const referenceTop = indexedHeights.slice(0, index).reduce((sum, value) => sum + value, 0) + index * 12;
+    assert.equal(virtualMessageTop(dynamicHeights, index), referenceTop, '万条历史局部测高后坐标与全量计算一致');
+    assert.equal(virtualMessageTotalHeight(dynamicHeights, indexedHeights.length),
+      indexedHeights.reduce((sum, value) => sum + value, 0) + (indexedHeights.length - 1) * 12);
+    const viewportTop = referenceTop + 20;
+    const range = resolveVirtualMessageRange({ messageCount: indexedHeights.length,
+      heights: dynamicHeights.heights, prefix: dynamicHeights, viewportTop, viewportBottom: viewportTop + 600 });
+    let top = 0;
+    for (let row = 0; row < indexedHeights.length; row++) {
+      if (top < viewportTop + 600 && top + indexedHeights[row] > viewportTop) {
+        assert.ok(row >= range.start && row < range.end, '索引更新后虚拟窗口仍覆盖完整视口');
+      }
+      top += indexedHeights[row] + 12;
+    }
   }
   const beforeInvalidHeight = dynamicHeights.prefix(indexedHeights.length);
   for (const index of [-1, NaN, Infinity, 0.5, indexedHeights.length]) dynamicHeights.setHeight(index, 100);
@@ -174,11 +179,11 @@ try {
   assert.equal(clampMessageRowHeight(Infinity), 188, '异常测量仍使用估计高度');
   const tallHeights = [80000, 188, 188];
   assert.deepEqual(resolveVirtualMessageRange({
-    messageCount: 3, heights: tallHeights, prefix: buildHeightPrefix(tallHeights),
+    messageCount: 3, heights: tallHeights, prefix: new MessageHeightIndex(tallHeights),
     viewportTop: 60000, viewportBottom: 60480, overscanPx: 0,
   }), { start: 0, end: 2 }, '超高卡片中部仍须保留当前正文');
   const shortHeights = Array(1000).fill(44);
-  const shortPrefix = buildHeightPrefix(shortHeights);
+  const shortPrefix = new MessageHeightIndex(shortHeights);
   for (const maxVisibleRows of [2, 8]) {
     const range = resolveVirtualMessageRange({
       messageCount: shortHeights.length, heights: shortHeights, prefix: shortPrefix,
@@ -209,7 +214,7 @@ try {
   const mixedHeights = [...shortHeights];
   mixedHeights[100] = 4000;
   const mixedRange = resolveVirtualMessageRange({
-    messageCount: mixedHeights.length, heights: mixedHeights, prefix: buildHeightPrefix(mixedHeights),
+    messageCount: mixedHeights.length, heights: mixedHeights, prefix: new MessageHeightIndex(mixedHeights),
     viewportTop: 6000, viewportBottom: 6480,
   });
   assert.ok(mixedRange.start <= 100 && mixedRange.end > 100, '高卡片中部滚动必须保留当前卡片');

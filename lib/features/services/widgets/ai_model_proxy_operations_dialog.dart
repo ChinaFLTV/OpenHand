@@ -2170,17 +2170,6 @@ _ProxyOpsMetric _proxyOpsInsightTile(
   );
 }
 
-List<Color> _proxyOpsChartPalette(ColorScheme cs) {
-  return <Color>[
-    cs.primary,
-    cs.tertiary,
-    OpenHandStatusColors.success,
-    OpenHandStatusColors.warning,
-    cs.error,
-    cs.secondary,
-  ];
-}
-
 class _ProxyOpsTrendDetailPanel extends StatelessWidget {
   const _ProxyOpsTrendDetailPanel({
     required this.icon,
@@ -3487,7 +3476,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
   final cs = Theme.of(context).colorScheme;
   final text = openHandTextResolver(context);
   const success = OpenHandStatusColors.success;
-  final palette = _proxyOpsChartPalette(cs);
+  final palette = openHandOperationalChartPalette(cs);
   final unknown = text(zh: '未知', en: 'Unknown');
   final unknownProtocol = text(zh: '未知协议', en: 'Unknown protocol');
   final unknownModel = text(zh: '未知模型', en: 'Unknown model');

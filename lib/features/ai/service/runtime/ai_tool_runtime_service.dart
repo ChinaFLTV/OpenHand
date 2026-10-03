@@ -2420,7 +2420,7 @@ class AiToolRuntimeService {
       );
     }
 
-    final argumentsText = _jsonishText(decodedArguments);
+    final argumentsText = jsonEncodeOrString(decodedArguments);
     final decision = WebReverseCdpFirstGuard.evaluateTextReference(
       text: argumentsText,
       metadata: metadata,
@@ -2532,10 +2532,6 @@ class AiToolRuntimeService {
       if (value.contains(needle)) return true;
     }
     return false;
-  }
-
-  String _jsonishText(Map<String, Object?> value) {
-    return jsonEncodeOrString(value);
   }
 
   Future<AiToolExecutionResult> _executeSkillTool({

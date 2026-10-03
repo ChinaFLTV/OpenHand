@@ -1,4 +1,4 @@
-/// 主题无关的运维图表和数据展示组件。
+/// 可复用的运维图表与数据展示组件。
 library;
 
 import 'dart:async';
@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../util/date_time_format.dart';
@@ -27,6 +28,15 @@ import 'openhand_fixed_action_cell.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
+
+List<Color> openHandOperationalChartPalette(ColorScheme cs) => <Color>[
+  cs.primary,
+  cs.tertiary,
+  OpenHandStatusColors.success,
+  OpenHandStatusColors.warning,
+  cs.error,
+  cs.secondary,
+];
 
 Duration openHandOperationalTrendInterval(Duration range) {
   if (range <= const Duration(hours: 2)) return const Duration(minutes: 1);

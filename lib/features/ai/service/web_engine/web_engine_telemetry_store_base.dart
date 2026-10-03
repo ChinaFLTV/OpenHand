@@ -105,7 +105,6 @@ abstract class WebEngineStatBase {
     required this.totalDurationMs,
     this.lastError,
     this.lastFailureAt,
-    this.lastInvokedAt,
     this.consecutiveFailures = 0,
     this.cooldownUntilMs,
     this.lastQuotaError,
@@ -121,9 +120,6 @@ abstract class WebEngineStatBase {
       lastError = optionalStringFromValue(json['last_error']),
       lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
         json['last_failure_at'],
-      ),
-      lastInvokedAt = webEngineOptionalNonNegativeIntFromValue(
-        json['last_invoked_at'],
       ),
       consecutiveFailures = webEngineNonNegativeIntFromValue(
         json['consecutive_failures'],
@@ -141,7 +137,6 @@ abstract class WebEngineStatBase {
   final int totalDurationMs;
   final String? lastError;
   final int? lastFailureAt;
-  final int? lastInvokedAt;
   final int consecutiveFailures;
   final int? cooldownUntilMs;
   final String? lastQuotaError;

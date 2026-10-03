@@ -6,6 +6,27 @@ import 'byte_size_format.dart';
 
 Locale? _ambientLocaleOverride;
 
+typedef OpenHandLocalizedCopy = ({
+  String zh,
+  String zhHant,
+  String en,
+  String fr,
+  String de,
+  String ja,
+});
+
+String openHandLocalizedCopy(BuildContext context, OpenHandLocalizedCopy text) {
+  return openHandLocalizedText(
+    context,
+    zh: text.zh,
+    zhHant: text.zhHant,
+    en: text.en,
+    fr: text.fr,
+    de: text.de,
+    ja: text.ja,
+  );
+}
+
 /// 无 [BuildContext] 场景使用的界面语言。
 ///
 /// 服务、控制器产生的用户可见文本（通知、异常消息、日志摘要）必须与界面语言

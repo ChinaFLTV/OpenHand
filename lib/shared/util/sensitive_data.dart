@@ -1,7 +1,16 @@
 import 'text_clip.dart';
 
 const String kOpenHandRedactedValue = '[redacted]';
+const String kOpenHandMaskedValue = '******';
 const String _redactedUriUserInfo = 'redacted';
+
+/// 隐藏 URI 中的凭据并保留其他地址信息。
+String maskUriUserInfo(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null) return kOpenHandMaskedValue;
+  if (uri.userInfo.isEmpty) return value;
+  return uri.replace(userInfo: kOpenHandMaskedValue).toString();
+}
 
 final RegExp _sensitiveKeySeparator = RegExp('[^a-z0-9]+');
 final RegExp _sensitiveCamelCaseBoundary = RegExp('([a-z0-9])([A-Z])');

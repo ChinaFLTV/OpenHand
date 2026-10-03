@@ -7,5 +7,5 @@ void silentLog(String tag, String action, Object error, [StackTrace? stack]) {
     return;
   }
   final detail = stack == null ? '$error' : '$error\n$stack';
-  debugPrint('[$tag] 已忽略异常：$action -> $detail');
+  debugPrint('[$tag] $action：$detail');
 }

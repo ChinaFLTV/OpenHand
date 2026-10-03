@@ -36,6 +36,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../service/ai_exposure_proxy_probe.dart';
@@ -1157,13 +1158,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (snapshot.httpProxy != null)
         (
           protocol: text(zh: 'HTTP', en: 'HTTP'),
-          endpoint: _maskProxyForDisplay(snapshot.httpProxy!),
+          endpoint: maskUriUserInfo(snapshot.httpProxy!),
           icon: Icons.http_rounded,
         ),
       if (snapshot.httpsProxy != null)
         (
           protocol: text(zh: 'HTTPS', en: 'HTTPS'),
-          endpoint: _maskProxyForDisplay(snapshot.httpsProxy!),
+          endpoint: maskUriUserInfo(snapshot.httpsProxy!),
           icon: Icons.lock_outline_rounded,
         ),
     ];
@@ -6497,12 +6498,6 @@ String _strategyLabel(
   AiExposureProxyStrategy.random => text(zh: '均衡随机', en: 'Random'),
   AiExposureProxyStrategy.stickyHost => text(zh: '目标粘性', en: 'Sticky host'),
 };
-
-String _maskProxyForDisplay(String value) {
-  final uri = Uri.tryParse(value);
-  if (uri == null || uri.userInfo.isEmpty) return value;
-  return uri.replace(userInfo: '******').toString();
-}
 
 String _intervalLabel(
   int minutes,

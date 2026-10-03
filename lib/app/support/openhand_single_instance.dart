@@ -96,7 +96,7 @@ final class OpenHandSingleInstance {
           takeoverHandle.lockSync();
           takeoverLocked = true;
         } on FileSystemException catch (error) {
-          if (!_isLockContention(error) ||
+          if (!isFileLockContention(error) ||
               stopwatch.elapsed >= _takeoverLockTimeout) {
             throw const OpenHandSingleInstanceException(
               '无法取得 OpenHand 单实例接管锁。',
@@ -548,12 +548,6 @@ Get-CimInstance Win32_Process | ForEach-Object {
     } catch (error, stack) {
       silentLog('single_instance', '删除实例登记 ${file.path}', error, stack);
     }
-  }
-
-  static bool _isLockContention(FileSystemException error) {
-    final code = error.osError?.errorCode;
-    if (Platform.isWindows) return code == 33 || code == 36;
-    return code == 11 || code == 13 || code == 35;
   }
 
   static String _normalizeExecutable(String value) {

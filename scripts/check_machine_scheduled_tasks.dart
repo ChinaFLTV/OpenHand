@@ -511,7 +511,7 @@ console.log("Windows 调度器模拟采集、校验、增改删通过。");''',
         final output = process.stdout.transform(utf8.decoder).join();
         final errors = process.stderr.transform(utf8.decoder).join();
         final code = await process.exitCode.timeout(
-          machineScheduledTaskTimeout,
+          const Duration(seconds: 45),
           onTimeout: () {
             process.kill(ProcessSignal.sigkill);
             throw StateError('只读采集超时');

@@ -9,7 +9,6 @@ part 'machine_scheduled_tasks_commands.dart';
 const machineScheduledTaskLimit = 512;
 const machineScheduledTaskOutputLimit = 4 * 1024 * 1024;
 const machineScheduledTaskDefinitionLimit = 128 * 1024;
-const machineScheduledTaskTimeout = Duration(seconds: 45);
 
 enum MachineTaskScheduler { cron, systemd, launchd, windows }
 

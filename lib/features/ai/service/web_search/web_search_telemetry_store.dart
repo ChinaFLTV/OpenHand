@@ -192,7 +192,6 @@ class WebSearchEngineStat extends WebEngineStatBase {
     required this.totalHits,
     super.lastError,
     super.lastFailureAt,
-    super.lastInvokedAt,
     super.consecutiveFailures,
     super.cooldownUntilMs,
     super.lastQuotaError,

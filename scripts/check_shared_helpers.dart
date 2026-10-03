@@ -451,6 +451,18 @@ final class _AbortableProbeClient extends http.BaseClient {
 int _checkSensitiveTextRedaction() {
   const token = '真实令牌ABC123';
   const password = '真实密码XYZ789';
+  final maskedProxy = Uri.parse(
+    maskUriUserInfo('socks5://user:$password@[::1]:1080/path'),
+  );
+  if (maskedProxy.userInfo != kOpenHandMaskedValue ||
+      maskedProxy.host != '::1' ||
+      maskedProxy.port != 1080 ||
+      maskedProxy.path != '/path' ||
+      maskUriUserInfo('http://127.0.0.1:8080') != 'http://127.0.0.1:8080' ||
+      maskUriUserInfo('http://user:$password@[损坏') != kOpenHandMaskedValue) {
+    stderr.writeln('代理地址遮罩泄露凭据或改变了地址信息。');
+    return 1;
+  }
   const privateKey =
       '-----BEGIN PRIVATE KEY-----\n私钥内容\n-----END PRIVATE KEY-----';
   final redacted = redactSensitiveText(
