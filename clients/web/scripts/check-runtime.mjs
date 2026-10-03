@@ -753,14 +753,15 @@ try {
     `const restoreHeightAnchor = () => {${historyPageSource.slice(restoreStart, restoreEnd)}};`, 'height-anchor.ts',
   );
   const heightAnchor = { current: null };
-  const heightScroller = { scrollTop: 100, getBoundingClientRect: () => ({ top: 0 }) };
+  const heightScroller = { scrollTop: 100, scrollHeight: 1600, clientHeight: 600, getBoundingClientRect: () => ({ top: 0 }) };
   const restoreBindings = {
     followBottomRef: { current: false },
     heightAnchorRef: heightAnchor,
     scrollContainerRef: { current: heightScroller },
-    listRef: { current: { querySelectorAll: () => [{
-      dataset: { messageId: '阅读中的消息' }, getBoundingClientRect: () => ({ top: 130 - heightScroller.scrollTop }),
-    }] } },
+    listRef: { current: { getBoundingClientRect: () => ({ top: -heightScroller.scrollTop }) } },
+    messageIndexByIdRef: { current: new Map([['阅读中的消息', 0]]) },
+    geometryRef: { current: { prefix: [130] } },
+    virtualMessageTop: (prefix, index) => prefix[index],
   };
   const restoreHeight = new Function(...Object.keys(restoreBindings), `${restoreCode}\nreturn restoreHeightAnchor;`)(...Object.values(restoreBindings));
   const savedAnchor = { messageId: '阅读中的消息', viewportOffset: 10, scrollTop: 100 };
@@ -775,6 +776,12 @@ try {
   heightAnchor.current = savedAnchor;
   restoreHeight();
   assert.equal(heightScroller.scrollTop, 120, '空闲时仍须补偿正文测高造成的位移');
+  heightScroller.scrollHeight = 700;
+  heightScroller.scrollTop = 100;
+  heightAnchor.current = { messageId: '阅读中的消息', viewportOffset: 30, scrollTop: 1000 };
+  restoreHeight();
+  assert.equal(heightScroller.scrollTop, 100, '列表大幅收缩后的原生夹紧不能重复补偿');
+  heightScroller.scrollHeight = 1600;
   for (const top of [0, -20]) {
     heightScroller.scrollTop = top;
     heightAnchor.current = savedAnchor;

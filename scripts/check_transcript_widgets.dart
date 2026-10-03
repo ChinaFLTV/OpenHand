@@ -2142,7 +2142,7 @@ void main() {
                   anchor.viewportOffset)
               .abs(),
           lessThan(2),
-          reason: '加载历史应保持当前阅读位置',
+          reason: '第 $page 次加载历史应保持当前阅读位置：${anchor.messageId}，原位置=${anchor.viewportOffset}，当前位置=${probe.state._viewportOffsetForMessage(anchor.messageId)}',
         );
       expect(probe.state._renderEntries.last.id, '历史-99');
     }
@@ -2288,6 +2288,97 @@ void main() {
     }
     drag.cancel();
     await probe.settle();
+  });
+  }
+
+  for (final history in [false, true]) {
+  testWidgets('异步卡片测高保持阅读位置和拖动，历史段=$history', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final centerKey = GlobalKey();
+    final rowKeys = List.generate(1000, (_) => GlobalKey());
+    final heights = List.generate(1000, (index) => 90.0 + index % 3 * 135);
+    late StateSetter rebuild;
+    await tester.pumpWidget(MaterialApp(home: StatefulBuilder(builder: (context, setState) {
+      rebuild = setState;
+      Widget row(int index) => SizedBox(key: rowKeys[index], height: heights[index], child: Text('卡片$index'));
+      return _TranscriptScrollView(controller: controller,
+        center: history ? centerKey : null,
+        scrollCacheExtent: const ScrollCacheExtent.pixels(280),
+        physics: const ClampingScrollPhysics(), slivers: [
+          if (history) _TranscriptSliverList(anchorsBottom: () => false,
+            scrollActive: () => controller.position.isScrollingNotifier.value,
+            delegate: SliverChildBuilderDelegate((_, index) => row(499 - index), childCount: 500)),
+          _TranscriptSliverList(key: centerKey, anchorsBottom: () => false,
+            scrollActive: () => controller.position.isScrollingNotifier.value,
+            delegate: SliverChildBuilderDelegate((_, index) => row(history ? 500 + index : index),
+              childCount: history ? 500 : 1000)),
+        ]);
+    })));
+    await tester.pump();
+    controller.jumpTo(history ? -1800 : 1800);
+    await tester.pump();
+    final viewport = tester.renderObject<RenderBox>(find.byType(_TranscriptViewport));
+    double top(int index) => (rowKeys[index].currentContext!.findRenderObject()! as RenderBox)
+      .localToGlobal(Offset.zero, ancestor: viewport).dy;
+    int reading() {
+      var index = -1;
+      var firstTop = double.infinity;
+      for (var i = 0; i < rowKeys.length; i++) {
+        final box = rowKeys[i].currentContext?.findRenderObject() as RenderBox?;
+        if (box == null || !box.attached || !box.hasSize) continue;
+        final offset = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+        final rank = offset >= 0 ? offset : 600 + offset.abs();
+        if (offset + box.size.height > 0 && offset < 600 && rank < firstTop) {
+          firstTop = rank;
+          index = i;
+        }
+      }
+      return index;
+    }
+    final anchor = reading();
+    expect(anchor, greaterThanOrEqualTo(0));
+    final before = top(anchor);
+    final resized = history ? anchor + 1 : anchor - 1;
+    expect(rowKeys[resized].currentContext, isNotNull);
+    rebuild(() => heights[resized] = 1080);
+    await tester.pump();
+    expect(top(anchor), closeTo(before, 1), reason: '图片解码或 HTML 测高增高后当帧保持阅读位置');
+    rebuild(() => heights[resized] = 90);
+    await tester.pump();
+    expect(top(anchor), closeTo(before, 1), reason: '多媒体收缩后当帧保持阅读位置');
+    final drag = controller.position.drag(DragStartDetails(), () {});
+    for (var frame = 0; frame < 120; frame++) {
+      final index = reading();
+      final before = top(index);
+      final oldPixels = controller.offset;
+      final delta = frame < 60 ? 18.0 : -18.0;
+      drag.update(DragUpdateDetails(globalPosition: Offset.zero, delta: Offset(0, delta), primaryDelta: delta));
+      final shift = oldPixels - controller.offset;
+      if (frame == 20) rebuild(() => heights[index] = 720);
+      if (frame == 80) rebuild(() => heights[index] = 90);
+      await tester.pump(const Duration(milliseconds: 16));
+      if (rowKeys[index].currentContext != null) {
+        expect(top(index) - before, closeTo(shift, 1), reason: '第 $frame 帧不能产生拖动之外的跳动');
+      }
+      expect(controller.position.isScrollingNotifier.value, true, reason: '布局补偿不能中断拖动');
+    }
+    drag.cancel();
+    (controller.position as ScrollPositionWithSingleContext).goBallistic(history ? -1500 : 1500);
+    await tester.pump(const Duration(milliseconds: 16));
+    final ballistic = controller.position.activity;
+    expect(ballistic, isA<BallisticScrollActivity>());
+    final velocity = ballistic!.velocity;
+    final current = reading();
+    rebuild(() => heights[history ? current + 1 : current - 1] += 600);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(controller.position.activity, isA<BallisticScrollActivity>(), reason: '异步测高不能终止惯性活动');
+    expect(controller.position.activity!.velocity / velocity, inInclusiveRange(.8, 1),
+      reason: '异步测高后惯性保持方向和自然减速');
+    await tester.pumpWidget(const SizedBox());
   });
   }
 

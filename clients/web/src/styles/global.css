@@ -5796,6 +5796,11 @@ button.oh-message-context-capsule {
   width: 100%;
   will-change: transform;
 }
+.oh-session-virtual-window > .oh-session-message-row {
+  /* 各行独立定位，图片或 HTML 增高时不先推开后续消息再补偿。 */
+  position: absolute;
+  inset-inline: 0;
+}
 .oh-session-message-content,
 .oh-session-message-content > * {
   overflow-anchor: none;

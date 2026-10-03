@@ -1282,11 +1282,13 @@ interface VirtualMessageListProps {
 function MeasuredMessageRow({
   message,
   onHeightChange,
+  offset,
   highlighted,
   children,
 }: {
   message: SessionMessage;
   onHeightChange: (messageId: string, height: number) => void;
+  offset: number;
   highlighted: boolean;
   children: ComponentChildren;
 }) {
@@ -1317,6 +1319,7 @@ function MeasuredMessageRow({
       ref={rowRef}
       class={`oh-session-message-row${highlighted ? ' is-cache-hit-target' : ''}`}
       data-message-id={message.id}
+      style={{ top: `${offset}px` }}
     >
       {children}
     </li>
@@ -1359,6 +1362,12 @@ export function VirtualMessageList({
     () => messages.map((message) => message.id),
     [membershipKey],
   );
+  const messageIndexById = useMemo(
+    () => new Map(messageIds.map((id, index) => [id, index])),
+    [messageIds],
+  );
+  const messageIndexByIdRef = useRef(messageIndexById);
+  messageIndexByIdRef.current = messageIndexById;
   const previousMembershipRef = useRef({
     key: membershipKey,
     messageIds,
@@ -1435,18 +1444,17 @@ export function VirtualMessageList({
     const list = listRef.current;
     if (scroller && list) {
       const scrollerRect = scroller.getBoundingClientRect();
+      const listTop = list.getBoundingClientRect().top - scrollerRect.top;
+      const { heights, prefix } = geometryRef.current;
       const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
       for (const row of rows) {
-        const rect = row.getBoundingClientRect();
-        if (rect.bottom <= scrollerRect.top || rect.top >= scrollerRect.bottom) continue;
         const messageId = row.dataset['messageId'];
-        if (messageId) {
-          heightAnchorRef.current = {
-            messageId,
-            viewportOffset: rect.top - scrollerRect.top,
-            scrollTop: scroller.scrollTop,
-          };
-        }
+        const index = messageId == null ? undefined : messageIndexByIdRef.current.get(messageId);
+        if (index == null) continue;
+        // 异步正文已经改高时，DOM 交集不再代表用户原先正在阅读的消息。
+        const viewportOffset = listTop + virtualMessageTop(prefix, index);
+        if (viewportOffset + heights[index]! <= 0 || viewportOffset >= scroller.clientHeight) continue;
+        heightAnchorRef.current = { messageId: messageId!, viewportOffset, scrollTop: scroller.scrollTop };
         break;
       }
     }
@@ -1480,15 +1488,16 @@ export function VirtualMessageList({
     // 已到顶部时优先保留历史入口，测高补偿不能把用户再次拉离边界。
     if (scroller.scrollTop <= 0) return;
     const scrollerRect = scroller.getBoundingClientRect();
-    const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
-    for (const row of rows) {
-      if (row.dataset['messageId'] !== anchor.messageId) continue;
-      // 只补偿布局位移，保留锚点采集后发生的用户滚动。
-      const expectedOffset = anchor.viewportOffset - (scroller.scrollTop - anchor.scrollTop);
-      const delta = row.getBoundingClientRect().top - scrollerRect.top - expectedOffset;
-      if (Math.abs(delta) >= 0.5) scroller.scrollTop += delta;
-      break;
-    }
+    const index = messageIndexByIdRef.current.get(anchor.messageId);
+    if (index == null) return;
+    // 使用统一几何补偿，锚点临时离开挂载窗口也能保留其阅读坐标。
+    const viewportOffset = list.getBoundingClientRect().top - scrollerRect.top +
+      virtualMessageTop(geometryRef.current.prefix, index);
+    // 总高度收缩会先触发浏览器夹紧，不能把这段位移误计为用户滚动再补偿一次。
+    const clampedScrollTop = Math.min(anchor.scrollTop, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
+    const expectedOffset = anchor.viewportOffset - (scroller.scrollTop - clampedScrollTop);
+    const delta = viewportOffset - expectedOffset;
+    if (Math.abs(delta) >= 0.5) scroller.scrollTop += delta;
   }, [heightRevision, renderRange.start, renderRange.end, scrollContainerRef]);
 
   // 范围计算的输入同样走 ref 镜像，保证 updateRange / scheduleRangeUpdate
@@ -1699,14 +1708,15 @@ export function VirtualMessageList({
       style={{ height: `${Math.max(0, totalHeight)}px` }}
     >
       <ul
-        class="oh-session-message-list oh-session-virtual-window flex flex-col gap-3"
+        class="oh-session-message-list oh-session-virtual-window"
         style={{ transform: `translate3d(0, ${Math.max(0, topSpacer)}px, 0)` }}
       >
-        {visibleMessages.map((message) => (
+        {visibleMessages.map((message, index) => (
           <MeasuredMessageRow
             key={message.id}
             message={message}
             onHeightChange={handleHeightChange}
+            offset={virtualMessageTop(heightPrefix, safeStart + index) - topSpacer}
             highlighted={highlightedMessageId === message.id}
           >
             {renderMessage(message)}

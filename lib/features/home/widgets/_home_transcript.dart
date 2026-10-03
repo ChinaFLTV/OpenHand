@@ -105,6 +105,116 @@ class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
   }
 }
 
+/// 先测量缓存中的变高卡片，再修正滚动坐标，避免原生列表先回收阅读锚点。
+class _TranscriptSliverList extends SliverList {
+  const _TranscriptSliverList({
+    super.key,
+    required super.delegate,
+    required this.anchorsBottom,
+    required this.scrollActive,
+    this.excludedAnchorIndex,
+  });
+
+  final bool Function() anchorsBottom;
+  final bool Function() scrollActive;
+  final int? excludedAnchorIndex;
+
+  @override
+  RenderSliverList createRenderObject(BuildContext context) =>
+      _RenderTranscriptSliverList(
+        childManager: context as SliverMultiBoxAdaptorElement,
+        anchorsBottom: anchorsBottom,
+        scrollActive: scrollActive,
+        excludedAnchorIndex: excludedAnchorIndex,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderTranscriptSliverList renderObject,
+  ) {
+    renderObject.anchorsBottom = anchorsBottom;
+    renderObject.scrollActive = scrollActive;
+    renderObject.excludedAnchorIndex = excludedAnchorIndex;
+  }
+}
+
+class _RenderTranscriptSliverList extends RenderSliverList {
+  _RenderTranscriptSliverList({
+    required super.childManager,
+    required this.anchorsBottom,
+    required this.scrollActive,
+    this.excludedAnchorIndex,
+  });
+
+  bool Function() anchorsBottom;
+  bool Function() scrollActive;
+  int? excludedAnchorIndex;
+  RenderBox? _readingChild;
+
+  RenderBox? _readingAnchor() {
+    if (anchorsBottom()) return null;
+    final visibleEnd =
+        constraints.scrollOffset + constraints.remainingPaintExtent;
+    final previous = _readingChild;
+    if (!scrollActive() &&
+        previous != null &&
+        previous.parent == this &&
+        previous.hasSize &&
+        indexOf(previous) != excludedAnchorIndex) {
+      final start = childScrollOffset(previous);
+      if (start != null &&
+          start < visibleEnd &&
+          start + paintExtentOf(previous) > constraints.scrollOffset)
+        return previous;
+    }
+    RenderBox? reading;
+    RenderBox? partialReading;
+    final reversed = constraints.growthDirection == GrowthDirection.reverse;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      if (indexOf(child) == excludedAnchorIndex) continue;
+      final start = childScrollOffset(child);
+      if (start == null || !child.hasSize) continue;
+      if (start >= visibleEnd) break;
+      final end = start + paintExtentOf(child);
+      if (end <= constraints.scrollOffset) continue;
+      partialReading ??= child;
+      // 与历史前插的锚点一致，优先保留顶部可见的完整卡片。
+      if (reversed ? end > visibleEnd : start < constraints.scrollOffset)
+        continue;
+      reading = child;
+      if (!reversed) break;
+    }
+    return reading ?? partialReading;
+  }
+
+  @override
+  void performLayout() {
+    final reading = _readingAnchor();
+    final reversed = constraints.growthDirection == GrowthDirection.reverse;
+    if (reading != null) {
+      final boxConstraints = constraints.asBoxConstraints();
+      var correction = 0.0;
+      for (var child = firstChild; child != null; child = childAfter(child)) {
+        if (child == reading && !reversed) break;
+        if (child.hasSize && childScrollOffset(child) != null) {
+          final previousHeight = paintExtentOf(child);
+          child.layout(boxConstraints, parentUsesSize: true);
+          correction += paintExtentOf(child) - previousHeight;
+        }
+        if (child == reading) break;
+      }
+      if (correction.abs() > precisionErrorTolerance) {
+        // 由 Viewport 在本次布局中 correctBy，不终止拖动或惯性活动。
+        geometry = SliverGeometry(scrollOffsetCorrection: correction);
+        return;
+      }
+    }
+    super.performLayout();
+    _readingChild = _readingAnchor();
+  }
+}
+
 class _TranscriptScrollView extends CustomScrollView {
   const _TranscriptScrollView({
     super.key,
@@ -3391,8 +3501,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       slivers: [
                         // 历史向负方向增长，不改动当前消息的布局坐标。
                         if (beforeCenterCount > 0)
-                          SliverList(
+                          _TranscriptSliverList(
                             key: _listHistoryKey,
+                            scrollActive: () =>
+                                _isTranscriptScrollActive(context),
+                            excludedAnchorIndex: hiddenLoadMoreCount > 0
+                                ? beforeCenterCount - 1
+                                : null,
+                            anchorsBottom: () =>
+                                widget.controller.hasClients &&
+                                _anchorsTranscriptBottom(
+                                  widget.controller.position,
+                                ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => buildItem(
                                 context,
@@ -3411,7 +3531,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         SliverPadding(
                           key: _listCenterKey,
                           padding: const EdgeInsets.only(bottom: 12),
-                          sliver: SliverList(
+                          sliver: _TranscriptSliverList(
+                            scrollActive: () =>
+                                _isTranscriptScrollActive(context),
+                            anchorsBottom: () =>
+                                widget.controller.hasClients &&
+                                _anchorsTranscriptBottom(
+                                  widget.controller.position,
+                                ),
                             delegate: _TranscriptTailChildDelegate(
                               (context, index) =>
                                   buildItem(context, beforeCenterCount + index),

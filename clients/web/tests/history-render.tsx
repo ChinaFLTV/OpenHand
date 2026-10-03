@@ -192,6 +192,82 @@ try {
   verify(Number.parseFloat(root.querySelector<HTMLElement>('[data-virtualized]')!.style.height) >= 80000,
     '八万像素的完整卡片保留真实滚动范围');
   render(null, root);
+  // 模拟图片解码、HTML 测高：屏外卡片增高不能把正在阅读的消息挤走。
+  settled = false;
+  const resizeItems = messages.map((message) => ({ ...message, id: `异步测高-${message.id}` }));
+  const sizes = new Map<string, number>();
+  const mountResize = () => render(<div ref={scrollRef} class="oh-session-messages"
+    style={{ height: '480px', overflowY: 'auto', width: '600px' }}>
+    <VirtualMessageList key="异步测高" messages={resizeItems} membershipKey="异步测高"
+      scrollContainerRef={scrollRef} revealTarget={null} highlightedMessageId={null}
+      onInitialLayoutSettled={() => { settled = true; }}
+      renderMessage={(message) => <div style={{ height: `${sizes.get(message.id) ?? 180}px` }}>{message.id}</div>} />
+  </div>, root);
+  const frames = async (count = 10) => {
+    for (let frame = 0; frame < count; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+  };
+  mountResize();
+  await until(() => settled);
+  scrollRef.current!.scrollTop = 95000;
+  scrollRef.current!.dispatchEvent(new Event('scroll'));
+  await frames();
+  const scrollerTop = () => scrollRef.current!.getBoundingClientRect().top;
+  const mountedRows = () => Array.from(root.querySelectorAll<HTMLElement>('[data-message-id]'));
+  const reading = mountedRows().find((row) => row.getBoundingClientRect().bottom > scrollerTop())!;
+  const readingTop = reading.getBoundingClientRect().top;
+  const preceding = mountedRows().find((row) => row.getBoundingClientRect().bottom <= scrollerTop())!;
+  verify(Boolean(preceding), '异步测高用例包含屏外预加载卡片');
+  sizes.set(preceding.dataset.messageId!, 1080);
+  mountResize();
+  await frames();
+  verify(reading.isConnected && Math.abs(reading.getBoundingClientRect().top - readingTop) < 1,
+    '屏外图片或 HTML 增高九百像素后阅读位置不变');
+  sizes.set(preceding.dataset.messageId!, 90);
+  mountResize();
+  await frames();
+  verify(reading.isConnected && Math.abs(reading.getBoundingClientRect().top - readingTop) < 1,
+    '屏外多媒体收缩后阅读位置不变');
+  let compensatedFrames = 0;
+  for (let frame = 0; frame < 180; frame++) {
+    const anchor = mountedRows().find((row) => row.getBoundingClientRect().bottom > scrollerTop())!;
+    const top = anchor.getBoundingClientRect().top;
+    const oldPixels = scrollRef.current!.scrollTop;
+    scrollRef.current!.scrollTop += frame < 90 ? -24 : 24;
+    const shift = oldPixels - scrollRef.current!.scrollTop;
+    if (frame === 20 || frame === 110) {
+      const above = mountedRows().find((row) => row.getBoundingClientRect().bottom <= scrollerTop());
+      if (above) {
+        sizes.set(above.dataset.messageId!, frame === 20 ? 1080 : 90);
+        mountResize();
+        compensatedFrames += 1;
+      }
+    }
+    scrollRef.current!.dispatchEvent(new Event('scroll'));
+    await frames(2);
+    if (anchor.isConnected && Math.abs(anchor.getBoundingClientRect().top - top - shift) >= 1) {
+      throw new Error(`千条消息往返滚动第 ${frame} 帧出现用户请求之外的位移`);
+    }
+  }
+  verify(compensatedFrames === 2, '往返滚动期间覆盖两次异步卡片高度变化');
+  verify(true, '千条消息连续往返一百八十帧保持阅读位置');
+  verify(mountedRows().length <= MESSAGE_LIST_MAX_VISIBLE_ROWS, '往返滚动与异步测高后挂载量仍有界');
+  scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
+  scrollRef.current!.dispatchEvent(new Event('scroll'));
+  await frames();
+  const tailPreceding = mountedRows().find((row) => row.getBoundingClientRect().bottom <= scrollerTop())!;
+  sizes.set(tailPreceding.dataset.messageId!, 1080);
+  mountResize();
+  await frames();
+  const tail = mountedRows().find((row) => row.dataset.messageId === resizeItems.at(-1)!.id)!;
+  const tailTop = tail.getBoundingClientRect().top;
+  sizes.set(tailPreceding.dataset.messageId!, 90);
+  mountResize();
+  await frames();
+  verify(tail.isConnected && Math.abs(tail.getBoundingClientRect().top - tailTop) < 1,
+    '接近底部时屏外卡片收缩不重复补偿浏览器夹紧');
+  render(null, root);
   document.title = '长会话渲染回归检查通过';
   result.textContent = `通过 ${checks.length} 项：\n${checks.join('\n')}`;
 } catch (error) {
