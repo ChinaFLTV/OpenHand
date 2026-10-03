@@ -60,9 +60,10 @@ class _WorkflowDetailsDialog extends StatelessWidget {
             resourceId: workflow.id,
           );
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(context),
-              Expanded(
+              Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
                   child: _buildBody(context, recentCalls),

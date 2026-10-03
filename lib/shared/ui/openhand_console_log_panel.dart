@@ -79,6 +79,7 @@ abstract final class OpenHandConsolePalette {
 /// 控制台日志正文的字号与行高。
 const double kOpenHandConsoleLogFontSize = 11;
 const double kOpenHandConsoleLogLineHeight = 1.5;
+const int _kConsoleLogShrinkWrapLineLimit = 64;
 
 /// 安装 / 运维控制台的单行着色规则；仅本文件的面板使用。
 ///
@@ -135,6 +136,7 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
     this.borderRadius = kOpenHandBorderRadius8,
     this.lineSpacing = 0,
     this.reverse = false,
+    this.shrinkWrap = false,
   });
 
   /// 行数与按下标取行分开传入：BoundedLogBuffer 这类环形缓冲因此不必
@@ -157,6 +159,9 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
 
   /// 是否以倒序列表呈现。倒序列表将最新行固定在滚动起点，适合持续追加日志。
   final bool reverse;
+
+  /// 短日志按内容收缩，长日志继续使用有界的惰性列表。
+  final bool shrinkWrap;
 
   @override
   State<OpenHandConsoleLogPanel> createState() =>
@@ -231,13 +236,22 @@ class _OpenHandConsoleLogPanelState extends State<OpenHandConsoleLogPanel> {
         borderRadius: widget.borderRadius,
       ),
       child: lineCount <= 0
-          ? Center(child: widget.emptyPlaceholder)
+          ? Center(
+              heightFactor: widget.shrinkWrap ? 1 : null,
+              child: Padding(
+                padding: widget.padding,
+                child: widget.emptyPlaceholder,
+              ),
+            )
           : NotificationListener<ScrollNotification>(
               onNotification: widget.onNotification,
               child: SelectionArea(
                 onSelectionChanged: _handleSelectionChanged,
                 child: ListView.builder(
                   controller: widget.controller,
+                  shrinkWrap:
+                      widget.shrinkWrap &&
+                      lineCount <= _kConsoleLogShrinkWrapLineLimit,
                   reverse: widget.reverse,
                   padding: widget.padding,
                   itemCount: lineCount,

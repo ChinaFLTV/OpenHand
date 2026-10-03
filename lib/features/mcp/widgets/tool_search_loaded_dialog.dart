@@ -1437,66 +1437,85 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    return buildOpenHandAlertDialog(
-      title: Text(l10n.toolSearchLoadedHistoryImportDialogTitle),
-      content: SizedBox(
-        width: 520,
-        height: 420,
-        child: entries.isEmpty
-            ? OpenHandInlineEmptyState(
-                message: l10n.toolSearchLoadedHistoryImportDialogEmpty,
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      l10n.toolSearchLoadedHistoryImportDialogCount(
-                        entries.length,
-                      ),
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
+      expandWidth: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.history_rounded,
+            title: l10n.toolSearchLoadedHistoryImportDialogTitle,
+          ),
+          Flexible(
+            child: entries.isEmpty
+                ? SingleChildScrollView(
+                    child: OpenHandInlineEmptyState(
+                      message: l10n.toolSearchLoadedHistoryImportDialogEmpty,
                     ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (ctx, i) {
-                        final e = entries[i];
-                        final sourceLabel =
-                            e.source == AiToolSearchLoadSource.harnessPhase
-                            ? l10n.snackToolSearchLoadedSourceHarness
-                            : l10n.snackToolSearchLoadedSourceAi;
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            e.query.isEmpty ? '—' : e.query,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        child: Text(
+                          l10n.toolSearchLoadedHistoryImportDialogCount(
+                            entries.length,
                           ),
-                          subtitle: Text(
-                            '${formatYearMonthDayHmsLocal(e.timestamp)} · '
-                            '$sourceLabel · +${e.addedCount} / '
-                            '${e.totalDeferred}',
-                            style: theme.textTheme.bodySmall,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: entries.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (ctx, i) {
+                            final e = entries[i];
+                            final sourceLabel =
+                                e.source == AiToolSearchLoadSource.harnessPhase
+                                ? l10n.snackToolSearchLoadedSourceHarness
+                                : l10n.snackToolSearchLoadedSourceAi;
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                e.query.isEmpty ? '—' : e.query,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${formatYearMonthDayHmsLocal(e.timestamp)} · '
+                                '$sourceLabel · +${e.addedCount} / '
+                                '${e.totalDeferred}',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+          ),
+          buildOpenHandDialogActionsBar(
+            actions: [
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: l10n.toolSearchLoadedHistoryImportDialogClose,
               ),
+            ],
+          ),
+        ],
       ),
-      actions: <Widget>[
-        OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: l10n.toolSearchLoadedHistoryImportDialogClose,
-        ),
-      ],
     );
   }
 }

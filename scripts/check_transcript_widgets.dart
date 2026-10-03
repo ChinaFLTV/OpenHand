@@ -449,6 +449,128 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('完整内容弹窗：短内容收缩、长内容限高且窄屏大字号可用', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    for (final width in [320.0, 960.0]) {
+      tester.view.physicalSize = Size(width, 780);
+      for (final scale in [1.0, 1.6]) {
+        for (final locale in AppLocalizations.supportedLocales) {
+          for (final count in [0, 1, 25, 200]) {
+            final text = List.generate(count, (index) => '日志 $index：任务完成').join('\n');
+            await tester.pumpWidget(MaterialApp(
+              locale: locale, supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale), disableAnimations: true), child: child!),
+              home: Scaffold(body: _ToolContentFullDialog(label: '结果', content: _FormattedToolContent(text: text))),
+            ));
+            await tester.pumpAndSettle();
+            final surface = find.byWidgetPredicate((widget) => widget is Material && widget.type == MaterialType.card).first;
+            final height = tester.getSize(surface).height;
+            expect(height, lessThanOrEqualTo(780 * .9 + 1));
+            if (count <= 1) expect(height, lessThan(780 * .9 - 120), reason: '短内容不能铺满高度上限');
+            if (count == 200) {
+              final scroll = tester.widget<SingleChildScrollView>(find.descendant(
+                of: find.byType(_ToolContentFullDialogBody), matching: find.byType(SingleChildScrollView)).first).controller!;
+              expect(scroll.position.maxScrollExtent, greaterThan(0));
+              scroll.jumpTo(scroll.position.maxScrollExtent);
+              await tester.pump();
+            }
+            expect(tester.takeException(), isNull, reason: '$width / $scale / ${locale.toLanguageTag()} / $count 不得溢出');
+          }
+        }
+      }
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('完整内容弹窗：换行与内容更新平滑改变尺寸并遵守全局动效', (tester) async {
+    tester.view.physicalSize = const Size(960, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = await SettingsController.create(store: _ProbeSettingsStore(true, writable: true));
+    addTearDown(settings.dispose);
+    var source = '短内容';
+    var reducedMotion = false;
+    late StateSetter update;
+    await tester.pumpWidget(ChangeNotifierProvider<SettingsController>.value(value: settings,
+      child: MaterialApp(locale: const Locale('zh'), supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+          update = setState;
+          return MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
+            child: _ToolContentFullDialog(label: '结果', content: _FormattedToolContent(text: source)));
+        })),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final surface = find.byWidgetPredicate((widget) => widget is Material && widget.type == MaterialType.card).first;
+    final state = tester.state(find.byType(_ToolContentFullDialog));
+    final shortHeight = tester.getSize(surface).height;
+    update(() => source = List.filled(100, '长日志内容').join('\n'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    final middleHeight = tester.getSize(surface).height;
+    expect(middleHeight, greaterThan(shortHeight));
+    expect(middleHeight, lessThan(780 * .9));
+    await settings.updateDialogAnimationSettings(OpenHandMotionDefaults.disabled);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(surface).height, closeTo(780 * .9, 1));
+    expect(tester.state(find.byType(_ToolContentFullDialog)), same(state));
+    update(() => source = '换行检查：${'很长的内容 ' * 180}');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('取消换行'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(surface).height, lessThan(780 * .9 - 120));
+    await settings.updateDialogAnimationSettings(OpenHandMotionDefaults.dialog.copyWith(durationMs: 640));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedSize>(find.byType(AnimatedSize).first).duration, const Duration(milliseconds: 640));
+    await tester.tap(find.byTooltip('自动换行'));
+    await tester.pump(const Duration(milliseconds: 30));
+    update(() => reducedMotion = true);
+    await tester.pumpAndSettle();
+    expect(find.byType(AnimatedSize), findsNothing);
+    expect(tester.state(find.byType(_ToolContentFullDialog)), same(state));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('完整内容弹窗：文件切换取消加载时回退内容且拒绝迟到结果', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('tool-dialog-content-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/output.txt')..writeAsStringSync('文件内容');
+    late StateSetter update;
+    String? path = file.path;
+    await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: Scaffold(body: StatefulBuilder(builder: (context, setState) {
+        update = setState;
+        return _ToolContentFullDialog(label: '结果', content: const _FormattedToolContent(text: '回退正文'), fullContentFile: path);
+      })),
+    ));
+    final state = tester.state<_ToolContentFullDialogState>(find.byType(_ToolContentFullDialog));
+    expect(state._loadingFile, isTrue);
+    update(() => path = null);
+    await tester.pump();
+    expect(state._loadingFile, isFalse);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+    await tester.pumpAndSettle();
+    expect(state._fileContent, isNull);
+    expect(find.textContaining('回退正文'), findsWidgets);
+    update(() => path = '${directory.path}/missing.txt');
+    await tester.pump();
+    for (var index = 0; index < 20 && state._loadingFile; index++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(state._loadingFile, isFalse);
+    expect(state._fileContent, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('工具子板块：折叠复制原文、正文点击与工具栏尺寸', (tester) async {
     tester.view.physicalSize = const Size(320, 900);
     tester.view.devicePixelRatio = 1;

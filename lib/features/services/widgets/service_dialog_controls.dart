@@ -630,7 +630,7 @@ Future<void> showServiceDetailsDialog(
     minAvailableWidth: 300,
     horizontalMargin: 24,
     verticalMargin: 48,
-    expandToMax: true,
+    expandWidth: true,
     child: ServiceDialogInteractionTheme(
       child: _ServiceDetailsDialog(
         title: title,
@@ -834,6 +834,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
         .map((field) => '${field.label}: ${field.value}')
         .join('\n');
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
@@ -882,13 +883,17 @@ class _ServiceDetailsDialog extends StatelessWidget {
           ),
         ),
         Divider(height: 1, color: colors.outlineVariant),
-        Expanded(
+        Flexible(
           child: fields.isEmpty
-              ? Center(
-                  child: Text(
-                    text(zh: '暂无可用详情。', en: 'No details available.'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    heightFactor: 1,
+                    child: Text(
+                      text(zh: '暂无可用详情。', en: 'No details available.'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 )

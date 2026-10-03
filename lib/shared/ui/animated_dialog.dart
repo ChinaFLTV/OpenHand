@@ -1493,6 +1493,7 @@ Widget buildOpenHandResponsiveDialogShell({
   ShapeBorder? shape,
   Clip clipBehavior = Clip.antiAlias,
   bool expandToMax = false,
+  bool expandWidth = false,
 }) {
   final mediaSize = MediaQuery.sizeOf(context);
   final effectiveMaxWidth = resolveOpenHandResponsiveDialogExtent(
@@ -1526,7 +1527,7 @@ Widget buildOpenHandResponsiveDialogShell({
       shape: shape,
       clipBehavior: clipBehavior,
       insetPadding: insetPadding,
-      width: expandToMax ? effectiveMaxWidth : null,
+      width: expandToMax || expandWidth ? effectiveMaxWidth : null,
       height: expandToMax ? effectiveMaxHeight : null,
       minWidth: effectiveMinWidth,
       maxWidth: effectiveMaxWidth,

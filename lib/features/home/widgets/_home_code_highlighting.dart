@@ -1170,6 +1170,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.showToolbar)
@@ -1275,7 +1276,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       return Padding(padding: padding, child: body);
     }
     final scrollController = _effectiveInternalScrollController;
-    return Expanded(
+    return Flexible(
       child: PrimaryScrollController.none(
         child: OpenHandSafeScrollbar(
           controller: scrollController,

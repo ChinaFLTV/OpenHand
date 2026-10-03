@@ -987,6 +987,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   void didUpdateWidget(covariant _ToolContentFullDialog oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.fullContentFile != widget.fullContentFile) {
+      _loadingFile = false;
       _fileLoadAttempted = false;
       _fileContent = null;
       _cachedStatsText = null;
@@ -1009,8 +1010,9 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     setState(() => _loadingFile = true);
     try {
       final file = File(filePath);
-      if (!await isRegularFilePath(file.path, followLinks: true)) {
-        if (!mounted) return;
+      final regularFile = await isRegularFilePath(file.path, followLinks: true);
+      if (!mounted || widget.fullContentFile?.trim() != filePath) return;
+      if (!regularFile) {
         setState(() => _loadingFile = false);
         return;
       }
@@ -1018,7 +1020,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
         file,
         maxBytes: _kToolFullContentMaxBytes,
       );
-      if (!mounted) return;
+      if (!mounted || widget.fullContentFile?.trim() != filePath) return;
       setState(() {
         _fileContent = _formatToolContent(raw);
         _cachedStatsText = null;
@@ -1027,7 +1029,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
       });
     } catch (error, stack) {
       silentLog('home_tool_call', '加载完整工具内容', error, stack);
-      if (!mounted) return;
+      if (!mounted || widget.fullContentFile?.trim() != filePath) return;
       setState(() => _loadingFile = false);
     }
   }
@@ -1207,7 +1209,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
       horizontalMargin: 56,
       verticalMargin: 56,
       safeAreaMinimum: const EdgeInsets.all(20),
-      expandToMax: true,
+      expandWidth: true,
       backgroundColor: colorScheme.surfaceContainerLowest,
       surfaceTintColor: colorScheme.surfaceTint,
       shape: const RoundedRectangleBorder(
@@ -1220,6 +1222,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
           Radius.circular(_kToolContentDialogRadius),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
@@ -1419,7 +1422,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                 ],
               ),
             ),
-            Expanded(
+            Flexible(
               child: _ToolContentFullDialogBody(
                 content: content,
                 isError: widget.isError,
@@ -1562,13 +1565,17 @@ class _ToolContentDialogChip extends StatelessWidget {
           children: [
             Icon(icon, size: 14, color: tint),
             kOpenHandHGap6,
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: emphasized ? colorScheme.primary : colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: emphasized
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
@@ -1631,20 +1638,18 @@ class _ToolContentFullDialogBody extends StatelessWidget {
 
     return Padding(
       padding: _kToolContentDialogBodyPadding,
-      child: SizedBox.expand(
-        child: _HighlightedCodePanel(
-          content: text,
-          theme: theme,
-          language: content.language,
-          selectable: true,
-          baseColor: isError
-              ? colorScheme.onErrorContainer
-              : colorScheme.onSurface,
-          accentColor: isError ? colorScheme.error : null,
-          wrapLines: wrapLines,
-          showToolbar: false,
-          internalVerticalScroll: true,
-        ),
+      child: _HighlightedCodePanel(
+        content: text,
+        theme: theme,
+        language: content.language,
+        selectable: true,
+        baseColor: isError
+            ? colorScheme.onErrorContainer
+            : colorScheme.onSurface,
+        accentColor: isError ? colorScheme.error : null,
+        wrapLines: wrapLines,
+        showToolbar: false,
+        internalVerticalScroll: true,
       ),
     );
   }
@@ -1660,30 +1665,37 @@ class _ToolContentDialogStatePane extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Center(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: kOpenHandBorderRadius20,
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+    return Padding(
+      padding: _kToolContentDialogBodyPadding,
+      child: Center(
+        heightFactor: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: kOpenHandBorderRadius20,
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              icon,
-              kOpenHandHGap12,
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                icon,
+                kOpenHandHGap12,
+                Flexible(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

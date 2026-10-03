@@ -160,19 +160,29 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
       context: context,
       maxWidth: kOpenHandDialogWidthExtraWide,
       maxHeight: kOpenHandDialogHeightStandard,
-      minHeight: 440,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 12, 8, 10),
-            child: Row(
-              children: [
-                Icon(Icons.article_outlined, color: theme.colorScheme.primary),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Text(widget.title, style: theme.textTheme.titleMedium),
-                ),
-                Wrap(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final title = Row(
+                  children: [
+                    Icon(
+                      Icons.article_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    kOpenHandHGap10,
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                  ],
+                );
+                final actions = Wrap(
                   spacing: 4,
                   children: [
                     IconButton(
@@ -215,18 +225,39 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
-                ),
-              ],
+                );
+                return constraints.maxWidth <
+                        kOpenHandToolDialogHeaderCompactBreakpoint
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          title,
+                          kOpenHandGap8,
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: actions,
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: title),
+                          kOpenHandHGap8,
+                          actions,
+                        ],
+                      );
+              },
             ),
           ),
           const Divider(height: 1),
-          Expanded(
+          Flexible(
             child: RepaintBoundary(
               child: OpenHandSafeScrollbar(
                 controller: _scrollController,
                 thumbVisibility: true,
                 child: OpenHandConsoleLogPanel(
                   lineCount: logs.length,
+                  shrinkWrap: true,
                   lineAt: (index) => logs[index],
                   controller: _scrollController,
                   onNotification: _scrollGuard.handleNotification,
