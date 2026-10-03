@@ -4,7 +4,6 @@ abstract final class SkillHubMcpMapper {
   static McpMarketServer server(Map<String, Object?> json) => McpMarketServer(
     slug: _text(json['slug']),
     name: _text(json['name']),
-    nameEn: _text(json['nameEn']),
     publisher: _text(json['publisher']),
     category: _text(json['category']),
     summary: _text(json['summary']),

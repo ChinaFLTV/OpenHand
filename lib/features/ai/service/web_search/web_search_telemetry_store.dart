@@ -8,7 +8,7 @@ import '../web_engine/web_engine_value_parsing.dart';
 /// 公共骨架（写盘 / cooldown / FIFO / engine history）由
 /// [WebEngineTelemetryStoreBase] 接管；本类只负责：
 ///   * 维护领域 typed 包装（[WebSearchCallLog] / [WebSearchPerEngineLog] /
-///     [WebSearchEngineStat] / [WebSearchEngineSample]）；
+///     [WebSearchEngineStat]）；
 ///   * 在 typed `recordCall` 里把 perEngine 拍平成 [WebEngineCallEvent]，
 ///     并把 `total_hits` / `hits` 走"领域累加器"通道。
 class WebSearchTelemetryStore
@@ -55,16 +55,8 @@ class WebSearchTelemetryStore
   }
 
   /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
-  Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
-  engineHistory() async {
-    return typedEngineHistory(
-      (m) => WebSearchEngineSample(
-        timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
-        durationMs: webEngineNonNegativeIntFromValue(m['dur']),
-        success: m['ok'] == true,
-        hitCount: webEngineNonNegativeIntFromValue(m['hits']),
-      ),
-    );
+  Future<Map<AiWebSearchEngineKind, List<WebEngineSample>>> engineHistory() {
+    return typedEngineHistory(WebEngineSample.fromJson);
   }
 }
 
@@ -191,11 +183,8 @@ class WebSearchEngineStat extends WebEngineStatBase {
     required super.totalDurationMs,
     required this.totalHits,
     super.lastError,
-    super.lastFailureAt,
-    super.consecutiveFailures,
     super.cooldownUntilMs,
     super.lastQuotaError,
-    super.lastQuotaAt,
   });
 
   factory WebSearchEngineStat.fromJson(Map<String, Object?> m) =>
@@ -206,15 +195,4 @@ class WebSearchEngineStat extends WebEngineStatBase {
       super.fromJson();
 
   final int totalHits;
-}
-
-class WebSearchEngineSample extends WebEngineSampleBase {
-  const WebSearchEngineSample({
-    required super.timestampMs,
-    required super.durationMs,
-    required super.success,
-    required this.hitCount,
-  });
-
-  final int hitCount;
 }

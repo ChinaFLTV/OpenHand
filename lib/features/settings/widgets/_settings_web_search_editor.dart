@@ -28,7 +28,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           WebSearchCallLog,
           AiWebSearchEngineKind,
           WebSearchEngineStat,
-          WebSearchEngineSample
+          WebEngineSample
         > {
   late final _WebEngineEditorControllers _commonControllers;
   late TextEditingController _summaryMinController;
@@ -75,7 +75,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
     (
       List<WebSearchCallLog>,
       Map<AiWebSearchEngineKind, WebSearchEngineStat>,
-      Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>,
+      Map<AiWebSearchEngineKind, List<WebEngineSample>>,
     )
   >
   _loadTelemetry() {
@@ -582,7 +582,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
     AiWebSearchEngineKind kind,
     WebSearchEngineStat stat,
   ) {
-    return _buildToolEngineStatRow<WebSearchEngineSample>(
+    return _buildToolEngineStatRow<WebEngineSample>(
       context: context,
       engineName: kind.name,
       successRate: stat.successRate,
@@ -596,7 +596,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
       cooldownUntilMs: stat.cooldownUntilMs,
       quotaError: stat.lastQuotaError,
       onResetCooldown: () => _resetEngineCooldown(kind),
-      samples: _engineHistory[kind] ?? const <WebSearchEngineSample>[],
+      samples: _engineHistory[kind] ?? const <WebEngineSample>[],
     );
   }
 

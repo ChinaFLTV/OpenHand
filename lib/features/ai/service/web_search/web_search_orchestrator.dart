@@ -113,7 +113,6 @@ class WebSearchOrchestrator {
             kind: s.config.kind,
             hits: const [],
             error: s.reason,
-            attempts: 0,
           ),
         )
         .toList(growable: false);

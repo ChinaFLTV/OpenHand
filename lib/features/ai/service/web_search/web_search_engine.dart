@@ -88,14 +88,12 @@ class WebSearchEngineResult {
     required this.kind,
     required this.hits,
     this.error,
-    this.attempts = 1,
     this.elapsedMs = 0,
   });
 
   final AiWebSearchEngineKind kind;
   final List<WebSearchEngineHit> hits;
   final String? error;
-  final int attempts;
   final int elapsedMs;
 
   bool get isSuccess => error == null && hits.isNotEmpty;
@@ -131,14 +129,12 @@ abstract class WebSearchEngine
   WebSearchEngineResult buildResult({
     required List<WebSearchEngineHit> items,
     String? error,
-    required int attempts,
     required int elapsedMs,
   }) {
     return WebSearchEngineResult(
       kind: kind,
       hits: items,
       error: error,
-      attempts: attempts,
       elapsedMs: elapsedMs,
     );
   }

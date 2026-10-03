@@ -104,11 +104,8 @@ abstract class WebEngineStatBase {
     required this.successCalls,
     required this.totalDurationMs,
     this.lastError,
-    this.lastFailureAt,
-    this.consecutiveFailures = 0,
     this.cooldownUntilMs,
     this.lastQuotaError,
-    this.lastQuotaAt,
   });
 
   WebEngineStatBase.fromJson(Map<String, Object?> json)
@@ -118,29 +115,17 @@ abstract class WebEngineStatBase {
         json['total_duration_ms'],
       ),
       lastError = optionalStringFromValue(json['last_error']),
-      lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
-        json['last_failure_at'],
-      ),
-      consecutiveFailures = webEngineNonNegativeIntFromValue(
-        json['consecutive_failures'],
-      ),
       cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
         json['cooldown_until_ms'],
       ),
-      lastQuotaError = optionalStringFromValue(json['last_quota_error']),
-      lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
-        json['last_quota_at'],
-      );
+      lastQuotaError = optionalStringFromValue(json['last_quota_error']);
 
   final int totalCalls;
   final int successCalls;
   final int totalDurationMs;
   final String? lastError;
-  final int? lastFailureAt;
-  final int consecutiveFailures;
   final int? cooldownUntilMs;
   final String? lastQuotaError;
-  final int? lastQuotaAt;
 
   double get successRate => totalCalls == 0 ? 0 : successCalls / totalCalls;
   double get avgDurationMs =>
@@ -152,14 +137,15 @@ abstract class WebEngineStatBase {
   }
 }
 
-abstract class WebEngineSampleBase {
-  const WebEngineSampleBase({
-    required this.timestampMs,
-    required this.durationMs,
-    required this.success,
-  });
+class WebEngineSample {
+  const WebEngineSample({required this.durationMs, required this.success});
 
-  final int timestampMs;
+  factory WebEngineSample.fromJson(Map<String, Object?> json) =>
+      WebEngineSample(
+        durationMs: webEngineNonNegativeIntFromValue(json['dur']),
+        success: json['ok'] == true,
+      );
+
   final int durationMs;
   final bool success;
 }

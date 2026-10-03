@@ -20,7 +20,7 @@ Future<int> _checkTimedOutAttemptStopsBeforeRetry() async {
   if (result.error != null ||
       result.items.length != 1 ||
       result.items.single != 7 ||
-      result.attempts != 2 ||
+      engine.startedAttempts != 2 ||
       engine.cancelledAttempts != 1 ||
       engine.maxActiveAttempts != 1) {
     stderr.writeln('超时请求未在重试前完成取消收口。');
@@ -39,7 +39,6 @@ Future<int> _checkExternalCancellationStopsRetry() async {
   cancellation.complete();
   final result = await running;
   if (result.error != 'cancelled' ||
-      result.attempts != 0 ||
       engine.startedAttempts != 1 ||
       engine.cancelledAttempts != 1) {
     stderr.writeln('外部取消后仍继续执行或重试。');
@@ -59,14 +58,9 @@ final class _ProbeWebEngineRequest
 }
 
 final class _ProbeWebEngineResult {
-  const _ProbeWebEngineResult({
-    required this.items,
-    required this.attempts,
-    this.error,
-  });
+  const _ProbeWebEngineResult({required this.items, this.error});
 
   final List<int> items;
-  final int attempts;
   final String? error;
 }
 
@@ -122,13 +116,8 @@ final class _ProbeWebEngine
   _ProbeWebEngineResult buildResult({
     required List<int> items,
     String? error,
-    required int attempts,
     required int elapsedMs,
   }) {
-    return _ProbeWebEngineResult(
-      items: items,
-      attempts: attempts,
-      error: error,
-    );
+    return _ProbeWebEngineResult(items: items, error: error);
   }
 }

@@ -48,16 +48,8 @@ class WebFetchTelemetryStore
     return typedEngineStats(WebFetchEngineStat.fromJson);
   }
 
-  Future<Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>>
-  engineHistory() async {
-    return typedEngineHistory(
-      (m) => WebFetchEngineSample(
-        timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
-        durationMs: webEngineNonNegativeIntFromValue(m['dur']),
-        success: m['ok'] == true,
-        contentBytes: webEngineNonNegativeIntFromValue(m['bytes']),
-      ),
-    );
+  Future<Map<AiWebFetchEngineKind, List<WebEngineSample>>> engineHistory() {
+    return typedEngineHistory(WebEngineSample.fromJson);
   }
 }
 
@@ -179,11 +171,8 @@ class WebFetchEngineStat extends WebEngineStatBase {
     required super.totalDurationMs,
     required this.totalBytes,
     super.lastError,
-    super.lastFailureAt,
-    super.consecutiveFailures,
     super.cooldownUntilMs,
     super.lastQuotaError,
-    super.lastQuotaAt,
   });
 
   factory WebFetchEngineStat.fromJson(Map<String, Object?> m) =>
@@ -194,15 +183,4 @@ class WebFetchEngineStat extends WebEngineStatBase {
       super.fromJson();
 
   final int totalBytes;
-}
-
-class WebFetchEngineSample extends WebEngineSampleBase {
-  const WebFetchEngineSample({
-    required super.timestampMs,
-    required super.durationMs,
-    required super.success,
-    required this.contentBytes,
-  });
-
-  final int contentBytes;
 }

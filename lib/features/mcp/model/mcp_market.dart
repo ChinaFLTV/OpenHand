@@ -2,7 +2,6 @@ class McpMarketServer {
   const McpMarketServer({
     this.slug = '',
     this.name = '',
-    this.nameEn = '',
     this.publisher = '',
     this.category = '',
     this.summary = '',
@@ -20,7 +19,6 @@ class McpMarketServer {
 
   final String slug;
   final String name;
-  final String nameEn;
   final String publisher;
   final String category;
   final String summary;

@@ -99,7 +99,6 @@ class WebFetchOrchestrator {
             kind: s.config.kind,
             contents: const [],
             error: s.reason,
-            attempts: 0,
           ),
         )
         .toList(growable: false);

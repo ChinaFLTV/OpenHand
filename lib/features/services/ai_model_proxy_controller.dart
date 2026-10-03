@@ -101,7 +101,6 @@ class AiModelProxyController extends ChangeNotifier {
         endpoint: entry.key,
         inflight: entry.value.inflight,
         userAgent: entry.value.userAgent,
-        firstSeenAt: entry.value.firstSeenAt,
         lastSeenAt: entry.value.lastSeenAt,
       ),
   ];
@@ -698,7 +697,6 @@ class AiModelProxyController extends ChangeNotifier {
         _liveConnections[key] = _LiveConnectionState(
           inflight: 1,
           userAgent: agent,
-          firstSeenAt: now,
           lastSeenAt: now,
         );
       } else {
@@ -1141,13 +1139,11 @@ class _LiveConnectionState {
   _LiveConnectionState({
     required this.inflight,
     required this.userAgent,
-    required this.firstSeenAt,
     required this.lastSeenAt,
   });
 
   int inflight;
   String userAgent;
-  DateTime firstSeenAt;
   DateTime lastSeenAt;
 }
 

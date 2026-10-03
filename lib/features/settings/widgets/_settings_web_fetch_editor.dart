@@ -26,7 +26,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
           WebFetchCallLog,
           AiWebFetchEngineKind,
           WebFetchEngineStat,
-          WebFetchEngineSample
+          WebEngineSample
         > {
   late final _WebEngineEditorControllers _commonControllers;
 
@@ -81,7 +81,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     (
       List<WebFetchCallLog>,
       Map<AiWebFetchEngineKind, WebFetchEngineStat>,
-      Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>,
+      Map<AiWebFetchEngineKind, List<WebEngineSample>>,
     )
   >
   _loadTelemetry() {
@@ -518,7 +518,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     AiWebFetchEngineKind kind,
     WebFetchEngineStat stat,
   ) {
-    return _buildToolEngineStatRow<WebFetchEngineSample>(
+    return _buildToolEngineStatRow<WebEngineSample>(
       context: context,
       engineName: kind.name,
       successRate: stat.successRate,
@@ -532,7 +532,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
       cooldownUntilMs: stat.cooldownUntilMs,
       quotaError: stat.lastQuotaError,
       onResetCooldown: () => _resetEngineCooldown(kind),
-      samples: _engineHistory[kind] ?? const <WebFetchEngineSample>[],
+      samples: _engineHistory[kind] ?? const <WebEngineSample>[],
     );
   }
 

@@ -486,7 +486,6 @@ class KnowledgeBaseSettings {
     this.parentExpansionEnabled = true,
     this.maxChunksPerSource =
         KnowledgeBaseSettingRanges.defaultMaxChunksPerSource,
-    this.cloudRerankEnabled = false,
     this.rerankMode = KnowledgeRerankMode.localHybrid,
     this.rerankProviderConfigId = '',
     this.rerankModelId = '',
@@ -681,9 +680,6 @@ class KnowledgeBaseSettings {
       parentExpansionEnabled: _bool(json['parent_expansion_enabled'], true),
       maxChunksPerSource: KnowledgeBaseSettingRanges.maxChunksPerSource
           .fromValue(json['max_chunks_per_source']),
-      cloudRerankEnabled:
-          parsedRerankMode == KnowledgeRerankMode.model ||
-          legacyCloudRerankEnabled,
       rerankMode: parsedRerankMode,
       rerankProviderConfigId: _string(
         json['rerank_provider_config_id'],
@@ -793,7 +789,6 @@ class KnowledgeBaseSettings {
   final bool neighborExpansionEnabled;
   final bool parentExpansionEnabled;
   final int maxChunksPerSource;
-  final bool cloudRerankEnabled;
   final String rerankMode;
   final String rerankProviderConfigId;
   final String rerankModelId;
@@ -910,7 +905,6 @@ class KnowledgeBaseSettings {
     bool? neighborExpansionEnabled,
     bool? parentExpansionEnabled,
     int? maxChunksPerSource,
-    bool? cloudRerankEnabled,
     String? rerankMode,
     String? rerankProviderConfigId,
     String? rerankModelId,
@@ -1080,8 +1074,6 @@ class KnowledgeBaseSettings {
           parentExpansionEnabled ?? this.parentExpansionEnabled,
       maxChunksPerSource: KnowledgeBaseSettingRanges.maxChunksPerSource
           .normalize(maxChunksPerSource ?? this.maxChunksPerSource),
-      cloudRerankEnabled:
-          cloudRerankEnabled ?? (nextRerankMode == KnowledgeRerankMode.model),
       rerankMode: KnowledgeRerankMode.normalize(nextRerankMode),
       rerankProviderConfigId:
           rerankProviderConfigId ?? this.rerankProviderConfigId,

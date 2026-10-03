@@ -6,7 +6,6 @@ import '../../plugin_service/index.dart';
 class KnowledgeDependencySnapshot {
   const KnowledgeDependencySnapshot({
     required this.docker,
-    required this.qdrant,
     required this.ready,
     required this.messageZh,
     required this.messageZhHant,
@@ -17,7 +16,6 @@ class KnowledgeDependencySnapshot {
   });
 
   final PluginInfo? docker;
-  final PluginInfo? qdrant;
   final bool ready;
   final String messageZh;
   final String messageZhHant;
@@ -71,7 +69,6 @@ class KnowledgeDependencyService {
       );
       return KnowledgeDependencySnapshot(
         docker: docker,
-        qdrant: qdrant,
         ready: false,
         messageZh: message.zh,
         messageZhHant: message.zhHant,
@@ -105,7 +102,6 @@ class KnowledgeDependencyService {
       );
       return KnowledgeDependencySnapshot(
         docker: docker,
-        qdrant: qdrant,
         ready: false,
         messageZh: message.zh,
         messageZhHant: message.zhHant,
@@ -117,7 +113,6 @@ class KnowledgeDependencyService {
     }
     return KnowledgeDependencySnapshot(
       docker: docker,
-      qdrant: qdrant,
       ready: true,
       messageZh: 'Docker 与 Qdrant 已就绪。',
       messageZhHant: 'Docker 與 Qdrant 已就緒。',

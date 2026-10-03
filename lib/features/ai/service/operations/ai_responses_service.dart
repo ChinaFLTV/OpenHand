@@ -50,7 +50,6 @@ class AiResponsesResult {
     this.processMessages = const <String>[],
     this.usage,
     this.toolCalls = const <AiToolCall>[],
-    this.finishReason,
     this.requestUrl,
     this.requestMethod,
     this.requestHeaders,
@@ -67,7 +66,6 @@ class AiResponsesResult {
   final List<String> processMessages;
   final AiTokenUsage? usage;
   final List<AiToolCall> toolCalls;
-  final String? finishReason;
   final String? requestUrl;
   final String? requestMethod;
   final Map<String, String>? requestHeaders;
@@ -667,7 +665,6 @@ class AiResponsesService {
       processMessages: parsed.processMessages,
       usage: parsed.usage,
       toolCalls: parsed.toolCalls,
-      finishReason: parsed.finishReason,
       requestUrl: request.url,
       requestMethod: request.method,
       requestHeaders: Map<String, String>.unmodifiable(request.headers),

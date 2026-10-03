@@ -41,12 +41,10 @@ class DingTalkConversationMessagePage {
   const DingTalkConversationMessagePage({
     required this.messages,
     required this.hasMore,
-    this.oldestMessageAt,
   });
 
   final List<DingTalkGatewayMessage> messages;
   final bool hasMore;
-  final DateTime? oldestMessageAt;
 }
 
 class _DingTalkMessagePageResult {
@@ -1878,11 +1876,9 @@ class DingTalkMessageGatewayService {
     final hasMore = hasMoreValue == null
         ? messages.length >= normalizedLimit
         : _asBool(hasMoreValue);
-    final oldestMessageAt = messages.isEmpty ? null : messages.first.createdAt;
     return DingTalkConversationMessagePage(
       messages: messages,
       hasMore: hasMore,
-      oldestMessageAt: oldestMessageAt,
     );
   }
 

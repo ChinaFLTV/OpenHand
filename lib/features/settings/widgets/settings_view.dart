@@ -600,7 +600,7 @@ Widget _buildToolCacheActions({
   );
 }
 
-Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
+Widget _buildToolEngineStatRow<T extends WebEngineSample>({
   required BuildContext context,
   required String engineName,
   required double successRate,
@@ -705,7 +705,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
   );
 }
 
-List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
+List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSample>({
   required BuildContext context,
   required bool inCooldown,
   required int? cooldownUntilMs,
@@ -1150,7 +1150,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
   ];
 }
 
-class _ToolTelemetrySparklinePainter<T extends WebEngineSampleBase>
+class _ToolTelemetrySparklinePainter<T extends WebEngineSample>
     extends CustomPainter {
   const _ToolTelemetrySparklinePainter({
     required this.samples,

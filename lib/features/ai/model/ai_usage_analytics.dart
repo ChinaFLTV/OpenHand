@@ -171,14 +171,11 @@ class AiUsageBucket {
     this.pricedRequestCount = 0,
     this.promptTokens = 0,
     this.completionTokens = 0,
-    this.cacheCreationTokens = 0,
     this.cacheReadTokens = 0,
     this.successCount = 0,
     this.failedCount = 0,
     this.failureCount = 0,
     this.timeoutCount = 0,
-    this.errorCount = 0,
-    this.cancelledCount = 0,
   });
 
   final String key;
@@ -188,14 +185,11 @@ class AiUsageBucket {
   final int pricedRequestCount;
   final int promptTokens;
   final int completionTokens;
-  final int cacheCreationTokens;
   final int cacheReadTokens;
   final int successCount;
   final int failedCount;
   final int failureCount;
   final int timeoutCount;
-  final int errorCount;
-  final int cancelledCount;
 }
 
 class AiUsageBreakdown {
@@ -210,8 +204,6 @@ class AiUsageBreakdown {
     required this.averageDurationMs,
     this.failureCount = 0,
     this.timeoutCount = 0,
-    this.errorCount = 0,
-    this.cancelledCount = 0,
   });
 
   final String key;
@@ -224,8 +216,6 @@ class AiUsageBreakdown {
   final double averageDurationMs;
   final int failureCount;
   final int timeoutCount;
-  final int errorCount;
-  final int cancelledCount;
 
   double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
 }
@@ -247,7 +237,6 @@ class AiUsageRequestRecord {
     required this.totalCostUsd,
     required this.usageEstimated,
     this.sessionId,
-    this.threadTemplateId,
     this.firstTokenMs,
     this.errorType,
     this.errorMessage,
@@ -272,7 +261,6 @@ class AiUsageRequestRecord {
   final double? totalCostUsd;
   final bool usageEstimated;
   final String? sessionId;
-  final String? threadTemplateId;
   final int? firstTokenMs;
   final String? errorType;
   final String? errorMessage;
@@ -364,7 +352,6 @@ class AiUsageSnapshot {
     required this.surfaces,
     required this.operations,
     required this.templates,
-    required this.recentRequests,
     required this.providerFacets,
     required this.modelFacets,
     required this.sourceFacets,
@@ -383,7 +370,6 @@ class AiUsageSnapshot {
   final List<AiUsageBreakdown> surfaces;
   final List<AiUsageBreakdown> operations;
   final List<AiUsageBreakdown> templates;
-  final List<AiUsageRequestRecord> recentRequests;
   final List<AiUsageFacet> providerFacets;
   final List<AiUsageFacet> modelFacets;
   final List<AiUsageFacet> sourceFacets;

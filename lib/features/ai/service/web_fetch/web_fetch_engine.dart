@@ -89,14 +89,12 @@ class WebFetchEngineResult {
     required this.kind,
     required this.contents,
     this.error,
-    this.attempts = 1,
     this.elapsedMs = 0,
   });
 
   final AiWebFetchEngineKind kind;
   final List<WebFetchEngineContent> contents;
   final String? error;
-  final int attempts;
   final int elapsedMs;
 
   bool get isSuccess => error == null && contents.isNotEmpty;
@@ -135,14 +133,12 @@ abstract class WebFetchEngine
   WebFetchEngineResult buildResult({
     required List<WebFetchEngineContent> items,
     String? error,
-    required int attempts,
     required int elapsedMs,
   }) {
     return WebFetchEngineResult(
       kind: kind,
       contents: items,
       error: error,
-      attempts: attempts,
       elapsedMs: elapsedMs,
     );
   }

@@ -22,7 +22,10 @@ import 'package:openhand/features/android_reverse/android_reverse_adb_client.dar
 import 'package:openhand/features/android_reverse/android_reverse_session_config.dart';
 import 'package:openhand/features/android_reverse/android_reverse_session_controller.dart';
 import 'package:openhand/features/ai/data/ai_session_store.dart';
+import 'package:openhand/features/ai/data/ai_usage_store.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/model/ai_token_usage.dart';
+import 'package:openhand/features/ai/model/ai_usage_analytics.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
@@ -222,6 +225,71 @@ final class _DrainRuntime implements AiToolRuntimeService {
 }
 
 void main() {
+  test('用量总览聚合和筛选独立于请求明细，分页继续校验异常数据', () async {
+    final directory = await Directory.systemTemp.createTemp('openhand_usage_');
+    final database = await DatabaseService.initialize(databasePath: '${directory.path}/test.db');
+    try {
+      const store = AiUsageStore();
+      final now = DateTime.now().toUtc();
+      for (var index = 0; index < 2; index++) {
+        await store.insert(AiUsageStorageRecord(
+          id: '请求$index', traceId: '跟踪$index', startedAt: now.add(Duration(milliseconds: index)),
+          endedAt: now.add(Duration(milliseconds: index + 1)), localDate: '2026-10-04',
+          localHour: '2026-10-04T12', durationMs: 1,
+          status: index == 0 ? AiUsageRequestStatus.success : AiUsageRequestStatus.error,
+          surface: '测试页面', source: index == 0 ? AiUsageDataScope.proxySource : 'chat',
+          operation: 'chat', providerConfigId: '供应商$index', providerName: '供应商$index',
+          protocol: 'openai', modelId: '模型$index', apiFamily: 'chat',
+          usage: AiTokenUsage(promptTokens: 10 + index, completionTokens: 2),
+          cacheInputTokens: 0, usageEstimated: false, threadTemplateId: '模板$index',
+        ));
+      }
+      const filter = AiUsageFilter(range: AiUsageRange.all);
+      var snapshot = await store.loadSnapshot(filter);
+      expect(snapshot.summary.requestCount, 2);
+      expect(snapshot.summary.errorCount, 1);
+      expect(snapshot.summary.totalTokens, 25);
+      expect(snapshot.providers.map((item) => item.key).toSet(), {'供应商0', '供应商1'});
+      expect(snapshot.providerFacets.map((item) => item.value).toSet(), {'供应商0', '供应商1'});
+      expect(snapshot.modelFacets.map((item) => item.value).toSet(), {'模型0', '模型1'});
+      expect(snapshot.sourceFacets.map((item) => item.value).toSet(), {AiUsageDataScope.proxySource, 'chat'});
+      expect(snapshot.templates.map((item) => item.key).toSet(), {'模板0', '模板1'});
+      expect(snapshot.proxyRoutes.single.requestCount, 1);
+      expect(snapshot.healthProviders.length, 2);
+      snapshot = await store.loadSnapshot(filter.copyWith(providerConfigId: '供应商1'));
+      expect(snapshot.summary.requestCount, 1);
+      expect(snapshot.models.single.key, '模型1');
+      expect(snapshot.providerFacets.length, 2);
+      final (total, records) = await store.loadRequestPage(filter, limit: 1);
+      expect(total, 2);
+      expect(records.single.id, '请求1');
+      final (_, previous) = await store.loadRequestPage(filter, offset: 1, limit: 1);
+      expect(previous.single.id, '请求0');
+      await database.database.update(AiUsageStore.tableName, {'error_message': '异常' * 20000},
+        where: 'id = ?', whereArgs: ['请求1']);
+      expect((await store.loadSnapshot(filter)).summary.requestCount, 2);
+      await expectLater(store.loadRequestPage(filter), throwsFormatException);
+    } finally {
+      await database.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('知识库重排序保留旧配置兼容并以明确模式为准', () {
+    for (final enabled in [false, true]) {
+      final legacy = KnowledgeBaseSettings.fromJson({'cloud_rerank_enabled': enabled});
+      expect(legacy.rerankMode, enabled ? KnowledgeRerankMode.model : KnowledgeRerankMode.localHybrid);
+      final explicit = KnowledgeBaseSettings.fromJson({
+        'cloud_rerank_enabled': enabled, 'rerank_mode': KnowledgeRerankMode.mmr,
+      });
+      expect(explicit.rerankMode, KnowledgeRerankMode.mmr);
+      expect(explicit.toJson()['cloud_rerank_enabled'], isFalse);
+      final changed = explicit.copyWith(rerankMode: KnowledgeRerankMode.model);
+      expect(changed.toJson()['cloud_rerank_enabled'], isTrue);
+      expect(KnowledgeBaseSettings.fromJson(changed.toJson()).rerankMode, KnowledgeRerankMode.model);
+    }
+  });
+
   test('MCP 输入关闭超时后立即取消等待写入且保留原始错误', () async {
     final queue = McpStdioWriteQueue();
     final started = Completer<void>();

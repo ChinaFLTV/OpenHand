@@ -269,13 +269,11 @@ class DingTalkQueuedResponse {
     required this.sequence,
     required this.sourceMessageId,
     required this.content,
-    required this.scheduledAt,
   });
 
   final int sequence;
   final String sourceMessageId;
   final String content;
-  final DateTime scheduledAt;
 }
 
 class _QueuedDingTalkResponse {
@@ -1346,7 +1344,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           sequence: item.sequence,
           sourceMessageId: item.sourceMessageId,
           content: item.content,
-          scheduledAt: item.scheduledAt,
         ),
       ),
     );

@@ -1648,7 +1648,6 @@ class _KnowledgeBaseConfigDialogState
                   var next = _settings.copyWith(
                     rerankMode: value,
                     mmrEnabled: value == KnowledgeRerankMode.mmr,
-                    cloudRerankEnabled: value == KnowledgeRerankMode.model,
                   );
                   if (value == KnowledgeRerankMode.model &&
                       !_selectedRerankModelAvailable(rerankModels) &&

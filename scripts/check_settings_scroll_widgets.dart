@@ -66,7 +66,7 @@ Future<AiUsageSnapshot> _testSnapshot(AiUsageFilter filter) async => AiUsageSnap
   summary: AiUsageSummary(requestCount: _requestCount, successCount: _requestCount),
   trend: const [], heatmap: const [], providers: const [], models: const [],
   sources: const [], surfaces: const [], operations: const [], templates: const [],
-  recentRequests: const [], providerFacets: const [], modelFacets: const [], sourceFacets: const [],
+  providerFacets: const [], modelFacets: const [], sourceFacets: const [],
 );
 Future<(int, List<AiUsageRequestRecord>)> _testRequestPage(
   AiUsageFilter filter, {required int offset, required int limit}) async => (0, <AiUsageRequestRecord>[]);

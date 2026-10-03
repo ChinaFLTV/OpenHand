@@ -31,7 +31,7 @@ abstract class WebEngineRequest<TSelf extends WebEngineRequest<TSelf>> {
 ///
 /// 子类只需要实现：
 /// * [kind] / [isReady] / [fetch]：领域特定的单次抓取
-/// * [buildResult]：把 items/error/attempts/elapsed 装进领域 Result
+/// * [buildResult]：把结果、错误和耗时装进领域结果
 /// * [postProcess]：在成功路径上对 items 做过滤 / 截断 / take
 abstract class WebEngineBase<
   TKind,
@@ -49,7 +49,6 @@ abstract class WebEngineBase<
   TResult buildResult({
     required List<TItem> items,
     String? error,
-    required int attempts,
     required int elapsedMs,
   });
 
@@ -61,7 +60,6 @@ abstract class WebEngineBase<
       return buildResult(
         items: const [],
         error: 'engine_not_ready',
-        attempts: 0,
         elapsedMs: 0,
       );
     }
@@ -76,7 +74,6 @@ abstract class WebEngineBase<
         return buildResult(
           items: const [],
           error: 'cancelled',
-          attempts: attempt - 1,
           elapsedMs: stopwatch.elapsedMilliseconds,
         );
       }
@@ -86,13 +83,11 @@ abstract class WebEngineBase<
           return buildResult(
             items: const [],
             error: 'cancelled',
-            attempts: attempt - 1,
             elapsedMs: stopwatch.elapsedMilliseconds,
           );
         }
         return buildResult(
           items: postProcess(raw, request),
-          attempts: attempt,
           elapsedMs: stopwatch.elapsedMilliseconds,
         );
       } catch (error) {
@@ -116,7 +111,6 @@ abstract class WebEngineBase<
           return buildResult(
             items: const [],
             error: 'cancelled',
-            attempts: attempt,
             elapsedMs: stopwatch.elapsedMilliseconds,
           );
         }
@@ -127,7 +121,6 @@ abstract class WebEngineBase<
       error: lastError == null
           ? 'unknown_error'
           : '${lastError.runtimeType}: $lastError',
-      attempts: maxAttempts,
       elapsedMs: stopwatch.elapsedMilliseconds,
     );
   }

@@ -251,7 +251,6 @@ class AiUsageStore {
         'thread_template_id',
         omitBlank: true,
       ),
-      _loadRecent(where),
       _loadFacets(facetWhere, 'provider_config_id', 'provider_name'),
       _loadFacets(facetWhere, 'model_id', 'model_id'),
       _loadFacets(facetWhere, 'source', 'source'),
@@ -274,12 +273,11 @@ class AiUsageStore {
       surfaces: results[6] as List<AiUsageBreakdown>,
       operations: results[7] as List<AiUsageBreakdown>,
       templates: results[8] as List<AiUsageBreakdown>,
-      recentRequests: results[9] as List<AiUsageRequestRecord>,
-      providerFacets: results[10] as List<AiUsageFacet>,
-      modelFacets: results[11] as List<AiUsageFacet>,
-      sourceFacets: results[12] as List<AiUsageFacet>,
-      proxyRoutes: results[13] as List<AiUsageBreakdown>,
-      healthProviders: results[14] as List<AiUsageBreakdown>,
+      providerFacets: results[9] as List<AiUsageFacet>,
+      modelFacets: results[10] as List<AiUsageFacet>,
+      sourceFacets: results[11] as List<AiUsageFacet>,
+      proxyRoutes: results[12] as List<AiUsageBreakdown>,
+      healthProviders: results[13] as List<AiUsageBreakdown>,
     );
   }
 
@@ -458,7 +456,6 @@ class AiUsageStore {
         COUNT(*) AS request_count,
         SUM(prompt_tokens) AS prompt_tokens,
         SUM(completion_tokens) AS completion_tokens,
-        SUM(cache_creation_tokens) AS cache_creation_tokens,
         SUM(cache_read_tokens) AS cache_read_tokens,
         SUM(total_tokens) AS total_tokens,
         SUM(CASE WHEN total_cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS priced_count,
@@ -466,9 +463,7 @@ class AiUsageStore {
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success_count,
         SUM(CASE WHEN status IN ('failed', 'error') THEN 1 ELSE 0 END) AS failed_count,
         SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS failure_count,
-        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count
       FROM $tableName ${where.sql}
       GROUP BY bucket_key
       ORDER BY bucket_key ASC
@@ -480,7 +475,6 @@ class AiUsageStore {
             requestCount: _int(row['request_count']),
             promptTokens: _int(row['prompt_tokens']),
             completionTokens: _int(row['completion_tokens']),
-            cacheCreationTokens: _int(row['cache_creation_tokens']),
             cacheReadTokens: _int(row['cache_read_tokens']),
             totalTokens: _int(row['total_tokens']),
             totalCostUsd: _double(row['total_cost_usd']),
@@ -489,8 +483,6 @@ class AiUsageStore {
             failedCount: _int(row['failed_count']),
             failureCount: _int(row['failure_count']),
             timeoutCount: _int(row['timeout_count']),
-            errorCount: _int(row['error_count']),
-            cancelledCount: _int(row['cancelled_count']),
           ),
         )
         .where((item) => item.key.isNotEmpty)
@@ -518,9 +510,7 @@ class AiUsageStore {
         SUM(COALESCE(total_cost_usd, 0)) AS total_cost_usd,
         AVG(duration_ms) AS average_duration_ms,
         SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS failure_count,
-        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count
       FROM $tableName $effectiveWhere
       GROUP BY item_key, item_label
       ORDER BY total_tokens DESC, request_count DESC
@@ -539,17 +529,10 @@ class AiUsageStore {
             averageDurationMs: _double(row['average_duration_ms']),
             failureCount: _int(row['failure_count']),
             timeoutCount: _int(row['timeout_count']),
-            errorCount: _int(row['error_count']),
-            cancelledCount: _int(row['cancelled_count']),
           ),
         )
         .where((item) => item.key.isNotEmpty)
         .toList(growable: false);
-  }
-
-  Future<List<AiUsageRequestRecord>> _loadRecent(_UsageWhere where) async {
-    final rows = await _loadValidatedRequestRows(where, limit: 40);
-    return rows.map(_requestFromRow).toList(growable: false);
   }
 
   Future<List<Map<String, Object?>>> _loadValidatedRequestRows(
@@ -686,7 +669,6 @@ class AiUsageStore {
       source: '${row['source'] ?? ''}',
       operation: '${row['operation'] ?? ''}',
       sessionId: optionalStringFromValue(row['session_id']),
-      threadTemplateId: optionalStringFromValue(row['thread_template_id']),
       providerName: '${row['provider_name'] ?? ''}',
       modelId: '${row['model_id'] ?? ''}',
       apiFamily: '${row['api_family'] ?? ''}',

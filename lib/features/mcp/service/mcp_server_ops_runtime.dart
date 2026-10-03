@@ -52,13 +52,11 @@ class McpOpsToolInvocationContext {
   const McpOpsToolInvocationContext({
     required this.invocationId,
     required this.cancelSignal,
-    required this.deadline,
     this.workspaceRoot = '',
   });
 
   final String invocationId;
   final Future<void> cancelSignal;
-  final DateTime deadline;
   final String workspaceRoot;
 }
 
@@ -1424,7 +1422,6 @@ class McpServerOpsRuntime {
         invocationCancel.future,
         requestCancellation,
       ])!,
-      deadline: DateTime.now().toUtc().add(invocationTimeout),
       workspaceRoot: _normalizedWorkspaceRoot ?? '',
     );
     try {

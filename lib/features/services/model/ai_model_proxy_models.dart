@@ -986,14 +986,12 @@ class AiModelProxyLiveConnection {
     required this.endpoint,
     required this.inflight,
     this.userAgent = '',
-    required this.firstSeenAt,
     required this.lastSeenAt,
   });
 
   final String endpoint;
   final int inflight;
   final String userAgent;
-  final DateTime firstSeenAt;
   final DateTime lastSeenAt;
 }
 
