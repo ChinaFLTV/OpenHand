@@ -37,57 +37,118 @@ abstract class OpenHandScrollBehaviorBase extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    return NotificationListener<OverscrollNotification>(
+    return NotificationListener<ScrollEndNotification>(
       onNotification: (notification) {
-        if (notification.depth != 0 || notification.dragDetails == null) {
-          return false;
-        }
-        var remaining =
-            notification.overscroll *
-            (axisDirectionIsReversed(details.direction) ? -1 : 1);
-        final axis = axisDirectionToAxis(details.direction);
-        var ancestor = Scrollable.maybeOf(context);
-        while (ancestor != null && remaining.abs() > 0.001) {
-          final position = ancestor.position;
-          if (axisDirectionToAxis(position.axisDirection) == axis &&
-              position.hasContentDimensions &&
-              position.physics.shouldAcceptUserOffset(position)) {
-            final sign = axisDirectionIsReversed(position.axisDirection)
-                ? -1.0
-                : 1.0;
-            final before = position.pixels;
-            final target = (before + remaining * sign).clamp(
-              position.minScrollExtent,
-              position.maxScrollExtent,
-            );
-            if (target != before) {
-              position.pointerScroll(target - before);
-              remaining -= (position.pixels - before) * sign;
-            }
+        final velocity = notification.dragDetails?.primaryVelocity;
+        if (notification.depth == 0 && velocity != null && velocity != 0) {
+          final metrics = notification.metrics;
+          final offsetVelocity =
+              -velocity * (axisDirectionIsReversed(details.direction) ? -1 : 1);
+          if ((offsetVelocity > 0 && metrics.extentAfter == 0) ||
+              (offsetVelocity < 0 && metrics.extentBefore == 0)) {
+            _forwardMomentum(context, details.direction, offsetVelocity);
           }
-          ancestor = Scrollable.maybeOf(ancestor.context);
         }
         return false;
       },
-      child: Listener(
-        onPointerSignal: (event) {
-          if (event is! PointerScrollEvent) return;
-          final controller = details.controller;
-          if (controller == null || controller.positions.length != 1) return;
-          final position = controller.position;
-          if (!position.hasContentDimensions ||
-              !position.physics.shouldAcceptUserOffset(position)) {
-            return;
+      child: NotificationListener<OverscrollNotification>(
+        onNotification: (notification) {
+          if (notification.depth != 0 ||
+              (notification.dragDetails == null &&
+                  notification.velocity == 0)) {
+            return false;
           }
-          final state = position.context;
-          if (state is! ScrollableState) return;
-          final original = event.original ?? event;
-          final chain = _scrollChains[original] ??= _OpenHandScrollChain(event);
-          chain.add(state, position, pointerAxisModifiers);
+          var remaining =
+              notification.overscroll *
+              (axisDirectionIsReversed(details.direction) ? -1 : 1);
+          final axis = axisDirectionToAxis(details.direction);
+          var ancestor = Scrollable.maybeOf(context);
+          while (ancestor != null && remaining.abs() > 0.001) {
+            final position = ancestor.position;
+            if (axisDirectionToAxis(position.axisDirection) == axis &&
+                position.hasContentDimensions &&
+                position.physics.shouldAcceptUserOffset(position)) {
+              final sign = axisDirectionIsReversed(position.axisDirection)
+                  ? -1.0
+                  : 1.0;
+              final before = position.pixels;
+              if (notification.dragDetails == null &&
+                  position.isScrollingNotifier.value) {
+                return false;
+              }
+              final target = (before + remaining * sign).clamp(
+                position.minScrollExtent,
+                position.maxScrollExtent,
+              );
+              if (target != before) {
+                position.pointerScroll(target - before);
+                remaining -= (position.pixels - before) * sign;
+                if (notification.dragDetails == null) {
+                  _forwardMomentum(
+                    context,
+                    details.direction,
+                    notification.velocity,
+                  );
+                  break;
+                }
+              }
+            }
+            ancestor = Scrollable.maybeOf(ancestor.context);
+          }
+          return false;
         },
-        child: child,
+        child: Listener(
+          onPointerSignal: (event) {
+            if (event is! PointerScrollEvent) return;
+            final controller = details.controller;
+            if (controller == null || controller.positions.length != 1) return;
+            final position = controller.position;
+            if (!position.hasContentDimensions ||
+                !position.physics.shouldAcceptUserOffset(position)) {
+              return;
+            }
+            final state = position.context;
+            if (state is! ScrollableState) return;
+            final original = event.original ?? event;
+            final chain = _scrollChains[original] ??= _OpenHandScrollChain(
+              event,
+            );
+            chain.add(state, position, pointerAxisModifiers);
+          },
+          child: child,
+        ),
       ),
     );
+  }
+
+  void _forwardMomentum(
+    BuildContext context,
+    AxisDirection direction,
+    double velocity,
+  ) {
+    final axis = axisDirectionToAxis(direction);
+    final physicalVelocity =
+        velocity * (axisDirectionIsReversed(direction) ? -1 : 1);
+    var ancestor = Scrollable.maybeOf(context);
+    while (ancestor != null) {
+      final position = ancestor.position;
+      // 旧的内部惯性不能抢占外层已经开始的滚动。
+      if (position.isScrollingNotifier.value) return;
+      final offsetVelocity =
+          physicalVelocity *
+          (axisDirectionIsReversed(position.axisDirection) ? -1 : 1);
+      if (position is ScrollPositionWithSingleContext &&
+          axisDirectionToAxis(position.axisDirection) == axis &&
+          position.hasContentDimensions &&
+          position.physics.shouldAcceptUserOffset(position) &&
+          ((offsetVelocity > 0 && position.extentAfter > 0) ||
+              (offsetVelocity < 0 && position.extentBefore > 0))) {
+        // 子滚动区触边后延续原速度，由外层物理模型自然减速。
+        position.goBallistic(offsetVelocity);
+        return;
+      }
+      ancestor = Scrollable.maybeOf(ancestor.context);
+    }
   }
 
   @override
@@ -126,18 +187,6 @@ class OpenHandEditorScrollBehavior extends OpenHandScrollBehaviorBase {
   ) {
     return child;
   }
-}
-
-/// 消息预览独占溢出滚动，边界位移不进入全局嵌套滚动链。
-class OpenHandContainedScrollBehavior extends OpenHandEditorScrollBehavior {
-  const OpenHandContainedScrollBehavior();
-
-  @override
-  Widget buildOverscrollIndicator(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) => child;
 }
 
 final _scrollChains = Expando<_OpenHandScrollChain>();

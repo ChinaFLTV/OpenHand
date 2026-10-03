@@ -169,46 +169,26 @@ Widget _buildCollapsedPreviewScrollableFrame({
             children: [
               ClipRect(
                 child: ScrollConfiguration(
-                  behavior: const OpenHandContainedScrollBehavior().copyWith(
+                  behavior: const OpenHandEditorScrollBehavior().copyWith(
                     scrollbars: false,
                     // 正文中的可选文字不能继承全局“始终可滚”，否则空滚动区会抢走触控板手势。
                     physics: const ClampingScrollPhysics(),
                   ),
-                  child: Listener(
-                    onPointerSignal: (event) {
-                      if (event is! PointerScrollEvent ||
-                          event.scrollDelta.dy == 0 ||
-                          !maxHeight.isFinite ||
-                          !controller.hasClients) {
-                        return;
-                      }
-                      final position = controller.position;
-                      if (position.maxScrollExtent <=
-                          position.minScrollExtent) {
-                        return;
-                      }
-                      // 子滚动区优先处理；触底或触顶时仍消费滚轮，防止外层会话移走卡片。
-                      GestureBinding.instance.pointerSignalResolver.register(
-                        event,
-                        (_) => event.respond(allowPlatformDefault: false),
-                      );
-                    },
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: _consumeNestedMessageScrollNotification,
-                      child: SingleChildScrollView(
-                        controller: controller,
-                        primary: false,
-                        // 滚动能力由实际范围决定，不能依赖可能失效的异步测高缓存。
-                        physics: openHandDialogAwareScrollPhysics(
-                          context,
-                          fallback: const ClampingScrollPhysics(),
-                        ),
-                        child: SizedBox(
-                          width: constrainedWidth,
-                          child: _MeasureSize(
-                            onChange: onSizeChanged,
-                            child: child,
-                          ),
+                  // 正文先消费可滚动量，到边界后由全局滚动链交给会话。
+                  child: _CollapsedPreviewScrollKeepAlive(
+                    child: SingleChildScrollView(
+                      controller: controller,
+                      primary: false,
+                      // 滚动能力由实际范围决定，不能依赖可能失效的异步测高缓存。
+                      physics: openHandDialogAwareScrollPhysics(
+                        context,
+                        fallback: const ClampingScrollPhysics(),
+                      ),
+                      child: SizedBox(
+                        width: constrainedWidth,
+                        child: _MeasureSize(
+                          onChange: onSizeChanged,
+                          child: child,
                         ),
                       ),
                     ),
@@ -912,8 +892,43 @@ Widget _collapsibleMessageBodyMotion({
   );
 }
 
-bool _consumeNestedMessageScrollNotification(ScrollNotification _) {
-  return true;
+class _CollapsedPreviewScrollKeepAlive extends StatefulWidget {
+  const _CollapsedPreviewScrollKeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_CollapsedPreviewScrollKeepAlive> createState() =>
+      _CollapsedPreviewScrollKeepAliveState();
+}
+
+class _CollapsedPreviewScrollKeepAliveState
+    extends State<_CollapsedPreviewScrollKeepAlive>
+    with AutomaticKeepAliveClientMixin<_CollapsedPreviewScrollKeepAlive> {
+  bool _dragging = false;
+
+  @override
+  bool get wantKeepAlive => _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0 &&
+            (notification is ScrollStartNotification ||
+                notification is ScrollEndNotification)) {
+          // 边界余量会移走原卡片；手势结束前保活，避免触控板拖动被列表回收截断。
+          _dragging =
+              notification is ScrollStartNotification &&
+              notification.dragDetails != null;
+          updateKeepAlive();
+        }
+        return true;
+      },
+      child: widget.child,
+    );
+  }
 }
 
 bool _messageShouldCollapse(

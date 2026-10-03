@@ -218,7 +218,18 @@ try {
       verify(preview.scrollTop > 0, `${kind}/${format} 滚动位置不会被测高恢复覆盖`);
       verify(Math.abs(fade.getBoundingClientRect().bottom - preview.getBoundingClientRect().bottom) < 1,
         `${kind}/${format} 渐隐始终位于预览底部，不随正文上移`);
-      verify(getComputedStyle(preview).overscrollBehaviorY === 'contain', `${kind}/${format} 边界滚动不传递给会话`);
+      verify(getComputedStyle(preview).overscrollBehaviorY === 'auto', `${kind}/${format} 正文触边后允许继续滚动会话`);
+      let wheelIntents = 0;
+      let touchIntents = 0;
+      const observeWheel = () => { wheelIntents += 1; };
+      const observeTouch = () => { touchIntents += 1; };
+      root.addEventListener('wheel', observeWheel);
+      root.addEventListener('touchmove', observeTouch);
+      preview.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 40 }));
+      preview.dispatchEvent(new Event('touchmove', { bubbles: true }));
+      root.removeEventListener('wheel', observeWheel);
+      root.removeEventListener('touchmove', observeTouch);
+      verify(wheelIntents === 1 && touchIntents === 1, `${kind}/${format} 会话能收到正文区域的滚轮和触摸意图`);
       for (let cycle = 0; cycle < 3; cycle++) {
         preview.scrollTop = preview.scrollHeight;
         await act(async () => { preview.dispatchEvent(new Event('scroll')); });

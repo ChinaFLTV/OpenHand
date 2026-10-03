@@ -6231,7 +6231,7 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-collapsible-body.is-scrollable-collapsed {
   overflow-anchor: none;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
 }
 .oh-reasoning-collapsible-body::-webkit-scrollbar {
   width: 6px;

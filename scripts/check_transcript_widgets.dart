@@ -815,7 +815,7 @@ void main() {
   }
 
   for (final plain in [false, true]) {
-    testWidgets('折叠卡片触底后滚轮不转交会话，纯文本=$plain', (tester) async {
+    testWidgets('折叠卡片：边界剩余滚轮继续推动会话，纯文本=$plain', (tester) async {
       final original = _probeSession('嵌套触底-$plain', 3);
       final message = AiSessionMessage.reasoning(id: original.messages.first.id,
         createdAt: original.createdAt,
@@ -834,54 +834,77 @@ void main() {
       }
       final previewFinder = find.byType(plain ? _PlainTextPreviewBody : _MarkdownPreviewBody).first;
       final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
-      final point = tester.getCenter(previewFinder);
       final outerOffset = probe.controller.offset;
-      expect(probe.controller.position.extentAfter, greaterThan(100));
-      await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, 10000)));
-      await probe.settle();
       final bottom = preview._scrollController.position.maxScrollExtent;
+      expect(probe.controller.position.extentAfter, greaterThan(100));
+      expect(bottom, greaterThan(60));
+      preview._scrollController.jumpTo(bottom - 10);
+      await probe.settle();
+      await tester.sendEventToBinding(PointerScrollEvent(
+        position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, 40)));
+      await probe.settle();
       expect(preview._scrollController.offset, closeTo(bottom, 1));
-      for (var tick = 0; tick < 3; tick++) {
-        await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, 40)));
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '卡片触底后不能把滚动交给会话并移走当前命中区域');
-      await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: const Offset(0, -60)));
-      await probe.settle();
-      expect(preview._scrollController.offset, lessThan(bottom - 30));
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.trackpad);
-      await gesture.panZoomStart(point);
-      await gesture.panZoomUpdate(point, pan: const Offset(0, -2000));
-      await tester.pump(const Duration(milliseconds: 16));
-      await gesture.panZoomUpdate(point, pan: const Offset(0, -4000));
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(preview._scrollController.offset, closeTo(bottom, 1));
-      probe.rebuild(() {});
-      await tester.pump(const Duration(milliseconds: 16));
-      await gesture.panZoomUpdate(point, pan: const Offset(0, -3920));
-      expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '触控板同一次手势触底后可以反向，父级重建不能取消拖动');
-      await gesture.panZoomEnd();
-      await probe.settle();
-      preview._scrollController.jumpTo(0);
-      probe.controller.jumpTo(probe.controller.position.minScrollExtent + 40);
-      await probe.settle();
-      final topOuterOffset = probe.controller.offset;
+      expect(probe.controller.offset, closeTo(outerOffset + 30, 1),
+        reason: '内部消费 10，剩余 30 必须继续滚动会话，不能丢失或重复');
       await tester.sendEventToBinding(PointerScrollEvent(
         position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, -60)));
       await probe.settle();
-      expect(probe.controller.offset, closeTo(topOuterOffset, 1), reason: '触顶也不能将滚轮转交外层');
-      probe.update(probe.session.copyWith(messages: [message.copyWith(content: '短内容'), ...probe.session.messages.skip(1)]));
+      expect(preview._scrollController.offset, closeTo(bottom - 60, 1));
+      expect(probe.controller.offset, closeTo(outerOffset + 30, 1),
+        reason: '反向阅读仍先移动正文');
+      probe.controller.jumpTo(probe.controller.position.minScrollExtent + 50);
+      preview._scrollController.jumpTo(10);
       await probe.settle();
-      probe.controller.jumpTo(probe.controller.position.minScrollExtent);
-      await probe.settle();
-      expect(preview._scrollController.position.maxScrollExtent, 0);
-      final shortOuterOffset = probe.controller.offset;
       await tester.sendEventToBinding(PointerScrollEvent(
-        position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, 60)));
+        position: tester.getCenter(previewFinder), scrollDelta: const Offset(0, -40)));
       await probe.settle();
-      expect(probe.controller.offset, greaterThan(shortOuterOffset), reason: '不溢出的短内容不能吞掉会话滚动');
+      expect(preview._scrollController.offset, 0);
+      expect(probe.controller.offset, closeTo(probe.controller.position.minScrollExtent + 20, 1),
+        reason: '触顶剩余位移也必须继续移动会话');
     }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
   }
+
+  testWidgets('折叠卡片：同一次触控板手势跨过缓存区仍能到达会话尾部', (tester) async {
+    final original = _probeSession('触控板跨越卡片', 30);
+    final message = AiSessionMessage.reasoning(id: original.messages.first.id,
+      createdAt: original.createdAt,
+      content: List.filled(24, '读取思考正文后继续浏览后续消息。').join('\n\n'));
+    final probe = _TranscriptProbe(tester, original.copyWith(messages: [message,
+      ...original.messages.skip(1)]));
+    probe.preserveViewportAfterUserScroll = false;
+    await probe.mount(size: const Size(800, 500));
+    await probe.settle();
+    probe.state.setState(() {
+      probe.state._windowStartIndex = 0;
+      probe.state._syncRenderEntries();
+    });
+    await probe.settle();
+    probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+    await probe.settle();
+    probe.controller.jumpTo(probe.controller.position.minScrollExtent);
+    await probe.settle();
+    final previewFinder = find.byType(_MarkdownPreviewBody).first;
+    expect(previewFinder.hitTestable(), findsOneWidget);
+    final preview = tester.state(previewFinder) as _CollapsedPreviewBodyState;
+    final point = tester.getCenter(previewFinder);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+    await gesture.panZoomStart(point);
+    for (var step = 1; step <= 60; step++) {
+      await gesture.panZoomUpdate(point, pan: Offset(0, -100.0 * step),
+        timeStamp: Duration(milliseconds: 16 * step));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1),
+      reason: '内部触底后的手势不能因原卡片离开缓存区而中断');
+    expect(preview.mounted, true, reason: '手势结束前保留原命中的滚动域');
+    await gesture.panZoomUpdate(point, pan: const Offset(0, -5920),
+      timeStamp: const Duration(milliseconds: 976));
+    expect(preview._scrollController.position.extentAfter, greaterThan(30),
+      reason: '同一次手势反向时仍能阅读原正文');
+    await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 992));
+    await probe.settle();
+    expect(preview.mounted, false, reason: '手势结束后正常回收离屏卡片');
+  }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
 
   for (final kind in [AiSessionMessageKind.assistant, AiSessionMessageKind.user,
       AiSessionMessageKind.tool, AiSessionMessageKind.mcp, AiSessionMessageKind.skill,
@@ -917,36 +940,47 @@ void main() {
         expect(probe.controller.position.extentAfter, greaterThan(60));
         expect(preview._scrollController.position.maxScrollExtent, greaterThan(0));
         for (var cycle = 0; cycle < 2; cycle++) {
-          final point = tester.getCenter(previewFinder);
-          final down = await tester.createGesture(kind: PointerDeviceKind.trackpad);
-          await down.panZoomStart(point);
-          for (var step = 1; step <= 4; step++) {
-            await down.panZoomUpdate(point, pan: Offset(0, -2500.0 * step),
-              timeStamp: Duration(milliseconds: 16 * step));
-            await tester.pump(const Duration(milliseconds: 16));
-          }
-          await down.panZoomEnd(timeStamp: const Duration(milliseconds: 80));
-          await probe.settle();
+          probe.controller.jumpTo(outerOffset);
           final bottom = preview._scrollController.position.maxScrollExtent;
-          expect(preview._scrollController.offset, closeTo(bottom, 1));
-          final up = await tester.createGesture(kind: PointerDeviceKind.trackpad);
-          await up.panZoomStart(point);
-          await up.panZoomUpdate(point, pan: const Offset(0, 80), timeStamp: const Duration(milliseconds: 16));
+          preview._scrollController.jumpTo(bottom - 10);
+          await probe.settle();
+          final point = tester.getCenter(previewFinder);
+          final gesture = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+          await gesture.panZoomStart(point);
+          await gesture.panZoomUpdate(point, pan: const Offset(0, -20),
+            timeStamp: const Duration(milliseconds: 16));
           await tester.pump(const Duration(milliseconds: 16));
-          await up.panZoomUpdate(point, pan: const Offset(0, 160), timeStamp: const Duration(milliseconds: 32));
-          expect(preview._scrollController.offset, lessThan(bottom - 30), reason: '抬手后从正文开始的新触控板手势必须能反向滚动');
+          await gesture.panZoomUpdate(point, pan: const Offset(0, -60),
+            timeStamp: const Duration(milliseconds: 32));
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(preview._scrollController.offset, closeTo(bottom, 1));
+          expect(probe.controller.offset, closeTo(outerOffset + 30, 1),
+            reason: '各类型正文触边后都应只转交剩余位移');
+          probe.rebuild(() {});
+          await tester.pump(const Duration(milliseconds: 16));
+          await gesture.panZoomUpdate(point, pan: const Offset(0, 20),
+            timeStamp: const Duration(milliseconds: 48));
+          expect(preview._scrollController.offset, lessThan(bottom - 30),
+            reason: '父级重建后同一次触控板手势仍能反向阅读正文');
+          await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 64));
+          await probe.settle();
+          probe.controller.jumpTo(outerOffset);
+          preview._scrollController.jumpTo(bottom);
+          await probe.settle();
+          final up = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+          final upPoint = tester.getCenter(previewFinder);
+          await up.panZoomStart(upPoint);
+          await up.panZoomUpdate(upPoint, pan: const Offset(0, 80),
+            timeStamp: const Duration(milliseconds: 16));
+          await tester.pump(const Duration(milliseconds: 16));
+          await up.panZoomUpdate(upPoint, pan: const Offset(0, 160),
+            timeStamp: const Duration(milliseconds: 32));
+          expect(preview._scrollController.offset, lessThan(bottom - 30),
+            reason: '抬手后从正文开始的新触控板手势必须能反向滚动');
           await up.panZoomEnd(timeStamp: const Duration(milliseconds: 48));
           await probe.settle();
-          expect(probe.controller.offset, closeTo(outerOffset, 1));
-          for (final delta in [10000.0, 40.0, -60.0, -10000.0, -40.0, 60.0]) {
-            final before = preview._scrollController.offset;
-            await tester.sendEventToBinding(PointerScrollEvent(
-              position: tester.getCenter(previewFinder), scrollDelta: Offset(0, delta)));
-            await probe.settle();
-            expect(probe.controller.offset, closeTo(outerOffset, 1), reason: '所有类型的预览触边后都不能带动会话');
-            if (delta == -60) expect(preview._scrollController.offset, lessThan(before - 30));
-            if (delta == 60) expect(preview._scrollController.offset, greaterThan(before + 30));
-          }
+          expect(probe.controller.offset, closeTo(outerOffset, 1),
+            reason: '正文仍有可滚动内容时，外层会话保持位置');
         }
       }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
     }

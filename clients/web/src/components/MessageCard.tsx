@@ -1687,10 +1687,6 @@ function isCollapsedBodyAtBottom(
   return element.scrollTop >= maxScrollTop - epsilon;
 }
 
-function stopNestedMessageScrollPropagation(event: Event): void {
-  event.stopPropagation();
-}
-
 // 打开历史会话时一次性把已加载的全部 message id 标记为"已入场"。
 // 历史消息没必要再跑 CSS 入场动画 + useLayoutEffect 高度量动画，避免长会话
 // 首屏 N 张卡片并发 getBoundingClientRect / element.animate 撑爆主线程。
@@ -4724,7 +4720,7 @@ function ReasoningCollapsibleBody({
   }, [children, previewMaxHeight, scrollStateKey, syncAtBottom, useCollapsedScroll]);
 
   const handleScroll = useCallback((event: Event) => {
-    stopNestedMessageScrollPropagation(event);
+    event.stopPropagation();
     if (!useCollapsedScroll || !scrollStateKey) return;
     const target = event.currentTarget as HTMLDivElement | null;
     if (!target) return;
@@ -4747,8 +4743,6 @@ function ReasoningCollapsibleBody({
         data-collapsed={collapsed ? 'true' : 'false'}
         data-message-scrollable-body={useCollapsedScroll ? 'true' : undefined}
         aria-expanded={collapsed ? 'false' : 'true'}
-        onWheel={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
-        onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
         onScroll={useCollapsedScroll ? handleScroll : undefined}
         style={{
           maxHeight: collapsed ? `${previewMaxHeight}px` : 'none',
@@ -4757,7 +4751,6 @@ function ReasoningCollapsibleBody({
             ? (useCollapsedScroll ? 'auto' : 'hidden')
             : (scrollableCollapsed ? 'auto' : 'hidden'),
           scrollbarGutter: scrollableCollapsed ? 'stable' : undefined,
-          overscrollBehavior: useCollapsedScroll ? 'contain' : undefined,
         }}
       >
         {children}
