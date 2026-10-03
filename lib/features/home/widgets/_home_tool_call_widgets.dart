@@ -18,10 +18,16 @@ class _ToolCallBody extends _ElapsedMessageWidget {
     required super.message,
     required this.sessionId,
     required this.selectable,
+    this.onLoadFullContent,
+    this.fullContentLoading = false,
+    this.fullContentLoadError,
   });
 
   final String sessionId;
   final bool selectable;
+  final VoidCallback? onLoadFullContent;
+  final bool fullContentLoading;
+  final String? fullContentLoadError;
 
   @override
   bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(message);
@@ -134,12 +140,38 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
+    final deferredContent = widget.onLoadFullContent == null
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OpenHandMessageActionChip(
+                onPressed: widget.onLoadFullContent,
+                busy: widget.fullContentLoading,
+                icon: Icons.open_in_full_rounded,
+                label: widget.fullContentLoading
+                    ? AppLocalizations.of(context)!.messageLoadingContent
+                    : AppLocalizations.of(context)!.tlCallViewFullContent,
+              ),
+              if (widget.fullContentLoadError != null) ...[
+                kOpenHandGap8,
+                Text(
+                  widget.fullContentLoadError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
+            ],
+          );
     // 工具调用依次经过参数构造、等待提交和执行阶段，并在同一容器内过渡。
     final isStreamingArgs =
         message.metadata['tool_arguments_streaming'] == true ||
         message.metadata['tool_preparing'] == true;
     final isAwaitingExecutor =
-        toolCall.status.isEmpty && !toolCall.hasResultContent;
+        message.metadata[aiSessionMessageContentPreviewMetadataKey] != true &&
+        toolCall.status.isEmpty &&
+        !toolCall.hasResultContent;
     final isConstructing = isAwaitingExecutor && isStreamingArgs;
     final isSubmitting = isAwaitingExecutor && !isStreamingArgs;
     final isPreExecution = isConstructing || isSubmitting;
@@ -434,7 +466,11 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                   _argumentsExpandedOverride =
                                       !argumentsExpanded;
                                 });
+                                if (!argumentsExpanded) {
+                                  widget.onLoadFullContent?.call();
+                                }
                               },
+                              deferredContent: deferredContent,
                               expandedBuilder: (context) => Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -477,7 +513,11 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                 setState(() {
                                   _resultExpandedOverride = !resultExpanded;
                                 });
+                                if (!resultExpanded) {
+                                  widget.onLoadFullContent?.call();
+                                }
                               },
+                              deferredContent: deferredContent,
                               expandedBuilder: (context) => Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -611,6 +651,7 @@ class _ExpandableToolSection extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.expandedBuilder,
+    this.deferredContent,
     this.icon = Icons.segment_rounded,
     this.accentColor,
   });
@@ -620,6 +661,7 @@ class _ExpandableToolSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final WidgetBuilder expandedBuilder;
+  final Widget? deferredContent;
   final IconData icon;
   final Color? accentColor;
 
@@ -707,7 +749,8 @@ class _ExpandableToolSection extends StatelessWidget {
                   ? Padding(
                       key: const ValueKey('expanded'),
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Builder(builder: expandedBuilder),
+                      child:
+                          deferredContent ?? Builder(builder: expandedBuilder),
                     )
                   : preview.trim().isNotEmpty
                   ? Padding(

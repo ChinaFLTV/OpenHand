@@ -132,6 +132,49 @@ try {
       }
     }
   }
+  for (const lang of ['zh_Hans', 'zh_Hant', 'en', 'ja']) {
+    syncLangFromAppPreferences(lang);
+    for (const kind of ['tool_call', 'hook'] as const) {
+      for (const content of ['', '工具结果预览']) {
+        const deferred: SessionMessage = {
+          ...message, id: `工具延迟读取-${lang}-${kind}-${content}`, kind, content,
+          metadata: { tool_name: 'MachineTerminalExec', tool_execution_status: 'success',
+            _openhand_content_preview: true, _openhand_deferred_display: true },
+        };
+        const complete: SessionMessage = { ...deferred, metadata: message.metadata };
+        let requests = 0;
+        function mountDeferred(current = deferred, loading = false) {
+          render(<MessageCard message={current} fullContentLoading={loading} onLoadFullContent={(requested) => {
+            verify(requested.id === deferred.id, '子板块读取对应的工具消息');
+            requests++;
+            mountDeferred(deferred, true);
+          }} />, root);
+        }
+        markMessagesAsAppeared([deferred.id]);
+        await act(async () => { render(null, root); mountDeferred(); });
+        verify(requests === 0, '工具预览不会提前读取完整记录');
+        verify(root.querySelector('.oh-message-content-preview-notice') === null, `${kind} 移除外层完整内容入口及其占位`);
+        const toggle = root.querySelector<HTMLButtonElement>('.oh-tool-toggle-button')!;
+        verify(toggle != null && toggle.textContent === t('detail.tool.body.expand'), `${lang} 空正文或短预览仍有子板块完整内容入口`);
+        await act(async () => { toggle.click(); });
+        const busy = root.querySelector<HTMLButtonElement>('.oh-tool-toggle-button')!;
+        verify(busy.disabled && busy.textContent === t('message.contentPreview.loading'), `${lang} 工具读取状态已翻译且按钮禁用`);
+        await act(async () => { busy.click(); });
+        verify(requests === 1, '工具加载中不会重复触发请求');
+        await act(async () => { mountDeferred(); });
+        verify(!root.querySelector<HTMLButtonElement>('.oh-tool-toggle-button')!.disabled, '读取失败后原入口恢复可用');
+        await act(async () => { root.querySelector<HTMLButtonElement>('.oh-tool-toggle-button')!.click(); });
+        verify(requests === 2, '工具读取失败后可从子板块重试');
+        await act(async () => { mountDeferred(complete); });
+        verify(root.textContent?.includes(toolDisplayName('MachineTerminalExec')) === true, '完整记录恢复后保留工具结构与名称');
+        const stdout = [...root.querySelectorAll<HTMLElement>('.oh-tool-section')]
+          .find((section) => section.querySelector('strong')?.textContent === t('detail.tool.stdout'))!;
+        verify(stdout != null, `${kind} 完整读取后标准输出可见`);
+        await act(async () => { stdout.querySelector<HTMLButtonElement>(`button[aria-label="${t('common.copy')}"]`)!.click(); });
+        verify(clipboardText === (complete.metadata!.tool_execution_stdout as string).trim(), '移除外层入口后仍能复制完整输出');
+      }
+    }
+  }
   applyThemeTokens(defaultThemeTokens);
   syncLangFromAppPreferences('zh_Hans');
   await act(async () => { render(null, root); mount(760); });

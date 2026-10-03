@@ -2380,6 +2380,7 @@ function MessageCardImpl({
   const metadata = message.metadata ?? {};
   const content = message.content ?? '';
   const isContentPreview = messageHasDeferredContent(message);
+  const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isUserBubble = message.role === 'user';
   const goalMessageView = isContentPreview ? null : goalMessageViewModel(message);
   const machineExpertRequestView = isContentPreview
@@ -2392,12 +2393,10 @@ function MessageCardImpl({
     ? null
     : androidReverseRequestViewModel(message);
   const useStructuredToolBody =
-    !isContentPreview &&
-    (message.kind === 'tool' ||
-      message.kind === 'tool_call' ||
-      message.kind === 'mcp');
-  const useToolBody = !isContentPreview &&
-    (useStructuredToolBody || message.kind === 'file_mutation_summary');
+    isToolCallKind ||
+    (!isContentPreview && (message.kind === 'tool' || message.kind === 'mcp'));
+  const useToolBody = useStructuredToolBody ||
+    (!isContentPreview && message.kind === 'file_mutation_summary');
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const kbMetadata = knowledgeBaseMetadata(message);
   const kbResults = knowledgeBaseResultRecords(kbMetadata);
@@ -2433,7 +2432,6 @@ function MessageCardImpl({
   const keepExpandedDuringTurn =
     stableTurnActive && message.role === 'assistant' && !isReasoningMessage;
   const hasCollapsibleContent = content.trim().length > 0;
-  const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
   // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
@@ -3052,7 +3050,9 @@ function MessageCardImpl({
         {!isContentPreview && message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
         ) : useStructuredToolBody ? (
-          <ToolExecutionCard message={message} autoFollow={streamingContent || stableTurnActive} />
+          <ToolExecutionCard message={message} autoFollow={streamingContent || stableTurnActive}
+            onLoadFullContent={onLoadFullContent ? () => onLoadFullContent(message) : undefined}
+            fullContentLoading={fullContentLoading} />
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : goalMessageView ? (
@@ -3111,7 +3111,7 @@ function MessageCardImpl({
           <TypewriterCaret />
         ) : null}
       </ReasoningCollapsibleBody>
-      {isContentPreview ? (
+      {isContentPreview && !isToolCallKind ? (
         <div class="oh-message-content-preview-notice" role="note">
           <span class="oh-message-content-preview-icon" aria-hidden>
             <MessageIcon name="skill" size={16} />
@@ -4778,9 +4778,13 @@ function ReasoningCollapsibleBody({
 function ToolExecutionCard({
   message,
   autoFollow = false,
+  onLoadFullContent,
+  fullContentLoading = false,
 }: {
   message: SessionMessage;
   autoFollow?: boolean;
+  onLoadFullContent?: () => void;
+  fullContentLoading?: boolean;
 }) {
   const metadata = message.metadata ?? {};
   const stdout = stringFromUnknown(metadata['tool_execution_stdout']);
@@ -4799,6 +4803,7 @@ function ToolExecutionCard({
   const argumentsStreaming = booleanFromUnknown(metadata['tool_arguments_streaming']);
   const terminalStatus = isTerminalToolExecutionStatus(status);
   const fallback = message.content ?? '';
+  const deferred = messageHasDeferredContent(message);
   const hasStructuredOutput = stdout || stderr || result || command || workingDirectory;
   const constructing =
     (!terminalStatus && argumentsStreaming) ||
@@ -4829,7 +4834,10 @@ function ToolExecutionCard({
       {result ? (
         <ToolSection title={t('detail.tool.result', '工具结果')} content={result} defaultExpanded={!stdout && !stderr} autoFollow={autoFollowToolOutput} />
       ) : null}
-      {!hasStructuredOutput && fallback.trim().length > 0 ? <ToolResultBody content={fallback} autoFollow={autoFollowToolOutput} /> : null}
+      {deferred ? (
+        <ToolSection title={t('detail.tool.result', '工具结果')} content={fallback}
+          deferred onLoadFullContent={onLoadFullContent} fullContentLoading={fullContentLoading} />
+      ) : !hasStructuredOutput && fallback.trim().length > 0 ? <ToolResultBody content={fallback} autoFollow={autoFollowToolOutput} /> : null}
     </div>
   );
 }
@@ -4924,6 +4932,9 @@ function ToolSection({
   defaultExpanded = false,
   autoFollow = false,
   language,
+  deferred = false,
+  onLoadFullContent,
+  fullContentLoading = false,
 }: {
   title: string;
   language?: string;
@@ -4931,6 +4942,9 @@ function ToolSection({
   danger?: boolean;
   defaultExpanded?: boolean;
   autoFollow?: boolean;
+  deferred?: boolean;
+  onLoadFullContent?: () => void;
+  fullContentLoading?: boolean;
 }) {
   const formattedContent = useMemo(
     () => formatToolSectionContent(content),
@@ -4955,9 +4969,15 @@ function ToolSection({
         <span class="oh-tool-section-symbol" aria-hidden><MessageIcon name={danger ? 'status' : 'toolCall'} size={16} /></span>
         <span class="oh-code-block-heading"><strong>{title}</strong><span class="oh-code-block-count">{codeLanguageLabel(language)} · {lineLabel}</span></span>
         <div class="oh-code-block-actions">
-          {long ? <button type="button" class="oh-tool-toggle-button oh-tap-press" aria-expanded={expanded}
-            onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }}>
-            {expanded ? t('detail.tool.body.collapse') : t('detail.tool.body.expand')}
+          {long || deferred ? <button type="button" class="oh-tool-toggle-button oh-tap-press" aria-expanded={!deferred && expanded}
+            disabled={deferred && (fullContentLoading || !onLoadFullContent)}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (deferred) onLoadFullContent?.();
+              else setExpanded((value) => !value);
+            }}>
+            {deferred && fullContentLoading ? t('message.contentPreview.loading')
+              : !deferred && expanded ? t('detail.tool.body.collapse') : t('detail.tool.body.expand')}
           </button> : null}
           <CodeBlockWrapButton wrapLines={wrapLines} onToggle={() => setWrapLines((value) => !value)} />
           <CodeBlockActions source={content} language={language} />

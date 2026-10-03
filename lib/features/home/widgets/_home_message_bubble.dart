@@ -1172,6 +1172,11 @@ class _MessageBubbleState extends State<_MessageBubble>
                     message: message,
                     sessionId: widget.sessionId,
                     selectable: true,
+                    onLoadFullContent: isContentPreview
+                        ? () => unawaited(loadFullContent())
+                        : null,
+                    fullContentLoading: _loadingFullContent,
+                    fullContentLoadError: _fullContentLoadError,
                   )
                 else if (isSelfLearning)
                   ClipRect(child: _SelfLearningCard(message: message))
@@ -1352,7 +1357,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                       ],
                     ],
                   ),
-                if (isContentPreview) ...[
+                if (isContentPreview && !isToolCall) ...[
                   kOpenHandGap12,
                   Wrap(
                     spacing: 10,

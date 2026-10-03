@@ -74,6 +74,7 @@ class _ProbeSettingsStore extends SettingsStore {
 
 class _ProbeAiController extends ChangeNotifier implements AiSessionController {
   Future<AiSession?> Function(String)? loadOlder;
+  Future<AiSessionMessage?> Function(String, String)? loadFull;
   int loadCount = 0;
   @override
   AiSession? get currentSession => null;
@@ -82,6 +83,10 @@ class _ProbeAiController extends ChangeNotifier implements AiSessionController {
     loadCount += 1;
     return loadOlder?.call(id) ?? Future.value();
   }
+
+  @override
+  Future<AiSessionMessage?> loadFullSessionMessageContent(String sessionId, String messageId) =>
+      loadFull?.call(sessionId, messageId) ?? Future.value();
 
   @override
   String? lastErrorMessageForSession(String? id) => null;
@@ -1415,6 +1420,91 @@ void main() {
     for (var frame = 0; frame < 6; frame++) await tester.pump();
     expect(find.byType(_RichContentPendingPreview), findsNothing);
   });
+
+  for (final kind in [AiSessionMessageKind.toolCall, AiSessionMessageKind.hook]) {
+    for (final inputFirst in [false, true]) {
+      testWidgets('工具完整内容：$kind 子板块按需读取、去重并支持重试，入参优先=$inputFirst', (tester) async {
+        final original = _probeSession('工具按需读取', 1);
+        final output = '${List.filled(24, '完整输出记录${'内容' * 400}').join('\n')}\n输出末尾标记';
+        final full = original.messages.single.copyWith(kind: kind, metadata: {
+          'tool_name': 'MachineTerminalExec', 'tool_execution_status': 'success',
+          'tool_arguments': '{"command":"systemctl status"}',
+          'tool_execution_stdout': output,
+        });
+        final preview = full.copyWith(metadata: aiSessionMessagePreviewMetadata(full.metadata));
+        expect(preview.metadata.containsKey('tool_execution_stdout'), false);
+        final probe = _TranscriptProbe(tester, original.copyWith(messages: [preview]));
+        final requests = <Completer<AiSessionMessage?>>[];
+        probe.ai.loadFull = (sessionId, messageId) {
+          expect(sessionId, original.id);
+          expect(messageId, full.id);
+          final request = Completer<AiSessionMessage?>();
+          requests.add(request);
+          return request.future;
+        };
+        await probe.mount(animated: true);
+        await probe.settle();
+        final l10n = AppLocalizations.of(tester.element(find.byType(_ToolCallBody)))!;
+        expect(find.text(l10n.messageLoadFullContent), findsNothing);
+        expect(requests.isEmpty, true, reason: '默认折叠不能提前读取完整记录');
+        final titles = inputFirst
+            ? [l10n.tlCallToolInput, l10n.tlCallToolOutput]
+            : [l10n.tlCallToolOutput, l10n.tlCallToolInput];
+        await tester.tap(find.text(titles.first));
+        await probe.settle();
+        expect(requests.length, 1);
+        expect(find.text(l10n.messageLoadingContent), findsOneWidget);
+        expect(find.text(l10n.tlCallThereIsNoToolOutputYet), findsNothing);
+        await tester.tap(find.text(titles.last));
+        await probe.settle();
+        expect(requests.length, 1, reason: '两个子板块共享一次正在进行的读取');
+        final busyButtons = tester.widgetList<OutlinedButton>(find.ancestor(
+          of: find.text(l10n.messageLoadingContent), matching: find.byType(OutlinedButton)));
+        expect(busyButtons.length, 2);
+        expect(busyButtons.every((button) => button.onPressed == null), true);
+        requests.single.complete(null);
+        await probe.settle();
+        expect(find.text(l10n.messageFullContentFailed), findsNWidgets(2));
+        await tester.ensureVisible(find.text(l10n.tlCallViewFullContent).first);
+        await tester.tap(find.text(l10n.tlCallViewFullContent).first);
+        await probe.settle();
+        expect(requests.length, 2, reason: '失败后可以从原子板块重试');
+        probe.update(probe.session.copyWith(messages: [full]));
+        requests.last.complete(full);
+        await probe.settle();
+        expect(find.text(l10n.messageLoadFullContent), findsNothing);
+        expect(find.text(l10n.messageFullContentFailed), findsNothing);
+        final stdout = find.byWidgetPredicate((widget) => widget is _ToolOutputPanel && widget.label == l10n.tlCallStdout);
+        expect(tester.widget<_ToolOutputPanel>(stdout).content.text, output);
+        final viewFull = find.descendant(of: stdout, matching: find.text(l10n.tlCallViewFullContent));
+        await tester.ensureVisible(viewFull);
+        await tester.tap(viewFull);
+        await probe.settle();
+        expect(find.text(l10n.tlCallViewInDialog), findsOneWidget);
+        expect(tester.state<_ToolOutputPanelState>(stdout)._isExpanded, true);
+      });
+    }
+  }
+
+  for (final status in ['', 'failed']) {
+    testWidgets('工具完整内容：未执行或失败的预览仍保留子板块入口，状态=$status', (tester) async {
+      final original = _probeSession('工具状态入口', 1);
+      final message = original.messages.single.copyWith(kind: AiSessionMessageKind.toolCall, metadata: {
+        'tool_name': 'MachineTerminalExec', 'tool_execution_status': status,
+        aiSessionMessageContentPreviewMetadataKey: true,
+      });
+      final probe = _TranscriptProbe(tester, original.copyWith(messages: [message]));
+      await probe.mount();
+      await probe.settle();
+      expect(find.text('加载完整内容'), findsNothing);
+      expect(find.byType(_ExpandableToolSection), findsNWidgets(2));
+      if (status.isNotEmpty) {
+        await tester.tap(find.text('工具入参'));
+        await probe.settle();
+      }
+      expect(find.text('查看完整内容'), findsWidgets);
+    });
+  }
 
   for (final html in [false, true]) {
     testWidgets('离屏真实富文本进入视口后才解析，HTML=$html', (tester) async {
