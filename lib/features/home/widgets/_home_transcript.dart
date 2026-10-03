@@ -7,6 +7,7 @@ const Duration _kCreationFailureExitDuration = kOpenHandMotion240;
 // 过大时滚动会在视口外同步挂载多个平台视图，直接拖垮帧率。
 // 280 约等于 2~3 条富文本气泡高度，兼顾预渲染与帧预算。
 const double _kTranscriptListCacheExtent = 280;
+const int _kTranscriptRetainedTailMessageCount = 2;
 const int _kTranscriptViewportFillMessageLimit = 64;
 const int _kTranscriptViewportFillPageLimit = 3;
 const double _kTranscriptScrollbarThickness = 6;
@@ -65,6 +66,13 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
     // oldPosition 是上一轮布局快照；用户已反向移动时不能沿用旧的触底坐标。
     final movedTowardHistory =
         newPosition.pixels < oldPosition.pixels - precisionErrorTolerance;
+    // 占位回缩时在布局内夹紧，不能启动反向弹道并把它误判成用户上滑。
+    if (newPosition.pixels > newPosition.maxScrollExtent &&
+        newPosition.maxScrollExtent < oldPosition.maxScrollExtent &&
+        !movedTowardHistory &&
+        velocity >= 0) {
+      return newPosition.maxScrollExtent;
+    }
     final scrolling = isScrolling || velocity.abs() > precisionErrorTolerance;
     if (!movedTowardHistory &&
         (!scrolling || reachedBottom) &&
@@ -80,47 +88,6 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
   }
 }
 
-/// 贴底时尾部外推不超过一屏。长正文就绪增高会把尾随消息挤出缓存区，默认
-/// 按平均高度外推会远超真实底部；贴底跳到空白处后可见长消息被回收，重建时
-/// 正文退回骨架、就绪后再次增高，循环往复永不收敛。
-class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
-  const _TranscriptTailChildDelegate(
-    super.builder, {
-    required this.scrollPosition,
-    required this.anchorsBottom,
-    super.childCount,
-    super.findChildIndexCallback,
-  });
-
-  final ScrollPosition? Function() scrollPosition;
-  final bool Function(ScrollMetrics) anchorsBottom;
-
-  @override
-  double? estimateMaxScrollOffset(
-    int firstIndex,
-    int lastIndex,
-    double leadingScrollOffset,
-    double trailingScrollOffset,
-  ) {
-    final count = childCount;
-    final position = scrollPosition();
-    if (count == null ||
-        position == null ||
-        !position.hasViewportDimension ||
-        !anchorsBottom(position)) {
-      return null;
-    }
-    final averageExtent =
-        (trailingScrollOffset - leadingScrollOffset) /
-        (lastIndex - firstIndex + 1);
-    return trailingScrollOffset +
-        math.min(
-          averageExtent * (count - lastIndex - 1),
-          position.viewportDimension,
-        );
-  }
-}
-
 /// 先测量缓存中的变高卡片，再修正滚动坐标，避免原生列表先回收阅读锚点。
 class _TranscriptSliverList extends SliverList {
   const _TranscriptSliverList({
@@ -129,11 +96,57 @@ class _TranscriptSliverList extends SliverList {
     required this.anchorsBottom,
     required this.scrollActive,
     this.excludedAnchorIndex,
+    this.measuredSizeForIndex,
+    this.scrollPosition,
   });
 
   final bool Function() anchorsBottom;
   final bool Function() scrollActive;
   final int? excludedAnchorIndex;
+  final Size? Function(int)? measuredSizeForIndex;
+  final ScrollPosition? Function()? scrollPosition;
+
+  // 使用当前布局宽度校验测量值，避免新挂载首项尚未测量时丢弃整段历史高度。
+  @override
+  double? estimateMaxScrollOffset(
+    SliverConstraints? constraints,
+    int firstIndex,
+    int lastIndex,
+    double leadingScrollOffset,
+    double trailingScrollOffset,
+  ) {
+    final measure = measuredSizeForIndex;
+    final count = delegate.estimatedChildCount;
+    if (measure == null || count == null) {
+      return super.estimateMaxScrollOffset(
+        constraints,
+        firstIndex,
+        lastIndex,
+        leadingScrollOffset,
+        trailingScrollOffset,
+      );
+    }
+    final averageExtent =
+        (trailingScrollOffset - leadingScrollOffset) /
+        (lastIndex - firstIndex + 1);
+    var measuredExtent = 0.0;
+    var unmeasuredCount = 0;
+    for (var index = lastIndex + 1; index < count; index++) {
+      final size = measure(index);
+      if (size != null &&
+          (size.height == 0 || size.width == constraints?.crossAxisExtent)) {
+        measuredExtent += size.height;
+      } else {
+        unmeasuredCount += 1;
+      }
+    }
+    var estimatedExtent = averageExtent * unmeasuredCount;
+    final position = scrollPosition?.call();
+    if (position != null && position.hasViewportDimension && anchorsBottom()) {
+      estimatedExtent = math.min(estimatedExtent, position.viewportDimension);
+    }
+    return trailingScrollOffset + measuredExtent + estimatedExtent;
+  }
 
   @override
   RenderSliverList createRenderObject(BuildContext context) =>
@@ -439,13 +452,14 @@ class _TranscriptBubbleKeepAliveState extends State<_TranscriptBubbleKeepAlive>
 /// 规避了跨子树 GlobalKey retake 的副作用。
 class _TranscriptBubbleRegistrar extends StatefulWidget {
   const _TranscriptBubbleRegistrar({
-    required this.messageId,
+    required this.message,
     required this.registry,
     required this.onLayoutChanged,
     required this.child,
   });
 
-  final String messageId;
+  final AiSessionMessage message;
+  String get messageId => message.id;
   final _TranscriptBubbleRegistry registry;
   final VoidCallback onLayoutChanged;
   final Widget child;
@@ -486,7 +500,11 @@ class _TranscriptBubbleRegistrarState
   Widget build(BuildContext context) {
     // 负向历史列表的尺寸变化不一定改变滚动范围，不能只依赖滚动指标通知。
     return _MeasureSize(
-      onChange: (_) => widget.onLayoutChanged(),
+      onChange: (size) {
+        if (!mounted) return;
+        widget.registry.measure(widget.message, size);
+        widget.onLayoutChanged();
+      },
       child: widget.child,
     );
   }
@@ -497,6 +515,20 @@ class _TranscriptBubbleRegistrarState
 /// 共享导致的脏状态。
 class _TranscriptBubbleRegistry {
   final Map<String, BuildContext> _contexts = <String, BuildContext>{};
+  final _sizes = <String, ({AiSessionMessage message, Size size})>{};
+
+  void measure(AiSessionMessage message, Size size) =>
+      _sizes[message.id] = (message: message, size: size);
+
+  Size? sizeOf(AiSessionMessage message) {
+    final entry = _sizes[message.id];
+    return identical(entry?.message, message) ? entry?.size : null;
+  }
+
+  void retainMeasurements(Set<String> ids) =>
+      _sizes.removeWhere((id, _) => !ids.contains(id));
+
+  void clearMeasurements() => _sizes.clear();
 
   void bind(String messageId, BuildContext context) {
     if (messageId.isEmpty) return;
@@ -522,7 +554,10 @@ class _TranscriptBubbleRegistry {
     return ctx;
   }
 
-  void clear() => _contexts.clear();
+  void clear() {
+    _contexts.clear();
+    _sizes.clear();
+  }
 }
 
 class _TranscriptViewportAnchor {
@@ -770,6 +805,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // GlobalObjectKey 防御 OverlayPortal/Tooltip 在 LayoutBuilder layout
   // 阶段被 retake 时跨子树 mutation RenderTheater 触发的断言失败。
   final _TranscriptBubbleRegistry _bubbleRegistry = _TranscriptBubbleRegistry();
+  final _retainedTailMessageIds = <String>{};
+  Object? _measurementStyle;
   final Set<String> _animatedMessageIds = <String>{};
   int _messageActionPanelMotionKey = 0;
   int _consumedMessageActionPanelMotionKey = 0;
@@ -1507,6 +1544,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       for (var index = 0; index < _renderEntries.length; index += 1)
         _renderEntries[index].id: index,
     };
+    _bubbleRegistry.retainMeasurements(_renderEntryIndexById.keys.toSet());
   }
 
   bool _syncRenderEntriesAfterTailChange(
@@ -1867,10 +1905,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     ) {
       await _awaitEndOfFrameBounded();
       if (await tryEnsureVisible(anchorMessageId)) return true;
-      if (!mounted) return false;
-      if (attempt == 2) {
-        _scrollNearRenderEntryIndex(renderIndex);
-      }
+      if (!requestIsCurrent()) return false;
+      _scrollNearRenderEntryIndex(renderIndex);
     }
     return false;
   }
@@ -1907,11 +1943,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         1.0,
         box.size.height + _kTranscriptEstimatedMessageSpacing,
       );
+      var distanceExtent = 0.0;
+      for (
+        var offsetIndex = math.min(index, targetIndex);
+        offsetIndex < math.max(index, targetIndex);
+        offsetIndex += 1
+      ) {
+        final size = _bubbleRegistry.sizeOf(
+          _renderEntries[offsetIndex].message,
+        );
+        distanceExtent += size != null && size.width == box.size.width
+            ? size.height + _kTranscriptEstimatedMessageSpacing
+            : estimatedExtent;
+      }
       bestDistance = distance;
       bestTarget =
           position.pixels +
           viewportOffset +
-          (targetIndex - index) * estimatedExtent -
+          (targetIndex >= index ? distanceExtent : -distanceExtent) -
           position.viewportDimension * 0.18;
     }
 
@@ -3107,7 +3156,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final isLocalSubmissionPreview =
         message.metadata[_localSubmissionPreviewMetadataKey] == true;
     final bubble = _TranscriptBubbleRegistrar(
-      messageId: message.id,
+      message: message,
       registry: _bubbleRegistry,
       onLayoutChanged: _scheduleViewportFill,
       child: _MessageBubble(
@@ -3223,9 +3272,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         },
       ),
     );
-    // 仅交互中的卡片保活，历史正文离开缓存区后交给列表回收。
+    // 尾部只保留两条，避免返回最新时正文退回占位、滚动终点先缩后涨。
     final stableBubble = _TranscriptBubbleKeepAlive(
-      enabled: isSelected || speechPlaying || translationLoading,
+      enabled:
+          _retainedTailMessageIds.contains(message.id) ||
+          isSelected ||
+          speechPlaying ||
+          translationLoading,
       child: bubble,
     );
     final content = shouldAnimateAppearance
@@ -3398,6 +3451,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
     final aiSessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
+    final textTheme = Theme.of(context).textTheme;
+    final measurementStyle = (
+      textTheme.bodyLarge?.copyWith(color: Colors.transparent),
+      textTheme.bodyMedium?.copyWith(color: Colors.transparent),
+      MediaQuery.textScalerOf(context),
+      settingsController.aiMessageContentFormat,
+    );
+    if (_measurementStyle != measurementStyle) {
+      _measurementStyle = measurementStyle;
+      _bubbleRegistry.clearMeasurements();
+    }
     final range = TranscriptListWindowing.visibleRange(
       preferredStart: _windowStartIndex,
       messageCount: displayMessages.length,
@@ -3413,6 +3477,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 数据刚完成水合时，同步建立首帧，避免空列表闪烁。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
       _materializeOpenWindow();
+    }
+    _retainedTailMessageIds.clear();
+    for (final entry in _renderEntries.reversed) {
+      if (entry.exiting ||
+          (!showSelfLearningMessages &&
+              entry.message.kind == AiSessionMessageKind.selfLearning)) {
+        continue;
+      }
+      _retainedTailMessageIds.add(entry.id);
+      if (_retainedTailMessageIds.length ==
+          _kTranscriptRetainedTailMessageCount) {
+        break;
+      }
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
       // Header-only 会话正在按需水合消息时，显示加载占位而非空会话。
@@ -3549,6 +3626,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     telemetryDebugEnabled: telemetryDebugEnabled,
                     aiSessionController: aiSessionController,
                   );
+              Size? measuredSizeForItem(int index) {
+                final messageIndex = index - hiddenLoadMoreCount;
+                if (messageIndex < 0 || messageIndex >= _renderEntries.length) {
+                  return null;
+                }
+                final message = _renderEntries[messageIndex].message;
+                if (!showSelfLearningMessages &&
+                    message.kind == AiSessionMessageKind.selfLearning) {
+                  return Size.zero;
+                }
+                final size = _bubbleRegistry.sizeOf(message);
+                if (size == null) return null;
+                return Size(
+                  size.width,
+                  size.height +
+                      (messageIndex == _renderEntries.length - 1
+                          ? 0
+                          : _kTranscriptEstimatedMessageSpacing),
+                );
+              }
+
               final transcriptList = OpenHandSafeScrollbar(
                 controller: _listController,
                 thickness: _kTranscriptScrollbarThickness,
@@ -3590,6 +3688,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 : null,
                             anchorsBottom: () =>
                                 _anchorsCurrentTranscriptBottom,
+                            measuredSizeForIndex: (index) =>
+                                measuredSizeForItem(
+                                  beforeCenterCount - index - 1,
+                                ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => buildItem(
                                 context,
@@ -3613,11 +3715,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 _isTranscriptScrollActive(context),
                             anchorsBottom: () =>
                                 _anchorsCurrentTranscriptBottom,
-                            delegate: _TranscriptTailChildDelegate(
+                            scrollPosition: () => _scrollPosition,
+                            measuredSizeForIndex: (index) =>
+                                measuredSizeForItem(beforeCenterCount + index),
+                            delegate: SliverChildBuilderDelegate(
                               (context, index) =>
                                   buildItem(context, beforeCenterCount + index),
-                              scrollPosition: () => _scrollPosition,
-                              anchorsBottom: _anchorsTranscriptBottom,
                               childCount: listItemCount - beforeCenterCount,
                               findChildIndexCallback: (key) {
                                 final index = findIndex(key);

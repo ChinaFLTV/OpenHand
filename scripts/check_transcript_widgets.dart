@@ -274,6 +274,8 @@ class _TranscriptProbe {
   bool preserveViewportAfterUserScroll = true;
   bool tickerEnabled = true;
   VoidCallback? onLayoutChanged;
+  bool Function(ScrollNotification)? onScrollNotification;
+  void Function(PointerSignalEvent)? onPointerSignal;
   VoidCallback? onRevealOlderMessages;
   _SessionTranscriptState get state => key.currentState!;
 
@@ -314,7 +316,8 @@ class _TranscriptProbe {
                 final transcript = _SessionTranscript(
                   key: key,
                   controller: controller,
-                  onScrollNotification: (_) => false,
+                  onScrollNotification: (notification) =>
+                      onScrollNotification?.call(notification) ?? false,
                   session: session,
                   sendPhase: sendPhase,
                   onLayoutChanged: () => onLayoutChanged?.call(),
@@ -339,10 +342,10 @@ class _TranscriptProbe {
                   translationService: _ProbeTranslation(),
                   onDismissError: (_) async {},
                 );
-                return TickerMode(enabled: tickerEnabled, child: workspaceSwitcher
+                return Listener(onPointerSignal: onPointerSignal, child: TickerMode(enabled: tickerEnabled, child: workspaceSwitcher
                     ? _WorkspacePrimarySwitcher(child: KeyedSubtree(
                         key: ValueKey('session-${session.id}'), child: transcript))
-                    : transcript);
+                    : transcript));
               },
             ),
           ),
@@ -412,6 +415,8 @@ class _TranscriptProbe {
     expect(state._staggerFillActive, false);
   }
 }
+
+class _ProbeImageCompleter extends ImageStreamCompleter {}
 
 void main() {
   iaw.InAppWebViewPlatform.instance = _ProbeWebViewPlatform();
@@ -2294,6 +2299,206 @@ void main() {
       reason: '用户阅读期间布局变化不能抢回底部');
     expect(tester.takeException(), isNull);
   });
+
+  for (final trackpad in [true, false]) {
+    testWidgets('会话加载：向下拖动时范围回缩不能伪造反向滚动，触控板=$trackpad', (tester) async {
+      final home = await _ComposerRoutingProbe.create(tester);
+      home._shouldAutoFollowMessages = false;
+      home._autoFollowPaused = true;
+      final controller = home._messageScrollController;
+      final center = GlobalKey();
+      var height = 496.0;
+      late StateSetter rebuild;
+      bool anchorsBottom(ScrollMetrics metrics) =>
+          home._shouldAutoFollowMessages &&
+          !metrics.outOfRange &&
+          metrics.extentAfter <= _scrollToBottomSettleTolerance;
+      await tester.pumpWidget(MaterialApp(
+        scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
+        home: StatefulBuilder(builder: (context, setState) {
+          rebuild = setState;
+          return Listener(
+            onPointerSignal: home._handleMessagePointerSignal,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: home._handleMessageScrollNotification,
+              child: _TranscriptScrollView(
+                controller: controller,
+                center: center,
+                physics: _TranscriptScrollPhysics(shouldAnchorBottom: anchorsBottom),
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 1200)),
+                  SliverToBoxAdapter(key: center, child: SizedBox(height: height)),
+                ],
+              ),
+            ),
+          );
+        }),
+      ));
+      await tester.pumpAndSettle();
+      controller.jumpTo(331);
+      final point = tester.getCenter(find.byType(_TranscriptViewport));
+      final gesture = trackpad ? await tester.createGesture(kind: PointerDeviceKind.trackpad) : null;
+      await gesture?.panZoomStart(point);
+      Future<void> move(double pan, double delta, int milliseconds) async {
+        if (gesture != null) {
+          await gesture.panZoomUpdate(point, pan: Offset(0, pan),
+            timeStamp: Duration(milliseconds: milliseconds));
+        } else {
+          await tester.sendEventToBinding(PointerScrollEvent(
+            position: point, scrollDelta: Offset(0, delta)));
+        }
+      }
+      await move(-50, 50, 16);
+      rebuild(() => height = 357.52);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(controller.position.outOfRange, false,
+        reason: '同一帧消除临时越界，不能等反向弹道回拉');
+      await move(-100, 50, 32);
+      expect(home._shouldAutoFollowMessages, true);
+      rebuild(() => height = 819);
+      await gesture?.panZoomEnd(timeStamp: const Duration(milliseconds: 48));
+      for (var frame = 0; frame < 80; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(home._shouldAutoFollowMessages, true,
+        reason: '抬手后的布局校正不能被当作上滑，撤销已确认的触底');
+      expect(controller.position.extentAfter, lessThanOrEqualTo(1));
+      await tester.sendEventToBinding(PointerScrollEvent(
+        position: point, scrollDelta: const Offset(0, -.1)));
+      expect(home._shouldAutoFollowMessages, false);
+      final readingOffset = controller.offset;
+      rebuild(() => height = 900);
+      await tester.pump();
+      expect(controller.offset, closeTo(readingOffset, .01),
+        reason: '真实的微小上滑仍立即停止跟随');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+
+    testWidgets('会话加载：录屏六条图文消息上下往返后一次到达真实尾部，触控板=$trackpad', (tester) async {
+      final directory = Directory.systemTemp.createTempSync('openhand_scroll_image_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final path = '${directory.path}/image.png';
+      final provider = ResizeImage(FileImage(File(path)), width: 1280);
+      final imageKey = await provider.obtainKey(ImageConfiguration.empty);
+      final completer = _ProbeImageCompleter();
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 600, 400), Paint()..color = Colors.green);
+      final picture = recorder.endRecording();
+      final image = (await tester.runAsync(() => picture.toImage(600, 400)))!;
+      picture.dispose();
+      await tester.runAsync(() async {
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(path).writeAsBytes(bytes!.buffer.asUint8List());
+      });
+      completer.setImage(ImageInfo(image: image));
+      PaintingBinding.instance.imageCache.putIfAbsent(imageKey, () => completer);
+      addTearDown(() => PaintingBinding.instance.imageCache.evict(imageKey));
+      final original = _probeSession('录屏原会话', 6);
+      final date = original.createdAt;
+      final reply = '# 示例配图\n\n下面是一张示例图片：\n\n![示例图片]($path)\n\n> 如果你需要，我也可以帮你生成一张图，或把图片换成你自己的链接。';
+      final session = original.copyWith(messages: [
+        AiSessionMessage.user(id: '0', createdAt: date, content: '给我返回一段带有markdown图片的内容吧。'),
+        AiSessionMessage.reasoning(id: '1', createdAt: date, content: '用户请求一段带有 markdown 图片的内容。\n\n我可以提供一个示例 Markdown，使用公开图片 URL。\n\n应该用中文简洁回应。内容里直接给一个代码块，便于复制。图片链接用 https://picsum.photos/600/400。\n\n用户说“返回一段带有markdown图片的内容”，所以给他一段 markdown 即可。\n\n回复时不要多余解释。'),
+        AiSessionMessage.assistant(id: '2', createdAt: date, content: '下面是一段带图片的 Markdown 示例：\n\n```markdown\n$reply\n```\n\n如果你想要我改成：\n\n- 指定主题的配图；\n- 换成你自己的图片链接；\n- 生成一张图后再嵌入 Markdown；\n\n直接告诉我就行。'),
+        AiSessionMessage.user(id: '3', createdAt: date, content: '我是说你响应的内容里直接包含markdown图片。'),
+        AiSessionMessage.reasoning(id: '4', createdAt: date, content: '用户要求我返回的内容里直接包含 markdown 图片，也就是说我需要在回复中直接输出带有 markdown 图片语法的内容，而不是用代码块包裹。\n\n让我直接输出一段包含 markdown 图片的内容：\n\n$reply\n\n这样应该符合用户要求。'),
+        AiSessionMessage.assistant(id: '5', createdAt: date, content: reply),
+      ]);
+      final home = await _ComposerRoutingProbe.create(tester);
+      final previousHome = _OpenHandHomePageState._activeHomeState;
+      _OpenHandHomePageState._activeHomeState = home;
+      addTearDown(() => _OpenHandHomePageState._activeHomeState = previousHome);
+      final probe = _TranscriptProbe(tester, session);
+      probe.preserveViewportAfterUserScroll = false;
+      await probe.mount(size: const Size(1430, 732));
+      await probe.settle();
+      home._messageScrollController.attach(probe.controller.position);
+      final linkedPosition = probe.controller.position;
+      addTearDown(() { if (home._messageScrollController.positions.contains(linkedPosition)) home._messageScrollController.detach(linkedPosition); });
+      probe.onScrollNotification = home._handleMessageScrollNotification;
+      probe.onPointerSignal = home._handleMessagePointerSignal;
+      home._transcriptScrollActivity.addListener(() => probe.activity.value = home._transcriptScrollActivity.value);
+      final viewport = find.byType(_TranscriptViewport);
+      final point = Offset(tester.getTopRight(viewport).dx - 100, tester.getCenter(viewport).dy);
+      Future<void> pump() async {
+        final preserve = !home._autoFollowEnabled || home._autoFollowPaused;
+        if (probe.preserveViewportAfterUserScroll != preserve) {
+          probe.rebuild(() => probe.preserveViewportAfterUserScroll = preserve);
+        }
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      Future<void> scroll(double direction) async {
+        final gesture = trackpad ? await tester.createGesture(kind: PointerDeviceKind.trackpad) : null;
+        await gesture?.panZoomStart(point);
+        for (var step = 1; step <= (direction < 0 ? 8 : 2); step++) {
+          if (gesture != null) {
+            await gesture.panZoomUpdate(point, pan: Offset(0, -(direction < 0 ? 250 : 500) * step * direction), timeStamp: Duration(milliseconds: 16 * step));
+          } else {
+            await tester.sendEventToBinding(PointerScrollEvent(position: point, scrollDelta: Offset(0, (direction < 0 ? 250 : 500) * direction)));
+          }
+          await pump();
+        }
+        await gesture?.panZoomEnd(timeStamp: Duration(milliseconds: direction < 0 ? 144 : 64));
+        for (var frame = 0; frame < 160; frame++) await pump();
+      }
+      probe.state.setState(() {
+        probe.state._windowStartIndex = 0;
+        probe.state._syncRenderEntries();
+      });
+      await probe.settle();
+      double? measuredMin;
+      final measuredMax = probe.controller.position.maxScrollExtent;
+      final tailContext = probe.state._bubbleRegistry.contextOf('5');
+      expect(tailContext, isNotNull);
+      for (var cycle = 0; cycle < 4; cycle++) {
+        await scroll(-1);
+        expect(home._shouldAutoFollowMessages, false, reason: '真实向上输入必须暂停跟随');
+        expect(probe.state._bubbleRegistry.contextOf('5'), same(tailContext),
+          reason: '只保留两条最新消息，往返时不能重建成正文占位');
+        measuredMin ??= probe.controller.position.minScrollExtent;
+        expect(probe.controller.position.minScrollExtent, closeTo(measuredMin, 1));
+        expect(probe.controller.position.maxScrollExtent, closeTo(measuredMax, 1),
+          reason: '正文不变时不能按思考卡片均值重算最后一张图片的高度');
+        await scroll(1);
+        expect(home._shouldAutoFollowMessages, true, reason: '布局沉降不能伪造上滑并取消触底');
+        expect(probe.controller.position.minScrollExtent, closeTo(measuredMin, 1));
+        expect(probe.controller.position.maxScrollExtent, closeTo(measuredMax, 1));
+        final tail = find.byKey(const ValueKey<String>('transcript-entry-5'));
+        expect(tester.getBottomLeft(tail).dy, closeTo(732 - 12, 1),
+          reason: '最新图片回复的实际底边必须可见');
+        expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1), reason: '录屏中的同一次快速下滑应到达真实尾部');
+      }
+      probe.update(session.copyWith(messages: [
+        ...session.messages,
+        for (var id = 6; id < 8; id++)
+          AiSessionMessage.selfLearning(id: '$id', createdAt: date,
+            content: '隐藏的内部消息', metadata: const {}),
+      ]));
+      for (var frame = 0; frame < 80; frame++) await pump();
+      await scroll(-1);
+      expect(probe.state._bubbleRegistry.contextOf('5'), same(tailContext),
+        reason: '尾部保活应按可见消息计数，不能被隐藏消息占用');
+      await scroll(1);
+      expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1));
+      probe.update(session);
+      for (var frame = 0; frame < 80; frame++) await pump();
+      tester.view.physicalSize = const Size(1220, 732);
+      for (var frame = 0; frame < 80; frame++) await pump();
+      expect(probe.controller.position.extentAfter, lessThanOrEqualTo(1),
+        reason: '窗口缩放后应按新宽度重新测高并保持触底');
+      probe.update(session.copyWith(messages: session.messages.take(4).toList()));
+      for (var frame = 0; frame < 80; frame++) await pump();
+      expect(probe.state._bubbleRegistry._sizes.keys.every((id) => int.parse(id) < 4), true,
+        reason: '删除后的高度记录不能滞留');
+      expect(tester.takeException(), isNull);
+      probe.onScrollNotification = null;
+      probe.onPointerSignal = null;
+      home._messageScrollController.detach(probe.controller.position);
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+  }
 
   for (final trackpad in [true, false]) {
     testWidgets('会话加载：桌面触底后正文先缩后涨仍到达真实尾部，触控板=$trackpad', (tester) async {
