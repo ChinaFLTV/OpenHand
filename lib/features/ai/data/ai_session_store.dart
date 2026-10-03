@@ -86,13 +86,11 @@ class AiSessionTemplatePage {
 class AiSessionCompactMemorySidecar {
   const AiSessionCompactMemorySidecar({
     required this.markdownPath,
-    required this.metadataPath,
     required this.markdown,
     required this.metadata,
   });
 
   final String markdownPath;
-  final String metadataPath;
   final String markdown;
   final Map<String, Object?> metadata;
 
@@ -341,7 +339,6 @@ class AiSessionStore {
     }
     return AiSessionCompactMemorySidecar(
       markdownPath: markdownPath,
-      metadataPath: metadataPath,
       markdown: markdown,
       metadata: metadata,
     );

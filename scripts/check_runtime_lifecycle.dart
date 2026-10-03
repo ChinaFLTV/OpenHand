@@ -259,13 +259,20 @@ void main() {
     expect(identical(closing, controller.shutdown()), isTrue);
   });
 
-  test('模型中转站设置写入停滞不会无限阻塞关闭', () async {
+  testWidgets('模型中转站设置写入停滞不会无限阻塞关闭', (tester) async {
     final store = _BlockedProxyStore();
     final controller = AiModelProxyController(store: store);
     final saving = controller.saveSettings(controller.settings.copyWith(listenPort: 9901));
     await store.started.future;
     try {
-      await controller.shutdown().timeout(const Duration(seconds: 17));
+      var closed = false;
+      final closing = controller.shutdown().then((_) => closed = true);
+      await tester.pump();
+      await tester.pump(kOpenHandServiceRuntimeCleanupTimeout ~/ 2);
+      expect(closed, isFalse);
+      await tester.pump(kOpenHandServiceRuntimeCleanupTimeout ~/ 2);
+      expect(closed, isTrue);
+      await closing;
       expect(controller.lifecycle, AiModelProxyLifecycle.stopped);
       await controller.saveSettings(controller.settings.copyWith(listenPort: 9902));
       expect(store.writes, 1);

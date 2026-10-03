@@ -63,13 +63,11 @@ enum WorkflowExportFormat {
 class WorkflowExportArtifact {
   const WorkflowExportArtifact({
     required this.bytes,
-    required this.format,
     required this.width,
     required this.height,
   });
 
   final Uint8List bytes;
-  final WorkflowExportFormat format;
   final int? width;
   final int? height;
 }
@@ -301,12 +299,7 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
     onProgress?.call(0.62, '正在生成 ${format.typeLabel} 配置…');
     final bytes = await _encodeWorkflowConfigurationInIsolate(workflow, format);
     onProgress?.call(0.84, '配置文件已生成，正在写入磁盘…');
-    return WorkflowExportArtifact(
-      bytes: bytes,
-      format: format,
-      width: null,
-      height: null,
-    );
+    return WorkflowExportArtifact(bytes: bytes, width: null, height: null);
   }
 
   final layout = _WorkflowExportLayout.from(workflow);
@@ -317,7 +310,6 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
     onProgress?.call(0.84, '矢量图已生成，正在写入磁盘…');
     return WorkflowExportArtifact(
       bytes: bytes,
-      format: format,
       width: layout.outputWidth,
       height: layout.outputHeight,
     );
@@ -360,7 +352,6 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
   onProgress?.call(0.84, '图片已生成，正在写入磁盘…');
   return WorkflowExportArtifact(
     bytes: bytes,
-    format: format,
     width: outputWidth,
     height: outputHeight,
   );

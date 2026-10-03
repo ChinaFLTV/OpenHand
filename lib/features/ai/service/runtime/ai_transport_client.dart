@@ -57,7 +57,6 @@ class AiTransportFileDownloadResult {
     required this.bytesWritten,
     required this.errorBody,
     this.filePath,
-    this.reasonPhrase,
   });
 
   final int statusCode;
@@ -65,7 +64,6 @@ class AiTransportFileDownloadResult {
   final int bytesWritten;
   final String errorBody;
   final String? filePath;
-  final String? reasonPhrase;
 
   bool get isSuccess => isHttpSuccessStatus(statusCode);
 }
@@ -701,7 +699,6 @@ class AiTransportClient {
               headers: Map<String, String>.unmodifiable(response.headers),
               bytesWritten: 0,
               errorBody: response.body,
-              reasonPhrase: response.reasonPhrase,
             );
           }
 
@@ -729,7 +726,6 @@ class AiTransportClient {
             bytesWritten: bytesWritten,
             errorBody: '',
             filePath: destination.path,
-            reasonPhrase: streamed.reasonPhrase,
           );
         },
       );

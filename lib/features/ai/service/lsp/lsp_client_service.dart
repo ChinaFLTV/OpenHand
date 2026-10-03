@@ -84,7 +84,6 @@ class AiLspBackendResolution {
     this.executable,
     this.executablePath,
     this.configuredInstallRoot,
-    this.configuredVersion,
     this.configuredSdkPath,
     this.arguments = const <String>[],
   });
@@ -97,7 +96,6 @@ class AiLspBackendResolution {
   final String? executable;
   final String? executablePath;
   final String? configuredInstallRoot;
-  final String? configuredVersion;
   final String? configuredSdkPath;
   final List<String> arguments;
 
@@ -520,7 +518,6 @@ class AiLspClientService {
     }
     final configuredRoot = nullIfBlank(configuredSettings?.rootPath);
     final configuredSdk = nullIfBlank(configuredSettings?.sdkPath);
-    final configuredVersion = nullIfBlank(configuredSettings?.version);
     if (configuredRoot != null) {
       final configuredExecutablePath =
           await _resolveExecutablePathFromConfiguredRoot(
@@ -537,7 +534,6 @@ class AiLspClientService {
           executable: candidate.executable,
           executablePath: configuredExecutablePath,
           configuredInstallRoot: configuredRoot,
-          configuredVersion: configuredVersion,
           configuredSdkPath: configuredSdk,
           arguments: candidate.arguments,
         );
@@ -550,7 +546,6 @@ class AiLspClientService {
         displayName: candidate.displayName,
         executable: candidate.executable,
         configuredInstallRoot: configuredRoot,
-        configuredVersion: configuredVersion,
         configuredSdkPath: configuredSdk,
         arguments: candidate.arguments,
       );
@@ -564,7 +559,6 @@ class AiLspClientService {
         backendId: candidate.id,
         displayName: candidate.displayName,
         executable: candidate.executable,
-        configuredVersion: configuredVersion,
         configuredSdkPath: configuredSdk,
         arguments: candidate.arguments,
       );
@@ -578,7 +572,6 @@ class AiLspClientService {
       executable: candidate.executable,
       executablePath: executablePath,
       configuredInstallRoot: configuredRoot,
-      configuredVersion: configuredVersion,
       configuredSdkPath: configuredSdk,
       arguments: candidate.arguments,
     );

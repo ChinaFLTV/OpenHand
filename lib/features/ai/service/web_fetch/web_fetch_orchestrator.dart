@@ -105,7 +105,6 @@ class WebFetchOrchestrator {
         .toList(growable: false);
 
     final ctx = WebFetchEngineContext(
-      httpClient: httpClient,
       availableModels: availableModels,
       scraplingBridge: scraplingBridge,
     );

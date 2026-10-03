@@ -127,10 +127,7 @@ class WebSearchOrchestrator {
       );
     }
 
-    final ctx = WebSearchEngineContext(
-      httpClient: httpClient,
-      availableModels: availableModels,
-    );
+    final ctx = WebSearchEngineContext(availableModels: availableModels);
 
     final engines = effectiveConfigs
         .map((c) => _buildEngine(c, ctx))

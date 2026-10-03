@@ -13,14 +13,12 @@ class AiResolvedEndpoint {
     required this.method,
     required this.transport,
     this.headers = const <String, String>{},
-    this.queryDefaults = const <String, String>{},
   });
 
   final String url;
   final String method;
   final String transport;
   final Map<String, String> headers;
-  final Map<String, String> queryDefaults;
 }
 
 class AiEndpointRouter {
@@ -86,7 +84,6 @@ class AiEndpointRouter {
       method: resolvedMethod,
       transport: resolvedTransport,
       headers: override?.headers ?? const <String, String>{},
-      queryDefaults: override?.queryDefaults ?? const <String, String>{},
     );
   }
 

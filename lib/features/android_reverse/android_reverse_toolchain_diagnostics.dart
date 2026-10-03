@@ -28,7 +28,6 @@ enum AndroidReverseToolchainCommandAction { install, update, uninstall }
 
 class AndroidReverseToolchainCommandResult {
   const AndroidReverseToolchainCommandResult({
-    required this.probe,
     required this.action,
     required this.command,
     required this.exitCode,
@@ -38,7 +37,6 @@ class AndroidReverseToolchainCommandResult {
     required this.timedOut,
   });
 
-  final AndroidReverseToolchainProbe probe;
   final AndroidReverseToolchainCommandAction action;
   final String command;
   final int exitCode;
@@ -322,7 +320,6 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
   final command = nullIfBlank(probe.commandFor(action));
   if (command == null) {
     return AndroidReverseToolchainCommandResult(
-      probe: probe,
       action: action,
       command: '',
       exitCode: -1,
@@ -334,7 +331,6 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
   }
   if (!androidReverseToolchainDiagnosticsSupported) {
     return AndroidReverseToolchainCommandResult(
-      probe: probe,
       action: action,
       command: command,
       exitCode: -1,
@@ -362,7 +358,6 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
         nullIfBlank(stderr) == null &&
         sw.elapsed >= _kToolchainCommandTimeout;
     return AndroidReverseToolchainCommandResult(
-      probe: probe,
       action: action,
       command: command,
       exitCode: result.exitCode,
@@ -376,7 +371,6 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
   } catch (e) {
     sw.stop();
     return AndroidReverseToolchainCommandResult(
-      probe: probe,
       action: action,
       command: command,
       exitCode: -1,

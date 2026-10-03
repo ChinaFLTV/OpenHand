@@ -97,7 +97,6 @@ typedef WorkflowHumanInterventionHandler =
 
 class WorkflowHumanInterventionRequest {
   const WorkflowHumanInterventionRequest({
-    required this.nodeId,
     required this.nodeTitle,
     required this.content,
     required this.fields,
@@ -107,7 +106,6 @@ class WorkflowHumanInterventionRequest {
     this.cancelSignal,
   });
 
-  final String nodeId;
   final String nodeTitle;
   final String content;
   final List<WorkflowOutputField> fields;
@@ -200,7 +198,6 @@ class WorkflowLlmConversation {
     required this.attempts,
     required this.status,
     required this.messages,
-    this.endedAt,
     this.error,
   });
 
@@ -209,7 +206,6 @@ class WorkflowLlmConversation {
   final String modelId;
   final String modelLabel;
   final DateTime startedAt;
-  final DateTime? endedAt;
   final Duration duration;
   final int attempts;
   final WorkflowLlmConversationStatus status;
@@ -377,7 +373,6 @@ class WorkflowNodeExecutionResult {
     required this.attempts,
     required this.duration,
     this.resolvedInputs = const <String, Object?>{},
-    this.rawOutput = '',
     this.conversation,
     this.selectedBranchId,
     this.recoveredFromError = false,
@@ -385,7 +380,6 @@ class WorkflowNodeExecutionResult {
 
   final Object? output;
   final Map<String, Object?> resolvedInputs;
-  final String rawOutput;
   final int attempts;
   final Duration duration;
   final WorkflowLlmConversation? conversation;
@@ -656,6 +650,12 @@ class WorkflowNodeExecutor {
     if (_ownsChatClient) _chatClient.dispose();
   }
 
+  /// 验证节点输出可序列化并保留其原始类型。
+  static T _requireSerializableOutput<T>(T output) {
+    jsonEncode(output);
+    return output;
+  }
+
   WorkflowNodeExecutionResult _executeParameterNode({
     required List<WorkflowOutputField> fields,
     required Map<String, Object?> variables,
@@ -666,15 +666,13 @@ class WorkflowNodeExecutor {
       variables,
       label: label,
     );
-    String rawOutput;
     try {
-      rawOutput = jsonEncode(output);
+      _requireSerializableOutput(output);
     } on JsonUnsupportedObjectError catch (error) {
       throw WorkflowNodeExecutionException('$label包含无法序列化的值。', cause: error);
     }
     return WorkflowNodeExecutionResult(
       output: output,
-      rawOutput: rawOutput,
       attempts: 1,
       duration: Duration.zero,
     );
@@ -694,8 +692,7 @@ class WorkflowNodeExecutor {
     );
     try {
       return WorkflowNodeExecutionResult(
-        output: output,
-        rawOutput: jsonEncode(output),
+        output: _requireSerializableOutput(output),
         attempts: 1,
         duration: Duration.zero,
       );
@@ -792,9 +789,8 @@ class WorkflowNodeExecutor {
           defaultVariables: variables,
         );
         return WorkflowNodeExecutionResult(
-          output: output,
+          output: _requireSerializableOutput(output),
           resolvedInputs: inputs,
-          rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
           selectedBranchId: errorStrategy == WorkflowErrorStrategy.failBranch
@@ -839,9 +835,8 @@ class WorkflowNodeExecutor {
           label: '代码异常默认值',
         );
         return WorkflowNodeExecutionResult(
-          output: output,
+          output: _requireSerializableOutput(output),
           resolvedInputs: inputs,
-          rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
           recoveredFromError: true,
@@ -858,9 +853,10 @@ class WorkflowNodeExecutor {
       node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
-      output: Map<String, Object?>.unmodifiable(output),
+      output: _requireSerializableOutput(
+        Map<String, Object?>.unmodifiable(output),
+      ),
       resolvedInputs: inputs,
-      rawOutput: jsonEncode(output),
       attempts: attempts,
       duration: stopwatch.elapsed,
       selectedBranchId: workflowFailureHandleId,
@@ -1012,7 +1008,6 @@ class WorkflowNodeExecutor {
       lastMessages = messages;
       WorkflowLlmConversation snapshot(
         WorkflowLlmConversationStatus status, {
-        DateTime? endedAt,
         String? error,
       }) {
         return WorkflowLlmConversation(
@@ -1021,7 +1016,6 @@ class WorkflowNodeExecutor {
           modelId: modelId,
           modelLabel: provider.providerLabel,
           startedAt: startedAt,
-          endedAt: endedAt,
           duration: stopwatch.elapsed,
           attempts: attempts,
           status: status,
@@ -1076,15 +1070,10 @@ class WorkflowNodeExecutor {
                     completion.usage?.toJson() ?? <String, Object?>{},
               };
         stopwatch.stop();
-        final endedAt = DateTime.now().toUtc();
-        final conversation = snapshot(
-          WorkflowLlmConversationStatus.succeeded,
-          endedAt: endedAt,
-        );
+        final conversation = snapshot(WorkflowLlmConversationStatus.succeeded);
         resources.onLlmConversation?.call(conversation);
         return WorkflowNodeExecutionResult(
           output: output,
-          rawOutput: raw,
           attempts: attempts,
           duration: stopwatch.elapsed,
           conversation: conversation,
@@ -1109,7 +1098,6 @@ class WorkflowNodeExecutor {
       modelId: modelId,
       modelLabel: provider.providerLabel,
       startedAt: startedAt,
-      endedAt: DateTime.now().toUtc(),
       duration: stopwatch.elapsed,
       attempts: attempts,
       status: WorkflowLlmConversationStatus.failed,
@@ -1132,8 +1120,7 @@ class WorkflowNodeExecutor {
           label: 'LLM 异常默认值',
         );
         return WorkflowNodeExecutionResult(
-          output: output,
-          rawOutput: jsonEncode(output),
+          output: _requireSerializableOutput(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
           conversation: failedConversation,
@@ -1153,8 +1140,9 @@ class WorkflowNodeExecutor {
       node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
-      output: Map<String, Object?>.unmodifiable(output),
-      rawOutput: jsonEncode(output),
+      output: _requireSerializableOutput(
+        Map<String, Object?>.unmodifiable(output),
+      ),
       attempts: attempts,
       duration: stopwatch.elapsed,
       conversation: failedConversation,
@@ -1585,7 +1573,6 @@ class WorkflowNodeExecutor {
         stopwatch.stop();
         return WorkflowNodeExecutionResult(
           output: output,
-          rawOutput: response.body,
           attempts: attempts,
           duration: stopwatch.elapsed,
           selectedBranchId: errorStrategy == WorkflowErrorStrategy.failBranch
@@ -1626,8 +1613,7 @@ class WorkflowNodeExecutor {
           label: 'HTTP 异常默认值',
         );
         return WorkflowNodeExecutionResult(
-          output: output,
-          rawOutput: jsonEncode(output),
+          output: _requireSerializableOutput(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
           recoveredFromError: true,
@@ -1644,8 +1630,9 @@ class WorkflowNodeExecutor {
       node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
-      output: Map<String, Object?>.unmodifiable(output),
-      rawOutput: jsonEncode(output),
+      output: _requireSerializableOutput(
+        Map<String, Object?>.unmodifiable(output),
+      ),
       attempts: attempts,
       duration: stopwatch.elapsed,
       selectedBranchId: workflowFailureHandleId,
@@ -1997,8 +1984,7 @@ class WorkflowNodeExecutor {
             : 'ELIF ${cases.indexOf(matched)}',
       };
       return WorkflowNodeExecutionResult(
-        output: output,
-        rawOutput: jsonEncode(output),
+        output: _requireSerializableOutput(output),
         attempts: 1,
         duration: Duration.zero,
         selectedBranchId: branchId,
@@ -2033,7 +2019,6 @@ class WorkflowNodeExecutor {
     };
     return WorkflowNodeExecutionResult(
       output: result,
-      rawOutput: '$result',
       attempts: 1,
       duration: Duration.zero,
       selectedBranchId: result ? 'legacy-if' : 'else',
@@ -2101,7 +2086,6 @@ class WorkflowNodeExecutor {
     final response =
         await handler(
           WorkflowHumanInterventionRequest(
-            nodeId: node.id,
             nodeTitle: node.title,
             content: content,
             fields: List<WorkflowOutputField>.unmodifiable(fields),
@@ -2125,8 +2109,9 @@ class WorkflowNodeExecutor {
         node.systemOutputName(workflowHumanRenderedContentOutputName): content,
       };
       return WorkflowNodeExecutionResult(
-        output: Map<String, Object?>.unmodifiable(output),
-        rawOutput: jsonEncode(output),
+        output: _requireSerializableOutput(
+          Map<String, Object?>.unmodifiable(output),
+        ),
         attempts: 1,
         duration: stopwatch.elapsed,
         selectedBranchId: workflowHumanTimeoutHandleId,
@@ -2151,8 +2136,9 @@ class WorkflowNodeExecutor {
       node.systemOutputName(workflowHumanRenderedContentOutputName): content,
     };
     return WorkflowNodeExecutionResult(
-      output: Map<String, Object?>.unmodifiable(output),
-      rawOutput: jsonEncode(output),
+      output: _requireSerializableOutput(
+        Map<String, Object?>.unmodifiable(output),
+      ),
       attempts: 1,
       duration: stopwatch.elapsed,
       selectedBranchId: action.id,
@@ -2271,15 +2257,13 @@ class WorkflowNodeExecutor {
       outputFields[1].name.trim(): items.firstOrNull,
       outputFields[2].name.trim(): items.lastOrNull,
     };
-    String rawOutput;
     try {
-      rawOutput = jsonEncode(output);
+      _requireSerializableOutput(output);
     } on JsonUnsupportedObjectError catch (error) {
       throw WorkflowNodeExecutionException('列表结果包含无法序列化的值。', cause: error);
     }
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
-      rawOutput: rawOutput,
       attempts: 1,
       duration: stopwatch.elapsed,
     );
@@ -2380,8 +2364,7 @@ class WorkflowNodeExecutor {
       'did_break': didBreak,
     };
     return WorkflowNodeExecutionResult(
-      output: output,
-      rawOutput: jsonEncode(output),
+      output: _requireSerializableOutput(output),
       attempts: 1,
       duration: stopwatch.elapsed,
     );
@@ -2512,8 +2495,9 @@ class WorkflowNodeExecutor {
       outputName: List<Object?>.unmodifiable(normalizedOutput),
     };
     return WorkflowNodeExecutionResult(
-      output: Map<String, Object?>.unmodifiable(result),
-      rawOutput: jsonEncode(result),
+      output: _requireSerializableOutput(
+        Map<String, Object?>.unmodifiable(result),
+      ),
       attempts: 1,
       duration: stopwatch.elapsed,
     );

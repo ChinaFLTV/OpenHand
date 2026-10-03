@@ -197,14 +197,10 @@ abstract class WebSearchProviderKeyEngine extends WebSearchEngine {
   bool get isReady => (effectiveApiKey ?? '').isNotEmpty;
 }
 
-/// 引擎构造上下文：提供共享 http、provider 列表（用于复用 key）。
+/// 引擎构造上下文：提供可复用凭据的模型配置。
 class WebSearchEngineContext {
-  WebSearchEngineContext({
-    required this.httpClient,
-    required this.availableModels,
-  });
+  WebSearchEngineContext({required this.availableModels});
 
-  final http.Client httpClient;
   final List<AiModelConfig> availableModels;
 
   /// 解析复用 provider 的 API key（仅 kimi/grok/gemini）。

@@ -23,6 +23,28 @@ Future<void> main() async {
 
 const _checks = '''
 void main() {
+  test('参数节点保留结构化结果并拒绝不可序列化和循环引用的输出', () {
+    final executor = WorkflowNodeExecutor();
+    addTearDown(executor.dispose);
+    const fields = [WorkflowOutputField(
+      id: '数据', name: 'payload', type: WorkflowOutputType.object, required: true,
+    )];
+    final payload = <String, Object?>{'items': [1, null, {'ready': true}]};
+    final result = executor._executeParameterNode(
+      fields: fields, variables: {'payload': payload}, label: '测试参数',
+    );
+    expect(result.output, {'payload': payload});
+    final cyclic = <String, Object?>{};
+    cyclic['self'] = cyclic;
+    for (final invalid in [<String, Object?>{'value': Object()}, cyclic]) {
+      expect(() => executor._executeParameterNode(
+        fields: fields, variables: {'payload': invalid}, label: '测试参数',
+      ), throwsA(isA<WorkflowNodeExecutionException>()
+        .having((error) => error.message, '错误提示', '测试参数包含无法序列化的值。')
+        .having((error) => error.cause, '原始异常', isA<JsonUnsupportedObjectError>())));
+    }
+  });
+
   test('工作流取消保留可空结果与异常，并阻止已取消任务启动', () async {
     final token = WorkflowExecutionCancellationToken();
     expect(await token.race(Future<int>.value(7)), 7);

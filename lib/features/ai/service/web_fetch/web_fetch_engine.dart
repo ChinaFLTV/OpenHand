@@ -175,13 +175,8 @@ abstract class WebFetchProviderKeyEngine extends WebFetchEngine {
 }
 
 class WebFetchEngineContext {
-  WebFetchEngineContext({
-    required this.httpClient,
-    required this.availableModels,
-    this.scraplingBridge,
-  });
+  WebFetchEngineContext({required this.availableModels, this.scraplingBridge});
 
-  final http.Client httpClient;
   final List<AiModelConfig> availableModels;
   final WebFetchScraplingBridge? scraplingBridge;
 

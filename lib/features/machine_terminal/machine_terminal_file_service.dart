@@ -195,8 +195,6 @@ class MachineTerminalFileDetails {
 class MachineTerminalTransferTask {
   const MachineTerminalTransferTask({
     required this.id,
-    required this.sessionId,
-    required this.terminalId,
     required this.direction,
     required this.sourcePath,
     required this.targetDirectory,
@@ -212,8 +210,6 @@ class MachineTerminalTransferTask {
   });
 
   final String id;
-  final String sessionId;
-  final String terminalId;
   final MachineTerminalTransferDirection direction;
   final String sourcePath;
   final String targetDirectory;
@@ -2067,8 +2063,6 @@ class _MutableTransferTask {
 
   MachineTerminalTransferTask snapshot() => MachineTerminalTransferTask(
     id: id,
-    sessionId: sessionId,
-    terminalId: terminalId,
     direction: direction,
     sourcePath: sourcePath,
     targetDirectory: targetDirectory,
