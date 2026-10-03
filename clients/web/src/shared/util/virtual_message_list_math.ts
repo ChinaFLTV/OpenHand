@@ -20,6 +20,43 @@ export interface VirtualMessageRange {
   end: number;
 }
 
+/** 动态前缀和：单行测高与坐标查询均为对数开销，避免每帧重算全部历史。 */
+export class MessageHeightIndex {
+  private readonly tree: number[];
+
+  constructor(readonly heights: number[]) {
+    this.tree = [0, ...heights];
+    for (let index = 1; index < this.tree.length; index += 1) {
+      const parent = index + (index & -index);
+      if (parent < this.tree.length) this.tree[parent]! += this.tree[index]!;
+    }
+  }
+
+  get length(): number { return this.tree.length; }
+
+  prefix(index: number): number {
+    let sum = 0;
+    const end = boundedPrefixIndex(this, index);
+    for (let cursor = end; cursor > 0; cursor -= cursor & -cursor) {
+      sum += this.tree[cursor]!;
+    }
+    return sum;
+  }
+
+  setHeight(index: number, height: number): void {
+    if (!Number.isInteger(index) || index < 0 || index >= this.heights.length ||
+        !Number.isFinite(height) || height < 0) return;
+    const delta = height - this.heights[index]!;
+    if (delta === 0) return;
+    this.heights[index] = height;
+    for (let cursor = index + 1; cursor < this.tree.length; cursor += cursor & -cursor) {
+      this.tree[cursor]! += delta;
+    }
+  }
+}
+
+type HeightPrefix = number[] | MessageHeightIndex;
+
 /**
  * 消息窗口前插、裁剪或换窗后，按仍存活的消息标识重定位当前渲染范围。
  * 返回 null 表示新旧窗口没有交集，调用方应回退到默认尾部范围。
@@ -86,22 +123,23 @@ export function buildHeightPrefix(heights: number[]): number[] {
 
 /// 前缀和长度与消息数可能在同一帧内短暂不一致（成员变化与高度提交分属两条
 /// 更新路径）。这里统一夹取索引，避免读到 undefined 后把 NaN 写进 style。
-function boundedPrefixIndex(prefix: number[], index: number): number {
+function boundedPrefixIndex(prefix: HeightPrefix, index: number): number {
   if (!Number.isFinite(index)) return 0;
   return Math.max(0, Math.min(Math.floor(index), prefix.length - 1));
 }
 
 export function virtualMessageTop(
-  prefix: number[],
+  prefix: HeightPrefix,
   index: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
   const safeIndex = boundedPrefixIndex(prefix, index);
-  return prefix[safeIndex]! + safeIndex * gapPx;
+  const height = prefix instanceof MessageHeightIndex ? prefix.prefix(safeIndex) : prefix[safeIndex]!;
+  return height + safeIndex * gapPx;
 }
 
 function virtualMessageBottom(
-  prefix: number[],
+  prefix: HeightPrefix,
   heights: number[],
   index: number,
   gapPx = MESSAGE_LIST_GAP_PX,
@@ -124,16 +162,17 @@ function firstIndexMatching(length: number, matches: (index: number) => boolean)
 }
 
 export function virtualMessageTotalHeight(
-  prefix: number[],
+  prefix: HeightPrefix,
   count: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
   const safeCount = boundedPrefixIndex(prefix, count);
-  return prefix[safeCount]! + Math.max(0, safeCount - 1) * gapPx;
+  const height = prefix instanceof MessageHeightIndex ? prefix.prefix(safeCount) : prefix[safeCount]!;
+  return height + Math.max(0, safeCount - 1) * gapPx;
 }
 
 function firstVirtualMessageIntersecting(
-  prefix: number[],
+  prefix: HeightPrefix,
   heights: number[],
   targetY: number,
   gapPx = MESSAGE_LIST_GAP_PX,
@@ -145,7 +184,7 @@ function firstVirtualMessageIntersecting(
 }
 
 function firstVirtualMessageAfter(
-  prefix: number[],
+  prefix: HeightPrefix,
   heights: number[],
   targetY: number,
   gapPx = MESSAGE_LIST_GAP_PX,
@@ -213,7 +252,7 @@ export function virtualMessageRangeAroundIndex(
 
 export function resolveVirtualMessageRange(params: {
   messageCount: number;
-  prefix: number[];
+  prefix: HeightPrefix;
   heights: number[];
   viewportTop: number;
   viewportBottom: number;

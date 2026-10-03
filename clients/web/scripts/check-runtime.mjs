@@ -146,7 +146,30 @@ try {
         '错误类型、缺失和多余答案不得显示成成功结果');
     }
   }
-  const { buildHeightPrefix, resolveVirtualMessageRange, clampMessageRowHeight } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
+  const { MessageHeightIndex, buildHeightPrefix, resolveVirtualMessageRange, clampMessageRowHeight,
+    virtualMessageTop, virtualMessageTotalHeight } = await server.ssrLoadModule('/src/shared/util/virtual_message_list_math.ts');
+  const indexedHeights = Array.from({ length: 10000 }, (_, index) => 44 + index % 300);
+  const dynamicHeights = new MessageHeightIndex([...indexedHeights]);
+  for (let update = 0; update < 300; update++) {
+    const index = (update * 97) % indexedHeights.length;
+    const height = update % 2 ? 44 : 80000;
+    indexedHeights[index] = height;
+    dynamicHeights.setHeight(index, height);
+    const prefix = buildHeightPrefix(indexedHeights);
+    assert.equal(virtualMessageTop(dynamicHeights, index), virtualMessageTop(prefix, index), '万条历史局部测高后坐标与全量计算一致');
+    assert.equal(virtualMessageTotalHeight(dynamicHeights, indexedHeights.length), virtualMessageTotalHeight(prefix, indexedHeights.length));
+    const viewportTop = virtualMessageTop(prefix, index) + 20;
+    assert.deepEqual(resolveVirtualMessageRange({ messageCount: indexedHeights.length,
+      heights: dynamicHeights.heights, prefix: dynamicHeights, viewportTop, viewportBottom: viewportTop + 600 }),
+      resolveVirtualMessageRange({ messageCount: indexedHeights.length,
+        heights: indexedHeights, prefix, viewportTop, viewportBottom: viewportTop + 600 }),
+      '索引更新后虚拟窗口仍覆盖完整视口');
+  }
+  const beforeInvalidHeight = dynamicHeights.prefix(indexedHeights.length);
+  for (const index of [-1, NaN, Infinity, 0.5, indexedHeights.length]) dynamicHeights.setHeight(index, 100);
+  for (const height of [-1, NaN, Infinity]) dynamicHeights.setHeight(0, height);
+  assert.equal(dynamicHeights.prefix(indexedHeights.length), beforeInvalidHeight, '异常测高不损坏索引或陷入死循环');
+  assert.equal(dynamicHeights.prefix(Infinity), 0);
   assert.equal(clampMessageRowHeight(80000), 80000, '完整长卡片的实际高度不能被截断');
   assert.equal(clampMessageRowHeight(Infinity), 188, '异常测量仍使用估计高度');
   const tallHeights = [80000, 188, 188];
@@ -777,6 +800,10 @@ try {
     heightAnchorRef: { current: null }, heightCommitFrameRef: { current: null },
     initialLayoutSettledRef: { current: true },
     scrollContainerRef: { current: null }, listRef: { current: null },
+    geometryRef: { current: { prefix: new MessageHeightIndex([188, 188]) } },
+    pendingHeightIdsRef: { current: new Set(['测高消息', '已卸载消息']) },
+    messageIndexByIdRef: { current: new Map([['测高消息', 1]]) },
+    measuredHeightsRef: { current: new Map([['测高消息', 700], ['已卸载消息', 900]]) },
     window: { requestAnimationFrame: callback => { heightFrames.push(callback); return heightFrames.length; } },
     setHeightRevision: () => { heightCommits++; },
   };
@@ -786,6 +813,8 @@ try {
   assert.equal(heightFrames.length, 1, '同帧测高只提交一次');
   heightFrames.shift()();
   assert.equal(heightCommits, 1, '测高与虚拟范围保持同步，不冻结真实几何');
+  assert.equal(heightBindings.geometryRef.current.prefix.prefix(2), 888, '测高提交只更新存活消息的索引');
+  assert.equal(heightBindings.pendingHeightIdsRef.current.size, 0, '测高提交后释放待处理消息');
   commitHeight();
   heightFrames.shift()();
   assert.equal(heightCommits, 2, '后续帧仍能提交新尺寸');
@@ -1193,6 +1222,20 @@ try {
   oversizedParser.parser('单条过密正文');
   oversizedParser.parser('单条过密正文');
   assert.equal(oversizedParses, 2, '超出单条节点预算的语法树不长期保留');
+  for (const enabled of [false, true]) {
+    const denseSource = '**密集内容** '.repeat(4000);
+    const plainTree = markdownTree(denseSource, false, enabled);
+    assert.equal(treeText(plainTree), denseSource, '密集 Markdown 保留完整原文');
+    assert.equal(plainTree.props.children.type, 'p', '流式与历史消息均回退到单段原文');
+    assert.equal(typeof plainTree.props.children.props.children, 'string', '回退原文不含成千上万个子组件');
+    const deepParser = { parser() {
+      let tree = { type: 'text', value: '深层内容' };
+      for (let depth = 0; depth < 100; depth++) tree = { type: 'paragraph', children: [tree] };
+      return tree;
+    } };
+    remarkCachedParse.call(deepParser, { enabled, math: false });
+    assert.equal(deepParser.parser('深层原文').children[0].children[0].value, '深层原文', '深层嵌套回退原文且不递归构建');
+  }
 
   replaceGlobal('document', { documentElement: { getAttribute: () => null } });
   const { RichContentFrameScheduler } = await server.ssrLoadModule('/src/shared/ui/rich_content_frame_scheduler.ts');

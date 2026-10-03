@@ -2,8 +2,11 @@ const MAX_ENTRIES = 64;
 const MAX_SOURCE_CHARACTERS = 512 * 1024;
 const MAX_AST_NODES = 24000;
 const MAX_ENTRY_NODES = 6000;
+const MAX_RENDER_DEPTH = 64;
 
 interface AstNode {
+  type?: string;
+  value?: string;
   children?: AstNode[];
 }
 
@@ -23,28 +26,32 @@ export function remarkCachedParse(
   { enabled, math }: { enabled: boolean; math: boolean },
 ): void {
   const parse = this.parser;
-  if (!enabled || !parse || typeof structuredClone !== 'function') return;
+  if (!parse) return;
+  const cacheEnabled = enabled && typeof structuredClone === 'function';
   this.parser = (source, file) => {
     const key = `${math ? '公式' : '标准'}:${source}`;
-    const cached = entries.get(key);
+    const cached = cacheEnabled ? entries.get(key) : undefined;
     if (cached) {
       entries.delete(key);
       entries.set(key, cached);
       return structuredClone(cached.tree);
     }
     const tree = parse(source, file);
-    if (source.length > MAX_SOURCE_CHARACTERS) return tree;
-    const pending = [tree];
+    const pending: Array<[AstNode, number]> = [[tree, 0]];
     let nodes = 0;
     while (pending.length > 0) {
-      const node = pending.pop()!;
+      const [node, depth] = pending.pop()!;
       nodes += 1;
-      if (nodes > MAX_ENTRY_NODES) return tree;
+      if (depth > MAX_RENDER_DEPTH ||
+          nodes + pending.length + (node.children?.length ?? 0) > MAX_ENTRY_NODES) {
+        // 超预算时显示完整原文，避免继续构建数千组件；复制与导出保持原消息。
+        return { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', value: source }] }] };
+      }
       if (node.children) {
-        // 逐个压栈，避免宽表格的子节点突破函数参数上限。
-        for (const child of node.children) pending.push(child);
+        for (const child of node.children) pending.push([child, depth + 1]);
       }
     }
+    if (!cacheEnabled || source.length > MAX_SOURCE_CHARACTERS) return tree;
     entries.set(key, { tree: structuredClone(tree), nodes });
     sourceCharacters += key.length;
     astNodes += nodes;

@@ -25,6 +25,20 @@ Future<void> main() async {
 }
 
 const _widgetTests = r'''
+class _CountingTranscriptEntries extends ListBase<_TranscriptRenderEntry> {
+  _CountingTranscriptEntries(this.entries);
+  final List<_TranscriptRenderEntry> entries;
+  int reads = 0;
+  @override
+  int get length => entries.length;
+  @override
+  set length(int value) => entries.length = value;
+  @override
+  _TranscriptRenderEntry operator [](int index) { reads++; return entries[index]; }
+  @override
+  void operator []=(int index, _TranscriptRenderEntry value) => entries[index] = value;
+}
+
 // 仅替换平台视图边界；消息格式分发与延迟加载仍执行生产实现。
 class _FailingMarkdownSyntax extends md.InlineSyntax {
   _FailingMarkdownSyntax() : super('@解析失败');
@@ -1213,6 +1227,46 @@ void main() {
     expect(controller.sessions.single.messageWindowStartIndex, 8);
   });
 
+  test('千条历史估高复用稀疏索引，宽度、正文与隐藏消息变化正确失效', () {
+    final messages = _probeSession('高度索引', 1000).messages;
+    final entries = _CountingTranscriptEntries([
+      for (final message in messages) _TranscriptRenderEntry(message: message),
+    ]);
+    final indices = <String, int>{for (var i = 0; i < messages.length; i++) messages[i].id: i};
+    final registry = _TranscriptBubbleRegistry();
+    registry.measure(messages[5], const Size(500, 100));
+    registry.measure(messages[500], const Size(500, 200));
+    registry.measure(messages.last, const Size(500, 300));
+    ({double extent, int count}) query(int start, int end, {double width = 500, bool show = true}) => registry.measuredExtent(
+      indexById: indices, entries: entries, width: width, showSelfLearning: show,
+      start: start, end: end);
+    expect(query(0, 1000), (extent: 628.0, count: 3));
+    final cached = registry._extentIndex;
+    entries.reads = 0;
+    for (var frame = 0; frame < 300; frame++) {
+      expect(query(6, 999), (extent: 214.0, count: 1));
+    }
+    expect(entries.reads, 0, reason: '滚动帧不能反复读取历史消息');
+    expect(registry._extentIndex, same(cached));
+    registry.measure(messages[5], const Size(500, 120));
+    expect(registry._extentIndex, same(cached), reason: '单行测高不能重建整份高度索引');
+    expect(query(0, 1000), (extent: 648.0, count: 3));
+    expect(query(0, 1000, width: 600), (extent: 0.0, count: 0));
+    registry.measure(messages[500], const Size(600, 400));
+    expect(query(0, 1000, width: 600), (extent: 414.0, count: 1));
+    final replacement = messages[500].copyWith(content: '更新后的正文');
+    entries[500] = _TranscriptRenderEntry(message: replacement);
+    registry.invalidateExtentIndex();
+    expect(query(0, 1000, width: 600), (extent: 0.0, count: 0));
+    entries[500] = _TranscriptRenderEntry(message: replacement.copyWith(kind: AiSessionMessageKind.selfLearning));
+    registry.invalidateExtentIndex();
+    expect(query(0, 1000, width: 600, show: false), (extent: 0.0, count: 1));
+    expect(query(1000, 1000, show: false), (extent: 0.0, count: 0));
+    registry.clear();
+    expect(registry._extentIndex, isNull);
+    expect(registry._extentIndexSource, isNull);
+  });
+
   test('密集 Markdown 缓存同时限制单条与总节点数', () {
     final cache = _MarkdownAstCache();
     _MarkdownAstKey key(String source) => (source: source, parseKey: '', syntaxSignature: 0);
@@ -1255,6 +1309,66 @@ void main() {
     final nodes = await parseOpenHandMarkdownOffThread('**后续正文**',
       inlineSyntaxes: const [], isValid: () => true);
     expect(nodes!.single.textContent, '后续正文');
+  });
+
+  testWidgets('密集与深层 Markdown 限制组件规模并保留完整原文', (tester) async {
+    expect(openHandMarkdownFitsRenderBudget([md.Element.text('p', '普通正文')]), true);
+    expect(openHandMarkdownFitsRenderBudget(List.generate(6000, (_) => md.Text('单元格'))), true);
+    expect(openHandMarkdownFitsRenderBudget(List.generate(6001, (_) => md.Text('单元格'))), false);
+    md.Node deep = md.Text('嵌套正文');
+    for (var depth = 0; depth < 64; depth++) deep = md.Element('blockquote', [deep]);
+    expect(openHandMarkdownFitsRenderBudget([deep]), false);
+    final content = '*密* ' * 2001;
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(body: SingleChildScrollView(child: _SafeMarkdownRichBody(
+        _SafeMarkdownBody(data: content, styleSheet: MarkdownStyleSheet(), deferInitialParse: false))))));
+    final state = tester.state<_SafeMarkdownBodyState>(find.byType(_SafeMarkdownRichBody));
+    for (var frame = 0; frame < 120 && state._lastData != content; frame++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump();
+    }
+    expect(state._lastData, content);
+    expect(state._children, hasLength(1));
+    final rendered = state._children!.single;
+    expect(rendered, isA<Text>());
+    final renderedText = (rendered as Text).data!;
+    expect(renderedText.trimRight() == content.trimRight(), true,
+      reason: '富文本超预算后保留原文，原文长度=${content.length}，显示长度=${renderedText.length}');
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('大型决策历史正文等待进入视口，小决策保持直接布局', (tester) async {
+    String decision(int repeats) => DecisionPayload.encode(DecisionPayload.resultLanguage, {
+      'questions': {'判断': {'type': 'noul', 'instructions': '判断依据' * repeats}},
+      'answers': {'判断': {'type': 'noul', 'noul': 0.8}},
+    });
+    final large = decision(2500);
+    final small = decision(1);
+    expect(_SafeMarkdownBody(data: small, styleSheet: MarkdownStyleSheet()).shouldDeferInitialParse, false);
+    expect(_SafeMarkdownBody(data: large, styleSheet: MarkdownStyleSheet()).shouldDeferInitialParse, true);
+    final normalized = normalizeOpenHandMarkdownSource(large, stripMessageScaffolding: true);
+    final config = _SafeMarkdownBody(data: large, styleSheet: MarkdownStyleSheet());
+    _markdownAstCache.put(_markdownAstCacheKeyFor(normalized, config),
+      parseOpenHandMarkdown(normalized, inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(const [])));
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SingleChildScrollView(
+        child: Column(children: [const SizedBox(height: 1600),
+          _SafeMarkdownBody(data: large, styleSheet: MarkdownStyleSheet())])))));
+    for (var frame = 0; frame < 8; frame++) await tester.pump();
+    expect(find.byType(_SafeMarkdownRichBody), findsNothing, reason: '屏外大型决策不能提前解析');
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -1500));
+    for (var frame = 0; frame < 120; frame++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump();
+      if (tester.stateList<_SafeMarkdownBodyState>(find.byType(_SafeMarkdownRichBody))
+          .any((state) => state._lastData == large)) break;
+    }
+    expect(find.byType(_SafeMarkdownRichBody), findsOneWidget);
+    expect(tester.state<_SafeMarkdownBodyState>(find.byType(_SafeMarkdownRichBody))._lastData, large);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('长正文冷解析移出界面线程，更新与卸载不接收旧结果', (tester) async {

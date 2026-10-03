@@ -975,7 +975,9 @@ class _MessageBubbleState extends State<_MessageBubble>
         inlineSyntaxes: inlineSyntaxes,
         filePathRoots: filePathRoots,
         filePathParseKey: filePathParseKey,
-        deferInitialParse: !message.isStructuredDecision,
+        deferInitialParse:
+            !message.isStructuredDecision ||
+            data.length > DecisionPayload.syncRenderMaxCharacters,
         collapseCharThreshold: isToolResult
             ? _toolResultMarkdownCollapseCharThreshold
             : _messageMarkdownCollapseCharThreshold,

@@ -14,6 +14,7 @@ import 'openhand_message_markdown_theme.dart';
 
 List<Widget> buildOpenHandMarkdownWidgets({
   required BuildContext context,
+  required String source,
   required List<md.Node> nodes,
   String? Function(Uri)? resolveImageFilePath,
   required MarkdownBuilderDelegate delegate,
@@ -23,6 +24,13 @@ List<Widget> buildOpenHandMarkdownWidgets({
   Map<String, MarkdownElementBuilder> builders =
       const <String, MarkdownElementBuilder>{},
 }) {
+  if (!openHandMarkdownFitsRenderBudget(nodes)) {
+    return <Widget>[
+      selectable
+          ? SelectableText(source, style: styleSheet.p)
+          : Text(source, style: styleSheet.p),
+    ];
+  }
   final images = collectOpenHandMarkdownImages(
     nodes,
     resolveFilePath: resolveImageFilePath,
@@ -207,6 +215,7 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
       );
       _children = buildOpenHandMarkdownWidgets(
         context: context,
+        source: source,
         nodes: nodes,
         delegate: this,
         selectable: false,

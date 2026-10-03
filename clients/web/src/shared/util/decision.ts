@@ -16,6 +16,7 @@ export function isStructuredDecisionMessage(message: { role: string; content: st
     : message.role === 'assistant' && decisionResultFence.test(message.content);
 }
 export const DECISION_MAX_CHARACTERS = 1024 * 1024;
+export const DECISION_SYNC_RENDER_MAX_CHARACTERS = 8 * 1024;
 export const DECISION_MAX_QUESTIONS = 128;
 export const DECISION_MAX_CRITERIA = 255;
 export const DECISION_MIN_SCORE_LEVELS = 2;

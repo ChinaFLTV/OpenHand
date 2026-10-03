@@ -81,6 +81,31 @@ try {
   render(null, root);
   window.scrollTo(0, 0);
 
+  const largeDecision: SessionMessage = { ...messages[1]!, id: '屏外大型决策', content:
+    '```openhand-decision\n' + JSON.stringify({
+      questions: { 判断: { type: 'noul', instructions: '判断依据'.repeat(2500) } },
+      answers: { 判断: { type: 'noul', noul: 0.8 } },
+    }) + '\n```' };
+  markMessagesAsAppeared([largeDecision.id]);
+  render(<div style={{ height: '200px', overflow: 'auto' }}>
+    <div style={{ height: '1000px' }}>前一张长卡片</div>
+    <div id="屏外大型决策"><MessageCard message={largeDecision} /></div>
+  </div>, root);
+  await new Promise<void>((resolve) => setTimeout(resolve, 250));
+  verify(root.querySelector('.oh-decision-block') == null, '大型决策历史消息在屏外不绕过渲染预算');
+  root.querySelector('#屏外大型决策')!.scrollIntoView({ block: 'start' });
+  await until(() => root.querySelector('.oh-decision-bar-fill') != null);
+  verify(root.querySelectorAll('.oh-decision-block').length === 1, '大型决策进入视口后恢复完整卡片');
+  render(null, root);
+  window.scrollTo(0, 0);
+
+  const denseSource = '**密集内容** '.repeat(4000);
+  render(<Markdown source={denseSource} deferInitialRender={false} />, root);
+  await until(() => root.querySelector('.oh-markdown p') != null);
+  verify(root.querySelector('.oh-markdown p')!.textContent === denseSource, '密集 Markdown 回退后保留完整原文');
+  verify(root.querySelectorAll('.oh-markdown *').length < 4, '密集 Markdown 不构建成千上万个 DOM 节点');
+  render(null, root);
+
   // 使用实际消息卡验证默认展开的短消息与默认折叠的思考消息都经过视口门控。
   const reasoning: SessionMessage = { ...messages[1]!, id: '屏外思考', kind: 'reasoning', content: table.repeat(10) };
   markMessagesAsAppeared([messages[1]!.id, reasoning.id]);

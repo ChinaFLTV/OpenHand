@@ -32,6 +32,7 @@ abstract final class DecisionPayload {
   static const requestMetadataKey = 'decision_request';
   static const titleMaxCharacters = 15;
   static const maxCharacters = 1024 * 1024;
+  static const syncRenderMaxCharacters = 8 * 1024;
   static const maxQuestions = 128;
   static const maxCriteria = 255;
   static const minScoreLevels = 2;

@@ -1221,11 +1221,12 @@ class _SafeMarkdownBody extends StatelessWidget {
   final String parseKey;
   final bool deferInitialParse;
 
-  // 决策卡片高度由结构化数据决定，不能在滚动挂载时先缩成文本占位。
+  // 小决策卡直接布局以稳定高度；大型决策仍须经过视口和共享帧预算。
   bool get shouldDeferInitialParse =>
       deferInitialParse &&
-      !DecisionPayload.containsResult(data) &&
-      !DecisionPayload.containsRequest(data);
+      (data.length > DecisionPayload.syncRenderMaxCharacters ||
+          (!DecisionPayload.containsResult(data) &&
+              !DecisionPayload.containsRequest(data)));
 
   @override
   Widget build(BuildContext context) {
@@ -1732,6 +1733,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownRichBody>
       }
       _children = buildOpenHandMarkdownWidgets(
         context: context,
+        source: normalizedSource,
         resolveImageFilePath: _resolveMarkdownImageFilePath,
         nodes: astNodes,
         delegate: this,

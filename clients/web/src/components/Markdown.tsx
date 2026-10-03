@@ -1,5 +1,5 @@
 import { DecisionCard, DecisionRequestCard } from './DecisionCard';
-import { DECISION_REQUEST, DECISION_RESULT, containsDecisionFence } from '../shared/util/decision';
+import { DECISION_REQUEST, DECISION_RESULT, DECISION_SYNC_RENDER_MAX_CHARACTERS, containsDecisionFence } from '../shared/util/decision';
 // Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
@@ -1466,10 +1466,10 @@ function ScheduledMarkdownBody(props: MarkdownProps) {
 /** 历史正文先进入视口再做格式检测、预处理和插件加载。 */
 export const Markdown = memo(function Markdown(props: MarkdownProps) {
   const source = props.source ?? '';
-  // 决策卡片直接按真实结构布局，避免虚拟窗口重挂载时占位高度反复变化。
+  // 小决策卡直接布局以稳定高度；大型决策仍须经过视口和共享帧预算。
   const deferred = !props.streaming && !props.raw && props.format !== 'plain_text'
     && props.deferInitialRender !== false
-    && !containsDecisionFence(source)
+    && (source.length > DECISION_SYNC_RENDER_MAX_CHARACTERS || !containsDecisionFence(source))
     && (Boolean(props.deferInitialRender)
       || source.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD
       || FENCED_CODE_RE.test(source)

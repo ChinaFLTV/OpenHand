@@ -96,14 +96,15 @@ class _TranscriptSliverList extends SliverList {
     required this.anchorsBottom,
     required this.scrollActive,
     this.excludedAnchorIndex,
-    this.measuredSizeForIndex,
+    this.measuredExtentForRange,
     this.scrollPosition,
   });
 
   final bool Function() anchorsBottom;
   final bool Function() scrollActive;
   final int? excludedAnchorIndex;
-  final Size? Function(int)? measuredSizeForIndex;
+  final ({double extent, int count}) Function(int, int, double)?
+  measuredExtentForRange;
   final ScrollPosition? Function()? scrollPosition;
 
   // 使用当前布局宽度校验测量值，避免新挂载首项尚未测量时丢弃整段历史高度。
@@ -115,9 +116,9 @@ class _TranscriptSliverList extends SliverList {
     double leadingScrollOffset,
     double trailingScrollOffset,
   ) {
-    final measure = measuredSizeForIndex;
+    final measure = measuredExtentForRange;
     final count = delegate.estimatedChildCount;
-    if (measure == null || count == null) {
+    if (measure == null || count == null || constraints == null) {
       return super.estimateMaxScrollOffset(
         constraints,
         firstIndex,
@@ -129,23 +130,14 @@ class _TranscriptSliverList extends SliverList {
     final averageExtent =
         (trailingScrollOffset - leadingScrollOffset) /
         (lastIndex - firstIndex + 1);
-    var measuredExtent = 0.0;
-    var unmeasuredCount = 0;
-    for (var index = lastIndex + 1; index < count; index++) {
-      final size = measure(index);
-      if (size != null &&
-          (size.height == 0 || size.width == constraints?.crossAxisExtent)) {
-        measuredExtent += size.height;
-      } else {
-        unmeasuredCount += 1;
-      }
-    }
+    final measured = measure(lastIndex + 1, count, constraints.crossAxisExtent);
+    final unmeasuredCount = count - lastIndex - 1 - measured.count;
     var estimatedExtent = averageExtent * unmeasuredCount;
     final position = scrollPosition?.call();
     if (position != null && position.hasViewportDimension && anchorsBottom()) {
       estimatedExtent = math.min(estimatedExtent, position.viewportDimension);
     }
-    return trailingScrollOffset + measuredExtent + estimatedExtent;
+    return trailingScrollOffset + measured.extent + estimatedExtent;
   }
 
   @override
@@ -510,25 +502,182 @@ class _TranscriptBubbleRegistrarState
   }
 }
 
-/// transcript 内按 messageId 索引 BuildContext 的本地映射。
-/// 仅在所属 `_SessionTranscriptState` 生命周期内存活，避免跨 transcript
-/// 共享导致的脏状态。
+/// 实测高度的动态前缀索引，测高与滚动查询均为对数开销。
+class _TranscriptExtentIndex {
+  _TranscriptExtentIndex(int length, List<(int, double)> entries)
+    : _heights = List<double?>.filled(length, null),
+      _extents = List<double>.filled(length + 1, 0),
+      _counts = List<int>.filled(length + 1, 0) {
+    for (final (index, extent) in entries) {
+      _heights[index] = extent;
+      _extents[index + 1] = extent;
+      _counts[index + 1] = 1;
+    }
+    for (var index = 1; index < _extents.length; index++) {
+      final parent = index + (index & -index);
+      if (parent >= _extents.length) continue;
+      _extents[parent] += _extents[index];
+      _counts[parent] += _counts[index];
+    }
+  }
+
+  final List<double?> _heights;
+  final List<double> _extents;
+  final List<int> _counts;
+
+  int get length => _heights.length;
+
+  void update(int index, double? height) {
+    final previous = _heights[index];
+    if (previous == height) return;
+    final delta = (height ?? 0) - (previous ?? 0);
+    final countDelta = (height == null ? 0 : 1) - (previous == null ? 0 : 1);
+    _heights[index] = height;
+    for (
+      var cursor = index + 1;
+      cursor < _extents.length;
+      cursor += cursor & -cursor
+    ) {
+      _extents[cursor] += delta;
+      _counts[cursor] += countDelta;
+    }
+  }
+
+  ({double extent, int count}) _prefix(int end) {
+    var extent = 0.0;
+    var count = 0;
+    for (
+      var cursor = end.clamp(0, length);
+      cursor > 0;
+      cursor -= cursor & -cursor
+    ) {
+      extent += _extents[cursor];
+      count += _counts[cursor];
+    }
+    return (extent: extent, count: count);
+  }
+
+  ({double extent, int count}) measure(int start, int end) {
+    final first = _prefix(start);
+    final last = _prefix(math.max(start, end));
+    return (
+      extent: last.extent - first.extent,
+      count: last.count - first.count,
+    );
+  }
+}
+
+/// 会话内登记挂载位置与实测高度，卸载后不保留页面状态。
 class _TranscriptBubbleRegistry {
   final Map<String, BuildContext> _contexts = <String, BuildContext>{};
   final _sizes = <String, ({AiSessionMessage message, Size size})>{};
+  _TranscriptExtentIndex? _extentIndex;
+  Map<String, int>? _extentIndexSource;
+  List<_TranscriptRenderEntry>? _extentIndexEntries;
+  double? _extentIndexWidth;
+  bool? _extentIndexShowsSelfLearning;
 
-  void measure(AiSessionMessage message, Size size) =>
-      _sizes[message.id] = (message: message, size: size);
+  void measure(AiSessionMessage message, Size size) {
+    final previous = _sizes[message.id];
+    if (identical(previous?.message, message) && previous?.size == size) return;
+    _sizes[message.id] = (message: message, size: size);
+    refreshMessageExtent(message.id);
+  }
+
+  void invalidateExtentIndex() => _extentIndex = null;
+
+  void refreshMessageExtent(String messageId) {
+    final cached = _extentIndex;
+    final index = _extentIndexSource?[messageId];
+    final entries = _extentIndexEntries;
+    if (cached == null || index == null || entries == null) return;
+    if (cached.length != entries.length) {
+      invalidateExtentIndex();
+      return;
+    }
+    final message = entries[index].message;
+    if (_extentIndexShowsSelfLearning == false &&
+        message.kind == AiSessionMessageKind.selfLearning) {
+      cached.update(index, 0);
+      return;
+    }
+    final measured = _sizes[messageId];
+    final size = measured?.size;
+    final height = size == null
+        ? null
+        : size.height +
+              (index == entries.length - 1
+                  ? 0
+                  : _kTranscriptEstimatedMessageSpacing);
+    final valid =
+        identical(measured?.message, message) &&
+        size != null &&
+        (height == 0 || size.width == _extentIndexWidth);
+    cached.update(index, valid ? height : null);
+  }
+
+  ({double extent, int count}) measuredExtent({
+    required Map<String, int> indexById,
+    required List<_TranscriptRenderEntry> entries,
+    required double width,
+    required bool showSelfLearning,
+    required int start,
+    required int end,
+  }) {
+    if (_extentIndex == null ||
+        !identical(_extentIndexSource, indexById) ||
+        _extentIndexWidth != width ||
+        _extentIndexShowsSelfLearning != showSelfLearning) {
+      final measured = <(int, double)>[];
+      for (final entry in _sizes.entries) {
+        final index = indexById[entry.key];
+        if (index == null ||
+            !identical(entries[index].message, entry.value.message) ||
+            (!showSelfLearning &&
+                entry.value.message.kind ==
+                    AiSessionMessageKind.selfLearning)) {
+          continue;
+        }
+        final height =
+            entry.value.size.height +
+            (index == entries.length - 1
+                ? 0
+                : _kTranscriptEstimatedMessageSpacing);
+        if (height == 0 || entry.value.size.width == width) {
+          measured.add((index, height));
+        }
+      }
+      if (!showSelfLearning) {
+        for (var index = 0; index < entries.length; index++) {
+          if (entries[index].message.kind ==
+              AiSessionMessageKind.selfLearning) {
+            measured.add((index, 0));
+          }
+        }
+      }
+      _extentIndex = _TranscriptExtentIndex(entries.length, measured);
+      _extentIndexSource = indexById;
+      _extentIndexEntries = entries;
+      _extentIndexWidth = width;
+      _extentIndexShowsSelfLearning = showSelfLearning;
+    }
+    return _extentIndex!.measure(start, end);
+  }
 
   Size? sizeOf(AiSessionMessage message) {
     final entry = _sizes[message.id];
     return identical(entry?.message, message) ? entry?.size : null;
   }
 
-  void retainMeasurements(Set<String> ids) =>
-      _sizes.removeWhere((id, _) => !ids.contains(id));
+  void retainMeasurements(Set<String> ids) {
+    _sizes.removeWhere((id, _) => !ids.contains(id));
+    invalidateExtentIndex();
+  }
 
-  void clearMeasurements() => _sizes.clear();
+  void clearMeasurements() {
+    _sizes.clear();
+    invalidateExtentIndex();
+  }
 
   void bind(String messageId, BuildContext context) {
     if (messageId.isEmpty) return;
@@ -556,7 +705,9 @@ class _TranscriptBubbleRegistry {
 
   void clear() {
     _contexts.clear();
-    _sizes.clear();
+    clearMeasurements();
+    _extentIndexSource = null;
+    _extentIndexEntries = null;
   }
 }
 
@@ -1593,6 +1744,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _renderEntryIndexById[nextTail.id] = _renderEntries.length;
       _renderEntries.add(_TranscriptRenderEntry(message: nextTail));
     }
+    _bubbleRegistry.refreshMessageExtent(nextTail.id);
     _retargetTailDisplayCaches(previousMessages, nextMessages, change);
     return true;
   }
@@ -3626,26 +3778,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     telemetryDebugEnabled: telemetryDebugEnabled,
                     aiSessionController: aiSessionController,
                   );
-              Size? measuredSizeForItem(int index) {
-                final messageIndex = index - hiddenLoadMoreCount;
-                if (messageIndex < 0 || messageIndex >= _renderEntries.length) {
-                  return null;
-                }
-                final message = _renderEntries[messageIndex].message;
-                if (!showSelfLearningMessages &&
-                    message.kind == AiSessionMessageKind.selfLearning) {
-                  return Size.zero;
-                }
-                final size = _bubbleRegistry.sizeOf(message);
-                if (size == null) return null;
-                return Size(
-                  size.width,
-                  size.height +
-                      (messageIndex == _renderEntries.length - 1
-                          ? 0
-                          : _kTranscriptEstimatedMessageSpacing),
-                );
-              }
+              ({double extent, int count}) measuredExtentForItems(
+                int start,
+                int end,
+                double width,
+              ) => _bubbleRegistry.measuredExtent(
+                indexById: _renderEntryIndexById,
+                entries: _renderEntries,
+                width: width,
+                showSelfLearning: showSelfLearningMessages,
+                start: start - hiddenLoadMoreCount,
+                end: end - hiddenLoadMoreCount,
+              );
 
               final transcriptList = OpenHandSafeScrollbar(
                 controller: _listController,
@@ -3688,9 +3832,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 : null,
                             anchorsBottom: () =>
                                 _anchorsCurrentTranscriptBottom,
-                            measuredSizeForIndex: (index) =>
-                                measuredSizeForItem(
-                                  beforeCenterCount - index - 1,
+                            measuredExtentForRange: (start, end, width) =>
+                                measuredExtentForItems(
+                                  beforeCenterCount - end,
+                                  beforeCenterCount - start,
+                                  width,
                                 ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => buildItem(
@@ -3716,8 +3862,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             anchorsBottom: () =>
                                 _anchorsCurrentTranscriptBottom,
                             scrollPosition: () => _scrollPosition,
-                            measuredSizeForIndex: (index) =>
-                                measuredSizeForItem(beforeCenterCount + index),
+                            measuredExtentForRange: (start, end, width) =>
+                                measuredExtentForItems(
+                                  beforeCenterCount + start,
+                                  beforeCenterCount + end,
+                                  width,
+                                ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) =>
                                   buildItem(context, beforeCenterCount + index),

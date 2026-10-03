@@ -101,6 +101,31 @@ class _MarkdownSourceCache {
 
 final _MarkdownSourceCache _markdownSourceCache = _MarkdownSourceCache();
 
+const int openHandMarkdownRenderMaxNodes = 6000;
+const int openHandMarkdownRenderMaxDepth = 64;
+
+/// 限制组件树规模；字符数很少的密集表格或深层嵌套也可能阻塞布局。
+bool openHandMarkdownFitsRenderBudget(List<md.Node> nodes) {
+  if (nodes.length > openHandMarkdownRenderMaxNodes) return false;
+  final pending = <(md.Node, int)>[for (final node in nodes) (node, 1)];
+  var visited = 0;
+  while (pending.isNotEmpty) {
+    final (node, depth) = pending.removeLast();
+    visited += 1;
+    if (depth > openHandMarkdownRenderMaxDepth) return false;
+    if (node is! md.Element || node.children == null) continue;
+    final children = node.children!;
+    if (visited + pending.length + children.length >
+        openHandMarkdownRenderMaxNodes) {
+      return false;
+    }
+    for (final child in children) {
+      pending.add((child, depth + 1));
+    }
+  }
+  return true;
+}
+
 String _normalizeInlineFencedCodeBlocks(String source) {
   if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
     return source;

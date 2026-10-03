@@ -2610,6 +2610,7 @@ function MessageCardImpl({
     !richContentRevealRef.current.revealed &&
     badgeBodyCollapsed &&
     !streamingContent &&
+    !structuredDecision &&
     !showRawContent &&
     (effectiveFormat === 'markdown' || isReasoningMessage || isUserBubble) &&
     !contentLooksHtml
@@ -3091,9 +3092,9 @@ function MessageCardImpl({
                     : effectiveFormat
               }
               htmlFallback={contentHtmlFallback}
-              // 决策、主动展开与实时输出直接布局，其余历史正文按视口分帧。
+              // 主动展开与实时输出直接布局，历史正文按视口分帧。
               deferInitialRender={
-                !structuredDecision && !activelyStreaming && !forceExpanded &&
+                !activelyStreaming && !forceExpanded &&
                 expandedOverride !== true && badgeCollapsedOverride !== false
               }
             />

@@ -205,7 +205,7 @@ import {
   MESSAGE_LIST_REVEAL_PAGE_SIZE,
   MESSAGE_LIST_MAX_VISIBLE_ROWS,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
-  buildHeightPrefix,
+  MessageHeightIndex,
   clampMessageRowHeight,
   initialVirtualMessageRange,
   rebaseVirtualMessageRange,
@@ -1349,6 +1349,7 @@ export function VirtualMessageList({
   const heightCommitFrameRef = useRef<number | null>(null);
   const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number; scrollTop: number } | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
+  const pendingHeightIdsRef = useRef(new Set<string>());
   const initialLayoutSettledRef = useRef(false);
   const initialLayoutStartedAtRef = useRef(Date.now());
   const [heightRevision, setHeightRevision] = useState(0);
@@ -1376,23 +1377,20 @@ export function VirtualMessageList({
   const revealIndex = revealTarget == null
     ? -1
     : messageIds.indexOf(revealTarget.messageId);
-  // 高度几何同时写入 ref：范围计算与滚动监听只读 ref，让 updateRange 保持
-  // 稳定标识。否则每次测量提交都会重建 heights/prefix → 新函数标识 →
-  // scroll/resize 监听与 ResizeObserver 整体拆装，而 RO 挂载时规范要求立刻
-  // 回调一次，等于把一次测量放大成两次强制回流。
-  const geometryRef = useRef<{ heights: number[]; prefix: number[] }>({
+  // 成员变化时重建索引；普通测高仅更新变动行，滚动监听始终读取同一 ref。
+  const geometryRef = useRef<{ heights: number[]; prefix: MessageHeightIndex }>({
     heights: [],
-    prefix: [0],
+    prefix: new MessageHeightIndex([]),
   });
   const geometry = useMemo(() => {
     const heights = messageIds.map((messageId) =>
       measuredHeightsRef.current.get(messageId) ??
       MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
     );
-    const next = { heights, prefix: buildHeightPrefix(heights) };
+    const next = { heights, prefix: new MessageHeightIndex(heights) };
     geometryRef.current = next;
     return next;
-  }, [heightRevision, messageIds]);
+  }, [messageIds]);
   const heightPrefix = geometry.prefix;
   const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
 
@@ -1465,6 +1463,13 @@ export function VirtualMessageList({
     heightCommitFrameRef.current = window.requestAnimationFrame(() => {
       heightCommitFrameRef.current = null;
       captureHeightAnchor();
+      const prefix = geometryRef.current.prefix;
+      for (const messageId of pendingHeightIdsRef.current) {
+        const index = messageIndexByIdRef.current.get(messageId);
+        const height = measuredHeightsRef.current.get(messageId);
+        if (index != null && height != null) prefix.setHeight(index, height);
+      }
+      pendingHeightIdsRef.current.clear();
       setHeightRevision((value) => value + 1);
     });
   }, [captureHeightAnchor]);
@@ -1474,6 +1479,7 @@ export function VirtualMessageList({
     const previous = measuredHeightsRef.current.get(messageId);
     if (previous != null && Math.abs(previous - next) < 1) return;
     measuredHeightsRef.current.set(messageId, next);
+    pendingHeightIdsRef.current.add(messageId);
     scheduleHeightCommit();
   }, [scheduleHeightCommit]);
 
