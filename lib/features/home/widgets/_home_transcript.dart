@@ -53,9 +53,13 @@ class _TranscriptScrollPhysics extends ClampingScrollPhysics {
     final previousBounds = oldPosition.copyWith(
       pixels: math.min(newPosition.pixels, oldPosition.maxScrollExtent),
     );
+    // 拖动期间卡片重建会先缩后涨，范围变化造成的尾部越界仍属于触底。
+    final bottomExtentChanged =
+        newPosition.maxScrollExtent != oldPosition.maxScrollExtent;
     final reachedBottom =
-        !oldPosition.outOfRange &&
-        !newPosition.outOfRange &&
+        !previousBounds.outOfRange &&
+        (bottomExtentChanged ||
+            (!oldPosition.outOfRange && !newPosition.outOfRange)) &&
         previousBounds.extentAfter <= _scrollToBottomSettleTolerance &&
         velocity >= 0;
     // oldPosition 是上一轮布局快照；用户已反向移动时不能沿用旧的触底坐标。

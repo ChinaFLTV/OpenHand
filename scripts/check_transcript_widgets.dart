@@ -2046,6 +2046,134 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final trackpad in [true, false]) {
+    testWidgets('会话加载：桌面触底后正文先缩后涨仍到达真实尾部，触控板=$trackpad', (tester) async {
+      final controller = OpenHandStableScrollController();
+      addTearDown(controller.dispose);
+      final centerKey = GlobalKey();
+      final tailKey = GlobalKey();
+      var height = 400.0;
+      var reading = false;
+      late StateSetter rebuild;
+      bool anchorsBottom(ScrollMetrics metrics) =>
+          !reading &&
+          metrics.hasContentDimensions &&
+          !metrics.outOfRange &&
+          metrics.extentAfter <= _scrollToBottomSettleTolerance;
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
+          home: SizedBox(
+            height: 550,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return Listener(
+                  onPointerSignal: (event) {
+                    if (event is PointerScrollEvent && event.scrollDelta.dy < 0)
+                      reading = true;
+                  },
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification &&
+                          notification.dragDetails != null &&
+                          (notification.scrollDelta ?? 0) < 0)
+                        reading = true;
+                      return false;
+                    },
+                    child: _TranscriptScrollView(
+                      controller: controller,
+                      center: centerKey,
+                      physics: _TranscriptScrollPhysics(
+                        shouldAnchorBottom: anchorsBottom,
+                      ),
+                      slivers: [
+                        const SliverToBoxAdapter(child: SizedBox(height: 1200)),
+                        _TranscriptSliverList(
+                          key: centerKey,
+                          anchorsBottom: () =>
+                              controller.hasClients &&
+                              anchorsBottom(controller.position),
+                          scrollActive: () =>
+                              controller.hasClients &&
+                              controller.position.isScrollingNotifier.value,
+                          delegate: SliverChildListDelegate([
+                            SizedBox(
+                              key: tailKey,
+                              height: height,
+                              child: const ColoredBox(color: Colors.green),
+                            ),
+                          ]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      controller.jumpTo(controller.position.minScrollExtent);
+      await tester.pump();
+      final viewport = find.byType(_TranscriptViewport);
+      final point = tester.getCenter(viewport);
+      final gesture = trackpad
+          ? await tester.createGesture(kind: PointerDeviceKind.trackpad)
+          : null;
+      if (gesture != null) {
+        await gesture.panZoomStart(point);
+        await gesture.panZoomUpdate(point, pan: const Offset(0, -2400));
+      } else {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: point,
+            scrollDelta: const Offset(0, 2400),
+          ),
+        );
+      }
+      await tester.pump();
+      expect(controller.position.extentAfter, lessThan(1));
+      for (final nextHeight in [120.0, 820.0, 90.0, 640.0]) {
+        rebuild(() => height = nextHeight);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          controller.position.outOfRange,
+          false,
+          reason: '正文收缩必须在当前布局中消除尾部临时越界',
+        );
+        expect(
+          tester.getBottomLeft(find.byKey(tailKey)).dy,
+          closeTo(tester.getBottomLeft(viewport).dy, 1),
+          reason: '同一次手势中重新测高不能丢失触底意图',
+        );
+      }
+      if (gesture != null) {
+        await gesture.panZoomUpdate(point, pan: const Offset(0, -2399.9));
+      } else {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: point,
+            scrollDelta: const Offset(0, -.1),
+          ),
+        );
+      }
+      final readingOffset = controller.offset;
+      rebuild(() => height = 800);
+      await tester.pump();
+      expect(
+        controller.offset,
+        closeTo(readingOffset, .01),
+        reason: '微小反向输入必须立即停止贴底',
+      );
+      await gesture?.panZoomEnd();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.takeException(), isNull);
+      expect(tester.binding.hasScheduledFrame, false);
+    }, variant: TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
   testWidgets('一次下滑触底后，滚动静默期内连续测高仍停在真实尾部', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('手动触底', 1000));
     probe.preserveViewportAfterUserScroll = false;
@@ -3540,6 +3668,18 @@ void main() {
       424,
     );
     for (final velocity in [0.0, 1200.0]) {
+      expect(physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 400, max: 400),
+        newPosition: metrics(pixels: 400, max: 120),
+        isScrolling: true,
+        velocity: velocity,
+      ), 120, reason: '触底后正文收缩不能留下临时越界');
+      expect(physics.adjustPositionForNewDimensions(
+        oldPosition: metrics(pixels: 424, max: 400),
+        newPosition: metrics(pixels: 424, max: 820),
+        isScrolling: true,
+        velocity: velocity,
+      ), 820, reason: '正文恢复高度必须承接尾部临时越界时的触底意图');
       expect(physics.adjustPositionForNewDimensions(
         oldPosition: metrics(pixels: 400, max: 400),
         newPosition: metrics(pixels: 400, max: 820),
