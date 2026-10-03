@@ -82,13 +82,7 @@ class _ResolvedStaticApk {
   final String slug;
 }
 
-/// 单个 Android 逆向会话的运行时编排。
-///
-/// 生命周期：
-///   constructor → start() → [period] → stop() → dispose()
-///
-/// 只负责：ADB 连接状态、设备信息缓存、进程列表周期刷新。
-/// Frida 注入、静态分析等高级功能均通过外部 MCP / CLI 工具完成。
+/// 编排 Android 设备状态、分析产物和抓包进程，统一管理会话启停与资源回收。
 class AndroidReverseSessionController extends ChangeNotifier {
   AndroidReverseSessionController({
     required this.config,
@@ -226,9 +220,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<AdbCommandResult>? _networkCaptureStartFuture;
   Future<void>? _networkCaptureStopFuture;
   int _networkCaptureGeneration = 0;
-  Future<void>? _startFuture;
-  Future<void>? _stopFuture;
-  Future<void>? _deviceRefreshFuture;
+  final _startFlight = OpenHandSingleFlight<void>();
+  final _stopFlight = OpenHandSingleFlight<void>();
+  final _deviceRefreshFlight = OpenHandSingleFlight<void>();
   Future<void>? _shutdownFuture;
   bool _deviceRefreshQueued = false;
   int _processRefreshGeneration = 0;
@@ -241,23 +235,16 @@ class AndroidReverseSessionController extends ChangeNotifier {
     if (_disposed || isRunning) {
       return Future<void>.value();
     }
-    final stopping = _stopFuture;
+    final stopping = _stopFlight.active;
     if (stopping != null) {
       return stopping.then((_) => start());
     }
-    final active = _startFuture;
+    final active = _startFlight.active;
     if (active != null) return active;
     if (_state == AndroidReverseSessionState.stopped) {
       _state = AndroidReverseSessionState.idle;
     }
-    late final Future<void> starting;
-    starting = _startOnce().whenComplete(() {
-      if (identical(_startFuture, starting)) {
-        _startFuture = null;
-      }
-    });
-    _startFuture = starting;
-    return starting;
+    return _startFlight.run(_startOnce);
   }
 
   Future<void> _startOnce() async {
@@ -278,25 +265,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> stop() {
-    final active = _stopFuture;
-    if (active != null) return active;
-    late final Future<void> stopping;
-    stopping = _stopOnce().whenComplete(() {
-      if (identical(_stopFuture, stopping)) {
-        _stopFuture = null;
-      }
-    });
-    _stopFuture = stopping;
-    return stopping;
-  }
+  Future<void> stop() => _stopFlight.run(_stopOnce);
 
   Future<void> _stopOnce() async {
     _networkCaptureGeneration += 1;
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _state = AndroidReverseSessionState.stopped;
-    final starting = _startFuture;
+    final starting = _startFlight.active;
     if (starting != null) {
       await runAsyncCleanupBounded(
         () => starting,
@@ -320,10 +296,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _state = AndroidReverseSessionState.stopped;
     final shutdown =
         () async {
-          final startingSession = _startFuture;
-          final stoppingSession = _stopFuture;
+          final startingSession = _startFlight.active;
+          final stoppingSession = _stopFlight.active;
           final startingCapture = _networkCaptureStartFuture;
-          final refreshing = _deviceRefreshFuture;
+          final refreshing = _deviceRefreshFlight.active;
           await Future.wait<bool>(<Future<bool>>[
             if (startingSession != null)
               runAsyncCleanupBounded(
@@ -2013,19 +1989,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _refreshDevices() {
-    final active = _deviceRefreshFuture;
-    if (active != null) {
-      _deviceRefreshQueued = true;
-      return active;
+    if (_disposed || _state == AndroidReverseSessionState.stopped) {
+      return Future<void>.value();
     }
-    late final Future<void> tracked;
-    tracked = _drainDeviceRefreshQueue().whenComplete(() {
-      if (identical(_deviceRefreshFuture, tracked)) {
-        _deviceRefreshFuture = null;
-      }
-    });
-    _deviceRefreshFuture = tracked;
-    return tracked;
+    if (_deviceRefreshFlight.isRunning) _deviceRefreshQueued = true;
+    return _deviceRefreshFlight.run(_drainDeviceRefreshQueue);
   }
 
   Future<void> _drainDeviceRefreshQueue() async {

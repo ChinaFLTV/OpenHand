@@ -15,7 +15,7 @@ use std::{
     fmt,
     net::IpAddr,
     path::{Path, PathBuf},
-    process::Stdio,
+    process::{Output, Stdio},
     sync::{
         Arc, LazyLock, Mutex, Once, RwLock,
         atomic::{AtomicU64, Ordering},
@@ -111,6 +111,8 @@ const JINA_MARKDOWN_HEADER_OPTIONS: [(&str, &str); 4] = [
 ];
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
+const BROWSER_SLOT_TIMEOUT: Duration = Duration::from_secs(60);
+const BROWSER_PROCESS_STOP_TIMEOUT: Duration = Duration::from_secs(3);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_CDP_CONCURRENCY: usize = 1;
 const CDP_BROWSER_START_TIMEOUT: Duration = Duration::from_secs(20);
@@ -1010,10 +1012,9 @@ impl BrowserAutomation {
             .map_err(|_| SourceError::Browser("运行配置不可用".to_owned()))?
             .clone()
             .ok_or(SourceError::BrowserUnavailable)?;
-        let _permit = self
-            .slots
-            .acquire()
+        let _permit = timeout(BROWSER_SLOT_TIMEOUT, self.slots.acquire())
             .await
+            .map_err(|_| SourceError::Browser("等待浏览器并发额度超时".to_owned()))?
             .map_err(|_| SourceError::Browser("浏览器并发控制器已关闭".to_owned()))?;
         let observation = self
             .client
@@ -1044,30 +1045,27 @@ impl BrowserAutomation {
         let mut child = command
             .spawn()
             .map_err(|_| SourceError::Browser("无法启动 Node.js".to_owned()))?;
-        let mut stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| SourceError::Browser("无法写入浏览器输入".to_owned()))?;
-        if stdin.write_all(&payload).await.is_err() {
-            let _ = child.start_kill();
-            return Err(SourceError::Browser("写入浏览器输入失败".to_owned()));
-        }
-        drop(stdin);
-        let output = match timeout(BROWSER_PROCESS_TIMEOUT, child.wait_with_output()).await {
-            Ok(Ok(output)) => output,
-            Ok(Err(_)) => {
-                observation.complete(HttpRequestOutcome::TransportFailure);
-                return Err(SourceError::Browser("浏览器进程执行失败".to_owned()));
-            }
-            Err(_) => {
-                observation.complete(HttpRequestOutcome::Timeout);
-                return Err(SourceError::Browser("页面读取超时".to_owned()));
+        let (result, failure_outcome) = match timeout(
+            BROWSER_PROCESS_TIMEOUT,
+            exchange_browser_process_output(&mut child, &payload, MAX_BROWSER_OUTPUT_BYTES),
+        )
+        .await
+        {
+            Ok(result) => (result, HttpRequestOutcome::TransportFailure),
+            Err(_) => (
+                Err(SourceError::Browser("页面读取超时".to_owned())),
+                HttpRequestOutcome::Timeout,
+            ),
+        };
+        let output = match result {
+            Ok(output) => output,
+            Err(error) => {
+                let _ = child.start_kill();
+                let _ = timeout(BROWSER_PROCESS_STOP_TIMEOUT, child.wait()).await;
+                observation.complete(failure_outcome);
+                return Err(error);
             }
         };
-        if output.stdout.len() > MAX_BROWSER_OUTPUT_BYTES {
-            observation.complete(HttpRequestOutcome::TransportFailure);
-            return Err(SourceError::Browser("浏览器返回内容超过限制".to_owned()));
-        }
         let result: BrowserReaderOutput = serde_json::from_slice(&output.stdout)
             .map_err(|_| SourceError::Browser("浏览器返回内容格式无效".to_owned()))?;
         if !result.ok || !output.status.success() {
@@ -1088,6 +1086,55 @@ impl BrowserAutomation {
         }
         Ok(format!("{}\n{}", result.text, result.links.join("\n")))
     }
+}
+
+/// 同时写入输入、限量读取输出和等待退出，避免管道互相等待或无界聚合。
+async fn exchange_browser_process_output(
+    child: &mut Child,
+    payload: &[u8],
+    max_bytes: usize,
+) -> Result<Output, SourceError> {
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| SourceError::Browser("无法写入浏览器输入".to_owned()))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| SourceError::Browser("无法读取浏览器输出".to_owned()))?;
+    let (_, stdout, status) = tokio::try_join!(
+        async {
+            stdin
+                .write_all(payload)
+                .await
+                .map_err(|_| SourceError::Browser("写入浏览器输入失败".to_owned()))?;
+            drop(stdin);
+            Ok(())
+        },
+        async {
+            let mut bytes = Vec::new();
+            stdout
+                .take(max_bytes.saturating_add(1) as u64)
+                .read_to_end(&mut bytes)
+                .await
+                .map_err(|_| SourceError::Browser("读取浏览器输出失败".to_owned()))?;
+            if bytes.len() > max_bytes {
+                return Err(SourceError::Browser("浏览器返回内容超过限制".to_owned()));
+            }
+            Ok(bytes)
+        },
+        async {
+            child
+                .wait()
+                .await
+                .map_err(|_| SourceError::Browser("浏览器进程执行失败".to_owned()))
+        },
+    )?;
+    Ok(Output {
+        status,
+        stdout,
+        stderr: Vec::new(),
+    })
 }
 
 #[derive(Clone)]
@@ -1604,8 +1651,12 @@ impl CdpPageClient {
     }
 
     async fn receive(&mut self, wait: Duration) -> Result<Option<serde_json::Value>, String> {
+        let deadline = Instant::now() + wait;
         loop {
-            let message = match timeout(wait, self.socket.next()).await {
+            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+                return Ok(None);
+            };
+            let message = match timeout(remaining, self.socket.next()).await {
                 Err(_) => return Ok(None),
                 Ok(Some(Ok(message))) => message,
                 Ok(Some(Err(error))) => return Err(format!("CDP 连接读取失败：{error}")),
@@ -1619,14 +1670,17 @@ impl CdpPageClient {
                 Message::Text(text) => {
                     let value = serde_json::from_str(text.as_str())
                         .map_err(|_| "CDP 事件格式无效".to_owned())?;
-                    self.handle_fetch_event(&value).await?;
+                    self.handle_fetch_event(&value, deadline).await?;
                     return Ok(Some(value));
                 }
                 Message::Ping(value) => {
-                    self.socket
-                        .send(Message::Pong(value))
-                        .await
-                        .map_err(|error| format!("CDP 心跳响应失败：{error}"))?;
+                    timeout(
+                        cdp_remaining(deadline)?,
+                        self.socket.send(Message::Pong(value)),
+                    )
+                    .await
+                    .map_err(|_| "CDP 心跳响应超时".to_owned())?
+                    .map_err(|error| format!("CDP 心跳响应失败：{error}"))?;
                 }
                 Message::Close(_) => return Err("CDP 连接已关闭".to_owned()),
                 _ => {}
@@ -1634,7 +1688,11 @@ impl CdpPageClient {
         }
     }
 
-    async fn handle_fetch_event(&mut self, value: &serde_json::Value) -> Result<(), String> {
+    async fn handle_fetch_event(
+        &mut self,
+        value: &serde_json::Value,
+        deadline: Instant,
+    ) -> Result<(), String> {
         let method = value["method"].as_str().unwrap_or_default();
         let request_id = value["params"]["requestId"].as_str().unwrap_or_default();
         if request_id.is_empty() {
@@ -1670,7 +1728,7 @@ impl CdpPageClient {
         }))
         .map_err(|_| "CDP 代理认证命令编码失败".to_owned())?;
         timeout(
-            CDP_COMMAND_TIMEOUT,
+            CDP_COMMAND_TIMEOUT.min(cdp_remaining(deadline)?),
             self.socket.send(Message::Text(payload.into())),
         )
         .await
@@ -4479,6 +4537,105 @@ fn unlimited_quota(source: SourceKind, message: &str) -> SourceQuota {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "仅供子进程回归夹具调用"]
+    fn browser_process_fixture() {
+        use std::io::{Read, Write};
+        let mode = std::env::var("OPENHAND_BROWSER_PROCESS_FIXTURE").unwrap();
+        if mode == "blocked" {
+            std::thread::sleep(Duration::from_secs(30));
+            return;
+        }
+        let bytes = vec![b'x'; 128 * 1024];
+        std::io::stdout().write_all(&bytes).unwrap();
+        std::io::stdout().flush().unwrap();
+        if mode == "overflow" {
+            std::thread::sleep(Duration::from_secs(30));
+            return;
+        }
+        let mut input = Vec::new();
+        std::io::stdin().read_to_end(&mut input).unwrap();
+        assert_eq!(input.len(), 256 * 1024);
+    }
+
+    #[tokio::test]
+    async fn browser_process_bounds_output_and_exchanges_both_pipes() {
+        for mode in ["exchange", "overflow", "blocked"] {
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::browser_process_fixture",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("OPENHAND_BROWSER_PROCESS_FIXTURE", mode)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .kill_on_drop(true)
+                .spawn()
+                .unwrap();
+            let limit = if mode == "overflow" { 1024 } else { 256 * 1024 };
+            let budget = if mode == "blocked" {
+                Duration::from_millis(100)
+            } else {
+                Duration::from_secs(5)
+            };
+            let result = timeout(
+                budget,
+                exchange_browser_process_output(&mut child, &vec![b'x'; 256 * 1024], limit),
+            )
+            .await;
+            // 先回收夹具进程，再检查结果，断言失败也不遗留子进程。
+            let _ = child.start_kill();
+            timeout(BROWSER_PROCESS_STOP_TIMEOUT, child.wait())
+                .await
+                .unwrap()
+                .unwrap();
+            match mode {
+                "blocked" => assert!(result.is_err(), "输入阻塞必须受总时限约束"),
+                "overflow" => assert!(
+                    matches!(result.unwrap(), Err(SourceError::Browser(message)) if message.contains("超过限制"))
+                ),
+                _ => {
+                    let output = result.unwrap().unwrap();
+                    assert!(output.status.success(), "双向管道不能互相等待");
+                    assert!(output.stdout.len() <= limit);
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cdp_heartbeats_do_not_extend_receive_deadline() {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            for _ in 0..50 {
+                if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
+                    return;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        });
+        let (socket, _) = connect_async(format!("ws://{address}")).await.unwrap();
+        let mut page = CdpPageClient::new(socket, None);
+        let result = timeout(
+            Duration::from_millis(300),
+            page.receive(Duration::from_millis(50)),
+        )
+        .await;
+        server.abort();
+        assert!(
+            result.unwrap().unwrap().is_none(),
+            "连续心跳不能延长当前读取时限"
+        );
+    }
 
     fn scan_request(mode: ScanMode, authorized_scope: Vec<String>) -> ScanRequest {
         ScanRequest {

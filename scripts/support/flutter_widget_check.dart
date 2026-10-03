@@ -46,6 +46,25 @@ Future<void> runFlutterWidgetCheck({
   try {
     final file = File('${directory.path}/${name}_test.dart');
     await file.writeAsString(source);
+    final environment = <String, String>{};
+    if (Platform.isMacOS) {
+      final frameworks =
+          [
+            for (final mode in ['Debug', 'Release'])
+              '${root.path}/build/macos/Build/Products/$mode/OpenHand.app/Contents/Frameworks',
+          ].where(
+            (path) =>
+                File('$path/flutter_pty.framework/flutter_pty').existsSync(),
+          );
+      if (frameworks.isNotEmpty) {
+        environment['DYLD_FRAMEWORK_PATH'] = [
+          if (Platform.environment['DYLD_FRAMEWORK_PATH'] case final existing?
+              when existing.isNotEmpty)
+            existing,
+          ...frameworks,
+        ].join(':');
+      }
+    }
     final process = await Process.start(
       'flutter',
       [
@@ -60,6 +79,7 @@ Future<void> runFlutterWidgetCheck({
         file.path,
       ],
       workingDirectory: root.path,
+      environment: environment,
       mode: ProcessStartMode.inheritStdio,
     );
     exitCode = await process.exitCode;

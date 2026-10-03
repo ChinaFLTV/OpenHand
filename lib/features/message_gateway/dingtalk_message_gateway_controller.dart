@@ -478,7 +478,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
   bool _eventRestartQueued = false;
-  Future<void>? _periodicReconcileFuture;
+  final _periodicReconcileFlight = OpenHandSingleFlight<void>();
   Future<void>? _pollingStopInFlight;
   Future<void>? _initializeInFlight;
   Completer<void>? _activePollCancellation;
@@ -3054,22 +3054,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _scheduleRecentConversationReconcile() {
-    if (_periodicReconcileFuture != null || _disposed || !_isPolling) return;
-    late final Future<void> task;
-    task = () async {
-      try {
-        await _reconcileRecentConversations();
-      } catch (error, stack) {
-        if (!_disposed) {
-          silentLog('dingtalk_gateway', '执行钉钉会话定期对账', error, stack);
-        }
-      }
-    }();
-    _periodicReconcileFuture = task;
+    if (_disposed || !_isPolling) return;
     unawaited(
-      task.whenComplete(() {
-        if (identical(_periodicReconcileFuture, task)) {
-          _periodicReconcileFuture = null;
+      _periodicReconcileFlight.run(() async {
+        try {
+          await _reconcileRecentConversations();
+        } catch (error, stack) {
+          if (!_disposed) {
+            silentLog('dingtalk_gateway', '执行钉钉会话定期对账', error, stack);
+          }
         }
       }),
     );

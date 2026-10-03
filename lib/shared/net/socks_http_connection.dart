@@ -3,6 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../util/argument_guards.dart';
+import '../util/async_concurrency.dart';
+import 'network_limits.dart';
+
+const int _socksVersion = 5;
+const int _socksAuthVersion = 1;
+const int _socksNoAuth = 0;
+const int _socksPasswordAuth = 2;
+const int _socksConnect = 1;
+const int _socksIpv4Address = 1;
+const int _socksDomainAddress = 3;
+const int _socksIpv6Address = 4;
+const int _socksMaxFieldBytes = 255;
+const int _socksMaxPort = 65535;
+
 /// SOCKS 握手期间也持有连接的取消权，超时不遗留等待中的套接字。
 Future<ConnectionTask<Socket>> startSocksHttpConnection(
   Uri target, {
@@ -14,24 +29,66 @@ Future<ConnectionTask<Socket>> startSocksHttpConnection(
   SecurityContext? context,
   bool Function(X509Certificate certificate)? onBadCertificate,
 }) async {
-  final task = await Socket.startConnect(host, port);
+  requirePositiveDurationAtMost(
+    timeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'timeout',
+  );
+  requirePositiveIntAtMost(port, _socksMaxPort, 'port');
+  requirePositiveIntAtMost(target.port, _socksMaxPort, 'target.port');
+  if (host.trim().isEmpty ||
+      target.host.isEmpty ||
+      (target.scheme != 'http' && target.scheme != 'https')) {
+    throw const FormatException('SOCKS 代理或目标地址无效。');
+  }
+  final user = username == null ? null : utf8.encode(username);
+  final secret = utf8.encode(password ?? '');
+  final address = InternetAddress.tryParse(target.host);
+  final domain = address == null ? ascii.encode(target.host) : const <int>[];
+  if (domain.length > _socksMaxFieldBytes ||
+      (user != null && (user.isEmpty || user.length > _socksMaxFieldBytes)) ||
+      secret.length > _socksMaxFieldBytes) {
+    throw const FormatException('SOCKS 地址或凭据超过长度上限。');
+  }
+  final destination = <int>[
+    if (address == null) ...[
+      _socksDomainAddress,
+      domain.length,
+      ...domain,
+    ] else ...[
+      address.type == InternetAddressType.IPv4
+          ? _socksIpv4Address
+          : _socksIpv6Address,
+      ...address.rawAddress,
+    ],
+    target.port >> 8,
+    target.port & _socksMaxFieldBytes,
+  ];
+
+  ConnectionTask<Socket>? task;
   Socket? active;
+  final cancellation = Completer<void>();
   var cancelled = false;
   void cancel() {
+    if (cancelled) return;
     cancelled = true;
-    task.cancel();
+    cancellation.complete();
+    task?.cancel();
     active?.destroy();
   }
 
   Future<Socket> connect() async {
-    final socket = active = await task.socket;
+    // 连接任务的创建也可能等待 DNS，必须纳入完整连接时限。
+    final connection = task = await Socket.startConnect(host, port);
+    if (cancelled) connection.cancel();
+    final socket = active = await connection.socket;
     if (cancelled) {
       socket.destroy();
       throw const SocketException('代理连接已取消。');
     }
     final proxy = _SocksHttpSocket(socket);
     try {
-      await proxy.handshake(target, username, password);
+      await proxy.handshake(destination, user, secret);
       if (target.scheme == 'https') {
         active = await SecureSocket.secure(
           socket,
@@ -39,7 +96,10 @@ Future<ConnectionTask<Socket>> startSocksHttpConnection(
           context: context,
           onBadCertificate: onBadCertificate,
         );
-        if (cancelled) active!.destroy();
+        if (cancelled) {
+          active!.destroy();
+          throw const SocketException('代理连接已取消。');
+        }
         return active!;
       }
       return proxy;
@@ -49,13 +109,16 @@ Future<ConnectionTask<Socket>> startSocksHttpConnection(
     }
   }
 
-  final future = connect().timeout(
-    timeout,
-    onTimeout: () {
-      cancel();
-      throw TimeoutException('SOCKS 代理连接超时。', timeout);
-    },
-  );
+  final future =
+      awaitWithCancelSignal(connect(), cancelSignal: cancellation.future)
+          .then((socket) => socket ?? (throw const SocketException('代理连接已取消。')))
+          .timeout(
+            timeout,
+            onTimeout: () {
+              cancel();
+              throw TimeoutException('SOCKS 代理连接超时。', timeout);
+            },
+          );
   return ConnectionTask.fromSocket(future, cancel);
 }
 
@@ -143,54 +206,42 @@ class _SocksHttpSocket extends Stream<Uint8List> implements Socket {
   @override
   void writeln([Object? value = '']) => socket.writeln(value);
 
-  Future<void> handshake(Uri target, String? username, String? password) async {
-    final user = username == null ? null : utf8.encode(username);
-    final secret = utf8.encode(password ?? '');
-    final domain = ascii.encode(target.host);
-    if (domain.length > 255 ||
-        (user?.length ?? 0) > 255 ||
-        secret.length > 255) {
-      throw const FormatException('SOCKS 地址或凭据超过长度上限。');
-    }
-    add([5, user == null ? 1 : 2, 0, if (user != null) 2]);
-    await flush();
-    final greeting = await readBytes(2);
-    if (greeting[0] != 5) throw const SocketException('SOCKS 代理协议无效。');
-    if (greeting[1] == 2 && user != null) {
-      add([1, user.length, ...user, secret.length, ...secret]);
-      await flush();
-      final result = await readBytes(2);
-      if (result[0] != 1 || result[1] != 0) {
-        throw const SocketException('SOCKS 代理鉴权失败。');
-      }
-    } else if (greeting[1] != 0) {
-      throw const SocketException('SOCKS 代理不支持当前鉴权方式。');
-    }
-    final address = InternetAddress.tryParse(target.host);
+  Future<void> handshake(
+    List<int> destination,
+    List<int>? user,
+    List<int> secret,
+  ) async {
     add([
-      5,
-      1,
-      0,
-      if (address == null) ...[
-        3,
-        domain.length,
-        ...domain,
-      ] else ...[
-        address.type == InternetAddressType.IPv4 ? 1 : 4,
-        ...address.rawAddress,
-      ],
-      target.port >> 8,
-      target.port & 255,
+      _socksVersion,
+      user == null ? 1 : 2,
+      _socksNoAuth,
+      if (user != null) _socksPasswordAuth,
     ]);
     await flush();
+    final greeting = await readBytes(2);
+    if (greeting[0] != _socksVersion) {
+      throw const SocketException('SOCKS 代理协议无效。');
+    }
+    if (greeting[1] == _socksPasswordAuth && user != null) {
+      add([_socksAuthVersion, user.length, ...user, secret.length, ...secret]);
+      await flush();
+      final result = await readBytes(2);
+      if (result[0] != _socksAuthVersion || result[1] != 0) {
+        throw const SocketException('SOCKS 代理鉴权失败。');
+      }
+    } else if (greeting[1] != _socksNoAuth) {
+      throw const SocketException('SOCKS 代理不支持当前鉴权方式。');
+    }
+    add([_socksVersion, _socksConnect, 0, ...destination]);
+    await flush();
     final result = await readBytes(4);
-    if (result[0] != 5 || result[1] != 0 || result[2] != 0) {
+    if (result[0] != _socksVersion || result[1] != 0 || result[2] != 0) {
       throw const SocketException('SOCKS 代理无法连接目标服务器。');
     }
     final length = switch (result[3]) {
-      1 => 4,
-      4 => 16,
-      3 => (await readBytes(1)).single,
+      _socksIpv4Address => 4,
+      _socksIpv6Address => 16,
+      _socksDomainAddress => (await readBytes(1)).single,
       _ => throw const SocketException('SOCKS 代理响应地址无效。'),
     };
     await readBytes(length + 2);

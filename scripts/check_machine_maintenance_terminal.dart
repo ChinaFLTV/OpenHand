@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'support/flutter_widget_check.dart';
 
-// macOS 运行前将 DYLD_FRAMEWORK_PATH 指向已构建应用的 Contents/Frameworks。
+// macOS 的原生 Framework 路径由共享检查入口从已构建应用中读取。
 // SHELL 可分别指定 /bin/zsh、/bin/bash，检查真实登录配置下的完整采集链路。
 Future<void> main() => runFlutterWidgetCheck(
   root: File.fromUri(Platform.script).parent.parent,

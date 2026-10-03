@@ -484,6 +484,84 @@ try {
   assert.equal(parentCloses, 1, '菜单卸载后恢复下层弹窗的 Escape');
   removeParent();
 
+  replace('HTMLElement', Surface);
+  const scrollStyle = () => ({
+    overflow: 'auto', getPropertyValue: () => '', setProperty() {}, removeProperty() {},
+  });
+  documentSurface.body = { style: scrollStyle(), dataset: {} };
+  documentSurface.documentElement = { style: scrollStyle(), dataset: {}, setAttribute() {}, removeAttribute() {} };
+  documentSurface.activeElement = null;
+  const { DialogFrame } = await server.ssrLoadModule('/src/components/DialogFrame.tsx');
+  let backdropCloses = 0;
+  let dialogClosing = false;
+  const renderDialog = () => hooks.render(() => DialogFrame({
+    children: null, closing: dialogClosing, onRequestClose: () => backdropCloses++,
+  })).props.children;
+  let overlay = renderDialog();
+  const backdrop = {};
+  const panel = {};
+  const backdropEvent = { button: 0, target: backdrop, currentTarget: backdrop };
+  assert.equal(documentSurface.body.style.overflow, 'hidden', '弹窗挂载时立即锁定背景滚动');
+  overlay.props.onPointerDown({ ...backdropEvent, target: panel });
+  overlay.props.onClick(backdropEvent);
+  assert.equal(backdropCloses, 0, '从正文拖动到遮罩不能误关弹窗');
+  overlay.props.onPointerDown(backdropEvent);
+  overlay.props.onPointerCancel();
+  overlay.props.onClick(backdropEvent);
+  assert.equal(backdropCloses, 0, '取消的遮罩手势不能关闭弹窗');
+  overlay.props.onPointerDown({ ...backdropEvent, button: 2 });
+  overlay.props.onClick(backdropEvent);
+  assert.equal(backdropCloses, 0, '右键遮罩不能关闭弹窗');
+  overlay.props.onPointerDown(backdropEvent);
+  overlay.props.onClick(backdropEvent);
+  assert.equal(backdropCloses, 1, '正常点击遮罩仍可关闭弹窗');
+  dialogClosing = true;
+  overlay = renderDialog();
+  overlay.props.onPointerDown(backdropEvent);
+  overlay.props.onClick(backdropEvent);
+  assert.equal(backdropCloses, 1, '退场中的遮罩不能重复关闭弹窗');
+  hooks.unmount();
+  assert.equal(documentSurface.body.style.overflow, 'auto', '弹窗卸载后恢复背景滚动');
+
+  browser.setTimeout = (callback, delay) => {
+    const id = ++timerId;
+    timers.set(id, { callback, delay });
+    return id;
+  };
+  browser.clearTimeout = id => timers.delete(id);
+  const { useDialogExitMotion } = await server.ssrLoadModule('/src/hooks/useDialogExitMotion.ts');
+  const { syncRemoteDialogMotionSettings } = await server.ssrLoadModule('/src/hooks/useDialogMotionSettings.ts');
+  const { setRemoteReducedMotion } = await server.ssrLoadModule('/src/hooks/useReducedMotion.ts');
+  const originalPerformance = globalThis.performance;
+  let motionTime = 0;
+  replace('performance', { now: () => motionTime });
+  const dialogCloseReasons = [];
+  const renderExit = () => hooks.render(() => useDialogExitMotion(reason => dialogCloseReasons.push(reason)));
+  let exitMotion = renderExit();
+  exitMotion.requestCloseWithReason('保存');
+  exitMotion.requestCloseWithReason('重复');
+  renderExit();
+  assert.equal(timers.size, 1, '重复关闭只保留一个退场计时器');
+  motionTime = 100;
+  syncRemoteDialogMotionSettings({ duration_ms: 600 });
+  renderExit();
+  assert.equal([...timers.values()][0].delay, 500, '退场设置变化时按已播放时间计算剩余时长');
+  await tick(500);
+  assert.deepEqual(dialogCloseReasons, ['保存'], '退场结束只提交首次关闭原因');
+  exitMotion = renderExit();
+  exitMotion.resetClosing();
+  exitMotion = renderExit();
+  exitMotion.requestClose();
+  renderExit();
+  setRemoteReducedMotion(true);
+  renderExit();
+  assert.equal(dialogCloseReasons.length, 2, '关闭动效时立即完成退场');
+  assert.equal(timers.size, 0, '关闭动效后必须释放退场计时器');
+  hooks.unmount();
+  syncRemoteDialogMotionSettings(null);
+  setRemoteReducedMotion(false);
+  replace('performance', originalPerformance);
+
   const frames = new Map();
   let frameId = 0;
   browser.requestAnimationFrame = (callback) => {

@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { useEventCallback } from '../hooks/useEventCallback';
 import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
 import { classNames } from '../shared/util/class_names';
@@ -609,7 +609,7 @@ function focusDialogEntry(entry: DialogFocusEntry): void {
 }
 
 function handleGlobalDialogFocusKeyDown(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.key !== 'Tab') return;
+  if (event.defaultPrevented || event.isComposing || event.key !== 'Tab') return;
   const entry = dialogFocusStack[dialogFocusStack.length - 1];
   if (!entry) return;
   const panel = entry.panel();
@@ -700,13 +700,14 @@ export function DialogFrame({
   ariaLabelledBy,
 }: DialogFrameProps) {
   const panelRef = useRef<HTMLElement | null>(null);
-  useEffect(() => acquireDialogScrollLock(), []);
-  useEffect(() => registerDialogFocus(() => panelRef.current), []);
+  const backdropPressRef = useRef(false);
+  useLayoutEffect(() => acquireDialogScrollLock(), []);
+  useLayoutEffect(() => registerDialogFocus(() => panelRef.current), []);
   const canCloseOnEscape = useEventCallback(
     () => !closing && closeOnEscape && onRequestClose != null,
   );
   const requestEscapeClose = useEventCallback(() => onRequestClose?.());
-  useEffect(() => registerOverlayEscapeLayer({
+  useLayoutEffect(() => registerOverlayEscapeLayer({
     canClose: canCloseOnEscape,
     requestClose: requestEscapeClose,
   }), [canCloseOnEscape, requestEscapeClose]);
@@ -721,7 +722,9 @@ export function DialogFrame({
   );
   const allowBackdropClose = !closing && closeOnBackdrop && onRequestClose != null;
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
-    if (!allowBackdropClose || event.target !== event.currentTarget) {
+    const startedOnBackdrop = backdropPressRef.current;
+    backdropPressRef.current = false;
+    if (!allowBackdropClose || !startedOnBackdrop || event.target !== event.currentTarget) {
       return;
     }
     onRequestClose();
@@ -732,6 +735,10 @@ export function DialogFrame({
       <div
         class={overlayClass}
         style={overlayStyle}
+        onPointerDown={(event) => {
+          backdropPressRef.current = event.button === 0 && event.target === event.currentTarget;
+        }}
+        onPointerCancel={() => { backdropPressRef.current = false; }}
         onClick={handleBackdropClick}
         data-closing={closing ? 'true' : undefined}
       >

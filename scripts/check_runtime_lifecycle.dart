@@ -18,6 +18,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:openhand/features/ai/service/bash/ai_bash_tool_service.dart';
 import 'package:openhand/features/ai/ai_session_controller.dart';
+import 'package:openhand/features/android_reverse/android_reverse_adb_client.dart';
+import 'package:openhand/features/android_reverse/android_reverse_session_config.dart';
+import 'package:openhand/features/android_reverse/android_reverse_session_controller.dart';
 import 'package:openhand/features/ai/data/ai_session_store.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
@@ -83,6 +86,20 @@ final class _ManagedQueueController extends ManagedChangeNotifier {
   Future<T> run<T>(Future<T> Function() operation) => enqueueOperation(operation);
   @override
   Duration get operationShutdownTimeout => const Duration(milliseconds: 30);
+}
+
+final class _DevicesAdb implements AndroidReverseAdbClient {
+  final requests = <Completer<List<AdbDevice>>>[];
+  @override
+  Future<List<AdbDevice>> listDevices() {
+    final request = Completer<List<AdbDevice>>();
+    requests.add(request);
+    return request.future;
+  }
+  @override
+  AdbDevice? selectOnlineDevice(Iterable<AdbDevice> devices) => devices.firstOrNull;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _BlockedProxyStore extends AiModelProxyStore {
@@ -294,13 +311,42 @@ void main() {
     });
     expect(identical(first, reentrant), isTrue);
     expect(flight.isRunning, isTrue);
+    expect(identical(flight.active, first), isTrue);
     final failure = expectLater(first, throwsStateError);
     pending.completeError(StateError('模拟刷新失败'));
     await failure;
     expect(flight.isRunning, isFalse);
+    expect(flight.active, isNull);
     expect(await flight.run(() => 42), 42);
     expect(calls, 1);
     await flight.idle;
+  });
+
+  test('Android 设备刷新合并并发请求，关闭后不启动新请求或发布旧结果', () async {
+    final adb = _DevicesAdb();
+    final controller = AndroidReverseSessionController(
+      config: const AndroidReverseSessionConfig(objective: '设备生命周期检查'),
+      artifactsRootDir: Directory.systemTemp.path,
+      adbClient: adb,
+    );
+    final first = controller.refreshDevices();
+    final second = controller.refreshDevices();
+    expect(adb.requests.length, 1);
+    adb.requests.first.complete([const AdbDevice(serial: '旧设备', state: 'device')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(adb.requests.length, 2);
+    adb.requests.last.complete([const AdbDevice(serial: '新设备', state: 'device')]);
+    expect((await first).single.serial, '新设备');
+    expect((await second).single.serial, '新设备');
+    final pending = controller.refreshDevices();
+    final closing = controller.shutdown();
+    expect((await controller.refreshDevices()).single.serial, '新设备');
+    expect(adb.requests.length, 3);
+    adb.requests.last.complete([const AdbDevice(serial: '迟到设备', state: 'device')]);
+    await pending;
+    await closing;
+    expect(controller.allDevices.single.serial, '新设备');
+    controller.dispose();
   });
 
   for (final cancelOnTimeout in [false, true]) {
