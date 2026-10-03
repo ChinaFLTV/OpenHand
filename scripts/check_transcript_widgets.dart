@@ -256,6 +256,7 @@ class _TranscriptProbe {
   int manualReveals = 0;
   AiSendPhase sendPhase = AiSendPhase.idle;
   bool preserveViewportAfterUserScroll = true;
+  bool tickerEnabled = true;
   VoidCallback? onLayoutChanged;
   VoidCallback? onRevealOlderMessages;
   _SessionTranscriptState get state => key.currentState!;
@@ -265,12 +266,13 @@ class _TranscriptProbe {
     bool animated = false,
     bool paused = false,
     bool textActions = false,
+    bool writable = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     settings = await SettingsController.create(
-      store: _ProbeSettingsStore(animated, textActions: textActions),
+      store: _ProbeSettingsStore(animated, textActions: textActions, writable: writable),
     );
     activity.value = paused;
     await tester.pumpWidget(
@@ -291,7 +293,7 @@ class _TranscriptProbe {
             body: StatefulBuilder(
               builder: (context, setState) {
                 rebuild = setState;
-                return _SessionTranscript(
+                final transcript = _SessionTranscript(
                   key: key,
                   controller: controller,
                   onScrollNotification: (_) => false,
@@ -319,6 +321,7 @@ class _TranscriptProbe {
                   translationService: _ProbeTranslation(),
                   onDismissError: (_) async {},
                 );
+                return TickerMode(enabled: tickerEnabled, child: transcript);
               },
             ),
           ),
@@ -1254,8 +1257,86 @@ void main() {
       });
     }
   }
+  for (final phase in [
+    _TranscriptInitialRevealPhase.dismissingPlaceholder,
+    _TranscriptInitialRevealPhase.revealingContent,
+  ]) {
+    for (final disableSettings in [false, true]) {
+      testWidgets('会话加载：揭示途中禁用动画不会停留在加载界面，阶段=$phase，全局设置=$disableSettings', (tester) async {
+        final probe = _TranscriptProbe(tester, _probeSession('暂停揭示', 12, mixed: true));
+        await probe.mount(animated: true, writable: disableSettings);
+        for (var frame = 0; frame < 80 && probe.state._initialRevealPhase != phase; frame++) {
+          await tester.pump(const Duration(milliseconds: 40));
+        }
+        expect(probe.state._initialRevealPhase, phase);
+        if (disableSettings) {
+          expect(await probe.settings.updatePageAnimationSettings(OpenHandMotionDefaults.disabled), true);
+        } else {
+          probe.rebuild(() => probe.tickerEnabled = false);
+        }
+        await probe.settle();
+        probe.expectFilled();
+        expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+        if (disableSettings) {
+          expect(await probe.settings.updatePageAnimationSettings(OpenHandMotionDefaults.page), true);
+        } else {
+          probe.rebuild(() => probe.tickerEnabled = true);
+        }
+        await probe.settle();
+        probe.expectFilled();
+      });
+    }
+  }
+
   for (final animated in [false, true]) {
-    testWidgets('首次打开和切换短会话按视口填充，动画=$animated', (tester) async {
+    for (final initialPixels in <double?>[0, null]) {
+      testWidgets('会话加载：滚动位置尚未就绪时仍完成揭示，动画=$animated，初始位置=$initialPixels', (tester) async {
+        final probe = _TranscriptProbe(tester, _probeSession('延迟测量', 12, mixed: true));
+        await probe.mount(animated: animated);
+        final measured = probe.controller.position;
+        // 复现会话切换时已 attach、尚未 applyContentDimensions 的原生位置。
+        final pending = ScrollPositionWithSingleContext(
+          physics: measured.physics, context: measured.context, keepScrollOffset: false,
+          initialPixels: initialPixels,
+        );
+        probe.controller.detach(measured);
+        probe.controller.attach(pending);
+        try {
+          expect(pending.hasPixels, initialPixels != null);
+          expect(pending.hasContentDimensions, false);
+          expect(probe.state._capturePrependAnchor(), isNull);
+          expect(probe.state._scrollNearRenderEntryIndex(0), false);
+          final anchor = _TranscriptViewportAnchor(
+            messageId: probe.session.messages.last.id, viewportOffset: 0,
+          );
+          expect(probe.state._restorePrependAnchorOutcome(anchor), _AnchorRestoreOutcome.unmeasurable);
+          probe.state._startPrependAnchorStabilization(anchor, settleFrameCount: 3);
+          for (var frame = 0; frame < 80; frame++) {
+            await tester.pump(const Duration(milliseconds: 40));
+            expect(tester.takeException(), isNull, reason: '未测量的位置不能读取滚动边界，第 $frame 帧');
+            if (frame == 0) {
+              expect(probe.state._pendingPrependAnchor, isNotNull,
+                reason: '缺少尺寸不能被误判为用户滚动并取消锚点恢复');
+            }
+          }
+          expect(probe.state._pendingPrependAnchor, isNull, reason: '不可测量的锚点仍受帧数上限约束');
+          expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready,
+            reason: '测量未就绪不能阻断占位退场和内容揭示');
+          expect(find.byType(_TranscriptHydratingPlaceholder), findsNothing);
+        } finally {
+          probe.controller.detach(pending);
+          probe.controller.attach(measured);
+          pending.dispose();
+        }
+        // 新视口完成测量后会发送尺寸通知，继续补齐可见消息。
+        tester.view.physicalSize = const Size(1450, 950);
+        await probe.settle();
+        probe.expectFilled();
+        expect(tester.binding.hasScheduledFrame, false, reason: '稳定后不能无限调度定位帧');
+      });
+    }
+
+    testWidgets('会话加载：首次打开和切换短会话按视口填充，动画=$animated', (tester) async {
       final probe = _TranscriptProbe(tester, _probeSession('首屏', 30));
       await probe.mount(animated: animated);
       await probe.settle();
@@ -1515,7 +1596,7 @@ void main() {
   });
 
   for (final animated in [false, true]) {
-    testWidgets('首帧耗时超过揭示上限仍定位到最终回复，动画=$animated', (tester) async {
+    testWidgets('会话加载：首帧耗时超过揭示上限仍定位到最终回复，动画=$animated', (tester) async {
       final original = _probeSession('慢首帧', 3, hidden: 320);
       final probe = _TranscriptProbe(tester, original.copyWith(messages: [
         AiSessionMessage.reasoning(
@@ -1548,7 +1629,7 @@ void main() {
 
   for (final hydrated in [false, true]) {
     for (final animated in [false, true]) {
-      testWidgets('复杂正文首次可见的每一帧均贴底，动画=$animated，水合=$hydrated', (tester) async {
+      testWidgets('会话加载：复杂正文首次可见的每一帧均贴底，动画=$animated，水合=$hydrated', (tester) async {
         final original = _probeSession('首次可见', 12, mixed: true);
         final probe = _TranscriptProbe(tester, original.copyWith(messages: [
           ...original.messages.take(original.messages.length - 2),
@@ -1661,7 +1742,7 @@ void main() {
     });
   }
 
-  testWidgets('慢首帧揭示后用户开始阅读，剩余定位帧不得抢占滚动', (tester) async {
+  testWidgets('会话加载：慢首帧揭示后用户开始阅读，剩余定位帧不得抢占滚动', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('阅读保护', 30, mixed: true));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       sleep(_transcriptInitialRevealMaxDuration + const Duration(milliseconds: 20));
@@ -1675,7 +1756,7 @@ void main() {
     expect(probe.state._initialRevealPhase, _TranscriptInitialRevealPhase.ready);
   });
 
-  testWidgets('没有追底请求时首次打开仍显示最新消息并填满视口', (tester) async {
+  testWidgets('会话加载：没有追底请求时首次打开仍显示最新消息并填满视口', (tester) async {
     final probe = _TranscriptProbe(tester, _probeSession('未请求追底', 30));
     await probe.mount();
     await probe.settle();

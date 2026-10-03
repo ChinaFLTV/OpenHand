@@ -93,7 +93,7 @@ class _TranscriptTailChildDelegate extends SliverChildBuilderDelegate {
     final count = childCount;
     if (count == null || controller.positions.length != 1) return null;
     final position = controller.position;
-    if (!anchorsBottom(position)) return null;
+    if (!position.hasViewportDimension || !anchorsBottom(position)) return null;
     final averageExtent =
         (trailingScrollOffset - leadingScrollOffset) /
         (lastIndex - firstIndex + 1);
@@ -165,8 +165,9 @@ class _RenderTranscriptSliverList extends RenderSliverList {
       final start = childScrollOffset(previous);
       if (start != null &&
           start < visibleEnd &&
-          start + paintExtentOf(previous) > constraints.scrollOffset)
+          start + paintExtentOf(previous) > constraints.scrollOffset) {
         return previous;
+      }
     }
     RenderBox? reading;
     RenderBox? partialReading;
@@ -180,8 +181,9 @@ class _RenderTranscriptSliverList extends RenderSliverList {
       if (end <= constraints.scrollOffset) continue;
       partialReading ??= child;
       // 与历史前插的锚点一致，优先保留顶部可见的完整卡片。
-      if (reversed ? end > visibleEnd : start < constraints.scrollOffset)
+      if (reversed ? end > visibleEnd : start < constraints.scrollOffset) {
         continue;
+      }
       reading = child;
       if (!reversed) break;
     }
@@ -196,7 +198,9 @@ class _RenderTranscriptSliverList extends RenderSliverList {
       final boxConstraints = constraints.asBoxConstraints();
       var correction = 0.0;
       for (var child = firstChild; child != null; child = childAfter(child)) {
-        if (child == reading && !reversed) break;
+        if (child == reading && !reversed) {
+          break;
+        }
         if (child.hasSize && childScrollOffset(child) != null) {
           final previousHeight = paintExtentOf(child);
           child.layout(boxConstraints, parentUsesSize: true);
@@ -791,6 +795,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _viewportFillPagesRemaining = _kTranscriptViewportFillPageLimit;
   int? _lastViewportFillHistoryStart;
 
+  // attach 早于布局完成，首屏和会话切换期间不能直接读取滚动边界。
+  ScrollPosition? get _measuredScrollPosition {
+    if (widget.controller.positions.length != 1) return null;
+    final position = widget.controller.position;
+    return position.hasPixels &&
+            position.hasContentDimensions &&
+            position.hasViewportDimension
+        ? position
+        : null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -855,15 +870,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       framesRemaining -= 1;
       elapsedFrames += 1;
-      final positions = widget.controller.positions.toList(growable: false);
-      if (positions.length != 1) {
+      final position = _measuredScrollPosition;
+      if (position == null) {
         // 等待当前列表接管滚动位置，仍由帧数和时长上限约束。
         stableFrames = 0;
         WidgetsBinding.instance.addPostFrameCallback(settle);
         WidgetsBinding.instance.scheduleFrame();
         return;
       }
-      final position = positions.single;
       final target = position.maxScrollExtent.clamp(
         position.minScrollExtent,
         position.maxScrollExtent,
@@ -1156,6 +1170,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   /// 首帧揭示期间恒贴底；之后仅在跟随模式且视口已在底部时贴底。
   bool _anchorsTranscriptBottom(ScrollMetrics metrics) =>
       mounted &&
+      metrics.hasPixels &&
       !_isTranscriptScrollActive(context) &&
       (_initialRevealPhase != _TranscriptInitialRevealPhase.ready ||
           (!widget.preserveViewportAfterUserScroll &&
@@ -1166,7 +1181,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     ScrollPosition position, {
     bool includeOutOfRange = true,
   }) {
-    return (includeOutOfRange && position.outOfRange) ||
+    return (includeOutOfRange &&
+            position.hasPixels &&
+            position.hasContentDimensions &&
+            position.outOfRange) ||
         _isTranscriptScrollActive(context) ||
         (position.isScrollingNotifier.value &&
             position.userScrollDirection != ScrollDirection.idle);
@@ -1177,9 +1195,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _viewportFillQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewportFillQueued = false;
-      if (!mounted || widget.controller.positions.length != 1) return;
-      final position = widget.controller.position;
-      if (!position.hasContentDimensions || position.viewportDimension <= 0) {
+      if (!mounted) return;
+      final position = _measuredScrollPosition;
+      if (position == null || position.viewportDimension <= 0) {
         return;
       }
       if (_isTranscriptViewportMotionActive(position)) {
@@ -1358,16 +1376,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _pinTranscriptToLatestIfOpening() {
-    if (!mounted || widget.controller.positions.length != 1) return;
+    if (!mounted) return;
     if (_isTranscriptScrollActive(context)) return;
     if (_initialRevealPhase == _TranscriptInitialRevealPhase.ready &&
         !_staggerFillActive) {
       return;
     }
-    final position = widget.controller.position;
-    widget.onProgrammaticScrollCorrection(
-      () => position.jumpTo(position.maxScrollExtent),
-    );
+    final position = _measuredScrollPosition;
+    if (position == null) return;
+    final target = position.maxScrollExtent;
+    if ((target - position.pixels).abs() <= _scrollToBottomSettleTolerance) {
+      return;
+    }
+    widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
   }
 
   void _replaceRenderEntries(
@@ -1806,13 +1827,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   bool _scrollNearRenderEntryIndex(int targetIndex) {
-    if (!mounted ||
-        targetIndex < 0 ||
-        targetIndex >= _renderEntries.length ||
-        !widget.controller.hasClients) {
+    if (!mounted || targetIndex < 0 || targetIndex >= _renderEntries.length) {
       return false;
     }
-    final position = widget.controller.position;
+    final position = _measuredScrollPosition;
+    if (position == null) return false;
     final maxExtent = position.maxScrollExtent;
     final scrollExtent = maxExtent - position.minScrollExtent;
     if (scrollExtent <= 0) return false;
@@ -2553,8 +2572,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   _TranscriptViewportAnchor? _capturePrependAnchor() {
-    if (!widget.controller.hasClients) return null;
-    final viewportExtent = widget.controller.position.viewportDimension;
+    final position = _measuredScrollPosition;
+    if (position == null) return null;
+    final viewportExtent = position.viewportDimension;
     _TranscriptViewportAnchor? best;
     var bestRank = double.infinity;
     for (final messageId in _bubbleRegistry._contexts.keys.toList(
@@ -2603,8 +2623,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _AnchorRestoreOutcome _restorePrependAnchorOutcome(
     _TranscriptViewportAnchor anchor,
   ) {
-    if (!widget.controller.hasClients ||
-        _isTranscriptViewportMotionActive(widget.controller.position)) {
+    final position = _measuredScrollPosition;
+    if (position == null || _isTranscriptViewportMotionActive(position)) {
       return _AnchorRestoreOutcome.unmeasurable;
     }
     final currentOffset = _viewportOffsetForMessage(anchor.messageId);
@@ -2616,8 +2636,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return _AnchorRestoreOutcome.stable;
     }
     widget.onProgrammaticScrollCorrection(() {
-      if (!mounted || !widget.controller.hasClients) return;
-      final position = widget.controller.position;
+      if (!mounted) return;
+      final position = _measuredScrollPosition;
+      if (position == null) return;
       final target = (position.pixels + delta).clamp(
         position.minScrollExtent,
         position.maxScrollExtent,
@@ -3298,6 +3319,21 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final displayMessages = session.displayMessages;
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.page,
+      listen: true,
+    );
+    // 暂停或禁用动画时完成当前阶段，不依赖停止的动画回调，也不在构建中 setState。
+    if (_initialRevealPhase ==
+            _TranscriptInitialRevealPhase.dismissingPlaceholder &&
+        motionSettings.exitDuration <= Duration.zero) {
+      _initialRevealPhase = _TranscriptInitialRevealPhase.revealingContent;
+    }
+    if (_initialRevealPhase == _TranscriptInitialRevealPhase.revealingContent &&
+        motionSettings.entranceDuration <= Duration.zero) {
+      _initialRevealPhase = _TranscriptInitialRevealPhase.ready;
+    }
     // 在对话范围统一订阅所需字段，避免每条消息因无关设置变化而重建。
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (controller) => controller.telemetryDebugEnabled,
@@ -3413,10 +3449,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
             valueListenable: widget.ttsPlaybackService.state,
             builder: (context, ttsSnapshot, _) {
-              final motionSettings = openHandMotionSettingsOf(
-                context,
-                OpenHandMotionSettingsScope.page,
-              );
               final activeTtsUnsupported =
                   ttsSnapshot.playing &&
                   (_messageIdTargetsMultimediaContent(ttsSnapshot.messageId) ||
